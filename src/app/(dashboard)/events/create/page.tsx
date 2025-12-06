@@ -19,12 +19,32 @@ import {
     Globe,
     Building,
     Check,
+    Tag,
+    Percent,
+    Eye,
+    EyeOff,
+    Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 
 const steps = [
     { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
@@ -36,8 +56,26 @@ interface TicketType {
     id: string;
     name: string;
     price: string;
+    isFree: boolean;
     quantity: number;
+    maxPerOrder: number;
     description: string;
+    salesStart: string;
+    salesEnd: string;
+    hasEarlyBird: boolean;
+    earlyBirdPrice: string;
+    earlyBirdEndDate: string;
+    visibility: 'public' | 'hidden';
+}
+
+interface PromoCode {
+    id: string;
+    code: string;
+    discountType: 'percentage' | 'fixed';
+    discountValue: string;
+    usageLimit: number;
+    validFrom: string;
+    validUntil: string;
 }
 
 export default function CreateEventPage() {
@@ -48,8 +86,11 @@ export default function CreateEventPage() {
         category: '',
         organizerName: '',
         date: '',
+        endDate: '',
+        isMultiDay: false,
         startTime: '',
         endTime: '',
+        timezone: 'Europe/London',
         locationType: 'physical' as 'physical' | 'online' | 'hybrid',
         venue: '',
         address: '',
@@ -58,8 +99,25 @@ export default function CreateEventPage() {
     });
 
     const [tickets, setTickets] = useState<TicketType[]>([
-        { id: '1', name: 'General Admission', price: '', quantity: 100, description: '' },
+        {
+            id: '1',
+            name: 'General Admission',
+            price: '',
+            isFree: false,
+            quantity: 100,
+            maxPerOrder: 10,
+            description: '',
+            salesStart: '',
+            salesEnd: '',
+            hasEarlyBird: false,
+            earlyBirdPrice: '',
+            earlyBirdEndDate: '',
+            visibility: 'public',
+        },
     ]);
+
+    const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -74,8 +132,16 @@ export default function CreateEventPage() {
             id: String(Date.now()),
             name: '',
             price: '',
+            isFree: false,
             quantity: 50,
+            maxPerOrder: 10,
             description: '',
+            salesStart: '',
+            salesEnd: '',
+            hasEarlyBird: false,
+            earlyBirdPrice: '',
+            earlyBirdEndDate: '',
+            visibility: 'public',
         }]);
     };
 
@@ -83,6 +149,26 @@ export default function CreateEventPage() {
         if (tickets.length > 1) {
             setTickets(tickets.filter(t => t.id !== id));
         }
+    };
+
+    const addPromoCode = () => {
+        setPromoCodes([...promoCodes, {
+            id: String(Date.now()),
+            code: '',
+            discountType: 'percentage',
+            discountValue: '',
+            usageLimit: 100,
+            validFrom: '',
+            validUntil: '',
+        }]);
+    };
+
+    const updatePromoCode = (id: string, field: keyof PromoCode, value: string | number) => {
+        setPromoCodes(promoCodes.map(p => p.id === id ? { ...p, [field]: value } : p));
+    };
+
+    const removePromoCode = (id: string) => {
+        setPromoCodes(promoCodes.filter(p => p.id !== id));
     };
 
     const nextStep = () => {
@@ -195,8 +281,20 @@ export default function CreateEventPage() {
                             ))}
 
                             {/* Quick Actions */}
-                            <div className="pt-6 space-y-2">
-                                <Button variant="outline" className="w-full justify-start">
+                            <div className="pt-6 space-y-3">
+                                <Button
+                                    variant="outline"
+                                    className="w-full h-12 justify-center gap-2 text-base font-medium border-2"
+                                    onClick={() => setIsPreviewOpen(true)}
+                                >
+                                    <Eye className="h-5 w-5" />
+                                    Preview Event
+                                </Button>
+                                <Button className="w-full h-11 justify-center gap-2">
+                                    <Sparkles className="h-4 w-4" />
+                                    Publish Event
+                                </Button>
+                                <Button variant="ghost" className="w-full justify-center text-muted-foreground">
                                     Save Draft
                                 </Button>
                             </div>
@@ -316,14 +414,25 @@ export default function CreateEventPage() {
                                         {/* Date & Time Card */}
                                         <Card>
                                             <CardContent className="p-4 sm:p-6 lg:p-8 space-y-5 lg:space-y-6">
-                                                <div className="flex items-center gap-2 text-primary">
-                                                    <Calendar className="h-5 w-5" />
-                                                    <h3 className="font-semibold">Date & Time</h3>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2 text-primary">
+                                                        <Calendar className="h-5 w-5" />
+                                                        <h3 className="font-semibold">Date & Time</h3>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Label htmlFor="multiday" className="text-sm text-muted-foreground">Multi-day event</Label>
+                                                        <Switch
+                                                            id="multiday"
+                                                            checked={formData.isMultiDay}
+                                                            onCheckedChange={(checked) => setFormData({ ...formData, isMultiDay: checked })}
+                                                        />
+                                                    </div>
                                                 </div>
 
-                                                <div className="grid gap-4 sm:grid-cols-3">
+                                                {/* Date Selection */}
+                                                <div className="grid gap-4 sm:grid-cols-2">
                                                     <div className="space-y-2">
-                                                        <Label htmlFor="date">Date *</Label>
+                                                        <Label htmlFor="date">{formData.isMultiDay ? 'Start Date *' : 'Date *'}</Label>
                                                         <Input
                                                             id="date"
                                                             name="date"
@@ -333,8 +442,25 @@ export default function CreateEventPage() {
                                                             className="h-12"
                                                         />
                                                     </div>
+                                                    {formData.isMultiDay && (
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="endDate">End Date *</Label>
+                                                            <Input
+                                                                id="endDate"
+                                                                name="endDate"
+                                                                type="date"
+                                                                value={formData.endDate}
+                                                                onChange={handleInputChange}
+                                                                className="h-12"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Time Selection */}
+                                                <div className="grid gap-4 sm:grid-cols-2">
                                                     <div className="space-y-2">
-                                                        <Label htmlFor="startTime">Start *</Label>
+                                                        <Label htmlFor="startTime">Start Time *</Label>
                                                         <Input
                                                             id="startTime"
                                                             name="startTime"
@@ -345,7 +471,7 @@ export default function CreateEventPage() {
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <Label htmlFor="endTime">End</Label>
+                                                        <Label htmlFor="endTime">End Time</Label>
                                                         <Input
                                                             id="endTime"
                                                             name="endTime"
@@ -355,6 +481,31 @@ export default function CreateEventPage() {
                                                             className="h-12"
                                                         />
                                                     </div>
+                                                </div>
+
+                                                {/* Timezone */}
+                                                <div className="space-y-2">
+                                                    <Label>Timezone</Label>
+                                                    <Select
+                                                        value={formData.timezone}
+                                                        onValueChange={(value) => setFormData({ ...formData, timezone: value })}
+                                                    >
+                                                        <SelectTrigger className="h-12">
+                                                            <SelectValue placeholder="Select timezone" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="Europe/London">🇬🇧 London (GMT/BST)</SelectItem>
+                                                            <SelectItem value="Europe/Paris">🇫🇷 Paris (CET)</SelectItem>
+                                                            <SelectItem value="Europe/Berlin">🇩🇪 Berlin (CET)</SelectItem>
+                                                            <SelectItem value="America/New_York">🇺🇸 New York (EST)</SelectItem>
+                                                            <SelectItem value="America/Los_Angeles">🇺🇸 Los Angeles (PST)</SelectItem>
+                                                            <SelectItem value="Asia/Dubai">🇦🇪 Dubai (GST)</SelectItem>
+                                                            <SelectItem value="Asia/Riyadh">🇸🇦 Riyadh (AST)</SelectItem>
+                                                            <SelectItem value="Asia/Karachi">🇵🇰 Karachi (PKT)</SelectItem>
+                                                            <SelectItem value="Asia/Kuala_Lumpur">🇲🇾 Kuala Lumpur (MYT)</SelectItem>
+                                                            <SelectItem value="Australia/Sydney">🇦🇺 Sydney (AEDT)</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -482,20 +633,33 @@ export default function CreateEventPage() {
                                                             <div className="flex items-center gap-2 text-primary">
                                                                 <Ticket className="h-5 w-5" />
                                                                 <h3 className="font-semibold">Ticket {index + 1}</h3>
+                                                                {ticket.visibility === 'hidden' && (
+                                                                    <Badge variant="secondary" className="text-xs">Hidden</Badge>
+                                                                )}
                                                             </div>
-                                                            {tickets.length > 1 && (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => removeTicket(ticket.id)}
-                                                                    className="text-destructive hover:text-destructive h-8"
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    onClick={() => updateTicket(ticket.id, 'visibility', ticket.visibility === 'public' ? 'hidden' : 'public')}
+                                                                    className="p-2 rounded-lg hover:bg-muted transition-colors"
+                                                                    title={ticket.visibility === 'public' ? 'Hide ticket' : 'Show ticket'}
                                                                 >
-                                                                    Remove
-                                                                </Button>
-                                                            )}
+                                                                    {ticket.visibility === 'public' ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                                                                </button>
+                                                                {tickets.length > 1 && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={() => removeTicket(ticket.id)}
+                                                                        className="text-destructive hover:text-destructive h-8 w-8"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
                                                         </div>
 
-                                                        <div className="space-y-4">
+                                                        <div className="space-y-5">
+                                                            {/* Name and Price */}
                                                             <div className="grid gap-4 sm:grid-cols-2">
                                                                 <div className="space-y-2">
                                                                     <Label>Ticket Name *</Label>
@@ -507,44 +671,108 @@ export default function CreateEventPage() {
                                                                     />
                                                                 </div>
                                                                 <div className="space-y-2">
-                                                                    <Label>Price (£)</Label>
+                                                                    <div className="flex items-center justify-between">
+                                                                        <Label>Price (£)</Label>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Label htmlFor={`free-${ticket.id}`} className="text-sm text-muted-foreground">Free</Label>
+                                                                            <Switch
+                                                                                id={`free-${ticket.id}`}
+                                                                                checked={ticket.isFree}
+                                                                                onCheckedChange={(checked) => {
+                                                                                    updateTicket(ticket.id, 'isFree', checked as unknown as string);
+                                                                                    if (checked) updateTicket(ticket.id, 'price', '0');
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
                                                                     <Input
                                                                         type="number"
-                                                                        placeholder="0 = free"
+                                                                        placeholder="0.00"
                                                                         value={ticket.price}
                                                                         onChange={(e) => updateTicket(ticket.id, 'price', e.target.value)}
                                                                         className="h-12"
+                                                                        disabled={ticket.isFree}
                                                                     />
                                                                 </div>
                                                             </div>
 
-                                                            {/* Quantity Control */}
-                                                            <div className="space-y-2">
-                                                                <Label>Quantity</Label>
-                                                                <div className="flex items-center gap-3">
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="icon"
-                                                                        className="h-12 w-12"
-                                                                        onClick={() => updateTicket(ticket.id, 'quantity', Math.max(1, ticket.quantity - 10))}
-                                                                    >
-                                                                        <Minus className="h-4 w-4" />
-                                                                    </Button>
+                                                            {/* Quantity and Max Per Order */}
+                                                            <div className="grid gap-4 sm:grid-cols-2">
+                                                                <div className="space-y-2">
+                                                                    <Label>Total Quantity</Label>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="icon"
+                                                                            className="h-12 w-12 shrink-0"
+                                                                            onClick={() => updateTicket(ticket.id, 'quantity', Math.max(1, ticket.quantity - 10))}
+                                                                        >
+                                                                            <Minus className="h-4 w-4" />
+                                                                        </Button>
+                                                                        <Input
+                                                                            type="number"
+                                                                            value={ticket.quantity}
+                                                                            onChange={(e) => updateTicket(ticket.id, 'quantity', parseInt(e.target.value) || 0)}
+                                                                            className="h-12 text-center font-semibold"
+                                                                        />
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="icon"
+                                                                            className="h-12 w-12 shrink-0"
+                                                                            onClick={() => updateTicket(ticket.id, 'quantity', ticket.quantity + 10)}
+                                                                        >
+                                                                            <Plus className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    <Label>Max Per Order</Label>
                                                                     <Input
                                                                         type="number"
-                                                                        value={ticket.quantity}
-                                                                        onChange={(e) => updateTicket(ticket.id, 'quantity', parseInt(e.target.value) || 0)}
-                                                                        className="h-12 text-center text-lg font-semibold flex-1"
+                                                                        value={ticket.maxPerOrder}
+                                                                        onChange={(e) => updateTicket(ticket.id, 'maxPerOrder', parseInt(e.target.value) || 1)}
+                                                                        className="h-12"
+                                                                        min={1}
+                                                                        max={ticket.quantity}
                                                                     />
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="icon"
-                                                                        className="h-12 w-12"
-                                                                        onClick={() => updateTicket(ticket.id, 'quantity', ticket.quantity + 10)}
-                                                                    >
-                                                                        <Plus className="h-4 w-4" />
-                                                                    </Button>
                                                                 </div>
+                                                            </div>
+
+                                                            {/* Early Bird Toggle */}
+                                                            <div className="border rounded-xl p-4 space-y-4">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Sparkles className="h-4 w-4 text-amber-500" />
+                                                                        <Label className="font-medium">Early Bird Pricing</Label>
+                                                                    </div>
+                                                                    <Switch
+                                                                        checked={ticket.hasEarlyBird}
+                                                                        onCheckedChange={(checked) => updateTicket(ticket.id, 'hasEarlyBird', checked as unknown as string)}
+                                                                    />
+                                                                </div>
+                                                                {ticket.hasEarlyBird && (
+                                                                    <div className="grid gap-4 sm:grid-cols-2">
+                                                                        <div className="space-y-2">
+                                                                            <Label className="text-sm">Early Bird Price (£)</Label>
+                                                                            <Input
+                                                                                type="number"
+                                                                                placeholder="Discounted price"
+                                                                                value={ticket.earlyBirdPrice}
+                                                                                onChange={(e) => updateTicket(ticket.id, 'earlyBirdPrice', e.target.value)}
+                                                                                className="h-10"
+                                                                            />
+                                                                        </div>
+                                                                        <div className="space-y-2">
+                                                                            <Label className="text-sm">Ends On</Label>
+                                                                            <Input
+                                                                                type="date"
+                                                                                value={ticket.earlyBirdEndDate}
+                                                                                onChange={(e) => updateTicket(ticket.id, 'earlyBirdEndDate', e.target.value)}
+                                                                                className="h-10"
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </CardContent>
@@ -561,6 +789,114 @@ export default function CreateEventPage() {
                                             <Plus className="mr-2 h-4 w-4" />
                                             Add Another Ticket
                                         </Button>
+
+                                        {/* Promo Codes Section */}
+                                        <Card className="mt-6">
+                                            <CardContent className="p-4 sm:p-6 lg:p-8">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <div className="flex items-center gap-2 text-primary">
+                                                        <Tag className="h-5 w-5" />
+                                                        <h3 className="font-semibold">Promo Codes</h3>
+                                                    </div>
+                                                    <Button variant="outline" size="sm" onClick={addPromoCode}>
+                                                        <Plus className="mr-1 h-3 w-3" />
+                                                        Add Code
+                                                    </Button>
+                                                </div>
+
+                                                {promoCodes.length === 0 ? (
+                                                    <div className="text-center py-8 text-muted-foreground">
+                                                        <Tag className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                                        <p className="text-sm">No promo codes yet</p>
+                                                        <p className="text-xs">Add a code to offer discounts</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-4">
+                                                        {promoCodes.map((promo) => (
+                                                            <div key={promo.id} className="border rounded-xl p-4 space-y-4">
+                                                                <div className="flex items-center justify-between">
+                                                                    <Input
+                                                                        placeholder="CODE2024"
+                                                                        value={promo.code}
+                                                                        onChange={(e) => updatePromoCode(promo.id, 'code', e.target.value.toUpperCase())}
+                                                                        className="h-10 w-40 font-mono uppercase"
+                                                                    />
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={() => removePromoCode(promo.id)}
+                                                                        className="text-destructive hover:text-destructive h-8 w-8"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                                <div className="grid gap-4 sm:grid-cols-3">
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-sm">Discount Type</Label>
+                                                                        <Select
+                                                                            value={promo.discountType}
+                                                                            onValueChange={(val) => updatePromoCode(promo.id, 'discountType', val)}
+                                                                        >
+                                                                            <SelectTrigger className="h-10">
+                                                                                <SelectValue />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="percentage">Percentage (%)</SelectItem>
+                                                                                <SelectItem value="fixed">Fixed Amount (£)</SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    </div>
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-sm">Discount Value</Label>
+                                                                        <div className="relative">
+                                                                            <Input
+                                                                                type="number"
+                                                                                placeholder="10"
+                                                                                value={promo.discountValue}
+                                                                                onChange={(e) => updatePromoCode(promo.id, 'discountValue', e.target.value)}
+                                                                                className="h-10 pr-8"
+                                                                            />
+                                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                                                                                {promo.discountType === 'percentage' ? '%' : '£'}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-sm">Usage Limit</Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            placeholder="100"
+                                                                            value={promo.usageLimit}
+                                                                            onChange={(e) => updatePromoCode(promo.id, 'usageLimit', parseInt(e.target.value) || 0)}
+                                                                            className="h-10"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="grid gap-4 sm:grid-cols-2">
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-sm">Valid From</Label>
+                                                                        <Input
+                                                                            type="date"
+                                                                            value={promo.validFrom}
+                                                                            onChange={(e) => updatePromoCode(promo.id, 'validFrom', e.target.value)}
+                                                                            className="h-10"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-sm">Valid Until</Label>
+                                                                        <Input
+                                                                            type="date"
+                                                                            value={promo.validUntil}
+                                                                            onChange={(e) => updatePromoCode(promo.id, 'validUntil', e.target.value)}
+                                                                            className="h-10"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}</CardContent>
+                                        </Card>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
@@ -599,6 +935,160 @@ export default function CreateEventPage() {
                     </main>
                 </div>
             </div>
-        </div>
+
+            {/* Event Preview Dialog */}
+            <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+                <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
+                    <DialogHeader className="p-6 pb-0">
+                        <DialogTitle>Event Preview</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="p-6 pt-4">
+                        {/* Event Banner Placeholder */}
+                        <div className="aspect-video rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-6 border">
+                            {formData.title ? (
+                                <div className="text-center p-8">
+                                    <h1 className="font-display text-2xl sm:text-3xl font-bold mb-2">
+                                        {formData.title}
+                                    </h1>
+                                    {formData.category && (
+                                        <Badge className="mb-2">{formData.category}</Badge>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="text-center text-muted-foreground">
+                                    <Upload className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                                    <p className="text-sm">Event banner will appear here</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Event Details */}
+                        <div className="space-y-6">
+                            {/* Title & Description */}
+                            <div>
+                                <h2 className="font-display text-xl font-bold mb-2">
+                                    {formData.title || 'Event Title'}
+                                </h2>
+                                <p className="text-muted-foreground">
+                                    {formData.description || 'Event description will appear here...'}
+                                </p>
+                            </div>
+
+                            <Separator />
+
+                            {/* Date & Time */}
+                            <div className="flex items-start gap-3">
+                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                    <Calendar className="h-5 w-5 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold">
+                                        {formData.date
+                                            ? new Date(formData.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                                            : 'Date not set'
+                                        }
+                                        {formData.isMultiDay && formData.endDate && (
+                                            <> - {new Date(formData.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</>
+                                        )}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {formData.startTime || '--:--'} - {formData.endTime || '--:--'}
+                                        {formData.timezone && ` (${formData.timezone.split('/')[1]})`}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Location */}
+                            {(formData.locationType === 'physical' || formData.locationType === 'hybrid') && (
+                                <div className="flex items-start gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                        <MapPin className="h-5 w-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold">{formData.venue || 'Venue name'}</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {formData.address && `${formData.address}, `}
+                                            {formData.city || 'City'}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {(formData.locationType === 'online' || formData.locationType === 'hybrid') && (
+                                <div className="flex items-start gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                        <Globe className="h-5 w-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold">Online Event</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {formData.onlineUrl || 'Link will be shared after registration'}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <Separator />
+
+                            {/* Tickets Preview */}
+                            <div>
+                                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                                    <Ticket className="h-4 w-4" />
+                                    Available Tickets
+                                </h3>
+                                <div className="space-y-2">
+                                    {tickets.filter(t => t.visibility === 'public').map(ticket => (
+                                        <div key={ticket.id} className="flex items-center justify-between p-3 rounded-xl border bg-muted/30">
+                                            <div>
+                                                <p className="font-medium">{ticket.name || 'Ticket Name'}</p>
+                                                <p className="text-xs text-muted-foreground">{ticket.quantity} available</p>
+                                            </div>
+                                            <div className="text-right">
+                                                {ticket.isFree ? (
+                                                    <Badge variant="secondary">Free</Badge>
+                                                ) : (
+                                                    <p className="font-bold">£{ticket.price || '0'}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {tickets.filter(t => t.visibility === 'public').length === 0 && (
+                                        <p className="text-sm text-muted-foreground text-center py-4">
+                                            No public tickets to display
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Organizer */}
+                            {formData.organizerName && (
+                                <>
+                                    <Separator />
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                            <span className="font-bold text-primary">
+                                                {formData.organizerName.charAt(0)}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Organized by</p>
+                                            <p className="font-medium">{formData.organizerName}</p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Close Button */}
+                        <div className="mt-6 pt-4 border-t flex justify-end">
+                            <Button onClick={() => setIsPreviewOpen(false)}>
+                                Close Preview
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog >
+        </div >
     );
 }

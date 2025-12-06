@@ -12,6 +12,7 @@ import {
     LogOut,
     Menu,
     X,
+    Receipt,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
     { title: 'Overview', href: '/dashboard', icon: LayoutDashboard },
     { title: 'My Events', href: '/dashboard/events', icon: Calendar },
+    { title: 'Orders', href: '/dashboard/orders', icon: Receipt },
     { title: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
 ];
 
