@@ -57,7 +57,7 @@ export function Header() {
 
                 {/* Right Side */}
                 <div className="flex items-center gap-3">
-                    {/* Create Event Button */}
+                    {/* Create Event Button - Links to page */}
                     <Button
                         variant="default"
                         size="sm"
