@@ -56,7 +56,17 @@ export function Header() {
                 </nav>
 
                 {/* Right Side */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
+                    {/* Sign Up Button */}
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hidden font-medium sm:inline-flex"
+                        asChild
+                    >
+                        <Link href="/register">Sign Up</Link>
+                    </Button>
+
                     {/* Create Event Button - Links to page */}
                     <Button
                         variant="default"
@@ -90,6 +100,9 @@ export function Header() {
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                                <Link href="/profile">Profile</Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem asChild>
                                 <Link href="/dashboard">Dashboard</Link>
                             </DropdownMenuItem>
