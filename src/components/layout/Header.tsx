@@ -14,7 +14,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from '@/components/ui/sheet';
 
 const navLinks = [
     { href: '/events', label: 'Browse Events' },
@@ -31,15 +31,15 @@ export function Header() {
             transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60"
         >
-            <div className="container flex h-16 items-center justify-between">
+            <div className="container flex h-16 items-center justify-between pl-12 sm:pl-4">
                 {/* Logo */}
-                <Link href="/" className="flex items-center gap-2 group">
+                <Link href="/" className="flex items-center gap-2 group shrink-0">
                     <Image
                         src="/images/HTlogocr.png"
                         alt="HalalTicketin' Logo"
                         width={140}
                         height={40}
-                        className="h-10 w-auto transition-transform group-hover:scale-105"
+                        className="h-8 sm:h-10 w-auto transition-transform group-hover:scale-105"
                         priority
                     />
                 </Link>
@@ -127,7 +127,8 @@ export function Header() {
                             </Button>
                         </SheetTrigger>
                         <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-                            <div className="flex items-center gap-2 pb-6">
+                            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+                            <div className="flex items-center gap-2 pt-4 pl-2 pb-6">
                                 <Image
                                     src="/images/HTlogocr.png"
                                     alt="HalalTicketin' Logo"
@@ -138,18 +139,21 @@ export function Header() {
                             </div>
                             <nav className="flex flex-col gap-4">
                                 {navLinks.map((link) => (
-                                    <Link
-                                        key={link.href}
-                                        href={link.href}
-                                        className="block rounded-lg px-4 py-3 text-lg font-medium transition-colors hover:bg-muted"
-                                    >
-                                        {link.label}
-                                    </Link>
+                                    <SheetClose asChild key={link.href}>
+                                        <Link
+                                            href={link.href}
+                                            className="block rounded-lg px-4 py-3 text-lg font-medium transition-colors hover:bg-muted"
+                                        >
+                                            {link.label}
+                                        </Link>
+                                    </SheetClose>
                                 ))}
                                 <div className="border-t pt-4">
-                                    <Button className="w-full" asChild>
-                                        <Link href="/events/create">Create Event</Link>
-                                    </Button>
+                                    <SheetClose asChild>
+                                        <Button className="w-full" asChild>
+                                            <Link href="/events/create">Create Event</Link>
+                                        </Button>
+                                    </SheetClose>
                                 </div>
                             </nav>
                         </SheetContent>

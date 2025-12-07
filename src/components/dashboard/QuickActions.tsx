@@ -50,12 +50,12 @@ interface QuickActionsProps {
 
 export function QuickActions({ actions = defaultActions }: QuickActionsProps) {
     return (
-        <Card className="border-border/50">
+        <Card className="border-border/50 overflow-hidden">
             <CardHeader>
                 <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
                     {actions.map((action, index) => (
                         <motion.div
                             key={action.title}

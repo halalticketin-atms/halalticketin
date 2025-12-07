@@ -37,7 +37,7 @@ const statusColors = {
 
 export function RecentEvents({ events }: RecentEventsProps) {
     return (
-        <Card className="border-border/50">
+        <Card className="border-border/50 overflow-hidden">
             <CardHeader className="flex-row items-center justify-between">
                 <CardTitle className="text-lg">Recent Events</CardTitle>
                 <Button variant="ghost" size="sm" asChild>
@@ -52,9 +52,9 @@ export function RecentEvents({ events }: RecentEventsProps) {
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.3, delay: index * 0.1 }}
-                            className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
+                            className="flex items-start gap-3 p-3 sm:p-4 hover:bg-muted/50 transition-colors"
                         >
-                            <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg">
+                            <div className="relative h-12 w-16 sm:h-16 sm:w-24 shrink-0 overflow-hidden rounded-lg">
                                 <Image
                                     src={event.imageUrl}
                                     alt={event.title}
@@ -63,13 +63,13 @@ export function RecentEvents({ events }: RecentEventsProps) {
                                 />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="font-medium truncate">{event.title}</h3>
-                                    <Badge className={statusColors[event.status]} variant="secondary">
+                                <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                                    <h3 className="font-medium text-sm sm:text-base truncate max-w-[150px] sm:max-w-none">{event.title}</h3>
+                                    <Badge className={`${statusColors[event.status]} text-xs`} variant="secondary">
                                         {event.status}
                                     </Badge>
                                 </div>
-                                <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs sm:text-sm text-muted-foreground">
                                     <span className="flex items-center gap-1">
                                         <Calendar className="h-3 w-3" />
                                         {event.date}
@@ -79,7 +79,7 @@ export function RecentEvents({ events }: RecentEventsProps) {
                                         {event.location}
                                     </span>
                                 </div>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                                     {event.ticketsSold}/{event.totalTickets} tickets sold
                                 </p>
                             </div>

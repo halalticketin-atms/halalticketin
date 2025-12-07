@@ -256,7 +256,7 @@ export default function MyEventsPage() {
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8"
                 >
                     <div>
-                        <h1 className="font-display text-3xl font-bold">My Events</h1>
+                        <h1 className="font-display text-2xl sm:text-3xl font-bold">My Events</h1>
                         <p className="text-muted-foreground mt-1">Manage your events and track performance</p>
                     </div>
                     <Button asChild className="shrink-0">

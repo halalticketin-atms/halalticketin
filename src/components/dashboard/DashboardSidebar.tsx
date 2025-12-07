@@ -118,9 +118,9 @@ export function DashboardSidebar() {
         <>
             {/* Mobile Menu Button */}
             <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
-                className="fixed top-4 left-4 z-50 lg:hidden bg-background shadow-md"
+                className="fixed top-4 left-2 z-50 lg:hidden hover:bg-muted"
                 onClick={() => setMobileOpen(true)}
             >
                 <Menu className="h-5 w-5" />

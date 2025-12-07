@@ -91,7 +91,7 @@ export default function AnalyticsPage() {
                                 Dashboard
                             </Link>
                         </Button>
-                        <h1 className="font-display text-3xl font-bold">Analytics</h1>
+                        <h1 className="font-display text-2xl sm:text-3xl font-bold">Analytics</h1>
                         <p className="text-muted-foreground">Track performance and insights</p>
                     </div>
 

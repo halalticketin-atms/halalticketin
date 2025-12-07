@@ -54,7 +54,7 @@ const upcomingMilestones = [
 export default function DashboardPage() {
     return (
         <div className="min-h-screen bg-muted/30">
-            <div className="container py-8">
+            <div className="container py-8 overflow-x-hidden">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -62,7 +62,7 @@ export default function DashboardPage() {
                     transition={{ duration: 0.5 }}
                     className="mb-8"
                 >
-                    <h1 className="font-display text-3xl font-bold">Welcome back, Amina! 👋</h1>
+                    <h1 className="font-display text-2xl sm:text-3xl font-bold">Welcome back, Amina! 👋</h1>
                     <p className="text-muted-foreground mt-1">Here&apos;s what&apos;s happening with your events</p>
                 </motion.div>
 
@@ -90,7 +90,7 @@ export default function DashboardPage() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: 0.5 }}
                         >
-                            <Card className="border-border/50">
+                            <Card className="border-border/50 overflow-hidden">
                                 <CardHeader>
                                     <CardTitle className="text-lg flex items-center gap-2">
                                         <TrendingUp className="h-5 w-5 text-primary" />

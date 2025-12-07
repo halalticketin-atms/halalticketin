@@ -23,11 +23,11 @@ export function StatCard({ title, value, icon: Icon, trend, delay = 0 }: StatCar
             transition={{ duration: 0.4, delay }}
         >
             <Card className="border-border/50 hover:border-primary/20 transition-colors">
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                     <div className="flex items-start justify-between">
                         <div>
                             <p className="text-sm text-muted-foreground">{title}</p>
-                            <p className="text-3xl font-bold mt-1">{value}</p>
+                            <p className="text-2xl sm:text-3xl font-bold mt-1">{value}</p>
                             {trend && (
                                 <p className={`text-sm mt-2 ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
                                     {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}% from last month
