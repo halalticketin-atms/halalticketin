@@ -151,3 +151,31 @@ export interface EventDetails {
     tickets: TicketOption[];
     imageUrl: string;
 }
+
+// Check-in types
+export interface CheckInTicket {
+    id: string;
+    orderId: string;
+    orderNumber: string;
+    attendeeName: string;
+    attendeeEmail: string;
+    ticketType: string;
+    checkInStatus: 'checked_in' | 'not_checked_in';
+    checkedInAt?: Date;
+    checkedInBy?: string;
+    // Group awareness
+    groupSize: number;
+    groupCheckedIn: number;
+}
+
+export interface CheckInStats {
+    totalTickets: number;
+    checkedIn: number;
+    notCheckedIn: number;
+    percentage: number;
+}
+
+export type CheckInResult =
+    | { status: 'success'; ticket: CheckInTicket }
+    | { status: 'already_checked_in'; ticket: CheckInTicket; checkedInAt: Date }
+    | { status: 'invalid'; message: string };

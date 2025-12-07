@@ -13,6 +13,7 @@ import {
     Menu,
     X,
     Receipt,
+    ScanLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ const mainNavItems: NavItem[] = [
     { title: 'Overview', href: '/dashboard', icon: LayoutDashboard },
     { title: 'My Events', href: '/dashboard/events', icon: Calendar },
     { title: 'Orders', href: '/dashboard/orders', icon: Receipt },
+    { title: 'Check-in', href: '/dashboard/check-in', icon: ScanLine },
     { title: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
 ];
 
