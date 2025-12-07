@@ -20,6 +20,7 @@ const navLinks = [
     { href: '/events', label: 'Browse Events' },
     { href: '/pricing', label: 'Pricing' },
     { href: '/dashboard', label: 'Dashboard' },
+    { href: '/contact', label: 'Contact' },
 ];
 
 export function Header() {

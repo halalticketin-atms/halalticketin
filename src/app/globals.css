@@ -212,6 +212,32 @@
   .animate-pulse-slow {
     animation: pulse 4s ease-in-out infinite;
   }
+
+  .gradient-border {
+    position: relative;
+    background: linear-gradient(var(--background), var(--background)) padding-box,
+      linear-gradient(90deg, #0ea5e9 0%, #4ade80 100%) border-box;
+    border: 3px solid transparent;
+    border-radius: var(--radius);
+  }
+
+  /* Option 3: Gradient Background Card */
+  .gradient-card-bg {
+    background: linear-gradient(90deg, #f0fdf4 0%, #ecfeff 100%);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.08);
+  }
+
+  .input-teal-border {
+    border: 1.5px solid var(--brand-cyan);
+    border-radius: var(--radius);
+    background: white;
+  }
+
+  .input-teal-border:focus {
+    border-color: var(--brand-teal);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+  }
 }
 
 @keyframes float {
