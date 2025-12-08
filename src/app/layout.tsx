@@ -18,6 +18,10 @@ export const metadata: Metadata = {
   description:
     'Discover and create halal events with ease. The trusted ticketing platform for the Muslim community.',
   keywords: ['halal events', 'ticketing', 'muslim events', 'event platform'],
+  icons: {
+    icon: '/images/HTlogocr.png',
+    apple: '/images/HTlogocr.png',
+  },
 };
 
 export default function RootLayout({
