@@ -134,9 +134,27 @@ function CheckInStatsBar({ stats }: { stats: CheckInStats }) {
 
 // Desktop QR Redirect Component
 function DesktopQRRedirect({ eventId, eventName }: { eventId: string; eventName: string }) {
-    const scannerUrl = typeof window !== 'undefined'
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const scannerUrl = mounted
         ? `${window.location.origin}/dashboard/check-in?event=${eventId}&mode=scan`
         : '';
+
+    // Prevent hydration mismatch by not rendering QR code until mounted
+    if (!mounted) {
+        return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
+                <div className="text-center">
+                    <Smartphone className="h-16 w-16 mx-auto text-primary mb-4 animate-pulse" />
+                    <p className="text-muted-foreground">Loading scanner...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
