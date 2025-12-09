@@ -19,6 +19,7 @@ import { CheckInStatsBar } from '@/components/check-in/CheckInStatsBar';
 import { DesktopQRRedirect } from '@/components/check-in/DesktopQRRedirect';
 import { ScanResultOverlay } from '@/components/check-in/ScanResultOverlay';
 import { AttendeeCard } from '@/components/check-in/AttendeeCard';
+import { QRScanner } from '@/components/check-in/QRScanner';
 import { useCheckInTickets } from '@/hooks/useCheckInTickets';
 
 // Mock events for selection (frontend scaffold)
@@ -106,6 +107,34 @@ export default function CheckInPage() {
 
   const handleUndo = async (ticketId: string) => {
     await undo(ticketId);
+  };
+
+  const handleScan = async (data: string) => {
+    const trimmed = data.trim();
+    if (!trimmed) return;
+
+    const ticket = tickets.find(
+      (t) => t.id === trimmed || t.orderNumber === trimmed,
+    );
+
+    if (!ticket) {
+      setScanResult({
+        status: 'invalid',
+        message: 'Ticket not found for this code.',
+      });
+      return;
+    }
+
+    if (ticket.checkInStatus === 'checked_in') {
+      setScanResult({
+        status: 'already_checked_in',
+        ticket,
+        checkedInAt: ticket.checkedInAt || new Date(),
+      });
+      return;
+    }
+
+    await handleCheckIn(ticket.id);
   };
 
   // Desktop view - show QR redirect
@@ -218,54 +247,48 @@ export default function CheckInPage() {
         {/* Scanner Mode */}
         {mode === 'scan' && (
           <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <div className="aspect-square bg-black relative flex items-center justify-center">
-                <div className="text-center text-white p-8">
-                  <ScanLine className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-sm opacity-70">
-                    Camera scanner will be initialized here.
-                  </p>
-                  <p className="text-xs opacity-50 mt-2">
-                    Point camera at ticket QR code
-                  </p>
+            <CardContent className="p-4 space-y-4">
+              <QRScanner
+                onScan={handleScan}
+                isActive={!isLoading}
+              />
 
-                  {/* Demo buttons for testing */}
-                  <div className="mt-6 space-y-2">
-                    <p className="text-xs opacity-50">Demo Actions:</p>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={isLoading || !!updatingTicketId}
-                      onClick={() => {
-                        const unchecked = tickets.find(
-                          (t) => t.checkInStatus === 'not_checked_in',
-                        );
-                        if (unchecked) handleCheckIn(unchecked.id);
-                      }}
-                    >
-                      Simulate Valid Scan
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="ml-2"
-                      disabled={isLoading || !!updatingTicketId}
-                      onClick={() => {
-                        const checked = tickets.find(
-                          (t) => t.checkInStatus === 'checked_in',
-                        );
-                        if (checked) {
-                          setScanResult({
-                            status: 'already_checked_in',
-                            ticket: checked,
-                            checkedInAt: checked.checkedInAt || new Date(),
-                          });
-                        }
-                      }}
-                    >
-                      Simulate Already In
-                    </Button>
-                  </div>
+              {/* Demo buttons for testing */}
+              <div className="space-y-2 text-center">
+                <p className="text-xs opacity-50">Demo Actions:</p>
+                <div className="flex justify-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={isLoading || !!updatingTicketId}
+                    onClick={() => {
+                      const unchecked = tickets.find(
+                        (t) => t.checkInStatus === 'not_checked_in',
+                      );
+                      if (unchecked) handleCheckIn(unchecked.id);
+                    }}
+                  >
+                    Simulate Valid Scan
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={isLoading || !!updatingTicketId}
+                    onClick={() => {
+                      const checked = tickets.find(
+                        (t) => t.checkInStatus === 'checked_in',
+                      );
+                      if (checked) {
+                        setScanResult({
+                          status: 'already_checked_in',
+                          ticket: checked,
+                          checkedInAt: checked.checkedInAt || new Date(),
+                        });
+                      }
+                    }}
+                  >
+                    Simulate Already In
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -308,6 +331,13 @@ export default function CheckInPage() {
                 <Card>
                   <CardContent className="py-8 text-center text-muted-foreground">
                     <p>Loading tickets...</p>
+                  </CardContent>
+                </Card>
+              ) : tickets.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No tickets for this event yet</p>
                   </CardContent>
                 </Card>
               ) : filteredTickets.length === 0 ? (

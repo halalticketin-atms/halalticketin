@@ -1,65 +1,93 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CheckInTicket, CheckInStats, CheckInResult } from '@/types';
 
-// Mock tickets data (frontend-only scaffold)
-const mockTickets: CheckInTicket[] = [
-  {
-    id: 'TKT-001',
-    orderId: 'ORD-2024-001',
-    orderNumber: 'ORD-2024-001',
-    attendeeName: 'Ahmed Hassan',
-    attendeeEmail: 'ahmed@example.com',
-    ticketType: 'VIP Pass',
-    checkInStatus: 'not_checked_in',
-    groupSize: 2,
-    groupCheckedIn: 0,
-  },
-  {
-    id: 'TKT-002',
-    orderId: 'ORD-2024-001',
-    orderNumber: 'ORD-2024-001',
-    attendeeName: 'Ahmed Hassan',
-    attendeeEmail: 'ahmed@example.com',
-    ticketType: 'VIP Pass',
-    checkInStatus: 'not_checked_in',
-    groupSize: 2,
-    groupCheckedIn: 0,
-  },
-  {
-    id: 'TKT-003',
-    orderId: 'ORD-2024-002',
-    orderNumber: 'ORD-2024-002',
-    attendeeName: 'Fatima Khan',
-    attendeeEmail: 'fatima.k@example.com',
-    ticketType: 'General Admission',
-    checkInStatus: 'checked_in',
-    checkedInAt: new Date('2024-12-07T14:30:00'),
-    groupSize: 1,
-    groupCheckedIn: 1,
-  },
-  {
-    id: 'TKT-004',
-    orderId: 'ORD-2024-003',
-    orderNumber: 'ORD-2024-003',
-    attendeeName: 'Omar Ali',
-    attendeeEmail: 'omar.ali@example.com',
-    ticketType: 'General Admission',
-    checkInStatus: 'not_checked_in',
-    groupSize: 1,
-    groupCheckedIn: 0,
-  },
-  {
-    id: 'TKT-005',
-    orderId: 'ORD-2024-004',
-    orderNumber: 'ORD-2024-004',
-    attendeeName: 'Aisha Mohammed',
-    attendeeEmail: 'aisha.m@example.com',
-    ticketType: 'Family Pack',
-    checkInStatus: 'not_checked_in',
-    groupSize: 4,
-    groupCheckedIn: 0,
-  },
-];
+// Event-aware mock tickets (frontend-only scaffold)
+const mockTicketsByEvent: Record<string, CheckInTicket[]> = {
+  // Halal Food Festival 2024
+  '1': [
+    {
+      id: 'TKT-001',
+      orderId: 'ORD-2024-001',
+      orderNumber: 'ORD-2024-001',
+      attendeeName: 'Ahmed Hassan',
+      attendeeEmail: 'ahmed@example.com',
+      ticketType: 'VIP Pass',
+      checkInStatus: 'not_checked_in',
+      groupSize: 2,
+      groupCheckedIn: 0,
+    },
+    {
+      id: 'TKT-002',
+      orderId: 'ORD-2024-001',
+      orderNumber: 'ORD-2024-001',
+      attendeeName: 'Ahmed Hassan',
+      attendeeEmail: 'ahmed@example.com',
+      ticketType: 'VIP Pass',
+      checkInStatus: 'not_checked_in',
+      groupSize: 2,
+      groupCheckedIn: 0,
+    },
+    {
+      id: 'TKT-003',
+      orderId: 'ORD-2024-002',
+      orderNumber: 'ORD-2024-002',
+      attendeeName: 'Fatima Khan',
+      attendeeEmail: 'fatima.k@example.com',
+      ticketType: 'General Admission',
+      checkInStatus: 'checked_in',
+      checkedInAt: new Date('2024-12-07T14:30:00'),
+      groupSize: 1,
+      groupCheckedIn: 1,
+    },
+    {
+      id: 'TKT-004',
+      orderId: 'ORD-2024-003',
+      orderNumber: 'ORD-2024-003',
+      attendeeName: 'Omar Ali',
+      attendeeEmail: 'omar.ali@example.com',
+      ticketType: 'General Admission',
+      checkInStatus: 'not_checked_in',
+      groupSize: 1,
+      groupCheckedIn: 0,
+    },
+    {
+      id: 'TKT-005',
+      orderId: 'ORD-2024-004',
+      orderNumber: 'ORD-2024-004',
+      attendeeName: 'Aisha Mohammed',
+      attendeeEmail: 'aisha.m@example.com',
+      ticketType: 'Family Pack',
+      checkInStatus: 'not_checked_in',
+      groupSize: 4,
+      groupCheckedIn: 0,
+    },
+  ],
+  // Islamic Art Exhibition
+  '2': [
+    {
+      id: 'TKT-201',
+      orderId: 'ORD-2025-010',
+      orderNumber: 'ORD-2025-010',
+      attendeeName: 'Zainab Malik',
+      attendeeEmail: 'zainab.m@example.com',
+      ticketType: 'Exhibition Pass',
+      checkInStatus: 'not_checked_in',
+      groupSize: 1,
+      groupCheckedIn: 0,
+    },
+    {
+      id: 'TKT-202',
+      orderId: 'ORD-2025-011',
+      orderNumber: 'ORD-2025-011',
+      attendeeName: 'Yusuf Ahmed',
+      attendeeEmail: 'yusuf.a@example.com',
+      ticketType: 'VIP Preview',
+      checkInStatus: 'not_checked_in',
+      groupSize: 1,
+      groupCheckedIn: 0,
+    },
+  ],
+};
 
 interface UseCheckInTicketsResult {
   tickets: CheckInTicket[];
@@ -83,8 +111,8 @@ export function useCheckInTickets(eventId: string): UseCheckInTicketsResult {
 
     // In a real app, this is where you'd fetch tickets for the event.
     const timeout = setTimeout(() => {
-      // For now, use the mock tickets regardless of eventId.
-      setTickets(mockTickets);
+      const eventTickets = mockTicketsByEvent[eventId] ?? [];
+      setTickets(eventTickets);
       setIsLoading(false);
     }, 0);
 

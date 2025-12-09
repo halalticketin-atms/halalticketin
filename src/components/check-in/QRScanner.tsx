@@ -57,16 +57,25 @@ export function QRScanner({ onScan, onError, isActive = true }: QRScannerProps) 
     }, [onScan, onError]);
 
     const stopScanner = useCallback(async () => {
-        if (scannerRef.current) {
-            try {
-                const state = scannerRef.current.getState();
-                if (state === Html5QrcodeScannerState.SCANNING) {
-                    await scannerRef.current.stop();
-                }
-                scannerRef.current.clear();
-            } catch (err) {
-                console.error('Error stopping scanner:', err);
+        const instance = scannerRef.current;
+        if (!instance) return;
+
+        try {
+            const state = instance.getState();
+            if (
+                state === Html5QrcodeScannerState.SCANNING ||
+                state === Html5QrcodeScannerState.PAUSED
+            ) {
+                await instance.stop();
             }
+
+            const container = document.getElementById('qr-reader');
+            if (container) {
+                await instance.clear();
+            }
+        } catch {
+            // Swallow expected transition/DOM timing errors from html5-qrcode
+        } finally {
             scannerRef.current = null;
             setIsScanning(false);
         }
