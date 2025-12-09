@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { ScanLine, Search, Users } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -44,15 +45,37 @@ function useIsMobile() {
 
 export default function CheckInPage() {
   const isMobile = useIsMobile();
-  const [selectedEvent, setSelectedEvent] = useState(mockEvents[0].id);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [scanResult, setScanResult] = useState<CheckInResult | null>(null);
-  const [mode, setMode] = useState<'scan' | 'search'>('scan');
 
   const { tickets, stats, checkIn, undo } = useCheckInTickets();
 
+  const selectedEventFromUrl = searchParams.get('event');
+  const modeFromUrl = searchParams.get('mode');
+
+  const selectedEvent = useMemo(() => {
+    const fallbackId = mockEvents[0]?.id;
+    if (!fallbackId) return '';
+    if (!selectedEventFromUrl) return fallbackId;
+    const exists = mockEvents.some((e) => e.id === selectedEventFromUrl);
+    return exists ? selectedEventFromUrl : fallbackId;
+  }, [selectedEventFromUrl]);
+
+  const mode: 'scan' | 'search' =
+    modeFromUrl === 'search' ? 'search' : 'scan';
+
   const selectedEventData = mockEvents.find((e) => e.id === selectedEvent);
+
+  const updateQuery = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set(key, value);
+    router.replace(`${pathname}?${params.toString()}`);
+  };
 
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch =
@@ -97,7 +120,10 @@ export default function CheckInPage() {
             <CardContent className="py-4">
               <div className="flex items-center gap-4">
                 <label className="text-sm font-medium">Select Event:</label>
-                <Select value={selectedEvent} onValueChange={setSelectedEvent}>
+                <Select
+                  value={selectedEvent}
+                  onValueChange={(value) => updateQuery('event', value)}
+                >
                   <SelectTrigger className="w-[300px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -135,7 +161,10 @@ export default function CheckInPage() {
           className="mb-6"
         >
           <h1 className="font-display text-2xl font-bold">Check-in</h1>
-          <Select value={selectedEvent} onValueChange={setSelectedEvent}>
+          <Select
+            value={selectedEvent}
+            onValueChange={(value) => updateQuery('event', value)}
+          >
             <SelectTrigger className="w-full mt-2">
               <SelectValue />
             </SelectTrigger>
@@ -157,7 +186,7 @@ export default function CheckInPage() {
           <Button
             variant={mode === 'scan' ? 'default' : 'outline'}
             className="flex-1"
-            onClick={() => setMode('scan')}
+            onClick={() => updateQuery('mode', 'scan')}
           >
             <ScanLine className="h-4 w-4 mr-2" />
             Scan QR
@@ -165,7 +194,7 @@ export default function CheckInPage() {
           <Button
             variant={mode === 'search' ? 'default' : 'outline'}
             className="flex-1"
-            onClick={() => setMode('search')}
+            onClick={() => updateQuery('mode', 'search')}
           >
             <Search className="h-4 w-4 mr-2" />
             Search
