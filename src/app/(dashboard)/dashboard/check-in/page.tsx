@@ -53,8 +53,6 @@ export default function CheckInPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [scanResult, setScanResult] = useState<CheckInResult | null>(null);
 
-  const { tickets, stats, checkIn, undo } = useCheckInTickets();
-
   const selectedEventFromUrl = searchParams.get('event');
   const modeFromUrl = searchParams.get('mode');
 
@@ -70,6 +68,16 @@ export default function CheckInPage() {
     modeFromUrl === 'search' ? 'search' : 'scan';
 
   const selectedEventData = mockEvents.find((e) => e.id === selectedEvent);
+
+  const {
+    tickets,
+    stats,
+    checkIn,
+    undo,
+    isLoading,
+    updatingTicketId,
+    error,
+  } = useCheckInTickets(selectedEvent);
 
   const updateQuery = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -89,15 +97,15 @@ export default function CheckInPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleCheckIn = (ticketId: string) => {
-    const result = checkIn(ticketId);
+  const handleCheckIn = async (ticketId: string) => {
+    const result = await checkIn(ticketId);
     if (result) {
       setScanResult(result);
     }
   };
 
-  const handleUndo = (ticketId: string) => {
-    undo(ticketId);
+  const handleUndo = async (ticketId: string) => {
+    await undo(ticketId);
   };
 
   // Desktop view - show QR redirect
@@ -181,6 +189,12 @@ export default function CheckInPage() {
         {/* Stats */}
         <CheckInStatsBar stats={stats} />
 
+        {error && (
+          <p className="mt-2 text-sm text-red-600">
+            {error}
+          </p>
+        )}
+
         {/* Mode Toggle */}
         <div className="flex gap-2 my-4">
           <Button
@@ -221,6 +235,7 @@ export default function CheckInPage() {
                     <Button
                       size="sm"
                       variant="secondary"
+                      disabled={isLoading || !!updatingTicketId}
                       onClick={() => {
                         const unchecked = tickets.find(
                           (t) => t.checkInStatus === 'not_checked_in',
@@ -234,6 +249,7 @@ export default function CheckInPage() {
                       size="sm"
                       variant="secondary"
                       className="ml-2"
+                      disabled={isLoading || !!updatingTicketId}
                       onClick={() => {
                         const checked = tickets.find(
                           (t) => t.checkInStatus === 'checked_in',
@@ -288,7 +304,13 @@ export default function CheckInPage() {
 
             {/* Attendee List */}
             <div className="space-y-3">
-              {filteredTickets.length === 0 ? (
+              {isLoading ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    <p>Loading tickets...</p>
+                  </CardContent>
+                </Card>
+              ) : filteredTickets.length === 0 ? (
                 <Card>
                   <CardContent className="py-8 text-center text-muted-foreground">
                     <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -300,6 +322,7 @@ export default function CheckInPage() {
                   <AttendeeCard
                     key={ticket.id}
                     ticket={ticket}
+                    isUpdating={updatingTicketId === ticket.id}
                     onCheckIn={handleCheckIn}
                     onUndo={handleUndo}
                   />

@@ -8,9 +8,10 @@ interface AttendeeCardProps {
   ticket: CheckInTicket;
   onCheckIn: (id: string) => void;
   onUndo: (id: string) => void;
+  isUpdating?: boolean;
 }
 
-export function AttendeeCard({ ticket, onCheckIn, onUndo }: AttendeeCardProps) {
+export function AttendeeCard({ ticket, onCheckIn, onUndo, isUpdating }: AttendeeCardProps) {
   const isCheckedIn = ticket.checkInStatus === 'checked_in';
 
   return (
@@ -39,6 +40,7 @@ export function AttendeeCard({ ticket, onCheckIn, onUndo }: AttendeeCardProps) {
           <Button
             variant="outline"
             size="sm"
+            disabled={isUpdating}
             onClick={() => onUndo(ticket.id)}
             className="text-amber-600 border-amber-200 hover:bg-amber-50"
           >
@@ -47,6 +49,7 @@ export function AttendeeCard({ ticket, onCheckIn, onUndo }: AttendeeCardProps) {
         ) : (
           <Button
             size="sm"
+            disabled={isUpdating}
             onClick={() => onCheckIn(ticket.id)}
             className="bg-green-600 hover:bg-green-700 text-white min-w-[100px]"
           >
@@ -58,4 +61,3 @@ export function AttendeeCard({ ticket, onCheckIn, onUndo }: AttendeeCardProps) {
     </motion.div>
   );
 }
-
