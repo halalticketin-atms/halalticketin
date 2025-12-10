@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -45,141 +44,34 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { useEventDraft, type DraftEventInitial } from '@/hooks/useEventDraft';
 
-const steps = [
+export const steps = [
     { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
     { id: 2, title: 'Location & Time', description: 'When and where', icon: MapPin },
     { id: 3, title: 'Tickets', description: 'Pricing & availability', icon: Ticket },
 ];
 
-interface TicketType {
-    id: string;
-    name: string;
-    price: string;
-    isFree: boolean;
-    quantity: number;
-    maxPerOrder: number;
-    description: string;
-    salesStart: string;
-    salesEnd: string;
-    hasEarlyBird: boolean;
-    earlyBirdPrice: string;
-    earlyBirdEndDate: string;
-    visibility: 'public' | 'hidden';
-}
-
-interface PromoCode {
-    id: string;
-    code: string;
-    discountType: 'percentage' | 'fixed';
-    discountValue: string;
-    usageLimit: number;
-    validFrom: string;
-    validUntil: string;
-}
-
-export default function CreateEventPage() {
-    const [currentStep, setCurrentStep] = useState(1);
-    const [formData, setFormData] = useState({
-        title: '',
-        description: '',
-        category: '',
-        organizerName: '',
-        date: '',
-        endDate: '',
-        isMultiDay: false,
-        startTime: '',
-        endTime: '',
-        timezone: 'Europe/London',
-        locationType: 'physical' as 'physical' | 'online' | 'hybrid',
-        venue: '',
-        address: '',
-        city: '',
-        onlineUrl: '',
-    });
-
-    const [tickets, setTickets] = useState<TicketType[]>([
-        {
-            id: '1',
-            name: 'General Admission',
-            price: '',
-            isFree: false,
-            quantity: 100,
-            maxPerOrder: 10,
-            description: '',
-            salesStart: '',
-            salesEnd: '',
-            hasEarlyBird: false,
-            earlyBirdPrice: '',
-            earlyBirdEndDate: '',
-            visibility: 'public',
-        },
-    ]);
-
-    const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
-    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
-
-    const updateTicket = (id: string, field: keyof TicketType, value: string | number) => {
-        setTickets(tickets.map(t => t.id === id ? { ...t, [field]: value } : t));
-    };
-
-    const addTicket = () => {
-        setTickets([...tickets, {
-            id: String(Date.now()),
-            name: '',
-            price: '',
-            isFree: false,
-            quantity: 50,
-            maxPerOrder: 10,
-            description: '',
-            salesStart: '',
-            salesEnd: '',
-            hasEarlyBird: false,
-            earlyBirdPrice: '',
-            earlyBirdEndDate: '',
-            visibility: 'public',
-        }]);
-    };
-
-    const removeTicket = (id: string) => {
-        if (tickets.length > 1) {
-            setTickets(tickets.filter(t => t.id !== id));
-        }
-    };
-
-    const addPromoCode = () => {
-        setPromoCodes([...promoCodes, {
-            id: String(Date.now()),
-            code: '',
-            discountType: 'percentage',
-            discountValue: '',
-            usageLimit: 100,
-            validFrom: '',
-            validUntil: '',
-        }]);
-    };
-
-    const updatePromoCode = (id: string, field: keyof PromoCode, value: string | number) => {
-        setPromoCodes(promoCodes.map(p => p.id === id ? { ...p, [field]: value } : p));
-    };
-
-    const removePromoCode = (id: string) => {
-        setPromoCodes(promoCodes.filter(p => p.id !== id));
-    };
-
-    const nextStep = () => {
-        if (currentStep < steps.length) setCurrentStep(currentStep + 1);
-    };
-
-    const prevStep = () => {
-        if (currentStep > 1) setCurrentStep(currentStep - 1);
-    };
-
-    const progressPercentage = ((currentStep - 1) / (steps.length - 1)) * 100;
+export function EventWizard({ mode = 'create', initialDraft }: { mode?: 'create' | 'edit'; initialDraft?: DraftEventInitial }) {
+    const {
+        currentStep,
+        setCurrentStep,
+        formData,
+        handleInputChange,
+        tickets,
+        updateTicket,
+        addTicket,
+        removeTicket,
+        promoCodes,
+        addPromoCode,
+        updatePromoCode,
+        removePromoCode,
+        nextStep,
+        prevStep,
+        progressPercentage,
+        isPreviewOpen,
+        setIsPreviewOpen,
+    } = useEventDraft(initialDraft, steps.length);
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -193,7 +85,9 @@ export default function CreateEventPage() {
                         </Link>
                     </Button>
                     <div className="flex-1 min-w-0">
-                        <h1 className="font-display text-lg font-semibold truncate">Create New Event</h1>
+                        <h1 className="font-display text-lg font-semibold truncate">
+                            {mode === 'edit' ? 'Edit Event' : 'Create New Event'}
+                        </h1>
                     </div>
                     <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                         Step {currentStep} of {steps.length}
@@ -292,10 +186,10 @@ export default function CreateEventPage() {
                                 </Button>
                                 <Button className="w-full h-11 justify-center gap-2">
                                     <Sparkles className="h-4 w-4" />
-                                    Publish Event
+                                    {mode === 'edit' ? 'Save Changes' : 'Publish Event'}
                                 </Button>
                                 <Button variant="ghost" className="w-full justify-center text-muted-foreground">
-                                    Save Draft
+                                    {mode === 'edit' ? 'Update Draft' : 'Save Draft'}
                                 </Button>
                             </div>
                         </div>
@@ -679,7 +573,7 @@ export default function CreateEventPage() {
                                                                                 id={`free-${ticket.id}`}
                                                                                 checked={ticket.isFree}
                                                                                 onCheckedChange={(checked) => {
-                                                                                    updateTicket(ticket.id, 'isFree', checked as unknown as string);
+                                                                                    updateTicket(ticket.id, 'isFree', checked);
                                                                                     if (checked) updateTicket(ticket.id, 'price', '0');
                                                                                 }}
                                                                             />
@@ -747,7 +641,7 @@ export default function CreateEventPage() {
                                                                     </div>
                                                                     <Switch
                                                                         checked={ticket.hasEarlyBird}
-                                                                        onCheckedChange={(checked) => updateTicket(ticket.id, 'hasEarlyBird', checked as unknown as string)}
+                                                                        onCheckedChange={(checked) => updateTicket(ticket.id, 'hasEarlyBird', checked)}
                                                                     />
                                                                 </div>
                                                                 {ticket.hasEarlyBird && (
@@ -1091,4 +985,8 @@ export default function CreateEventPage() {
             </Dialog >
         </div >
     );
+}
+
+export default function CreateEventPage() {
+    return <EventWizard mode="create" />;
 }
