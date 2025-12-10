@@ -18,7 +18,7 @@ const defaultActions: QuickAction[] = [
         title: 'Create Event',
         description: 'Start a new event',
         icon: Plus,
-        href: '/events/create',
+        href: '/events/new',
         color: 'bg-primary/10 text-primary',
     },
     {

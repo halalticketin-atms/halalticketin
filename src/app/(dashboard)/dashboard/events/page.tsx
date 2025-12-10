@@ -27,94 +27,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-interface Event {
-    id: string;
-    title: string;
-    date: string;
-    time: string;
-    location: string;
-    status: 'ongoing' | 'upcoming' | 'past' | 'draft';
-    ticketsSold: number;
-    totalTickets: number;
-    imageUrl: string;
-    revenue: string;
-}
-
-const mockEvents: Event[] = [
-    {
-        id: '1',
-        title: 'Community Iftar 2024',
-        date: 'Dec 15, 2024',
-        time: '6:00 PM',
-        location: 'London Islamic Centre',
-        status: 'upcoming',
-        ticketsSold: 45,
-        totalTickets: 100,
-        imageUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=400&h=300&fit=crop',
-        revenue: '£450',
-    },
-    {
-        id: '2',
-        title: 'Islamic Finance Workshop',
-        date: 'Jan 10, 2025',
-        time: '2:00 PM',
-        location: 'Online',
-        status: 'upcoming',
-        ticketsSold: 28,
-        totalTickets: 50,
-        imageUrl: 'https://images.unsplash.com/photo-1591115765373-5207764f72e7?w=400&h=300&fit=crop',
-        revenue: '£700',
-    },
-    {
-        id: '3',
-        title: 'Youth Conference 2025',
-        date: 'Feb 1, 2025',
-        time: '10:00 AM',
-        location: 'Birmingham Central Mosque',
-        status: 'draft',
-        ticketsSold: 0,
-        totalTickets: 500,
-        imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=300&fit=crop',
-        revenue: '£0',
-    },
-    {
-        id: '4',
-        title: 'Sisters Wellness Retreat',
-        date: 'Nov 20, 2024',
-        time: '9:00 AM',
-        location: 'Manchester',
-        status: 'ongoing',
-        ticketsSold: 156,
-        totalTickets: 200,
-        imageUrl: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=300&fit=crop',
-        revenue: '£5,460',
-    },
-    {
-        id: '5',
-        title: 'Eid Festival 2024',
-        date: 'Apr 10, 2024',
-        time: '11:00 AM',
-        location: 'London',
-        status: 'past',
-        ticketsSold: 1200,
-        totalTickets: 1200,
-        imageUrl: 'https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=400&h=300&fit=crop',
-        revenue: '£12,000',
-    },
-    {
-        id: '6',
-        title: 'Ramadan Prep Workshop',
-        date: 'Mar 1, 2024',
-        time: '3:00 PM',
-        location: 'Online',
-        status: 'past',
-        ticketsSold: 85,
-        totalTickets: 100,
-        imageUrl: 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?w=400&h=300&fit=crop',
-        revenue: '£850',
-    },
-];
+import { dashboardEvents, type DashboardEvent } from '@/data/mock-events';
 
 const statusConfig = {
     ongoing: { label: 'Ongoing', color: 'bg-blue-100 text-blue-700', icon: Clock },
@@ -123,7 +36,7 @@ const statusConfig = {
     draft: { label: 'Draft', color: 'bg-yellow-100 text-yellow-700', icon: Archive },
 };
 
-function EventCard({ event, index }: { event: Event; index: number }) {
+function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
     const config = statusConfig[event.status];
     const StatusIcon = config.icon;
 
@@ -234,16 +147,16 @@ export default function MyEventsPage() {
     const [activeTab, setActiveTab] = useState('all');
 
     const getFilteredEvents = (status: string) => {
-        if (status === 'all') return mockEvents;
-        return mockEvents.filter(e => e.status === status);
+        if (status === 'all') return dashboardEvents;
+        return dashboardEvents.filter(e => e.status === status);
     };
 
     const counts = {
-        all: mockEvents.length,
-        ongoing: mockEvents.filter(e => e.status === 'ongoing').length,
-        upcoming: mockEvents.filter(e => e.status === 'upcoming').length,
-        past: mockEvents.filter(e => e.status === 'past').length,
-        draft: mockEvents.filter(e => e.status === 'draft').length,
+        all: dashboardEvents.length,
+        ongoing: dashboardEvents.filter(e => e.status === 'ongoing').length,
+        upcoming: dashboardEvents.filter(e => e.status === 'upcoming').length,
+        past: dashboardEvents.filter(e => e.status === 'past').length,
+        draft: dashboardEvents.filter(e => e.status === 'draft').length,
     };
 
     return (
@@ -260,7 +173,7 @@ export default function MyEventsPage() {
                         <p className="text-muted-foreground mt-1">Manage your events and track performance</p>
                     </div>
                     <Button asChild className="shrink-0">
-                        <Link href="/events/create">
+                        <Link href="/events/new">
                             <Plus className="h-4 w-4 mr-2" />
                             Create Event
                         </Link>
@@ -299,7 +212,7 @@ export default function MyEventsPage() {
                                             : `You don't have any ${tab} events yet.`}
                                     </p>
                                     <Button asChild className="mt-4">
-                                        <Link href="/events/create">Create your first event</Link>
+                                        <Link href="/events/new">Create your first event</Link>
                                     </Button>
                                 </Card>
                             ) : (

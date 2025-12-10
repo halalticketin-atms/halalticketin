@@ -77,7 +77,7 @@ export function Header() {
                         className="hidden font-semibold sm:inline-flex"
                         asChild
                     >
-                        <Link href="/events/create">Create Event</Link>
+                        <Link href="/events/new">Create Event</Link>
                     </Button>
 
                     {/* User Menu */}
@@ -152,7 +152,7 @@ export function Header() {
                                 <div className="border-t pt-4">
                                     <SheetClose asChild>
                                         <Button className="w-full" asChild>
-                                            <Link href="/events/create">Create Event</Link>
+                                            <Link href="/events/new">Create Event</Link>
                                         </Button>
                                     </SheetClose>
                                 </div>

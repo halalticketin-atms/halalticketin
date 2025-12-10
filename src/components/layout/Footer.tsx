@@ -44,7 +44,7 @@ export function Footer() {
                         <h4 className="mb-4 text-sm font-semibold">For Organisers</h4>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                             <li>
-                                <Link href="/events/create" className="hover:text-foreground transition-colors">
+                                <Link href="/events/new" className="hover:text-foreground transition-colors">
                                     Create Event
                                 </Link>
                             </li>

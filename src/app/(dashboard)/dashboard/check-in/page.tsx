@@ -22,12 +22,7 @@ import { AttendeeCard } from '@/components/check-in/AttendeeCard';
 import { QRScanner } from '@/components/check-in/QRScanner';
 import { CheckInHeader } from '@/components/check-in/CheckInHeader';
 import { useCheckInTickets } from '@/hooks/useCheckInTickets';
-
-// Mock events for selection (frontend scaffold)
-const mockEvents = [
-  { id: '1', name: 'Halal Food Festival 2024', date: 'Dec 15, 2024' },
-  { id: '2', name: 'Islamic Art Exhibition', date: 'Jan 20, 2025' },
-];
+import { checkInEventOptions } from '@/data/mock-events';
 
 // Detect if mobile/tablet
 function useIsMobile() {
@@ -60,10 +55,10 @@ export default function CheckInPage() {
   const viewFromUrl = searchParams.get('view');
 
   const selectedEvent = useMemo(() => {
-    const fallbackId = mockEvents[0]?.id;
+    const fallbackId = checkInEventOptions[0]?.id;
     if (!fallbackId) return '';
     if (!selectedEventFromUrl) return fallbackId;
-    const exists = mockEvents.some((e) => e.id === selectedEventFromUrl);
+    const exists = checkInEventOptions.some((e) => e.id === selectedEventFromUrl);
     return exists ? selectedEventFromUrl : fallbackId;
   }, [selectedEventFromUrl]);
 
@@ -73,7 +68,7 @@ export default function CheckInPage() {
   const view: 'scanner' | 'monitor' =
     viewFromUrl === 'monitor' ? 'monitor' : 'scanner';
 
-  const selectedEventData = mockEvents.find((e) => e.id === selectedEvent);
+  const selectedEventData = checkInEventOptions.find((e) => e.id === selectedEvent);
 
   const {
     tickets,
@@ -148,7 +143,7 @@ export default function CheckInPage() {
       <div className="min-h-screen bg-muted/30 pb-24">
         <div className="container py-6 space-y-4">
           <CheckInHeader
-            events={mockEvents}
+            events={checkInEventOptions}
             selectedEventId={selectedEvent}
             onEventChange={(value) => updateQuery('event', value)}
             stats={stats}
@@ -237,7 +232,7 @@ export default function CheckInPage() {
       <div className="min-h-screen bg-muted/30">
         <div className="container py-8">
           <CheckInHeader
-            events={mockEvents}
+            events={checkInEventOptions}
             selectedEventId={selectedEvent}
             onEventChange={(value) => updateQuery('event', value)}
             stats={stats}
@@ -271,7 +266,7 @@ export default function CheckInPage() {
     <div className="min-h-screen bg-muted/30 pb-24">
       <div className="container py-6">
         <CheckInHeader
-          events={mockEvents}
+          events={checkInEventOptions}
           selectedEventId={selectedEvent}
           onEventChange={(value) => updateQuery('event', value)}
           stats={stats}
