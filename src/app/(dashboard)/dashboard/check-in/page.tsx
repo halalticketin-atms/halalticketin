@@ -20,6 +20,7 @@ import { DesktopQRRedirect } from '@/components/check-in/DesktopQRRedirect';
 import { ScanResultOverlay } from '@/components/check-in/ScanResultOverlay';
 import { AttendeeCard } from '@/components/check-in/AttendeeCard';
 import { QRScanner } from '@/components/check-in/QRScanner';
+import { CheckInHeader } from '@/components/check-in/CheckInHeader';
 import { useCheckInTickets } from '@/hooks/useCheckInTickets';
 
 // Mock events for selection (frontend scaffold)
@@ -56,6 +57,7 @@ export default function CheckInPage() {
 
   const selectedEventFromUrl = searchParams.get('event');
   const modeFromUrl = searchParams.get('mode');
+  const viewFromUrl = searchParams.get('view');
 
   const selectedEvent = useMemo(() => {
     const fallbackId = mockEvents[0]?.id;
@@ -67,6 +69,9 @@ export default function CheckInPage() {
 
   const mode: 'scan' | 'search' =
     modeFromUrl === 'search' ? 'search' : 'scan';
+
+  const view: 'scanner' | 'monitor' =
+    viewFromUrl === 'monitor' ? 'monitor' : 'scanner';
 
   const selectedEventData = mockEvents.find((e) => e.id === selectedEvent);
 
@@ -137,44 +142,118 @@ export default function CheckInPage() {
     await handleCheckIn(ticket.id);
   };
 
-  // Desktop view - show QR redirect
-  if (!isMobile) {
+  // Desktop monitor view
+  if (!isMobile && view === 'monitor') {
     return (
-      <div className="min-h-screen bg-muted/30">
-        <div className="container py-8">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
-          >
-            <h1 className="font-display text-3xl font-bold">Check-in</h1>
-            <p className="text-muted-foreground mt-1">
-              Scan tickets and manage attendee check-ins
-            </p>
-          </motion.div>
+      <div className="min-h-screen bg-muted/30 pb-24">
+        <div className="container py-6 space-y-4">
+          <CheckInHeader
+            events={mockEvents}
+            selectedEventId={selectedEvent}
+            onEventChange={(value) => updateQuery('event', value)}
+            stats={stats}
+            showModeToggle={false}
+            error={error}
+            subtitle="Monitor attendees and manage check-ins"
+          />
 
-          <Card className="mb-6">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-4">
-                <label className="text-sm font-medium">Select Event:</label>
-                <Select
-                  value={selectedEvent}
-                  onValueChange={(value) => updateQuery('event', value)}
-                >
-                  <SelectTrigger className="w-[300px]">
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateQuery('view', 'scanner')}
+            >
+              Back to scanner view
+            </Button>
+          </div>
+
+          <Card className="mb-4">
+            <CardContent className="py-3">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search name, email, order..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[140px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockEvents.map((event) => (
-                      <SelectItem key={event.id} value={event.id}>
-                        {event.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="not_checked_in">Pending</SelectItem>
+                    <SelectItem value="checked_in">Checked In</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </CardContent>
           </Card>
+
+          <div className="space-y-3">
+            {isLoading ? (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  <p>Loading tickets...</p>
+                </CardContent>
+              </Card>
+            ) : tickets.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No tickets for this event yet</p>
+                </CardContent>
+              </Card>
+            ) : filteredTickets.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No attendees found</p>
+                </CardContent>
+              </Card>
+            ) : (
+              filteredTickets.map((ticket) => (
+                <AttendeeCard
+                  key={ticket.id}
+                  ticket={ticket}
+                  isUpdating={updatingTicketId === ticket.id}
+                  onCheckIn={handleCheckIn}
+                  onUndo={handleUndo}
+                />
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop scanner entry view - QR redirect
+  if (!isMobile && view === 'scanner') {
+    return (
+      <div className="min-h-screen bg-muted/30">
+        <div className="container py-8">
+          <CheckInHeader
+            events={mockEvents}
+            selectedEventId={selectedEvent}
+            onEventChange={(value) => updateQuery('event', value)}
+            stats={stats}
+            showModeToggle={false}
+            subtitle="Scan tickets and manage attendee check-ins"
+          />
+
+          <div className="flex justify-end mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => updateQuery('view', 'monitor')}
+            >
+              Open monitor view
+            </Button>
+          </div>
 
           <Card>
             <DesktopQRRedirect
@@ -191,58 +270,15 @@ export default function CheckInPage() {
   return (
     <div className="min-h-screen bg-muted/30 pb-24">
       <div className="container py-6">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <h1 className="font-display text-2xl font-bold">Check-in</h1>
-          <Select
-            value={selectedEvent}
-            onValueChange={(value) => updateQuery('event', value)}
-          >
-            <SelectTrigger className="w-full mt-2">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {mockEvents.map((event) => (
-                <SelectItem key={event.id} value={event.id}>
-                  {event.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </motion.div>
-
-        {/* Stats */}
-        <CheckInStatsBar stats={stats} />
-
-        {error && (
-          <p className="mt-2 text-sm text-red-600">
-            {error}
-          </p>
-        )}
-
-        {/* Mode Toggle */}
-        <div className="flex gap-2 my-4">
-          <Button
-            variant={mode === 'scan' ? 'default' : 'outline'}
-            className="flex-1"
-            onClick={() => updateQuery('mode', 'scan')}
-          >
-            <ScanLine className="h-4 w-4 mr-2" />
-            Scan QR
-          </Button>
-          <Button
-            variant={mode === 'search' ? 'default' : 'outline'}
-            className="flex-1"
-            onClick={() => updateQuery('mode', 'search')}
-          >
-            <Search className="h-4 w-4 mr-2" />
-            Search
-          </Button>
-        </div>
+        <CheckInHeader
+          events={mockEvents}
+          selectedEventId={selectedEvent}
+          onEventChange={(value) => updateQuery('event', value)}
+          stats={stats}
+          mode={mode}
+          onModeChange={(next) => updateQuery('mode', next)}
+          error={error}
+        />
 
         {/* Scanner Mode */}
         {mode === 'scan' && (
@@ -261,6 +297,7 @@ export default function CheckInPage() {
                     size="sm"
                     variant="secondary"
                     disabled={isLoading || !!updatingTicketId}
+                    aria-label="Simulate scanning a valid ticket"
                     onClick={() => {
                       const unchecked = tickets.find(
                         (t) => t.checkInStatus === 'not_checked_in',
@@ -274,6 +311,7 @@ export default function CheckInPage() {
                     size="sm"
                     variant="secondary"
                     disabled={isLoading || !!updatingTicketId}
+                    aria-label="Simulate scanning an already checked-in ticket"
                     onClick={() => {
                       const checked = tickets.find(
                         (t) => t.checkInStatus === 'checked_in',

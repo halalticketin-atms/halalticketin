@@ -37,6 +37,12 @@ export function ScanResultOverlay({ result, onClose }: ScanResultOverlayProps) {
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.8, opacity: 0 }}
+          role="alertdialog"
+          aria-modal="true"
+          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onClose();
+          }}
           className={`relative z-10 p-8 rounded-2xl text-center max-w-sm w-full ${
             isSuccess
               ? 'bg-green-500 text-white'
@@ -72,7 +78,12 @@ export function ScanResultOverlay({ result, onClose }: ScanResultOverlayProps) {
 
           {isInvalid && <p className="text-sm opacity-80">{result.message}</p>}
 
-          <Button variant="secondary" className="mt-6" onClick={onClose}>
+          <Button
+            variant="secondary"
+            className="mt-6"
+            onClick={onClose}
+            autoFocus
+          >
             Continue Scanning
           </Button>
         </motion.div>
@@ -80,4 +91,3 @@ export function ScanResultOverlay({ result, onClose }: ScanResultOverlayProps) {
     </AnimatePresence>
   );
 }
-

@@ -107,6 +107,7 @@ export function QRScanner({ onScan, onError, isActive = true }: QRScannerProps) 
                 id="qr-reader"
                 ref={containerRef}
                 className="w-full h-full"
+                aria-label="QR code scanner area"
             />
 
             {/* Scanning overlay */}
