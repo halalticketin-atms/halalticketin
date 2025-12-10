@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { ScanLine, Search, Users } from 'lucide-react';
+import { ScanLine, Search, Users, Loader2 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,26 @@ function useIsMobile() {
   return isMobile;
 }
 
+function CheckInFallback() {
+  return (
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+      <div className="text-center space-y-3">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        <p className="text-muted-foreground">Loading check-in...</p>
+      </div>
+    </div>
+  );
+}
+
 export default function CheckInPage() {
+  return (
+    <Suspense fallback={<CheckInFallback />}>
+      <CheckInContent />
+    </Suspense>
+  );
+}
+
+function CheckInContent() {
   const isMobile = useIsMobile();
   const router = useRouter();
   const pathname = usePathname();

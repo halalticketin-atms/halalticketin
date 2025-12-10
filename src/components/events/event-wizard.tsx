@@ -1,6 +1,5 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -45,9 +44,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { useEventDraft, type DraftEventInitial } from '@/hooks/useEventDraft';
-import { useSearchParams } from 'next/navigation';
-import { consumePendingDraft, type DraftEntrySource } from '@/utils/pending-draft-storage';
+import { useEventDraft, type DraftEventInitial, type DraftPromoCode } from '@/hooks/useEventDraft';
 
 export const steps = [
     { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
@@ -55,29 +52,7 @@ export const steps = [
     { id: 3, title: 'Tickets', description: 'Pricing & availability', icon: Ticket },
 ];
 
-const entryContextDefaults: Record<'scratch' | DraftEntrySource, EntryContext> = {
-    scratch: {
-        label: 'Start from scratch',
-        description: 'Fill each step manually or save a draft whenever you like.',
-    },
-    ai: {
-        label: 'AI suggestion',
-        description: 'Generated via the assistant. Double-check details before publishing.',
-    },
-    clone: {
-        label: 'Cloned from event',
-        description: 'Copied from a previous event. Update the schedule or tickets if needed.',
-    },
-    draft: {
-        label: 'Draft in progress',
-        description: 'Continue editing a saved draft without losing earlier work.',
-    },
-};
-
-const isDraftSource = (value: string | null): value is DraftEntrySource =>
-    value === 'ai' || value === 'clone' || value === 'draft';
-
-type EntryContext = {
+export type EntryContext = {
     label: string;
     description?: string;
 };
@@ -782,7 +757,7 @@ export function EventWizard({
                                                                         <Label className="text-sm">Discount Type</Label>
                                                                         <Select
                                                                             value={promo.discountType}
-                                                                            onValueChange={(val) => updatePromoCode(promo.id, 'discountType', val as 'fixed' | 'percentage')}
+                                                                    onValueChange={(val: DraftPromoCode['discountType']) => updatePromoCode(promo.id, 'discountType', val)}
                                                                         >
                                                                             <SelectTrigger className="h-10">
                                                                                 <SelectValue />
@@ -1037,66 +1012,5 @@ export function EventWizard({
                 </DialogContent>
             </Dialog >
         </div >
-    );
-}
-
-export default function CreateEventPage() {
-    return (
-        <Suspense fallback={<div className="min-h-screen bg-muted/30 flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>}>
-            <CreateEventContent />
-        </Suspense>
-    );
-}
-
-function CreateEventContent() {
-    const searchParams = useSearchParams();
-    const sourceParam = (searchParams.get('source') as DraftEntrySource | null) ?? null;
-    const [initialDraft, setInitialDraft] = useState<DraftEventInitial | undefined>(undefined);
-    const [entryContext, setEntryContext] = useState<EntryContext>(entryContextDefaults.scratch);
-    const [wizardKey, setWizardKey] = useState('scratch');
-    const appliedSourceRef = useRef<string | null>(null);
-
-    /* eslint-disable react-hooks/set-state-in-effect */
-    useEffect(() => {
-        if (!isDraftSource(sourceParam)) {
-            appliedSourceRef.current = null;
-            setInitialDraft(undefined);
-            setEntryContext(entryContextDefaults.scratch);
-            setWizardKey('scratch');
-            return;
-        }
-
-        if (appliedSourceRef.current === sourceParam) {
-            return;
-        }
-
-        appliedSourceRef.current = sourceParam;
-        const pending = consumePendingDraft();
-
-        if (pending && pending.source === sourceParam) {
-            setInitialDraft(pending.draft);
-            setEntryContext({
-                label: pending.meta?.label ?? entryContextDefaults[sourceParam].label,
-                description: pending.meta?.description ?? entryContextDefaults[sourceParam].description,
-            });
-            setWizardKey(`${sourceParam}-${pending.meta?.key ?? sourceParam}`);
-        } else {
-            setInitialDraft(undefined);
-            setEntryContext({
-                label: 'Start from scratch',
-                description: 'We could not load that draft, so you can continue manually.',
-            });
-            setWizardKey(`scratch-${sourceParam}`);
-        }
-    }, [sourceParam]);
-    /* eslint-enable react-hooks/set-state-in-effect */
-
-    return (
-        <EventWizard
-            key={wizardKey}
-            mode="create"
-            initialDraft={initialDraft}
-            entryContext={entryContext}
-        />
     );
 }
