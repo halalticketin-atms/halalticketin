@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'motion/react';
 import {
     Search,
     Filter,
     Download,
-    ChevronDown,
     MoreHorizontal,
     Mail,
     RefreshCw,
@@ -16,14 +15,12 @@ import {
     Calendar,
     User,
     Ticket,
-    X,
     Check,
-    AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     Table,
     TableBody,
@@ -53,125 +50,133 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import api from '@/lib/api';
 
-// Mock data
-interface Order {
+type OrderStatus = 'pending' | 'completed' | 'cancelled' | 'refunded';
+
+interface OrderItem {
+    id: string;
+    name: string | null;
+    quantity: number;
+    unitPrice: number;
+}
+
+interface OrderResponse {
     id: string;
     orderNumber: string;
     createdAt: string;
     attendee: {
-        name: string;
+        name: string | null;
         email: string;
-        phone?: string;
+        phone?: string | null;
     };
     event: {
         id: string;
-        name: string;
+        name: string | null;
     };
-    tickets: {
-        type: string;
-        quantity: number;
-        unitPrice: number;
-    }[];
-    subtotal: number;
-    fees: number;
-    total: number;
-    status: 'paid' | 'pending' | 'refunded' | 'cancelled';
-    paymentMethod: string;
+    totals: {
+        subtotal: number;
+        total: number;
+        currency: string;
+    };
+    status: OrderStatus;
+    items: OrderItem[];
+    paymentMethod?: string | null;
 }
 
-const mockOrders: Order[] = [
-    {
-        id: '1',
-        orderNumber: 'ORD-2024-001',
-        createdAt: '2024-12-05T14:30:00Z',
-        attendee: { name: 'Ahmed Hassan', email: 'ahmed@example.com', phone: '+44 7123 456789' },
-        event: { id: '1', name: 'Halal Food Festival 2024' },
-        tickets: [{ type: 'VIP Pass', quantity: 2, unitPrice: 45 }],
-        subtotal: 90,
-        fees: 4.50,
-        total: 94.50,
-        status: 'paid',
-        paymentMethod: 'Visa •••• 4242',
-    },
-    {
-        id: '2',
-        orderNumber: 'ORD-2024-002',
-        createdAt: '2024-12-04T10:15:00Z',
-        attendee: { name: 'Fatima Khan', email: 'fatima.k@example.com' },
-        event: { id: '1', name: 'Halal Food Festival 2024' },
-        tickets: [
-            { type: 'General Admission', quantity: 4, unitPrice: 15 },
-            { type: 'Kids Ticket', quantity: 2, unitPrice: 5 },
-        ],
-        subtotal: 70,
-        fees: 3.50,
-        total: 73.50,
-        status: 'paid',
-        paymentMethod: 'Mastercard •••• 5555',
-    },
-    {
-        id: '3',
-        orderNumber: 'ORD-2024-003',
-        createdAt: '2024-12-03T16:45:00Z',
-        attendee: { name: 'Omar Ali', email: 'omar.ali@example.com' },
-        event: { id: '2', name: 'Islamic Art Exhibition' },
-        tickets: [{ type: 'Standard Entry', quantity: 1, unitPrice: 25 }],
-        subtotal: 25,
-        fees: 1.25,
-        total: 26.25,
-        status: 'refunded',
-        paymentMethod: 'Visa •••• 1234',
-    },
-    {
-        id: '4',
-        orderNumber: 'ORD-2024-004',
-        createdAt: '2024-12-02T09:00:00Z',
-        attendee: { name: 'Aisha Mohammed', email: 'aisha.m@example.com' },
-        event: { id: '1', name: 'Halal Food Festival 2024' },
-        tickets: [{ type: 'Family Pack', quantity: 1, unitPrice: 50 }],
-        subtotal: 50,
-        fees: 2.50,
-        total: 52.50,
-        status: 'pending',
-        paymentMethod: 'Bank Transfer',
-    },
-];
+interface OrdersResponse {
+    orders: OrderResponse[];
+}
 
-const statusColors: Record<string, string> = {
-    paid: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+const statusBadges: Record<OrderStatus, string> = {
+    completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
     pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     refunded: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
     cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
+const statusLabels: Record<OrderStatus, string> = {
+    completed: 'Paid',
+    pending: 'Pending',
+    refunded: 'Refunded',
+    cancelled: 'Cancelled',
+};
+
+const formatCurrency = (amount: number, currency: string) => {
+    try {
+        return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amount);
+    } catch {
+        return `£${amount.toFixed(2)}`;
+    }
+};
+
 export default function OrdersPage() {
-    const [orders] = useState<Order[]>(mockOrders);
+    const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchOrders = async () => {
+            setIsLoading(true);
+            try {
+                const response = await api.get<OrdersResponse>('/api/v1/orders');
+                if (!isMounted) {
+                    return;
+                }
+                setOrders(response.orders);
+                setError(null);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'Unable to load orders';
+                if (!isMounted) {
+                    return;
+                }
+                setError(message);
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        void fetchOrders();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     const filteredOrders = orders.filter(order => {
         const matchesSearch =
             order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            order.attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (order.attendee.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             order.attendee.email.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
 
-    const openOrderDetails = (order: Order) => {
+    const openOrderDetails = (order: OrderResponse) => {
         setSelectedOrder(order);
         setIsDrawerOpen(true);
     };
 
-    const totalRevenue = orders
-        .filter(o => o.status === 'paid')
-        .reduce((sum, o) => sum + o.total, 0);
-
-    const totalOrders = orders.length;
-    const paidOrders = orders.filter(o => o.status === 'paid').length;
+    const { totalOrders, paidOrders, revenueTotal } = useMemo(() => {
+        const totals = orders.reduce(
+            (acc, order) => {
+                acc.totalOrders += 1;
+                if (order.status === 'completed') {
+                    acc.paidOrders += 1;
+                    acc.revenueTotal += order.totals.total;
+                }
+                return acc;
+            },
+            { totalOrders: 0, paidOrders: 0, revenueTotal: 0 }
+        );
+        return totals;
+    }, [orders]);
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -222,7 +227,9 @@ export default function OrdersPage() {
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Total Revenue</p>
-                                    <p className="text-2xl font-bold">£{totalRevenue.toFixed(2)}</p>
+                                    <p className="text-2xl font-bold">
+                                        {formatCurrency(revenueTotal, orders[0]?.totals.currency ?? 'GBP')}
+                                    </p>
                                 </div>
                             </div>
                         </CardContent>
@@ -250,7 +257,7 @@ export default function OrdersPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">All Status</SelectItem>
-                                        <SelectItem value="paid">Paid</SelectItem>
+                                        <SelectItem value="completed">Paid</SelectItem>
                                         <SelectItem value="pending">Pending</SelectItem>
                                         <SelectItem value="refunded">Refunded</SelectItem>
                                         <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -281,7 +288,19 @@ export default function OrdersPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredOrders.length === 0 ? (
+                                {isLoading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                                            Loading orders...
+                                        </TableCell>
+                                    </TableRow>
+                                ) : error ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                                            {error}
+                                        </TableCell>
+                                    </TableRow>
+                                ) : filteredOrders.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={7} className="h-32 text-center">
                                             <div className="text-muted-foreground">
@@ -304,7 +323,7 @@ export default function OrdersPage() {
                                             </TableCell>
                                             <TableCell>
                                                 <div>
-                                                    <p className="font-medium">{order.attendee.name}</p>
+                                                    <p className="font-medium">{order.attendee.name ?? 'Unnamed attendee'}</p>
                                                     <p className="text-xs text-muted-foreground">{order.attendee.email}</p>
                                                 </div>
                                             </TableCell>
@@ -312,20 +331,22 @@ export default function OrdersPage() {
                                                 <span className="text-sm">{order.event.name}</span>
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell">
-                                                <span className="text-sm text-muted-foreground">
-                                                    {new Date(order.createdAt).toLocaleDateString('en-GB', {
-                                                        day: 'numeric',
+                                                    <span className="text-sm text-muted-foreground">
+                                                        {new Date(order.createdAt).toLocaleDateString('en-GB', {
+                                                            day: 'numeric',
                                                         month: 'short',
                                                         year: 'numeric',
                                                     })}
                                                 </span>
                                             </TableCell>
                                             <TableCell>
-                                                <span className="font-semibold">£{order.total.toFixed(2)}</span>
+                                                <span className="font-semibold">
+                                                    {formatCurrency(order.totals.total, order.totals.currency)}
+                                                </span>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={`${statusColors[order.status]} capitalize`}>
-                                                    {order.status}
+                                                <Badge className={`${statusBadges[order.status]} capitalize`}>
+                                                    {statusLabels[order.status]}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
@@ -345,7 +366,7 @@ export default function OrdersPage() {
                                                             Resend Confirmation
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
-                                                        {order.status === 'paid' && (
+                                                        {order.status === 'completed' && (
                                                             <DropdownMenuItem className="text-destructive">
                                                                 <RefreshCw className="mr-2 h-4 w-4" />
                                                                 Issue Refund
@@ -371,8 +392,8 @@ export default function OrdersPage() {
                             <SheetHeader>
                                 <SheetTitle className="flex items-center gap-3">
                                     <span className="font-mono">{selectedOrder.orderNumber}</span>
-                                    <Badge className={`${statusColors[selectedOrder.status]} capitalize`}>
-                                        {selectedOrder.status}
+                                    <Badge className={`${statusBadges[selectedOrder.status]} capitalize`}>
+                                        {statusLabels[selectedOrder.status]}
                                     </Badge>
                                 </SheetTitle>
                             </SheetHeader>
@@ -385,7 +406,7 @@ export default function OrdersPage() {
                                         Customer
                                     </h4>
                                     <div className="bg-muted/50 rounded-xl p-4">
-                                        <p className="font-semibold">{selectedOrder.attendee.name}</p>
+                                        <p className="font-semibold">{selectedOrder.attendee.name ?? 'Unnamed attendee'}</p>
                                         <p className="text-sm text-muted-foreground">{selectedOrder.attendee.email}</p>
                                         {selectedOrder.attendee.phone && (
                                             <p className="text-sm text-muted-foreground">{selectedOrder.attendee.phone}</p>
@@ -400,7 +421,7 @@ export default function OrdersPage() {
                                         Event
                                     </h4>
                                     <div className="bg-muted/50 rounded-xl p-4">
-                                        <p className="font-semibold">{selectedOrder.event.name}</p>
+                                        <p className="font-semibold">{selectedOrder.event.name ?? 'Unpublished event'}</p>
                                     </div>
                                 </div>
 
@@ -411,16 +432,20 @@ export default function OrdersPage() {
                                         Tickets
                                     </h4>
                                     <div className="bg-muted/50 rounded-xl p-4 space-y-3">
-                                        {selectedOrder.tickets.map((ticket, i) => (
-                                            <div key={i} className="flex justify-between">
-                                                <span>
-                                                    {ticket.quantity}x {ticket.type}
-                                                </span>
-                                                <span className="font-medium">
-                                                    £{(ticket.unitPrice * ticket.quantity).toFixed(2)}
-                                                </span>
-                                            </div>
-                                        ))}
+                                        {selectedOrder.items.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground">No tickets associated yet.</p>
+                                        ) : (
+                                            selectedOrder.items.map((ticket) => (
+                                                <div key={ticket.id} className="flex justify-between">
+                                                    <span>
+                                                        {ticket.quantity}x {ticket.name ?? 'Ticket'}
+                                                    </span>
+                                                    <span className="font-medium">
+                                                        {formatCurrency(ticket.unitPrice * ticket.quantity, selectedOrder.totals.currency)}
+                                                    </span>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
 
@@ -430,15 +455,20 @@ export default function OrdersPage() {
                                 <div className="space-y-3">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Subtotal</span>
-                                        <span>£{selectedOrder.subtotal.toFixed(2)}</span>
+                                        <span>{formatCurrency(selectedOrder.totals.subtotal, selectedOrder.totals.currency)}</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Fees</span>
-                                        <span>£{selectedOrder.fees.toFixed(2)}</span>
+                                        <span>
+                                            {formatCurrency(
+                                                Math.max(selectedOrder.totals.total - selectedOrder.totals.subtotal, 0),
+                                                selectedOrder.totals.currency
+                                            )}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between font-semibold text-lg pt-2 border-t">
                                         <span>Total</span>
-                                        <span>£{selectedOrder.total.toFixed(2)}</span>
+                                        <span>{formatCurrency(selectedOrder.totals.total, selectedOrder.totals.currency)}</span>
                                     </div>
                                 </div>
 
@@ -449,7 +479,9 @@ export default function OrdersPage() {
                                         Payment
                                     </h4>
                                     <div className="bg-muted/50 rounded-xl p-4">
-                                        <p className="font-medium">{selectedOrder.paymentMethod}</p>
+                                        <p className="font-medium">
+                                            {selectedOrder.paymentMethod ?? 'Payment details unavailable'}
+                                        </p>
                                         <p className="text-xs text-muted-foreground mt-1">
                                             {new Date(selectedOrder.createdAt).toLocaleString('en-GB')}
                                         </p>
@@ -462,7 +494,7 @@ export default function OrdersPage() {
                                         <Mail className="h-4 w-4 mr-2" />
                                         Resend Email
                                     </Button>
-                                    {selectedOrder.status === 'paid' && (
+                                    {selectedOrder.status === 'completed' && (
                                         <Button variant="destructive" className="flex-1">
                                             <RefreshCw className="h-4 w-4 mr-2" />
                                             Refund

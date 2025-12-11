@@ -145,85 +145,87 @@ export default function BrowseEventsPage() {
                             </Button>
                         </Card>
                     ) : (
-                    filteredEvents.map((event, index) => (
-                        <motion.div
-                            key={event.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, delay: index * 0.05 }}
-                        >
-                            <Link href={`/events/${event.id}`}>
-                                <Card className="group overflow-hidden border-border/50 transition-all hover:shadow-lg hover:border-primary/20">
-                                    {/* Image */}
-                                    <div className="relative aspect-[16/10] overflow-hidden">
-                                        <Image
-                                            src={event.imageUrl}
-                                            alt={event.title}
-                                            fill
-                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                        />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-
-                                        {/* Category Badge */}
-                                        <Badge className="absolute left-3 top-3 bg-background/90 text-foreground backdrop-blur-sm">
-                                            {event.category}
-                                        </Badge>
-
-                                        {/* Like Button */}
-                                        <button
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                toggleLike(event.id);
-                                            }}
-                                            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/90 backdrop-blur-sm transition-transform hover:scale-110"
-                                        >
-                                            <Heart
-                                                className={`h-5 w-5 ${likedEvents.has(event.id)
-                                                        ? 'fill-red-500 text-red-500'
-                                                        : 'text-muted-foreground'
-                                                    }`}
+                        <>
+                        {filteredEvents.map((event, index) => (
+                            <motion.div
+                                key={event.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.4, delay: index * 0.05 }}
+                            >
+                                <Link href={`/events/${event.id}`}>
+                                    <Card className="group overflow-hidden border-border/50 transition-all hover:shadow-lg hover:border-primary/20">
+                                        {/* Image */}
+                                        <div className="relative aspect-[16/10] overflow-hidden">
+                                            <Image
+                                                src={event.imageUrl}
+                                                alt={event.title}
+                                                fill
+                                                className="object-cover transition-transform duration-300 group-hover:scale-105"
                                             />
-                                        </button>
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-                                        {/* Price */}
-                                        <div className="absolute bottom-3 right-3">
-                                            <Badge variant="secondary" className="bg-primary text-primary-foreground font-semibold">
-                                                {event.price === 0 ? 'Free' : `£${event.price}`}
+                                            {/* Category Badge */}
+                                            <Badge className="absolute left-3 top-3 bg-background/90 text-foreground backdrop-blur-sm">
+                                                {event.category}
                                             </Badge>
-                                        </div>
-                                    </div>
 
-                                    {/* Content */}
-                                    <CardContent className="p-4">
-                                        <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-primary transition-colors">
-                                            {event.title}
-                                        </h3>
+                                            {/* Like Button */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    toggleLike(event.id);
+                                                }}
+                                                className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/90 backdrop-blur-sm transition-transform hover:scale-110"
+                                            >
+                                                <Heart
+                                                    className={`h-5 w-5 ${likedEvents.has(event.id)
+                                                            ? 'fill-red-500 text-red-500'
+                                                            : 'text-muted-foreground'
+                                                        }`}
+                                                />
+                                            </button>
 
-                                        <div className="mt-3 space-y-2">
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <Calendar className="h-4 w-4 shrink-0" />
-                                                <span>{event.date} • {event.time}</span>
+                                            {/* Price */}
+                                            <div className="absolute bottom-3 right-3">
+                                                <Badge variant="secondary" className="bg-primary text-primary-foreground font-semibold">
+                                                    {event.price === 0 ? 'Free' : `£${event.price}`}
+                                                </Badge>
                                             </div>
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <MapPin className="h-4 w-4 shrink-0" />
-                                                <span className="truncate">{event.venue}</span>
-                                            </div>
                                         </div>
 
-                                        <div className="mt-4 pt-4 border-t flex items-center justify-between">
-                                            <span className="text-sm text-muted-foreground">
-                                                {event.attendees} attending
-                                            </span>
-                                            <Button size="sm" variant="ghost" className="text-primary">
-                                                View Details
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </Link>
-                        </motion.div>
-                    ))}
-                </div>
+                                        {/* Content */}
+                                        <CardContent className="p-4">
+                                            <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-primary transition-colors">
+                                                {event.title}
+                                            </h3>
+
+                                            <div className="mt-3 space-y-2">
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <Calendar className="h-4 w-4 shrink-0" />
+                                                    <span>{event.date} • {event.time}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <MapPin className="h-4 w-4 shrink-0" />
+                                                    <span className="truncate">{event.venue}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4 pt-4 border-t flex items-center justify-between">
+                                                <span className="text-sm text-muted-foreground">
+                                                    {event.attendees} attending
+                                                </span>
+                                                <Button size="sm" variant="ghost" className="text-primary">
+                                                    View Details
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </Link>
+                            </motion.div>
+                        ))}
+                        </>
+                    )}
                 </div>
 
                 {/* Empty State */}

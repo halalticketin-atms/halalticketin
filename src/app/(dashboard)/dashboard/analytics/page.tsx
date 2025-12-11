@@ -1,19 +1,13 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from 'motion/react';
 import {
-    TrendingUp,
-    TrendingDown,
     Calendar,
     Ticket,
     DollarSign,
-    Users,
     ArrowLeft,
-    ChevronDown,
-    Eye,
-    Clock,
-    MapPin,
+    Receipt,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -26,54 +20,137 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import api from "@/lib/api";
 
-// Mock events for selection
-const events = [
-    { id: 'all', name: 'All Events', image: '' },
-    { id: '1', name: 'Community Iftar 2024', image: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=100&h=100&fit=crop' },
-    { id: '2', name: 'Islamic Finance Workshop', image: 'https://images.unsplash.com/photo-1591115765373-5207764f72e7?w=100&h=100&fit=crop' },
-    { id: '3', name: 'Youth Conference 2025', image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=100&h=100&fit=crop' },
-];
+interface AnalyticsEvent {
+    id: string;
+    name: string;
+    bannerImageUrl: string | null;
+    revenue: number;
+    ticketsSold: number;
+    lastOrderAt: string | null;
+}
 
-// Mock analytics data
-const getAnalyticsData = (eventId: string) => {
-    if (eventId === 'all') {
-        return {
-            stats: [
-                { title: 'Total Revenue', value: '£24,500', change: 23, icon: DollarSign },
-                { title: 'Tickets Sold', value: '1,145', change: 18, icon: Ticket },
-                { title: 'Page Views', value: '15.2K', change: 45, icon: Eye },
-                { title: 'Attendees', value: '892', change: 15, icon: Users },
-            ],
-            revenue: [2400, 3200, 2800, 4100, 3800, 5200],
-            tickets: [120, 180, 150, 220, 195, 280],
-        };
-    }
-    return {
-        stats: [
-            { title: 'Event Revenue', value: '£4,500', change: 12, icon: DollarSign },
-            { title: 'Tickets Sold', value: '450', change: 8, icon: Ticket },
-            { title: 'Page Views', value: '3.2K', change: 25, icon: Eye },
-            { title: 'Check-ins', value: '312', change: -5, icon: Users },
-        ],
-        revenue: [800, 1200, 900, 1600],
-        tickets: [45, 80, 65, 110],
+interface MonthlyPoint {
+    label: string;
+    value: number;
+}
+
+interface AnalyticsResponse {
+    filters: {
+        events: Array<{
+            id: string;
+            name: string;
+            bannerImageUrl: string | null;
+        }>;
     };
-};
+    stats: {
+        totalRevenue: number;
+        ticketsSold: number;
+        paidOrders: number;
+        totalEvents: number;
+        currency: string;
+    };
+    charts: {
+        revenueMonthly: MonthlyPoint[];
+        ticketsMonthly: MonthlyPoint[];
+    };
+    eventPerformance: AnalyticsEvent[];
+}
 
-const months = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const formatCurrency = (amount: number, currency: string) => {
+    try {
+        return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amount);
+    } catch {
+        return `£${amount.toFixed(2)}`;
+    }
+};
 
 export default function AnalyticsPage() {
     const [selectedEvent, setSelectedEvent] = useState('all');
+    const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
     const [mounted, setMounted] = useState(false);
-    const data = getAnalyticsData(selectedEvent);
-    const maxRevenue = Math.max(...data.revenue);
-    const maxTickets = Math.max(...data.tickets);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchAnalytics = useCallback(
+        async (eventId?: string) => {
+            setIsLoading(true);
+            try {
+                const response = await api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
+                    params: eventId ? { eventId } : undefined,
+                });
+                setAnalytics(response);
+                setError(null);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'Unable to load analytics';
+                setError(message);
+                if (eventId) {
+                    setSelectedEvent('all');
+                }
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        []
+    );
+
+    useEffect(() => {
+        void fetchAnalytics();
+    }, [fetchAnalytics]);
 
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    const eventOptions = analytics?.filters.events ?? [];
+    const selectedEventMeta = selectedEvent === 'all' ? null : eventOptions.find(event => event.id === selectedEvent);
+
+    const stats = useMemo(() => {
+        if (!analytics) {
+            return [];
+        }
+
+        return [
+            {
+                title: 'Total Revenue',
+                value: formatCurrency(analytics.stats.totalRevenue, analytics.stats.currency),
+                icon: DollarSign,
+            },
+            {
+                title: 'Tickets Sold',
+                value: analytics.stats.ticketsSold.toString(),
+                icon: Ticket,
+            },
+            {
+                title: 'Paid Orders',
+                value: analytics.stats.paidOrders.toString(),
+                icon: Receipt,
+            },
+            {
+                title: 'Active Events',
+                value: analytics.stats.totalEvents.toString(),
+                icon: Calendar,
+            },
+        ];
+    }, [analytics]);
+
+    const revenueSeries = analytics?.charts.revenueMonthly ?? [];
+    const ticketsSeries = analytics?.charts.ticketsMonthly ?? [];
+    const maxRevenue = Math.max(1, ...revenueSeries.map(point => point.value));
+    const maxTickets = Math.max(1, ...ticketsSeries.map(point => point.value));
+
+    const handleEventChange = (value: string) => {
+        setSelectedEvent(value);
+        if (value === 'all') {
+            void fetchAnalytics();
+        } else {
+            void fetchAnalytics(value);
+        }
+    };
+
+    const emptyState = !isLoading && !error && analytics?.eventPerformance.length === 0;
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -93,34 +170,34 @@ export default function AnalyticsPage() {
                         </Button>
                         <h1 className="font-display text-2xl sm:text-3xl font-bold">Analytics</h1>
                         <p className="text-muted-foreground">Track performance and insights</p>
+                        {selectedEventMeta && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Viewing data for {selectedEventMeta.name}
+                            </p>
+                        )}
                     </div>
 
                     {/* Event Selector */}
                     <div className="flex items-center gap-3">
                         {mounted ? (
-                            <Select value={selectedEvent} onValueChange={setSelectedEvent}>
+                            <Select value={selectedEvent} onValueChange={handleEventChange}>
                                 <SelectTrigger className="w-[280px] h-12 bg-background">
-                                    <div className="flex items-center gap-3">
-                                        {selectedEvent !== 'all' && (
-                                            <div className="relative h-8 w-8 rounded-lg overflow-hidden">
-                                                <Image
-                                                    src={events.find(e => e.id === selectedEvent)?.image || ''}
-                                                    alt=""
-                                                    fill
-                                                    className="object-cover"
-                                                />
-                                            </div>
-                                        )}
-                                        <SelectValue placeholder="Select event" />
-                                    </div>
+                                    <SelectValue placeholder="Select event" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {events.map(event => (
+                                    <SelectItem value="all">All events</SelectItem>
+                                    {eventOptions.map(event => (
                                         <SelectItem key={event.id} value={event.id}>
                                             <div className="flex items-center gap-3">
-                                                {event.image && (
+                                                {event.bannerImageUrl && (
                                                     <div className="relative h-6 w-6 rounded overflow-hidden">
-                                                        <Image src={event.image} alt="" fill className="object-cover" />
+                                                        <Image
+                                                            src={event.bannerImageUrl}
+                                                            alt=""
+                                                            fill
+                                                            sizes="24px"
+                                                            className="object-cover"
+                                                        />
                                                     </div>
                                                 )}
                                                 {event.name}
@@ -137,7 +214,10 @@ export default function AnalyticsPage() {
 
                 {/* Stats Grid */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-                    {data.stats.map((stat, i) => (
+                    {stats.length === 0 && isLoading && (
+                        <Card className="border-border/50 h-32 animate-pulse" />
+                    )}
+                    {stats.map((stat, i) => (
                         <motion.div
                             key={stat.title}
                             initial={{ opacity: 0, y: 20 }}
@@ -146,14 +226,10 @@ export default function AnalyticsPage() {
                         >
                             <Card className="border-border/50 hover:shadow-md transition-shadow">
                                 <CardContent className="p-5">
-                                    <div className="flex items-start justify-between">
+                                    <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm text-muted-foreground">{stat.title}</p>
                                             <p className="text-2xl font-bold mt-1">{stat.value}</p>
-                                            <div className={`flex items-center gap-1 text-sm mt-2 ${stat.change >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                {stat.change >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                                                {Math.abs(stat.change)}%
-                                            </div>
                                         </div>
                                         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                                             <stat.icon className="h-5 w-5" />
@@ -193,18 +269,18 @@ export default function AnalyticsPage() {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="h-72 flex items-end justify-between gap-3 pt-8">
-                                            {data.revenue.map((value, i) => (
+                                            {revenueSeries.map((point, i) => (
                                                 <div key={i} className="flex-1 flex flex-col items-center gap-2">
                                                     <span className="text-xs font-medium text-muted-foreground">
-                                                        £{(value / 1000).toFixed(1)}k
+                                                        {formatCurrency(point.value, analytics?.stats.currency ?? 'GBP')}
                                                     </span>
                                                     <motion.div
                                                         className="w-full bg-gradient-to-t from-primary to-[oklch(0.72_0.15_185)] rounded-lg"
                                                         initial={{ height: 0 }}
-                                                        animate={{ height: `${(value / maxRevenue) * 200}px` }}
+                                                        animate={{ height: `${(point.value / maxRevenue) * 200}px` }}
                                                         transition={{ duration: 0.6, delay: i * 0.1 }}
                                                     />
-                                                    <span className="text-xs text-muted-foreground">{months[i]}</span>
+                                                    <span className="text-xs text-muted-foreground">{point.label}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -222,8 +298,15 @@ export default function AnalyticsPage() {
                                 <Card className="border-border/50">
                                     <CardContent className="p-5">
                                         <p className="text-sm text-muted-foreground">Average Ticket Price</p>
-                                        <p className="text-3xl font-bold mt-1">£21.40</p>
-                                        <p className="text-sm text-green-600 mt-2">↑ 8% vs last period</p>
+                                        <p className="text-3xl font-bold mt-1">
+                                            {analytics && analytics.stats.ticketsSold > 0
+                                                ? formatCurrency(
+                                                      analytics.stats.totalRevenue / analytics.stats.ticketsSold,
+                                                      analytics.stats.currency
+                                                  )
+                                                : formatCurrency(0, analytics?.stats.currency ?? 'GBP')}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground mt-2">Live calculation</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="border-border/50">
@@ -255,16 +338,16 @@ export default function AnalyticsPage() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="h-72 flex items-end justify-between gap-3 pt-8">
-                                        {data.tickets.map((value, i) => (
-                                            <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                                                <span className="text-xs font-medium text-muted-foreground">{value}</span>
+                                        {ticketsSeries.map((point, i) => (
+                                            <div key={point.label} className="flex-1 flex flex-col items-center gap-2">
+                                                <span className="text-xs font-medium text-muted-foreground">{point.value}</span>
                                                 <motion.div
                                                     className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-lg"
                                                     initial={{ height: 0 }}
-                                                    animate={{ height: `${(value / maxTickets) * 200}px` }}
+                                                    animate={{ height: `${(point.value / maxTickets) * 200}px` }}
                                                     transition={{ duration: 0.6, delay: i * 0.1 }}
                                                 />
-                                                <span className="text-xs text-muted-foreground">{months[i]}</span>
+                                                <span className="text-xs text-muted-foreground">{point.label}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -283,20 +366,9 @@ export default function AnalyticsPage() {
                                     <CardTitle className="text-lg">Engagement Metrics</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="grid gap-6 sm:grid-cols-3">
-                                        <div className="text-center p-6 rounded-xl bg-muted/50">
-                                            <p className="text-4xl font-bold text-primary">2:45</p>
-                                            <p className="text-sm text-muted-foreground mt-2">Avg. Time on Page</p>
-                                        </div>
-                                        <div className="text-center p-6 rounded-xl bg-muted/50">
-                                            <p className="text-4xl font-bold text-primary">68%</p>
-                                            <p className="text-sm text-muted-foreground mt-2">Bounce Rate</p>
-                                        </div>
-                                        <div className="text-center p-6 rounded-xl bg-muted/50">
-                                            <p className="text-4xl font-bold text-primary">4.2</p>
-                                            <p className="text-sm text-muted-foreground mt-2">Pages per Session</p>
-                                        </div>
-                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Engagement tracking will be available once we start collecting on-site analytics.
+                                    </p>
                                 </CardContent>
                             </Card>
                         </motion.div>
@@ -304,53 +376,79 @@ export default function AnalyticsPage() {
                 </Tabs>
 
                 {/* Event Performance Table */}
-                {selectedEvent === 'all' && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="mt-8"
-                    >
-                        <Card className="border-border/50">
-                            <CardHeader>
-                                <CardTitle className="text-lg">Event Performance</CardTitle>
-                            </CardHeader>
-                            <CardContent>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="mt-8"
+                >
+                    <Card className="border-border/50">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Event Performance</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isLoading ? (
+                                <p className="text-sm text-muted-foreground">Loading event performance...</p>
+                            ) : error ? (
+                                <p className="text-sm text-muted-foreground">{error}</p>
+                            ) : emptyState ? (
+                                <p className="text-sm text-muted-foreground">No event activity yet.</p>
+                            ) : (
                                 <div className="overflow-x-auto">
                                     <table className="w-full">
                                         <thead>
                                             <tr className="border-b">
                                                 <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Event</th>
-                                                <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Views</th>
                                                 <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Tickets</th>
                                                 <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Revenue</th>
-                                                <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Conv.</th>
+                                                <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Last Order</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {events.slice(1).map(event => (
+                                            {analytics?.eventPerformance.map(event => (
                                                 <tr key={event.id} className="border-b last:border-0 hover:bg-muted/50">
                                                     <td className="py-4 px-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="relative h-10 w-14 rounded-lg overflow-hidden">
-                                                                <Image src={event.image} alt="" fill className="object-cover" />
-                                                            </div>
+                                                            {event.bannerImageUrl ? (
+                                                                <div className="relative h-10 w-14 rounded-lg overflow-hidden">
+                                                                    <Image
+                                                                        src={event.bannerImageUrl}
+                                                                        alt=""
+                                                                        fill
+                                                                        sizes="56px"
+                                                                        className="object-cover"
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="h-10 w-14 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                                                                    No image
+                                                                </div>
+                                                            )}
                                                             <span className="font-medium">{event.name}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="py-4 px-4 text-right text-muted-foreground">3.2K</td>
-                                                    <td className="py-4 px-4 text-right">450</td>
-                                                    <td className="py-4 px-4 text-right font-medium">£4,500</td>
-                                                    <td className="py-4 px-4 text-right text-green-600">14.1%</td>
+                                                    <td className="py-4 px-4 text-right">{event.ticketsSold}</td>
+                                                    <td className="py-4 px-4 text-right font-medium">
+                                                        {formatCurrency(event.revenue, analytics?.stats.currency ?? 'GBP')}
+                                                    </td>
+                                                    <td className="py-4 px-4 text-right text-muted-foreground">
+                                                        {event.lastOrderAt
+                                                            ? new Date(event.lastOrderAt).toLocaleDateString('en-GB', {
+                                                                  day: 'numeric',
+                                                                  month: 'short',
+                                                                  year: 'numeric',
+                                                              })
+                                                            : '—'}
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-                )}
+                            )}
+                        </CardContent>
+                    </Card>
+                </motion.div>
             </div>
         </div>
     );
