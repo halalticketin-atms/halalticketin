@@ -245,90 +245,7 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
   },
 };
 
-export const dashboardEvents: DashboardEvent[] = [
-  {
-    id: '1',
-    title: 'Community Iftar 2024',
-    description: 'Warm community iftar with spiritual reminders.',
-    date: 'Dec 15, 2024',
-    time: '6:00 PM',
-    location: 'London Islamic Centre',
-    status: 'upcoming',
-    ticketsSold: 45,
-    totalTickets: 100,
-    imageUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=400&h=300&fit=crop',
-    revenue: '£450',
-    templateKey: 'communityIftar',
-  },
-  {
-    id: '2',
-    title: 'Islamic Finance Workshop',
-    description: 'Online intensive unpacking halal investing and fintech.',
-    date: 'Jan 10, 2025',
-    time: '2:00 PM',
-    location: 'Online',
-    status: 'upcoming',
-    ticketsSold: 28,
-    totalTickets: 50,
-    imageUrl: 'https://images.unsplash.com/photo-1591115765373-5207764f72e7?w=400&h=300&fit=crop',
-    revenue: '£700',
-    templateKey: 'financeWorkshop',
-  },
-  {
-    id: '3',
-    title: 'Youth Conference 2025',
-    description: 'Two-day youth leadership summit in Birmingham.',
-    date: 'Feb 1, 2025',
-    time: '10:00 AM',
-    location: 'Birmingham Central Mosque',
-    status: 'draft',
-    ticketsSold: 0,
-    totalTickets: 500,
-    imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=300&fit=crop',
-    revenue: '£0',
-    templateKey: 'youthConference',
-  },
-  {
-    id: '4',
-    title: 'Sisters Wellness Retreat',
-    description: 'Mindfulness and fitness retreat built for sisters.',
-    date: 'Nov 20, 2024',
-    time: '9:00 AM',
-    location: 'Manchester',
-    status: 'ongoing',
-    ticketsSold: 156,
-    totalTickets: 200,
-    imageUrl: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=300&fit=crop',
-    revenue: '£5,460',
-    templateKey: 'ramadanPrep',
-  },
-  {
-    id: '5',
-    title: 'Eid Festival 2024',
-    description: 'Family-friendly Eid celebration with stalls and rides.',
-    date: 'Apr 10, 2024',
-    time: '11:00 AM',
-    location: 'London',
-    status: 'past',
-    ticketsSold: 1200,
-    totalTickets: 1200,
-    imageUrl: 'https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=400&h=300&fit=crop',
-    revenue: '£12,000',
-  },
-  {
-    id: '6',
-    title: 'Halal Food Festival',
-    description: 'Showcasing artisans, chefs, and food trucks.',
-    date: 'Aug 5, 2024',
-    time: '1:00 PM',
-    location: 'London',
-    status: 'past',
-    ticketsSold: 980,
-    totalTickets: 1100,
-    imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=300&fit=crop',
-    revenue: '£14,700',
-  },
-];
+export const dashboardEvents: DashboardEvent[] = [];
 
 const safeGetTemplate = (key?: DraftTemplateKey): DraftEventInitial | undefined => {
   if (!key) return undefined;
@@ -337,43 +254,11 @@ const safeGetTemplate = (key?: DraftTemplateKey): DraftEventInitial | undefined 
   return cloneDraft(template);
 };
 
-export const cloneableEventOptions: CloneableEventOption[] = dashboardEvents
-  .filter((event) => Boolean(event.templateKey))
-  .map((event) => ({
-    id: event.id,
-    title: event.title,
-    location: event.location,
-    summary: event.description,
-    templateKey: event.templateKey as DraftTemplateKey,
-  }));
+export const cloneableEventOptions: CloneableEventOption[] = [];
 
-export const draftEventOptions: DraftEventOption[] = [
-  {
-    id: 'draft-youth',
-    title: 'Youth Conference 2025',
-    updatedAt: 'Updated 2 days ago',
-    description: 'Need to finalize venue logistics and speaker lineup.',
-    progressLabel: 'Step 2 · Tickets',
-    templateKey: 'youthConference',
-  },
-  {
-    id: 'draft-ramadan',
-    title: 'Ramadan Prep Workshop',
-    updatedAt: 'Updated 4 hours ago',
-    description: 'Waiting on AI copy for the promo section.',
-    progressLabel: 'Step 1 · Basics',
-    templateKey: 'ramadanPrep',
-  },
-];
+export const draftEventOptions: DraftEventOption[] = [];
 
-export const checkInEventOptions = dashboardEvents
-  .filter((event) => ['ongoing', 'upcoming'].includes(event.status))
-  .slice(0, 3)
-  .map((event) => ({
-    id: event.id,
-    name: event.title,
-    date: event.date,
-  }));
+export const checkInEventOptions: Array<{ id: string; name: string; date: string }> = [];
 
 export function getDraftInitialForEvent(eventId: string): DraftEventInitial | undefined {
   const event = dashboardEvents.find((item) => item.id === eventId);

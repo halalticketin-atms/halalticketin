@@ -1,11 +1,47 @@
-// API client placeholder for backend communication
-// TODO: Configure base URL from environment variables
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const TOKEN_STORAGE_KEY = 'halal-ticketin-access-token';
 
 interface RequestConfig extends RequestInit {
     params?: Record<string, string>;
 }
+
+const isBrowser = typeof window !== 'undefined';
+let inMemoryToken: string | null = null;
+
+const loadToken = () => {
+    if (isBrowser) {
+        const stored = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+        inMemoryToken = stored;
+        return stored;
+    }
+
+    return inMemoryToken;
+};
+
+export const setAuthToken = (token: string | null) => {
+    inMemoryToken = token;
+    if (!isBrowser) {
+        return;
+    }
+
+    if (token) {
+        window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    } else {
+        window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+};
+
+export const getAuthToken = () => {
+    if (inMemoryToken) {
+        return inMemoryToken;
+    }
+
+    return loadToken();
+};
+
+export const clearAuthToken = () => {
+    setAuthToken(null);
+};
 
 class ApiClient {
     private baseUrl: string;
@@ -23,16 +59,24 @@ class ApiClient {
             url += `?${searchParams.toString()}`;
         }
 
+        const token = getAuthToken();
+
         const response = await fetch(url, {
             ...fetchConfig,
             headers: {
                 'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 ...fetchConfig.headers,
             },
         });
 
         if (!response.ok) {
-            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            const errorText = await response.text().catch(() => response.statusText);
+            throw new Error(errorText || `API Error: ${response.status} ${response.statusText}`);
+        }
+
+        if (response.status === 204) {
+            return {} as T;
         }
 
         return response.json();

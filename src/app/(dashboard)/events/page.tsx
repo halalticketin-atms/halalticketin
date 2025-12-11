@@ -17,81 +17,20 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-// Placeholder events data with Unsplash images
-const events = [
-    {
-        id: '1',
-        title: 'Community Iftar 2024',
-        date: 'Dec 15, 2024',
-        time: '4:30 PM',
-        location: 'London',
-        venue: 'London Central Mosque',
-        price: 10,
-        category: 'Iftar',
-        imageUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=600&h=400&fit=crop',
-        attendees: 156,
-    },
-    {
-        id: '2',
-        title: 'Islamic Finance Workshop',
-        date: 'Jan 10, 2025',
-        time: '10:00 AM',
-        location: 'Online',
-        venue: 'Virtual Event',
-        price: 25,
-        category: 'Workshop',
-        imageUrl: 'https://images.unsplash.com/photo-1591115765373-5207764f72e7?w=600&h=400&fit=crop',
-        attendees: 89,
-    },
-    {
-        id: '3',
-        title: 'Youth Leadership Conference',
-        date: 'Feb 1, 2025',
-        time: '9:00 AM',
-        location: 'Birmingham',
-        venue: 'Birmingham ICC',
-        price: 0,
-        category: 'Conference',
-        imageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=400&fit=crop',
-        attendees: 342,
-    },
-    {
-        id: '4',
-        title: 'Sisters Wellness Retreat',
-        date: 'Feb 15, 2025',
-        time: '11:00 AM',
-        location: 'Manchester',
-        venue: 'Wellness Centre',
-        price: 35,
-        category: 'Sisters',
-        imageUrl: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=600&h=400&fit=crop',
-        attendees: 45,
-    },
-    {
-        id: '5',
-        title: 'Quran Recitation Evening',
-        date: 'Feb 20, 2025',
-        time: '7:00 PM',
-        location: 'Leeds',
-        venue: 'Leeds Grand Mosque',
-        price: 0,
-        category: 'Education',
-        imageUrl: 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?w=600&h=400&fit=crop',
-        attendees: 120,
-    },
-    {
-        id: '6',
-        title: 'Charity Gala Dinner',
-        date: 'Mar 5, 2025',
-        time: '6:30 PM',
-        location: 'London',
-        venue: 'Hilton Park Lane',
-        price: 75,
-        category: 'Charity',
-        imageUrl: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=600&h=400&fit=crop',
-        attendees: 200,
-    },
-];
+type EventCardData = {
+    id: string;
+    title: string;
+    date: string;
+    time: string;
+    location: string;
+    venue: string;
+    price: number;
+    category: string;
+    imageUrl?: string;
+    attendees?: number;
+};
+
+const events: EventCardData[] = [];
 
 const categories = ['All', 'Iftar', 'Conference', 'Workshop', 'Sisters', 'Youth', 'Charity', 'Education'];
 
@@ -194,7 +133,19 @@ export default function BrowseEventsPage() {
 
                 {/* Events Grid */}
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {filteredEvents.map((event, index) => (
+                    {filteredEvents.length === 0 ? (
+                        <Card className="sm:col-span-2 lg:col-span-3 p-12 text-center">
+                            <Calendar className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold">No events available yet</h3>
+                            <p className="text-muted-foreground mt-2">
+                                Once organisers publish events, they will appear here automatically.
+                            </p>
+                            <Button className="mt-4" asChild>
+                                <Link href="/events/new">Create an event</Link>
+                            </Button>
+                        </Card>
+                    ) : (
+                    filteredEvents.map((event, index) => (
                         <motion.div
                             key={event.id}
                             initial={{ opacity: 0, y: 20 }}
@@ -272,6 +223,7 @@ export default function BrowseEventsPage() {
                             </Link>
                         </motion.div>
                     ))}
+                </div>
                 </div>
 
                 {/* Empty State */}

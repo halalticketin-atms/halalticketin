@@ -3,11 +3,21 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import api, { setAuthToken } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
+
+interface LoginResponse {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+    tokenType: string;
+}
 
 export default function RegisterPage() {
     const [formData, setFormData] = useState({
@@ -16,12 +26,40 @@ export default function RegisterPage() {
         password: '',
     });
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
+    const { refresh } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        setIsLoading(false);
+        setError(null);
+
+        try {
+            // Create the Supabase user through the backend
+            await api.post('/api/v1/auth/register', {
+                email: formData.email,
+                password: formData.password,
+                name: formData.name,
+            });
+
+            // Automatically log them in to obtain an access token
+            const response = await api.post<LoginResponse>('/api/v1/auth/login', {
+                email: formData.email,
+                password: formData.password,
+            });
+
+            setAuthToken(response.accessToken);
+
+            await refresh();
+
+            router.push('/dashboard');
+        } catch (err) {
+            console.error(err);
+            setError(err instanceof Error ? err.message : 'Unable to register. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -215,6 +253,12 @@ export default function RegisterPage() {
                                 )}
                             </Button>
                         </motion.div>
+
+                        {error && (
+                            <p className="text-sm text-destructive text-center">
+                                {error}
+                            </p>
+                        )}
                     </form>
 
                     {/* Divider */}

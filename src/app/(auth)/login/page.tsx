@@ -2,16 +2,21 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import {
-    Mail,
-    Lock,
-    ArrowRight,
-    Sparkles,
-} from 'lucide-react';
+import { Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import api, { setAuthToken } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
+
+interface LoginResponse {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+    tokenType: string;
+}
 
 export default function LoginPage() {
     const [formData, setFormData] = useState({
@@ -19,13 +24,28 @@ export default function LoginPage() {
         password: '',
     });
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
+    const { refresh } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        setIsLoading(false);
+        setError(null);
+
+        try {
+            const response = await api.post<LoginResponse>('/api/v1/auth/login', formData);
+            setAuthToken(response.accessToken);
+
+            // Warm up the session by fetching the profile (uses Authorization header automatically)
+            await refresh();
+            router.push('/dashboard');
+        } catch (err) {
+            console.error(err);
+            setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -141,6 +161,12 @@ export default function LoginPage() {
                                 </>
                             )}
                         </Button>
+
+                        {error && (
+                            <p className="text-sm text-destructive text-center">
+                                {error}
+                            </p>
+                        )}
                     </form>
 
                     <div className="mt-6">

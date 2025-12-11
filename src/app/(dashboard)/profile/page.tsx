@@ -1,8 +1,8 @@
-'use client';
+ 'use client';
 
-import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
     Settings,
@@ -10,7 +10,6 @@ import {
     Ticket,
     Heart,
     MapPin,
-    Star,
     ChevronRight,
     Edit3,
     Share2,
@@ -18,61 +17,14 @@ import {
     Shield,
     CreditCard,
     LogOut,
+    Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-// Placeholder user data
-const userData = {
-    name: 'Amina Hassan',
-    email: 'amina.hassan@email.com',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop',
-    location: 'London, UK',
-    joinedDate: 'Member since March 2024',
-    bio: 'Community organizer passionate about bringing people together through meaningful events.',
-    stats: {
-        eventsAttended: 23,
-        eventsOrganized: 5,
-        following: 48,
-    },
-    badges: [
-        { name: 'Early Adopter', icon: Star, color: 'text-yellow-500' },
-        { name: 'Verified', icon: Shield, color: 'text-primary' },
-    ],
-};
-
-const upcomingEvents = [
-    {
-        id: '1',
-        title: 'Community Iftar 2024',
-        date: 'Dec 15, 2024',
-        image: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=300&h=200&fit=crop',
-    },
-    {
-        id: '2',
-        title: 'Islamic Finance Workshop',
-        date: 'Jan 10, 2025',
-        image: 'https://images.unsplash.com/photo-1591115765373-5207764f72e7?w=300&h=200&fit=crop',
-    },
-];
-
-const pastEvents = [
-    {
-        id: '3',
-        title: 'Youth Conference 2024',
-        date: 'Nov 1, 2024',
-        image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=300&h=200&fit=crop',
-    },
-    {
-        id: '4',
-        title: 'Charity Fundraiser',
-        date: 'Oct 15, 2024',
-        image: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=300&h=200&fit=crop',
-    },
-];
+import { useAuth } from '@/context/auth-context';
 
 const menuItems = [
     { icon: Bell, label: 'Notifications', href: '/settings', badge: '3' },
@@ -82,7 +34,23 @@ const menuItems = [
 ];
 
 export default function ProfilePage() {
-    const [activeTab, setActiveTab] = useState('upcoming');
+    const router = useRouter();
+    const { user, memberships, isLoading, signOut } = useAuth();
+    const isAuthenticated = Boolean(user);
+
+    const displayName = user?.name || user?.email?.split('@')[0] || 'Guest User';
+    const displayEmail = user?.email ?? 'Sign in to add your email';
+    const avatarImage = user?.avatarUrl ?? '';
+    const avatarFallback = displayName.charAt(0).toUpperCase();
+
+    const stats = [
+        { label: 'Organizer Teams', value: memberships.length, icon: Users },
+        { label: 'Events Organized', value: 0, icon: Calendar },
+        { label: 'Events Attended', value: 0, icon: Ticket },
+    ];
+
+    const upcomingEvents: Array<{ id: string; title: string; date: string; image?: string }> = [];
+    const pastEvents: typeof upcomingEvents = [];
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -127,8 +95,8 @@ export default function ProfilePage() {
                         >
                             <div className="relative">
                                 <Avatar className="h-28 w-28 border-4 border-background shadow-xl sm:h-32 sm:w-32">
-                                    <AvatarImage src={userData.avatar} alt={userData.name} />
-                                    <AvatarFallback className="text-3xl">{userData.name.charAt(0)}</AvatarFallback>
+                                    <AvatarImage src={avatarImage} alt={displayName} />
+                                    <AvatarFallback className="text-3xl">{avatarFallback}</AvatarFallback>
                                 </Avatar>
                                 <motion.button
                                     whileHover={{ scale: 1.1 }}
@@ -148,22 +116,25 @@ export default function ProfilePage() {
                             className="flex-1 text-center sm:text-left"
                         >
                             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                                <h1 className="font-display text-2xl font-bold sm:text-3xl">{userData.name}</h1>
-                                {userData.badges.map((badge) => (
-                                    <Badge key={badge.name} variant="secondary" className="gap-1">
-                                        <badge.icon className={`h-3 w-3 ${badge.color}`} />
-                                        {badge.name}
+                                <h1 className="font-display text-2xl font-bold sm:text-3xl">{displayName}</h1>
+                                {memberships.length > 0 && (
+                                    <Badge variant="secondary" className="gap-1">
+                                        <Shield className="h-3 w-3 text-primary" />
+                                        Organizer
                                     </Badge>
-                                ))}
+                                )}
                             </div>
                             <div className="mt-2 flex items-center justify-center gap-2 text-muted-foreground sm:justify-start">
                                 <MapPin className="h-4 w-4" />
-                                <span>{userData.location}</span>
+                                <span>{user ? 'No location set yet' : 'Update your profile to add location'}</span>
                                 <span>•</span>
-                                <span>{userData.joinedDate}</span>
+                                <span>{user ? 'Profile created recently' : 'Not signed in'}</span>
                             </div>
+                            <p className="mt-1 text-sm text-muted-foreground">{displayEmail}</p>
                             <p className="mt-3 max-w-md text-center text-muted-foreground sm:text-left">
-                                {userData.bio}
+                                {user
+                                    ? 'Complete your profile to share more about your community work.'
+                                    : 'Sign in to create your HalalTicketin profile and manage events.'}
                             </p>
 
                             {/* Action Buttons */}
@@ -189,11 +160,7 @@ export default function ProfilePage() {
                         transition={{ duration: 0.5, delay: 0.2 }}
                         className="mt-8 grid grid-cols-3 gap-4 sm:max-w-md"
                     >
-                        {[
-                            { label: 'Events Attended', value: userData.stats.eventsAttended, icon: Ticket },
-                            { label: 'Organized', value: userData.stats.eventsOrganized, icon: Calendar },
-                            { label: 'Following', value: userData.stats.following, icon: Heart },
-                        ].map((stat, index) => (
+                        {stats.map((stat, index) => (
                             <motion.div
                                 key={stat.label}
                                 whileHover={{ y: -4 }}
@@ -273,7 +240,7 @@ export default function ProfilePage() {
                             </TabsContent>
 
                             <TabsContent value="past" className="space-y-4">
-                                {pastEvents.map((event, index) => (
+                                {pastEvents.length > 0 ? pastEvents.map((event, index) => (
                                     <motion.div
                                         key={event.id}
                                         initial={{ opacity: 0, x: -20 }}
@@ -302,7 +269,12 @@ export default function ProfilePage() {
                                             </Card>
                                         </Link>
                                     </motion.div>
-                                ))}
+                                )) : (
+                                    <div className="py-12 text-center">
+                                        <Ticket className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                                        <p className="mt-4 text-muted-foreground">No past events yet</p>
+                                    </div>
+                                )}
                             </TabsContent>
 
                             <TabsContent value="saved" className="py-12 text-center">
@@ -347,13 +319,24 @@ export default function ProfilePage() {
                             </Card>
 
                             {/* Logout Button */}
-                            <Button
-                                variant="ghost"
-                                className="w-full mt-4 text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
-                            >
-                                <LogOut className="h-4 w-4" />
-                                Sign Out
-                            </Button>
+                            {isAuthenticated && (
+                                <Button
+                                    variant="ghost"
+                                    className="w-full mt-4 text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
+                                    onClick={() => {
+                                        signOut();
+                                        router.push('/login');
+                                    }}
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                    Sign Out
+                                </Button>
+                            )}
+                            {!isAuthenticated && !isLoading && (
+                                <Button className="w-full mt-4" asChild>
+                                    <Link href="/login">Sign In</Link>
+                                </Button>
+                            )}
                         </motion.div>
                     </div>
                 </div>

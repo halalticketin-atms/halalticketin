@@ -45,68 +45,78 @@ export function RecentEvents({ events }: RecentEventsProps) {
                 </Button>
             </CardHeader>
             <CardContent className="p-0">
-                <div className="divide-y">
-                    {events.map((event, index) => (
-                        <motion.div
-                            key={event.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.3, delay: index * 0.1 }}
-                            className="flex items-start gap-3 p-3 sm:p-4 hover:bg-muted/50 transition-colors"
-                        >
-                            <div className="relative h-12 w-16 sm:h-16 sm:w-24 shrink-0 overflow-hidden rounded-lg">
-                                <Image
-                                    src={event.imageUrl}
-                                    alt={event.title}
-                                    fill
-                                    className="object-cover"
-                                />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                                    <h3 className="font-medium text-sm sm:text-base truncate max-w-[150px] sm:max-w-none">{event.title}</h3>
-                                    <Badge className={`${statusColors[event.status]} text-xs`} variant="secondary">
-                                        {event.status}
-                                    </Badge>
+                {events.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-muted-foreground">
+                        You haven&apos;t created any events yet.{' '}
+                        <Link href="/events/new" className="text-primary hover:underline font-medium">
+                            Create your first event
+                        </Link>{' '}
+                        to see them here.
+                    </div>
+                ) : (
+                    <div className="divide-y">
+                        {events.map((event, index) => (
+                            <motion.div
+                                key={event.id}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.3, delay: index * 0.1 }}
+                                className="flex items-start gap-3 p-3 sm:p-4 hover:bg-muted/50 transition-colors"
+                            >
+                                <div className="relative h-12 w-16 sm:h-16 sm:w-24 shrink-0 overflow-hidden rounded-lg">
+                                    <Image
+                                        src={event.imageUrl}
+                                        alt={event.title}
+                                        fill
+                                        className="object-cover"
+                                    />
                                 </div>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs sm:text-sm text-muted-foreground">
-                                    <span className="flex items-center gap-1">
-                                        <Calendar className="h-3 w-3" />
-                                        {event.date}
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                        <MapPin className="h-3 w-3" />
-                                        {event.location}
-                                    </span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                                        <h3 className="font-medium text-sm sm:text-base truncate max-w-[150px] sm:max-w-none">{event.title}</h3>
+                                        <Badge className={`${statusColors[event.status]} text-xs`} variant="secondary">
+                                            {event.status}
+                                        </Badge>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs sm:text-sm text-muted-foreground">
+                                        <span className="flex items-center gap-1">
+                                            <Calendar className="h-3 w-3" />
+                                            {event.date}
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <MapPin className="h-3 w-3" />
+                                            {event.location}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                                        {event.ticketsSold}/{event.totalTickets} tickets sold
+                                    </p>
                                 </div>
-                                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                                    {event.ticketsSold}/{event.totalTickets} tickets sold
-                                </p>
-                            </div>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem asChild>
-                                        <Link href={`/events/${event.id}`}>
-                                            <Eye className="h-4 w-4 mr-2" />
-                                            View
-                                        </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <Link href={`/events/${event.id}/edit`}>
-                                            <Edit className="h-4 w-4 mr-2" />
-                                            Edit
-                                        </Link>
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </motion.div>
-                    ))}
-                </div>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem asChild>
+                                            <Link href={`/events/${event.id}`}>
+                                                <Eye className="h-4 w-4 mr-2" />
+                                                View
+                                            </Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild>
+                                            <Link href={`/events/${event.id}/edit`}>
+                                                <Edit className="h-4 w-4 mr-2" />
+                                                Edit
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </motion.div>
+                        ))}
+                    </div>
+                )}
             </CardContent>
         </Card>
     );

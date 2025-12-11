@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Menu } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,6 +16,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from '@/components/ui/sheet';
+import { useAuth } from '@/context/auth-context';
 
 const navLinks = [
     { href: '/events', label: 'Browse Events' },
@@ -25,6 +27,19 @@ const navLinks = [
 ];
 
 export function Header() {
+    const router = useRouter();
+    const { user, signOut } = useAuth();
+
+    const displayName = user?.name || user?.email || 'Guest User';
+    const displayEmail = user?.email || 'guest@example.com';
+    const avatarInitial = displayName.charAt(0).toUpperCase();
+    const isAuthenticated = Boolean(user);
+
+    const handleSignOut = () => {
+        signOut();
+        router.push('/login');
+    };
+
     return (
         <motion.header
             initial={{ y: -20, opacity: 0 }}
@@ -61,14 +76,16 @@ export function Header() {
                 {/* Right Side */}
                 <div className="flex items-center gap-2 sm:gap-3">
                     {/* Sign Up Button */}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="hidden font-medium sm:inline-flex"
-                        asChild
-                    >
-                        <Link href="/register">Sign Up</Link>
-                    </Button>
+                    {!isAuthenticated && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hidden font-medium sm:inline-flex"
+                            asChild
+                        >
+                            <Link href="/register">Sign Up</Link>
+                        </Button>
+                    )}
 
                     {/* Create Event Button - Links to page */}
                     <Button
@@ -88,9 +105,9 @@ export function Header() {
                                 className="relative h-9 w-9 rounded-full ring-offset-background transition-all hover:ring-2 hover:ring-primary/20 hover:ring-offset-2"
                             >
                                 <Avatar className="h-9 w-9">
-                                    <AvatarImage src="/placeholder-avatar.png" alt="User" />
+                                    <AvatarImage src={user?.avatarUrl ?? undefined} alt={displayName} />
                                     <AvatarFallback className="bg-muted text-sm font-medium">
-                                        U
+                                        {avatarInitial || 'U'}
                                     </AvatarFallback>
                                 </Avatar>
                             </Button>
@@ -98,24 +115,42 @@ export function Header() {
                         <DropdownMenuContent className="w-56" align="end" forceMount>
                             <DropdownMenuLabel className="font-normal">
                                 <div className="flex flex-col space-y-1">
-                                    <p className="text-sm font-medium">Guest User</p>
-                                    <p className="text-xs text-muted-foreground">guest@example.com</p>
+                                    <p className="text-sm font-medium">{displayName}</p>
+                                    <p className="text-xs text-muted-foreground">{displayEmail}</p>
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild>
-                                <Link href="/profile">Profile</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link href="/dashboard">Dashboard</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link href="/settings">Settings</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild>
-                                <Link href="/login">Sign In</Link>
-                            </DropdownMenuItem>
+                            {isAuthenticated ? (
+                                <>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/profile">Profile</Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/dashboard">Dashboard</Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/settings">Settings</Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onSelect={(event) => {
+                                            event.preventDefault();
+                                            handleSignOut();
+                                        }}
+                                    >
+                                        Sign Out
+                                    </DropdownMenuItem>
+                                </>
+                            ) : (
+                                <>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/login">Sign In</Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/register">Create Account</Link>
+                                    </DropdownMenuItem>
+                                </>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
 
