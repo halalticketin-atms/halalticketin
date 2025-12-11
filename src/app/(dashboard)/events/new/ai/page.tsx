@@ -16,52 +16,37 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { savePendingDraft } from '@/utils/pending-draft-storage';
+import { generateEventDraft } from '@/lib/ai/event-draft';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
 
-const buildAiDraft = (titleHint?: string): DraftEventInitial => {
-    const cleanedTitle = titleHint
-        ? titleHint.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim()
-        : 'Community Meetup';
+const buildFallbackDraft = (titleHint?: string): DraftEventInitial => {
+  const cleanedTitle = titleHint
+    ? titleHint.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim()
+    : 'Community Meetup';
 
-    return {
-        formData: {
-            title: cleanedTitle || 'Community Meetup',
-            description:
-                'Curated by the AI assistant. Review the details, edit anything you like and publish when ready.',
-            category: 'Community',
-            organizerName: 'HalalTicketin AI Draft',
-            date: '2025-04-12',
-            endDate: '2025-04-12',
-            isMultiDay: false,
-            startTime: '18:30',
-            endTime: '21:30',
-            timezone: 'Europe/London',
-            locationType: 'physical',
-            venue: 'To be confirmed',
-            address: '',
-            city: '',
-            onlineUrl: '',
-        },
-        tickets: [
-            {
-                id: 'ai-ticket',
-                name: 'Standard Ticket',
-                price: '15',
-                isFree: false,
-                quantity: 150,
-                maxPerOrder: 6,
-                description: 'Auto-generated ticket tier. Adjust the price or capacity anytime.',
-                salesStart: '2025-02-01',
-                salesEnd: '2025-04-11',
-                hasEarlyBird: false,
-                earlyBirdPrice: '',
-                earlyBirdEndDate: '',
-                visibility: 'public',
-            },
-        ],
-        promoCodes: [],
-        currentStep: 1,
-    };
+  return {
+    formData: {
+      title: cleanedTitle || 'Community Meetup',
+      description:
+        'Curated by the AI assistant. Review the details, edit anything you like and publish when ready.',
+      category: 'Community',
+      organizerName: 'HalalTicketin AI Draft',
+      date: '',
+      endDate: '',
+      isMultiDay: false,
+      startTime: '',
+      endTime: '',
+      timezone: 'Europe/London',
+      locationType: 'physical',
+      venue: 'To be confirmed',
+      address: '',
+      city: '',
+      onlineUrl: '',
+    },
+    tickets: [],
+    promoCodes: [],
+    currentStep: 1,
+  };
 };
 
 export default function AIEventCreatorPage() {
@@ -73,6 +58,7 @@ export default function AIEventCreatorPage() {
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const maxLength = 1000;
     const charCount = prompt.length;
@@ -110,15 +96,36 @@ export default function AIEventCreatorPage() {
         }
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!prompt.trim() && !uploadedFile) return;
 
+        setError(null);
         setIsProcessing(true);
 
-        // Simulate AI processing
-        setTimeout(() => {
-            const titleHint = uploadedFile?.name || prompt.slice(0, 50);
-            const draft = buildAiDraft(titleHint);
+        const titleHint = uploadedFile?.name || prompt.slice(0, 80);
+
+        let bannerImageDataUrl: string | null = null;
+        if (uploadedFile) {
+            try {
+                bannerImageDataUrl = await fileToDataUrl(uploadedFile);
+            } catch (readError) {
+                console.error('Failed to read uploaded image for banner preview', readError);
+            }
+        }
+
+        try {
+            const draft = await generateEventDraft({
+                prompt,
+                imageFile: uploadedFile ?? undefined,
+                titleHint,
+            });
+
+            if (bannerImageDataUrl) {
+                draft.formData = {
+                    ...(draft.formData ?? {}),
+                    bannerImageDataUrl,
+                };
+            }
 
             savePendingDraft({
                 source: 'ai',
@@ -131,7 +138,33 @@ export default function AIEventCreatorPage() {
             });
 
             router.push('/events/create?source=ai');
-        }, 1200);
+        } catch (err) {
+            console.error(err);
+
+            const fallbackDraft = buildFallbackDraft(titleHint);
+            if (bannerImageDataUrl) {
+                fallbackDraft.formData.bannerImageDataUrl = bannerImageDataUrl;
+            }
+
+            savePendingDraft({
+                source: 'ai',
+                draft: fallbackDraft,
+                meta: {
+                    label: uploadedFile ? `AI from ${uploadedFile.name}` : 'AI draft (fallback)',
+                    description:
+                        'We could not reach the AI service, so we created a minimal draft. Please fill in the remaining details.',
+                    key: `ai-fallback-${Date.now()}`,
+                },
+            });
+
+            setError(
+                'We had trouble contacting the AI service, so we handed you a minimal draft instead. Please review and fill in any missing details.',
+            );
+
+            router.push('/events/create?source=ai');
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     const canSubmit = (prompt.trim().length > 0 || uploadedFile) && !isProcessing;
@@ -294,4 +327,21 @@ export default function AIEventCreatorPage() {
             )}
         </div>
     );
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            if (typeof reader.result === 'string') {
+                resolve(reader.result);
+            } else {
+                reject(new Error('Unexpected reader result type'));
+            }
+        };
+        reader.onerror = () => {
+            reject(reader.error ?? new Error('Failed to read file'));
+        };
+        reader.readAsDataURL(file);
+    });
 }

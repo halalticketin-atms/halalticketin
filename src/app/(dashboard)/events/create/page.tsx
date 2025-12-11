@@ -298,14 +298,22 @@ export function EventWizard({
 
                                                 <div className="space-y-2">
                                                     <Label className="text-base font-medium">Event Banner</Label>
-                                                    <div className="relative flex h-40 sm:h-48 lg:h-56 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/30 transition-all hover:border-primary/50 hover:bg-muted/50 group">
-                                                        <div className="text-center px-4">
-                                                            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                                                                <Upload className="h-5 w-5" />
+                                                    <div className="relative flex h-40 sm:h-48 lg:h-56 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/30 transition-all hover:border-primary/50 hover:bg-muted/50 group overflow-hidden">
+                                                        {formData.bannerImageDataUrl ? (
+                                                            <img
+                                                                src={formData.bannerImageDataUrl}
+                                                                alt={formData.title || 'Event banner'}
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <div className="text-center px-4">
+                                                                <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                                                                    <Upload className="h-5 w-5" />
+                                                                </div>
+                                                                <p className="font-medium text-sm sm:text-base">Click to upload</p>
+                                                                <p className="mt-1 text-xs text-muted-foreground">16:9 recommended</p>
                                                             </div>
-                                                            <p className="font-medium text-sm sm:text-base">Click to upload</p>
-                                                            <p className="mt-1 text-xs text-muted-foreground">16:9 recommended</p>
-                                                        </div>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -891,9 +899,15 @@ export function EventWizard({
                     </DialogHeader>
 
                     <div className="p-6 pt-4">
-                        {/* Event Banner Placeholder */}
-                        <div className="aspect-video rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-6 border">
-                            {formData.title ? (
+                        {/* Event Banner */}
+                        <div className="aspect-[4/5] rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-6 border overflow-hidden">
+                            {formData.bannerImageDataUrl ? (
+                                <img
+                                    src={formData.bannerImageDataUrl}
+                                    alt={formData.title || 'Event banner'}
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : formData.title ? (
                                 <div className="text-center p-8">
                                     <h1 className="font-display text-2xl sm:text-3xl font-bold mb-2">
                                         {formData.title}

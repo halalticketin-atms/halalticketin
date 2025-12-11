@@ -7,6 +7,7 @@ export type DraftLocationType = 'physical' | 'online' | 'hybrid';
 export interface DraftFormData {
   title: string;
   description: string;
+  bannerImageDataUrl: string;
   category: string;
   organizerName: string;
   date: string;
@@ -60,6 +61,7 @@ const stepsCountDefault = 3;
 const defaultFormData: DraftFormData = {
   title: '',
   description: '',
+  bannerImageDataUrl: '',
   category: '',
   organizerName: '',
   date: '',
@@ -194,4 +196,3 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
     setIsPreviewOpen,
   };
 }
-
