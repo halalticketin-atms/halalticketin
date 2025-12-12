@@ -332,8 +332,8 @@ export default function OrganizerTeamPage() {
                 status: editForm.status as 'active' | 'suspended',
                 eventScope:
                     editForm.eventScope.mode === 'limited'
-                        ? { mode: 'limited', eventIds: editForm.eventScope.eventIds }
-                        : { mode: 'all' },
+                        ? { mode: 'limited' as const, eventIds: editForm.eventScope.eventIds }
+                        : { mode: 'all' as const },
             };
             await updateTeamMembership(organizerId, editingMember.id, payload);
             await loadTeamData();
@@ -425,7 +425,7 @@ export default function OrganizerTeamPage() {
                                 <Label>Role</Label>
                                 <Select
                                     value={inviteForm.role}
-                                    onValueChange={(role) => setInviteForm((prev) => ({ ...prev, role }))}
+                                    onValueChange={(role) => setInviteForm((prev) => ({ ...prev, role: role as CreateInvitationPayload['role'] }))}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select role" />
@@ -666,16 +666,16 @@ export default function OrganizerTeamPage() {
                                 </Select>
                             </div>
 
-                                <EventScopeSelector
-                                    value={editForm.eventScope}
-                                    onChange={(scope) =>
-                                        setEditForm((prev) => (prev ? { ...prev, eventScope: scope } : prev))
-                                    }
-                                    events={events}
-                                />
-                            </div>
+                            <EventScopeSelector
+                                value={editForm.eventScope}
+                                onChange={(scope) =>
+                                    setEditForm((prev) => (prev ? { ...prev, eventScope: scope } : prev))
+                                }
+                                events={events}
+                            />
+                        </div>
 
-                            <DialogFooter className="mt-6">
+                        <DialogFooter className="mt-6">
                             <Button variant="outline" onClick={closeEditDialog}>
                                 Cancel
                             </Button>

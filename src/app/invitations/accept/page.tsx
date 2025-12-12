@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MailCheck, ShieldAlert, Loader2 } from 'lucide-react';
@@ -11,7 +11,7 @@ import { useOrganizers } from '@/context/organizer-context';
 import { acceptInvitationToken } from '@/lib/organizers-api';
 import { buildDashboardPath } from '@/lib/organizer-path';
 
-export default function AcceptInvitationPage() {
+function AcceptInvitationContent() {
     const searchParams = useSearchParams();
     const token = searchParams.get('token');
     const router = useRouter();
@@ -123,3 +123,20 @@ export default function AcceptInvitationPage() {
         </div>
     );
 }
+
+function AcceptInvitationFallback() {
+    return (
+        <div className="min-h-screen flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+    );
+}
+
+export default function AcceptInvitationPage() {
+    return (
+        <Suspense fallback={<AcceptInvitationFallback />}>
+            <AcceptInvitationContent />
+        </Suspense>
+    );
+}
+
