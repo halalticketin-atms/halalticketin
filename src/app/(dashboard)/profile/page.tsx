@@ -209,12 +209,18 @@ export default function ProfilePage() {
                                                 <Card className="group overflow-hidden transition-all hover:shadow-md hover:border-primary/20">
                                                     <CardContent className="flex items-center gap-4 p-4">
                                                         <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-lg">
-                                                            <Image
-                                                                src={event.image}
-                                                                alt={event.title}
-                                                                fill
-                                                                className="object-cover transition-transform group-hover:scale-105"
-                                                            />
+                                                            {event.image ? (
+                                                                <Image
+                                                                    src={event.image}
+                                                                    alt={event.title}
+                                                                    fill
+                                                                    className="object-cover transition-transform group-hover:scale-105"
+                                                                />
+                                                            ) : (
+                                                                <div className="absolute inset-0 bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                                                                    No image
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
@@ -251,12 +257,18 @@ export default function ProfilePage() {
                                             <Card className="group overflow-hidden transition-all hover:shadow-md hover:border-primary/20">
                                                 <CardContent className="flex items-center gap-4 p-4">
                                                     <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-lg">
-                                                        <Image
-                                                            src={event.image}
-                                                            alt={event.title}
-                                                            fill
-                                                            className="object-cover transition-transform group-hover:scale-105"
-                                                        />
+                                                        {event.image ? (
+                                                            <Image
+                                                                src={event.image}
+                                                                alt={event.title}
+                                                                fill
+                                                                className="object-cover transition-transform group-hover:scale-105"
+                                                            />
+                                                        ) : (
+                                                            <div className="absolute inset-0 bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                                                                No image
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <h3 className="font-semibold truncate group-hover:text-primary transition-colors">

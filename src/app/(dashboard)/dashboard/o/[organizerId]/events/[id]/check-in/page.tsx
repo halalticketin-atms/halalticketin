@@ -36,6 +36,8 @@ import {
     DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
+import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
+import { buildDashboardPath } from '@/lib/organizer-path';
 
 // Mock attendees data
 interface Attendee {
@@ -71,6 +73,7 @@ const mockEvent = {
 };
 
 export default function CheckInPage() {
+    const organizerId = useOrganizerFromParams();
     const [attendees, setAttendees] = useState<Attendee[]>(mockAttendees);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'checked-in' | 'not-checked'>('all');
@@ -132,7 +135,7 @@ export default function CheckInPage() {
             <div className="sticky top-0 z-40 bg-background border-b">
                 <div className="container flex h-14 items-center gap-4">
                     <Button variant="ghost" size="icon" asChild className="shrink-0">
-                        <Link href="/dashboard/events">
+                        <Link href={organizerId ? `${buildDashboardPath(organizerId)}/events` : '/dashboard'}>
                             <ArrowLeft className="h-5 w-5" />
                         </Link>
                     </Button>

@@ -6,11 +6,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EventWizard } from '@/app/(dashboard)/events/create/page';
 import { getDraftInitialForEvent } from '@/data/mock-events';
+import { useOrganizers } from '@/context/organizer-context';
+import { buildDashboardPath } from '@/lib/organizer-path';
 
 export default function EditEventPage() {
   const params = useParams<{ id: string }>();
   const eventId = params?.id ?? '';
   const initialDraft = getDraftInitialForEvent(eventId);
+  const { activeOrganizerId } = useOrganizers();
+  const eventsDashboardHref = activeOrganizerId ? `${buildDashboardPath(activeOrganizerId)}/events` : '/dashboard';
 
   if (!initialDraft) {
     return (
@@ -23,7 +27,7 @@ export default function EditEventPage() {
                 We couldn’t find the event you’re looking for. Please return to your events dashboard.
               </p>
               <Button asChild>
-                <Link href="/dashboard/events">Back to My Events</Link>
+                <Link href={eventsDashboardHref}>Back to My Events</Link>
               </Button>
             </CardContent>
           </Card>

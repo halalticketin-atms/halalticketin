@@ -13,26 +13,26 @@ interface QuickAction {
     color: string;
 }
 
-const defaultActions: QuickAction[] = [
+const defaultActions = (organizerId?: string): QuickAction[] => [
     {
         title: 'Create Event',
         description: 'Start a new event',
         icon: Plus,
-        href: '/events/new',
+        href: organizerId ? `/events/new?organizerId=${organizerId}` : '/events/new',
         color: 'bg-primary/10 text-primary',
     },
     {
         title: 'View Analytics',
         description: 'Check performance',
         icon: BarChart3,
-        href: '/dashboard/analytics',
+        href: organizerId ? `/dashboard/o/${organizerId}/analytics` : '/dashboard/analytics',
         color: 'bg-blue-100 text-blue-600',
     },
     {
-        title: 'Manage Tickets',
-        description: 'View all orders',
+        title: 'Manage Orders',
+        description: 'View ticket sales',
         icon: Ticket,
-        href: '/dashboard/tickets',
+        href: organizerId ? `/dashboard/o/${organizerId}/orders` : '/dashboard/orders',
         color: 'bg-green-100 text-green-600',
     },
     {
@@ -46,9 +46,11 @@ const defaultActions: QuickAction[] = [
 
 interface QuickActionsProps {
     actions?: QuickAction[];
+    organizerId?: string;
 }
 
-export function QuickActions({ actions = defaultActions }: QuickActionsProps) {
+export function QuickActions({ actions, organizerId }: QuickActionsProps) {
+    const resolvedActions = actions ?? defaultActions(organizerId);
     return (
         <Card className="border-border/50 overflow-hidden">
             <CardHeader>
@@ -56,7 +58,7 @@ export function QuickActions({ actions = defaultActions }: QuickActionsProps) {
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3">
-                    {actions.map((action, index) => (
+                    {resolvedActions.map((action, index) => (
                         <motion.div
                             key={action.title}
                             initial={{ opacity: 0, scale: 0.95 }}

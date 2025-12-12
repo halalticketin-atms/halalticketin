@@ -51,6 +51,7 @@ import {
 } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
+import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 
 type OrderStatus = 'pending' | 'completed' | 'cancelled' | 'refunded';
 
@@ -111,6 +112,7 @@ const formatCurrency = (amount: number, currency: string) => {
 };
 
 export default function OrdersPage() {
+    const organizerId = useOrganizerFromParams();
     const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -122,9 +124,16 @@ export default function OrdersPage() {
     useEffect(() => {
         let isMounted = true;
         const fetchOrders = async () => {
+            if (!organizerId) {
+                setOrders([]);
+                setIsLoading(false);
+                return;
+            }
             setIsLoading(true);
             try {
-                const response = await api.get<OrdersResponse>('/api/v1/orders');
+                const response = await api.get<OrdersResponse>('/api/v1/orders', {
+                    params: { organizerId },
+                });
                 if (!isMounted) {
                     return;
                 }
@@ -147,7 +156,7 @@ export default function OrdersPage() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [organizerId]);
 
     const filteredOrders = orders.filter(order => {
         const matchesSearch =

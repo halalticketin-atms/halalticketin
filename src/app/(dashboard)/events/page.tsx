@@ -157,12 +157,18 @@ export default function BrowseEventsPage() {
                                     <Card className="group overflow-hidden border-border/50 transition-all hover:shadow-lg hover:border-primary/20">
                                         {/* Image */}
                                         <div className="relative aspect-[16/10] overflow-hidden">
-                                            <Image
-                                                src={event.imageUrl}
-                                                alt={event.title}
-                                                fill
-                                                className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                            />
+                                            {event.imageUrl ? (
+                                                <Image
+                                                    src={event.imageUrl}
+                                                    alt={event.title}
+                                                    fill
+                                                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                                />
+                                            ) : (
+                                                <div className="absolute inset-0 bg-muted flex items-center justify-center text-muted-foreground text-sm">
+                                                    No image
+                                                </div>
+                                            )}
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
                                             {/* Category Badge */}

@@ -7,9 +7,10 @@ import { Card } from '@/components/ui/card';
 interface DesktopQRRedirectProps {
   eventId: string;
   eventName: string;
+  organizerId?: string | null;
 }
 
-export function DesktopQRRedirect({ eventId, eventName }: DesktopQRRedirectProps) {
+export function DesktopQRRedirect({ eventId, eventName, organizerId }: DesktopQRRedirectProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -17,7 +18,9 @@ export function DesktopQRRedirect({ eventId, eventName }: DesktopQRRedirectProps
   }, []);
 
   const scannerUrl = mounted
-    ? `${window.location.origin}/dashboard/check-in?event=${eventId}&mode=scan`
+    ? organizerId
+      ? `${window.location.origin}/dashboard/o/${organizerId}/check-in?event=${eventId}&mode=scan`
+      : `${window.location.origin}/dashboard`
     : '';
 
   if (!mounted) {
@@ -62,4 +65,3 @@ export function DesktopQRRedirect({ eventId, eventName }: DesktopQRRedirectProps
     </div>
   );
 }
-

@@ -48,6 +48,8 @@ import { Separator } from '@/components/ui/separator';
 import { useEventDraft, type DraftEventInitial } from '@/hooks/useEventDraft';
 import { useSearchParams } from 'next/navigation';
 import { consumePendingDraft, type DraftEntrySource } from '@/utils/pending-draft-storage';
+import { useOrganizers } from '@/context/organizer-context';
+import { buildDashboardPath } from '@/lib/organizer-path';
 
 export const steps = [
     { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
@@ -113,6 +115,8 @@ export function EventWizard({
     } = useEventDraft(initialDraft, steps.length);
 
     const headerTitle = mode === 'edit' ? 'Edit Event' : 'Create New Event';
+    const { activeOrganizerId } = useOrganizers();
+    const dashboardHref = activeOrganizerId ? buildDashboardPath(activeOrganizerId) : '/dashboard';
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -121,7 +125,7 @@ export function EventWizard({
                 {/* Header Row */}
                 <div className="container flex h-14 items-center gap-4">
                     <Button variant="ghost" size="icon" asChild className="shrink-0">
-                        <Link href="/dashboard">
+                        <Link href={dashboardHref}>
                             <ArrowLeft className="h-5 w-5" />
                         </Link>
                     </Button>

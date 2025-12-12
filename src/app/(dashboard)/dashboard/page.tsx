@@ -1,124 +1,182 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Calendar, Ticket, DollarSign, Users, TrendingUp } from 'lucide-react';
-import Link from 'next/link';
-import { StatCard, RecentEvents, QuickActions } from '@/components/dashboard';
+import { Building2, Users } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/auth-context';
+import { useOrganizers } from '@/context/organizer-context';
+import api from '@/lib/api';
+import { buildDashboardPath } from '@/lib/organizer-path';
 
-const upcomingMilestones: Array<{ event: string; milestone: string; progress: number }> = [];
+export default function DashboardLandingPage() {
+    const router = useRouter();
+    const { user, isLoading: authLoading } = useAuth();
+    const {
+        organizers,
+        isLoading: organizersLoading,
+        activeOrganizerId,
+        setActiveOrganizerId,
+        refresh,
+        error: organizerError,
+    } = useOrganizers();
 
-export default function DashboardPage() {
-    const { user, memberships, isLoading } = useAuth();
+    const [name, setName] = useState('');
+    const [creating, setCreating] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [redirecting, setRedirecting] = useState(false);
 
-    const greetingName = user?.name || user?.email?.split('@')[0] || 'there';
-    const welcomeTitle = user ? `Welcome back, ${greetingName}! 👋` : 'Welcome to your dashboard';
-    const welcomeSubtitle = user
-        ? "Here's what's happening with your events"
-        : 'Sign in to start creating and managing your halal events.';
+    useEffect(() => {
+        if (!organizersLoading && activeOrganizerId) {
+            setRedirecting(true);
+            router.replace(buildDashboardPath(activeOrganizerId));
+        }
+    }, [activeOrganizerId, organizersLoading, router]);
 
-    const stats = useMemo(
-        () => [
-            { title: 'Total Events', value: 0, icon: Calendar },
-            { title: 'Tickets Sold', value: 0, icon: Ticket },
-            { title: 'Revenue', value: '£0', icon: DollarSign },
-            { title: 'Organizer Teams', value: memberships.length, icon: Users },
-        ],
-        [memberships.length]
+    const handleCreateOrganizer = async () => {
+        if (!name.trim()) {
+            setError('Please enter an organizer name');
+            return;
+        }
+
+        try {
+            setCreating(true);
+            setError(null);
+            const response = await api.post<{
+                organizer: { id: string };
+            }>('/api/v1/organizers', { name: name.trim() });
+            setName('');
+            setActiveOrganizerId(response.organizer.id);
+            router.replace(buildDashboardPath(response.organizer.id));
+            await refresh();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Unable to create organizer';
+            setError(message);
+        } finally {
+            setCreating(false);
+        }
+    };
+
+    const organizerCards = useMemo(
+        () =>
+            organizers.map((organizer) => (
+                <Card key={organizer.id} className="border border-border/60">
+                    <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-primary" />
+                            {organizer.name}
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground capitalize">{organizer.role}</p>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                            Status: <span className="capitalize">{organizer.status}</span>
+                        </p>
+                        <Button
+                            className="w-full"
+                            onClick={() => router.push(buildDashboardPath(organizer.id))}
+                        >
+                            Continue
+                        </Button>
+                    </CardContent>
+                </Card>
+            )),
+        [organizers, router]
     );
+
+    if (!user && !authLoading) {
+        return (
+            <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+                <Card className="max-w-md w-full mx-4">
+                    <CardHeader>
+                        <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-muted-foreground">
+                            Sign in to manage organizers, events, and team members.
+                        </p>
+                        <Button asChild className="w-full">
+                            <a href="/login">Go to login</a>
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    if (organizersLoading || redirecting) {
+        return (
+            <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-muted/30">
-            <div className="container py-8 overflow-x-hidden">
-                {/* Header */}
+            <div className="container py-12 space-y-10">
                 <motion.div
-                    initial={{ opacity: 0, y: -20 }}
+                    initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="mb-8"
+                    transition={{ duration: 0.4 }}
+                    className="text-center space-y-3"
                 >
-                    <h1 className="font-display text-2xl sm:text-3xl font-bold">{welcomeTitle}</h1>
-                    <p className="text-muted-foreground mt-1">{welcomeSubtitle}</p>
+                    <p className="text-sm font-semibold text-primary uppercase tracking-widest">
+                        Organizer dashboard
+                    </p>
+                    <h1 className="font-display text-3xl sm:text-4xl font-bold">
+                        Choose an organizer to continue
+                    </h1>
+                    <p className="text-muted-foreground max-w-2xl mx-auto">
+                        Switch between organizer accounts or create a new one to start hosting events.
+                    </p>
                 </motion.div>
 
-                {/* Stats Grid */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-                    {stats.map((stat, i) => (
-                        <StatCard key={stat.title} {...stat} delay={i * 0.1} />
-                    ))}
-                </div>
-
-                {/* Main Content Grid */}
-                <div className="grid gap-6 lg:grid-cols-3">
-                    {/* Recent Events - Takes 2 columns */}
-                    <div className="lg:col-span-2">
-                        <RecentEvents events={[]} />
+                {organizersLoading && (
+                    <div className="flex items-center justify-center">
+                        <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
                     </div>
+                )}
 
-                    {/* Sidebar */}
-                    <div className="space-y-6">
-                        <QuickActions />
+                {organizerError && (
+                    <p className="text-center text-sm text-destructive">{organizerError}</p>
+                )}
 
-                        {!user && !isLoading && (
-                            <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
-                                <CardContent className="py-6 text-center space-y-3">
-                                    <p className="text-sm text-muted-foreground">
-                                        Sign in to see your upcoming events, milestones, and organizer analytics.
-                                    </p>
-                                    <Link
-                                        href="/login"
-                                        className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                                    >
-                                        Go to login
-                                    </Link>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Upcoming Milestones */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, delay: 0.5 }}
-                        >
-                            <Card className="border-border/50 overflow-hidden">
-                                <CardHeader>
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <TrendingUp className="h-5 w-5 text-primary" />
-                                        Upcoming Milestones
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {upcomingMilestones.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">
-                                            Once you publish events, your important milestones will appear here.
-                                        </p>
-                                    ) : (
-                                        upcomingMilestones.map((item) => (
-                                            <div key={item.event}>
-                                                <div className="flex justify-between text-sm mb-1">
-                                                    <span className="font-medium">{item.event}</span>
-                                                    <span className="text-muted-foreground">{item.progress}%</span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground mb-2">{item.milestone}</p>
-                                                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                                    <motion.div
-                                                        className="h-full bg-gradient-to-r from-primary to-[oklch(0.72_0.15_185)]"
-                                                        initial={{ width: 0 }}
-                                                        animate={{ width: `${item.progress}%` }}
-                                                        transition={{ duration: 1, delay: 0.5 }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </motion.div>
+                {!organizersLoading && organizers.length > 0 && (
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        {organizerCards}
                     </div>
-                </div>
+                )}
+
+                {!organizersLoading && organizers.length === 0 && (
+                    <Card className="max-w-2xl mx-auto border-dashed border-2 border-primary/40">
+                        <CardContent className="py-10 text-center space-y-4">
+                            <Users className="h-12 w-12 text-primary mx-auto" />
+                            <div className="space-y-2">
+                                <h2 className="text-xl font-semibold">Create your first organizer</h2>
+                                <p className="text-muted-foreground">
+                                    Set up an organizer profile to start publishing halal-friendly events.
+                                </p>
+                            </div>
+                            <div className="space-y-3 max-w-md mx-auto">
+                                <Input
+                                    placeholder="Organizer name"
+                                    value={name}
+                                    onChange={(event) => setName(event.target.value)}
+                                    disabled={creating}
+                                />
+                                {error && <p className="text-sm text-destructive">{error}</p>}
+                                <Button onClick={handleCreateOrganizer} disabled={creating} className="w-full">
+                                    {creating ? 'Creating...' : 'Create organizer'}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
     );

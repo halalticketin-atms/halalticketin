@@ -17,18 +17,24 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from '@/components/ui/sheet';
 import { useAuth } from '@/context/auth-context';
-
-const navLinks = [
-    { href: '/events', label: 'Browse Events' },
-    { href: '/pricing', label: 'Pricing' },
-    { href: '/dashboard', label: 'Dashboard' },
-    { href: '/dashboard/check-in', label: 'Check-in' },
-    { href: '/contact', label: 'Contact' },
-];
+import { useOrganizers } from '@/context/organizer-context';
 
 export function Header() {
     const router = useRouter();
     const { user, signOut } = useAuth();
+    const { activeOrganizerId } = useOrganizers();
+
+    const navLinks = [
+        { id: 'browse-events', href: '/events', label: 'Browse Events' },
+        { id: 'pricing', href: '/pricing', label: 'Pricing' },
+        { id: 'dashboard', href: '/dashboard', label: 'Dashboard' },
+        {
+            id: 'check-in',
+            href: activeOrganizerId ? `/dashboard/o/${activeOrganizerId}/check-in` : '/dashboard',
+            label: 'Check-in',
+        },
+        { id: 'contact', href: '/contact', label: 'Contact' },
+    ];
 
     const displayName = user?.name || user?.email || 'Guest User';
     const displayEmail = user?.email || 'guest@example.com';
@@ -64,7 +70,7 @@ export function Header() {
                 <nav className="hidden items-center gap-1 md:flex">
                     {navLinks.map((link) => (
                         <Link
-                            key={link.href}
+                            key={link.id}
                             href={link.href}
                             className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
@@ -175,7 +181,7 @@ export function Header() {
                             </div>
                             <nav className="flex flex-col gap-4">
                                 {navLinks.map((link) => (
-                                    <SheetClose asChild key={link.href}>
+                                    <SheetClose asChild key={link.id}>
                                         <Link
                                             href={link.href}
                                             className="block rounded-lg px-4 py-3 text-lg font-medium transition-colors hover:bg-muted"

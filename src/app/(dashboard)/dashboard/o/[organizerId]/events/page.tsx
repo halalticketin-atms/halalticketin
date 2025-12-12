@@ -28,6 +28,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { dashboardEvents, type DashboardEvent } from '@/data/mock-events';
+import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 
 const statusConfig = {
     ongoing: { label: 'Ongoing', color: 'bg-blue-100 text-blue-700', icon: Clock },
@@ -144,6 +145,7 @@ function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
 }
 
 export default function MyEventsPage() {
+    const organizerId = useOrganizerFromParams();
     const [activeTab, setActiveTab] = useState('all');
 
     const getFilteredEvents = (status: string) => {
@@ -173,7 +175,7 @@ export default function MyEventsPage() {
                         <p className="text-muted-foreground mt-1">Manage your events and track performance</p>
                     </div>
                     <Button asChild className="shrink-0">
-                        <Link href="/events/new">
+                        <Link href={organizerId ? `/events/new?organizerId=${organizerId}` : '/events/new'}>
                             <Plus className="h-4 w-4 mr-2" />
                             Create Event
                         </Link>

@@ -235,6 +235,7 @@ function normalizeFormData(
   return {
     title,
     description,
+    bannerImageDataUrl: raw.bannerImageDataUrl ?? '',
     category: raw.category ?? '',
     organizerName: raw.organizerName ?? 'HalalTicketin AI Draft',
     date: raw.date ?? '',

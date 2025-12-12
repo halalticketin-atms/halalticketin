@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import api from "@/lib/api";
+import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
+import { buildDashboardPath } from '@/lib/organizer-path';
 
 interface AnalyticsEvent {
     id: string;
@@ -68,6 +70,7 @@ const formatCurrency = (amount: number, currency: string) => {
 };
 
 export default function AnalyticsPage() {
+    const organizerId = useOrganizerFromParams();
     const [selectedEvent, setSelectedEvent] = useState('all');
     const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
     const [mounted, setMounted] = useState(false);
@@ -76,10 +79,17 @@ export default function AnalyticsPage() {
 
     const fetchAnalytics = useCallback(
         async (eventId?: string) => {
+            if (!organizerId) {
+                return;
+            }
             setIsLoading(true);
             try {
+                const params: Record<string, string> = { organizerId };
+                if (eventId) {
+                    params.eventId = eventId;
+                }
                 const response = await api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
-                    params: eventId ? { eventId } : undefined,
+                    params,
                 });
                 setAnalytics(response);
                 setError(null);
@@ -93,12 +103,17 @@ export default function AnalyticsPage() {
                 setIsLoading(false);
             }
         },
-        []
+        [organizerId]
     );
 
     useEffect(() => {
+        if (!organizerId) {
+            setAnalytics(null);
+            setIsLoading(false);
+            return;
+        }
         void fetchAnalytics();
-    }, [fetchAnalytics]);
+    }, [fetchAnalytics, organizerId]);
 
     useEffect(() => {
         setMounted(true);
@@ -163,7 +178,7 @@ export default function AnalyticsPage() {
                 >
                     <div>
                         <Button variant="ghost" size="sm" className="mb-2" asChild>
-                            <Link href="/dashboard">
+                            <Link href={organizerId ? buildDashboardPath(organizerId) : '/dashboard'}>
                                 <ArrowLeft className="h-4 w-4 mr-2" />
                                 Dashboard
                             </Link>

@@ -18,6 +18,9 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { OrganizerSwitcher } from './OrganizerSwitcher';
+import { buildDashboardPath } from '@/lib/organizer-path';
+import { useAuth } from '@/context/auth-context';
 
 interface NavItem {
     title: string;
@@ -25,23 +28,34 @@ interface NavItem {
     icon: React.ElementType;
 }
 
-const mainNavItems: NavItem[] = [
-    { title: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-    { title: 'My Events', href: '/dashboard/events', icon: Calendar },
-    { title: 'Orders', href: '/dashboard/orders', icon: Receipt },
-    { title: 'Check-in', href: '/dashboard/check-in', icon: ScanLine },
-    { title: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-];
+interface DashboardSidebarProps {
+    organizerId?: string;
+}
 
-const bottomNavItems: NavItem[] = [
-    { title: 'Settings', href: '/settings', icon: Settings },
-];
+const buildNavItems = (organizerId?: string): NavItem[] => {
+    const base = organizerId ? buildDashboardPath(organizerId) : '/dashboard';
+    return [
+        { title: 'Overview', href: base, icon: LayoutDashboard },
+        { title: 'My Events', href: `${base}/events`, icon: Calendar },
+        { title: 'Orders', href: `${base}/orders`, icon: Receipt },
+        { title: 'Check-in', href: `${base}/check-in`, icon: ScanLine },
+        { title: 'Analytics', href: `${base}/analytics`, icon: BarChart3 },
+    ];
+};
 
-export function DashboardSidebar() {
+const bottomNavItems: NavItem[] = [{ title: 'Settings', href: '/settings', icon: Settings }];
+
+export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const { signOut } = useAuth();
+    const mainNavItems = buildNavItems(organizerId);
 
     const isActive = (href: string) => {
+        const overviewHref = organizerId ? buildDashboardPath(organizerId) : '/dashboard';
+        if (href === overviewHref) {
+            return pathname === overviewHref;
+        }
         if (href === '/dashboard') {
             return pathname === '/dashboard';
         }
@@ -88,6 +102,11 @@ export function DashboardSidebar() {
                 </Button>
             </div>
 
+            {/* Organizer Switcher */}
+            <div className="border-b border-border">
+                <OrganizerSwitcher />
+            </div>
+
             {/* Main Navigation */}
             <nav className="flex-1 p-4 space-y-1">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 mb-3">
@@ -108,6 +127,7 @@ export function DashboardSidebar() {
                         'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium',
                         'text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20'
                     )}
+                    onClick={() => signOut()}
                 >
                     <LogOut className="h-5 w-5 shrink-0" />
                     <span>Sign Out</span>
@@ -150,6 +170,7 @@ export function DashboardSidebar() {
                             'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium',
                             'text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20'
                         )}
+                        onClick={() => signOut()}
                     >
                         <LogOut className="h-5 w-5 shrink-0" />
                         <span>Sign Out</span>

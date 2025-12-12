@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { savePendingDraft } from '@/utils/pending-draft-storage';
 import { generateEventDraft } from '@/lib/ai/event-draft';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
+import { useOrganizers } from '@/context/organizer-context';
+import { buildDashboardPath } from '@/lib/organizer-path';
 
 const buildFallbackDraft = (titleHint?: string): DraftEventInitial => {
   const cleanedTitle = titleHint
@@ -96,6 +98,16 @@ export default function AIEventCreatorPage() {
         }
     };
 
+    const { activeOrganizerId } = useOrganizers();
+
+    const redirectToWizard = () => {
+        if (activeOrganizerId) {
+            router.push(`${buildDashboardPath(activeOrganizerId)}/events/create?source=ai`);
+        } else {
+            router.push('/events/create?source=ai');
+        }
+    };
+
     const handleSubmit = async () => {
         if (!prompt.trim() && !uploadedFile) return;
 
@@ -137,13 +149,16 @@ export default function AIEventCreatorPage() {
                 },
             });
 
-            router.push('/events/create?source=ai');
+            redirectToWizard();
         } catch (err) {
             console.error(err);
 
             const fallbackDraft = buildFallbackDraft(titleHint);
             if (bannerImageDataUrl) {
-                fallbackDraft.formData.bannerImageDataUrl = bannerImageDataUrl;
+                fallbackDraft.formData = {
+                    ...(fallbackDraft.formData ?? {}),
+                    bannerImageDataUrl,
+                };
             }
 
             savePendingDraft({
@@ -161,7 +176,7 @@ export default function AIEventCreatorPage() {
                 'We had trouble contacting the AI service, so we handed you a minimal draft instead. Please review and fill in any missing details.',
             );
 
-            router.push('/events/create?source=ai');
+            redirectToWizard();
         } finally {
             setIsProcessing(false);
         }
