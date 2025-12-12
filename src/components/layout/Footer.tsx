@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { Linkedin, Instagram } from 'lucide-react';
 
 export function Footer() {
     return (
@@ -20,6 +21,26 @@ export function Footer() {
                         <p className="mt-4 text-sm text-muted-foreground">
                             Your trusted platform for halal events and ticketing.
                         </p>
+                        <div className="mt-6 flex gap-4">
+                            <Link
+                                href="https://linkedin.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <Linkedin className="h-5 w-5" />
+                                <span className="sr-only">LinkedIn</span>
+                            </Link>
+                            <Link
+                                href="https://instagram.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <Instagram className="h-5 w-5" />
+                                <span className="sr-only">Instagram</span>
+                            </Link>
+                        </div>
                     </div>
 
                     {/* For Attendees */}
