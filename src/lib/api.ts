@@ -43,6 +43,17 @@ export const clearAuthToken = () => {
     setAuthToken(null);
 };
 
+export class ApiError extends Error {
+    status: number;
+    payload: unknown;
+
+    constructor(message: string, status: number, payload: unknown) {
+        super(message);
+        this.status = status;
+        this.payload = payload;
+    }
+}
+
 class ApiClient {
     private baseUrl: string;
 
@@ -71,8 +82,27 @@ class ApiClient {
         });
 
         if (!response.ok) {
-            const errorText = await response.text().catch(() => response.statusText);
-            throw new Error(errorText || `API Error: ${response.status} ${response.statusText}`);
+            const contentType = response.headers.get('content-type');
+            let errorPayload: unknown = null;
+
+            try {
+                if (contentType?.includes('application/json')) {
+                    errorPayload = await response.json();
+                } else {
+                    errorPayload = await response.text();
+                }
+            } catch {
+                errorPayload = null;
+            }
+
+            const message =
+                (typeof errorPayload === 'string' && errorPayload.trim()) ||
+                (typeof errorPayload === 'object' && errorPayload !== null && 'message' in errorPayload
+                    ? String((errorPayload as { message?: string }).message)
+                    : undefined) ||
+                `API Error: ${response.status} ${response.statusText}`;
+
+            throw new ApiError(message, response.status, errorPayload);
         }
 
         if (response.status === 204) {

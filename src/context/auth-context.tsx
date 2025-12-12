@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import api, { clearAuthToken, getAuthToken } from '@/lib/api';
+import api, { ApiError, clearAuthToken, getAuthToken } from '@/lib/api';
 
 interface Membership {
     id: string;
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const message = err instanceof Error ? err.message : 'Unable to load profile';
             setError(message);
 
-            if (message.toLowerCase().includes('unauth') || message.includes('401')) {
+            if (err instanceof ApiError && err.status === 401) {
                 clearAuthToken();
                 setProfile(null);
             }
