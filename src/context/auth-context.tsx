@@ -3,12 +3,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import api, { ApiError, clearAuthToken, getAuthToken } from '@/lib/api';
+import type { EventScope } from '@/types';
 
 interface Membership {
     id: string;
     organizerId: string;
     role: string;
     status: string;
+    eventScope: EventScope;
 }
 
 interface UserProfile {

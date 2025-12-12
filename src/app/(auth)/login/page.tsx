@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Mail, Lock, ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,10 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { refresh } = useAuth();
+    const nextParam = searchParams.get('next');
+    const nextPath = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard';
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,7 +42,7 @@ export default function LoginPage() {
 
             // Warm up the session by fetching the profile (uses Authorization header automatically)
             await refresh();
-            router.push('/dashboard');
+            router.push(nextPath);
         } catch (err) {
             console.error(err);
             setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.');

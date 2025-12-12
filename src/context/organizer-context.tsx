@@ -12,6 +12,7 @@ import {
 
 import api from '@/lib/api';
 import { useAuth } from './auth-context';
+import type { EventScope } from '@/types';
 
 const STORAGE_KEY = 'halal-ticketin:last-organizer-id';
 
@@ -24,6 +25,7 @@ export interface OrganizerSummary {
     role: string;
     status: string;
     membershipId: string;
+    eventScope: EventScope;
 }
 
 interface OrganizerContextValue {

@@ -179,3 +179,5 @@ export type CheckInResult =
     | { status: 'success'; ticket: CheckInTicket }
     | { status: 'already_checked_in'; ticket: CheckInTicket; checkedInAt: Date }
     | { status: 'invalid'; message: string };
+
+export * from './organizers';
