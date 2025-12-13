@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence, Reorder } from 'motion/react';
 import {
@@ -77,10 +77,16 @@ export default function RegistrationFormBuilderPage() {
     const [customFields, setCustomFields] = useState<CustomField[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [editingField, setEditingField] = useState<string | null>(null);
+    const fieldIdCounterRef = useRef(0);
+
+    const generateFieldId = () => {
+        fieldIdCounterRef.current += 1;
+        return `custom-field-${fieldIdCounterRef.current}`;
+    };
 
     const addField = (type: FieldType) => {
         const newField: CustomField = {
-            id: String(Date.now()),
+            id: generateFieldId(),
             type,
             label: `New ${fieldTypeLabels[type]}`,
             placeholder: '',

@@ -7,7 +7,6 @@ import { motion } from 'motion/react';
 import {
     Calendar,
     MapPin,
-    Users,
     Plus,
     MoreHorizontal,
     Eye,
@@ -16,6 +15,8 @@ import {
     Clock,
     CheckCircle,
     Archive,
+    Loader2,
+    AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,19 +28,64 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { dashboardEvents, type DashboardEvent } from '@/data/mock-events';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
+import { useOrganizerEvents, DashboardEvent, DashboardEventStatus } from '@/hooks/useOrganizerEvents';
 
-const statusConfig = {
+const statusConfig: Record<DashboardEventStatus, { label: string; color: string; icon: typeof Clock }> = {
     ongoing: { label: 'Ongoing', color: 'bg-blue-100 text-blue-700', icon: Clock },
     upcoming: { label: 'Upcoming', color: 'bg-green-100 text-green-700', icon: Calendar },
     past: { label: 'Completed', color: 'bg-gray-100 text-gray-600', icon: CheckCircle },
     draft: { label: 'Draft', color: 'bg-yellow-100 text-yellow-700', icon: Archive },
 };
 
-function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
-    const config = statusConfig[event.status];
+/**
+ * Format event datetime for display.
+ */
+function formatEventDateTime(event: DashboardEvent): { date: string; time: string } {
+    if (!event.startDatetime) {
+        return { date: 'Date TBD', time: '' };
+    }
+
+    const start = new Date(event.startDatetime);
+    const date = start.toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    });
+    const time = start.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+
+    return { date, time };
+}
+
+/**
+ * Get location display string.
+ */
+function getLocationDisplay(event: DashboardEvent): string {
+    if (event.locationType === 'online') {
+        return 'Online Event';
+    }
+    if (event.venue) {
+        return event.city ? `${event.venue}, ${event.city}` : event.venue;
+    }
+    if (event.city) {
+        return event.city;
+    }
+    return 'Location TBD';
+}
+
+function EventCard({ event, index, organizerId }: { event: DashboardEvent; index: number; organizerId: string | null }) {
+    const config = statusConfig[event.displayStatus];
     const StatusIcon = config.icon;
+    const { date, time } = formatEventDateTime(event);
+    const location = getLocationDisplay(event);
+
+    // For now, we don't have ticket sales data - will be added when orders are implemented
+    const ticketsSold = 0;
+    const totalTickets = 100;
 
     return (
         <motion.div
@@ -50,13 +96,19 @@ function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
             <Card className="overflow-hidden border-border/50 hover:shadow-lg transition-shadow group">
                 <div className="flex flex-col sm:flex-row">
                     {/* Image */}
-                    <div className="relative w-full sm:w-48 h-40 sm:h-auto shrink-0">
-                        <Image
-                            src={event.imageUrl}
-                            alt={event.title}
-                            fill
-                            className="object-cover"
-                        />
+                    <div className="relative w-full sm:w-48 h-40 sm:h-auto shrink-0 bg-muted">
+                        {event.bannerImageUrl ? (
+                            <Image
+                                src={event.bannerImageUrl}
+                                alt={event.title || 'Event'}
+                                fill
+                                className="object-cover"
+                            />
+                        ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                                <Calendar className="h-8 w-8" />
+                            </div>
+                        )}
                         <Badge className={`absolute top-3 left-3 ${config.color}`}>
                             <StatusIcon className="h-3 w-3 mr-1" />
                             {config.label}
@@ -68,30 +120,30 @@ function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
-                                    {event.title}
+                                    {event.title || 'Untitled Event'}
                                 </h3>
                                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
                                     <span className="flex items-center gap-1">
                                         <Calendar className="h-4 w-4" />
-                                        {event.date} at {event.time}
+                                        {date}{time && ` at ${time}`}
                                     </span>
                                     <span className="flex items-center gap-1">
                                         <MapPin className="h-4 w-4" />
-                                        {event.location}
+                                        {location}
                                     </span>
                                 </div>
 
-                                {/* Stats */}
+                                {/* Stats - placeholder until orders are implemented */}
                                 <div className="flex items-center gap-6 mt-4">
                                     <div>
                                         <p className="text-xs text-muted-foreground">Tickets Sold</p>
                                         <p className="font-semibold">
-                                            {event.ticketsSold}/{event.totalTickets}
+                                            {ticketsSold}/{totalTickets}
                                         </p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground">Revenue</p>
-                                        <p className="font-semibold text-primary">{event.revenue}</p>
+                                        <p className="font-semibold text-primary">£0</p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground">Capacity</p>
@@ -99,11 +151,11 @@ function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
                                             <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full bg-primary rounded-full"
-                                                    style={{ width: `${(event.ticketsSold / event.totalTickets) * 100}%` }}
+                                                    style={{ width: `${(ticketsSold / totalTickets) * 100}%` }}
                                                 />
                                             </div>
                                             <span className="text-xs font-medium">
-                                                {Math.round((event.ticketsSold / event.totalTickets) * 100)}%
+                                                {Math.round((ticketsSold / totalTickets) * 100)}%
                                             </span>
                                         </div>
                                     </div>
@@ -118,14 +170,16 @@ function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                    {event.slug && event.displayStatus !== 'draft' && (
+                                        <DropdownMenuItem asChild>
+                                            <Link href={`/events/${event.slug}`}>
+                                                <Eye className="h-4 w-4 mr-2" />
+                                                View Public Page
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    )}
                                     <DropdownMenuItem asChild>
-                                        <Link href={`/events/${event.id}`}>
-                                            <Eye className="h-4 w-4 mr-2" />
-                                            View Event
-                                        </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <Link href={`/events/${event.id}/edit`}>
+                                        <Link href={organizerId ? `/events/create/${event.id}?organizerId=${organizerId}` : `/events/create/${event.id}`}>
                                             <Edit className="h-4 w-4 mr-2" />
                                             Edit
                                         </Link>
@@ -146,20 +200,36 @@ function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
 
 export default function MyEventsPage() {
     const organizerId = useOrganizerFromParams();
+    const { events, isLoading, error, counts } = useOrganizerEvents(organizerId);
     const [activeTab, setActiveTab] = useState('all');
 
     const getFilteredEvents = (status: string) => {
-        if (status === 'all') return dashboardEvents;
-        return dashboardEvents.filter(e => e.status === status);
+        if (status === 'all') return events;
+        return events.filter(e => e.displayStatus === status);
     };
 
-    const counts = {
-        all: dashboardEvents.length,
-        ongoing: dashboardEvents.filter(e => e.status === 'ongoing').length,
-        upcoming: dashboardEvents.filter(e => e.status === 'upcoming').length,
-        past: dashboardEvents.filter(e => e.status === 'past').length,
-        draft: dashboardEvents.filter(e => e.status === 'draft').length,
-    };
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                    <p className="mt-2 text-muted-foreground">Loading events...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+                <Card className="max-w-md p-8 text-center">
+                    <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+                    <h2 className="text-lg font-semibold">Failed to load events</h2>
+                    <p className="text-muted-foreground mt-2">{error}</p>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -211,15 +281,19 @@ export default function MyEventsPage() {
                                     <p className="text-muted-foreground mt-1">
                                         {tab === 'draft'
                                             ? "You don't have any draft events."
-                                            : `You don't have any ${tab} events yet.`}
+                                            : tab === 'all'
+                                                ? "You haven't created any events yet."
+                                                : `You don't have any ${tab} events yet.`}
                                     </p>
                                     <Button asChild className="mt-4">
-                                        <Link href="/events/new">Create your first event</Link>
+                                        <Link href={organizerId ? `/events/new?organizerId=${organizerId}` : '/events/new'}>
+                                            Create your first event
+                                        </Link>
                                     </Button>
                                 </Card>
                             ) : (
                                 getFilteredEvents(tab).map((event, i) => (
-                                    <EventCard key={event.id} event={event} index={i} />
+                                    <EventCard key={event.id} event={event} index={i} organizerId={organizerId} />
                                 ))
                             )}
                         </TabsContent>

@@ -40,7 +40,7 @@ export function QRScanner({ onScan, onError, isActive = true }: QRScannerProps) 
                     onScan(decodedText);
                     // Brief pause to show feedback, then continue scanning
                 },
-                (errorMessage) => {
+                () => {
                     // Ignore scan errors - these happen constantly as camera tries to read
                 }
             );

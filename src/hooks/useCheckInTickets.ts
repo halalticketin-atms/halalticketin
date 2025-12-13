@@ -176,7 +176,7 @@ export function useCheckInTickets(eventId: string): UseCheckInTicketsResult {
         await Promise.resolve();
 
         return result;
-      } catch (e) {
+      } catch {
         setError('Failed to check in ticket. Please try again.');
         return { status: 'invalid', message: 'Failed to check in ticket.' };
       } finally {
@@ -211,7 +211,7 @@ export function useCheckInTickets(eventId: string): UseCheckInTicketsResult {
 
       // Placeholder for future async API call
       await Promise.resolve();
-    } catch (e) {
+    } catch {
       setError('Failed to undo check-in. Please try again.');
     } finally {
       setUpdatingTicketId(null);

@@ -238,6 +238,7 @@ function normalizeFormData(
     bannerImageDataUrl: raw.bannerImageDataUrl ?? '',
     category: raw.category ?? '',
     organizerName: raw.organizerName ?? 'HalalTicketin AI Draft',
+    visibility: raw.visibility === 'private' ? 'private' : 'public',
     date: raw.date ?? '',
     endDate: raw.endDate ?? '',
     isMultiDay: Boolean(raw.isMultiDay),

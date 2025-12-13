@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
@@ -22,14 +22,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   cloneableEventOptions,
-  draftEventOptions,
-  getDraftInitialForDraft,
   getTemplateByKey,
   type CloneableEventOption,
-  type DraftEventOption,
 } from '@/data/mock-events';
 import { savePendingDraft } from '@/utils/pending-draft-storage';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
+import { useOrganizers } from '@/context/organizer-context';
+import { fetchEventDetails, listOrganizerEvents, type EventRecord } from '@/lib/events-api';
+import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
 
 type DraftSource = 'ai' | 'clone' | 'draft';
 
@@ -79,8 +79,13 @@ function ActionTile({ title, description, icon: Icon, badge, actionLabel, gradie
 
 export default function NewEventChooserPage() {
   const router = useRouter();
+  const { activeOrganizerId } = useOrganizers();
   const [cloneOpen, setCloneOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
+  const [draftEvents, setDraftEvents] = useState<EventRecord[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(false);
+  const [draftsError, setDraftsError] = useState<string | null>(null);
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
 
   const tiles: ActionTileProps[] = useMemo(
     () => [
@@ -121,6 +126,51 @@ export default function NewEventChooserPage() {
     [router],
   );
 
+  useEffect(() => {
+    if (!draftOpen || !activeOrganizerId) {
+      if (!draftOpen) {
+        setDraftsError(null);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    const loadDrafts = async () => {
+      setDraftsLoading(true);
+      setDraftsError(null);
+      try {
+        const response = await listOrganizerEvents(activeOrganizerId, { status: 'draft' });
+        if (!cancelled) {
+          setDraftEvents(response.events);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setDraftsError(getErrorMessage(error, 'Unable to load drafts right now.'));
+        }
+      } finally {
+        if (!cancelled) {
+          setDraftsLoading(false);
+        }
+      }
+    };
+
+    void loadDrafts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOrganizerId, draftOpen]);
+
+  const formatDraftDate = (value?: string | null) => {
+    if (!value) return 'Date TBD';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return 'Date TBD';
+    return parsed.toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  };
+
   const handOffDraft = (source: DraftSource, draft: DraftEventInitial, meta: { label: string; description?: string; key?: string }) => {
     savePendingDraft({
       source,
@@ -140,15 +190,23 @@ export default function NewEventChooserPage() {
     setCloneOpen(false);
   };
 
-  const handleDraftContinue = (option: DraftEventOption) => {
-    const draft = getDraftInitialForDraft(option.id);
-    if (!draft) return;
-    handOffDraft('draft', draft, {
-      label: `Draft · ${option.title}`,
-      description: option.description,
-      key: option.id,
-    });
-    setDraftOpen(false);
+  const handleDraftContinue = async (event: EventRecord) => {
+    if (!event.id) return;
+    setSelectedDraftId(event.id);
+    try {
+      const response = await fetchEventDetails(event.id);
+      const draft = buildDraftFromEventRecord(response.event, response.tickets);
+      handOffDraft('draft', draft, {
+        label: `Draft · ${event.title ?? 'Untitled event'}`,
+        description: event.startDatetime ? formatDraftDate(event.startDatetime) : 'Saved draft',
+        key: event.id,
+      });
+      setDraftOpen(false);
+    } catch (error) {
+      setDraftsError(getErrorMessage(error, 'Unable to load this draft.'));
+    } finally {
+      setSelectedDraftId(null);
+    }
   };
 
   return (
@@ -217,31 +275,56 @@ export default function NewEventChooserPage() {
             <SheetDescription>Resume a saved draft right inside the wizard.</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto space-y-3 p-2">
-            {draftEventOptions.map((option) => (
-              <Card key={option.id} className="border-border/60">
-                <CardContent className="flex flex-col gap-3 p-4">
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold">{option.title}</p>
-                      <Badge variant="secondary" className="text-xs">
-                        {option.progressLabel}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">{option.description}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{option.updatedAt}</p>
-                  </div>
-                  <Button variant="outline" onClick={() => handleDraftContinue(option)}>
-                    Continue draft
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-            {draftEventOptions.length === 0 && (
+            {!activeOrganizerId ? (
+              <p className="text-sm text-muted-foreground text-center">
+                Select or create an organiser to view drafts.
+              </p>
+            ) : draftsLoading ? (
+              <p className="text-sm text-muted-foreground text-center">Loading drafts…</p>
+            ) : draftEvents.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center">No drafts saved yet.</p>
+            ) : (
+              draftEvents.map((event) => (
+                <Card key={event.id} className="border-border/60">
+                  <CardContent className="flex flex-col gap-3 p-4">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold">{event.title ?? 'Untitled event'}</p>
+                        <Badge variant="secondary" className="text-xs capitalize">
+                          {event.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {event.description?.trim() || 'No description yet.'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDraftDate(event.updatedAt)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      disabled={selectedDraftId === event.id}
+                      onClick={() => handleDraftContinue(event)}
+                    >
+                      {selectedDraftId === event.id ? 'Loading…' : 'Continue draft'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))
             )}
+            {draftsError ? (
+              <p className="text-sm text-destructive text-center">{draftsError}</p>
+            ) : null}
           </div>
         </SheetContent>
       </Sheet>
     </>
   );
 }
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return fallback;
+};

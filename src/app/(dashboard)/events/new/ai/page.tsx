@@ -60,7 +60,6 @@ export default function AIEventCreatorPage() {
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     const maxLength = 1000;
     const charCount = prompt.length;
@@ -111,7 +110,6 @@ export default function AIEventCreatorPage() {
     const handleSubmit = async () => {
         if (!prompt.trim() && !uploadedFile) return;
 
-        setError(null);
         setIsProcessing(true);
 
         const titleHint = uploadedFile?.name || prompt.slice(0, 80);
@@ -171,10 +169,6 @@ export default function AIEventCreatorPage() {
                     key: `ai-fallback-${Date.now()}`,
                 },
             });
-
-            setError(
-                'We had trouble contacting the AI service, so we handed you a minimal draft instead. Please review and fill in any missing details.',
-            );
 
             redirectToWizard();
         } finally {

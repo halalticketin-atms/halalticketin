@@ -8,12 +8,14 @@ import { StatCard, RecentEvents, QuickActions } from '@/components/dashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
+import { useOrganizerEvents, DashboardEvent } from '@/hooks/useOrganizerEvents';
 
 const upcomingMilestones: Array<{ event: string; milestone: string; progress: number }> = [];
 
 export default function DashboardPage() {
     const organizerId = useOrganizerFromParams();
     const { user, memberships, isLoading } = useAuth();
+    const { events, counts } = useOrganizerEvents(organizerId);
 
     const greetingName = user?.name || user?.email?.split('@')[0] || 'there';
     const welcomeTitle = user ? `Welcome back, ${greetingName}! 👋` : 'Welcome to your dashboard';
@@ -21,14 +23,54 @@ export default function DashboardPage() {
         ? "Here's what's happening with your events"
         : 'Sign in to start creating and managing your halal events.';
 
+    // Transform events for RecentEvents component
+    const recentEventsData = useMemo(() => {
+        return events.slice(0, 5).map((event: DashboardEvent) => {
+            const start = event.startDatetime ? new Date(event.startDatetime) : null;
+            const dateStr = start
+                ? start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                : 'Date TBD';
+
+            let location = 'Location TBD';
+            if (event.locationType === 'online') {
+                location = 'Online Event';
+            } else if (event.venue) {
+                location = event.city ? `${event.venue}, ${event.city}` : event.venue;
+            } else if (event.city) {
+                location = event.city;
+            }
+
+            // Map displayStatus to the component's expected status
+            let status: 'published' | 'draft' | 'completed' = 'draft';
+            if (event.displayStatus === 'draft') {
+                status = 'draft';
+            } else if (event.displayStatus === 'past') {
+                status = 'completed';
+            } else {
+                status = 'published';
+            }
+
+            return {
+                id: event.id,
+                title: event.title || 'Untitled Event',
+                date: dateStr,
+                location,
+                status,
+                ticketsSold: 0, // Will be populated when orders are implemented
+                totalTickets: 100, // Placeholder
+                imageUrl: event.bannerImageUrl || '/images/placeholder-event.jpg',
+            };
+        });
+    }, [events]);
+
     const stats = useMemo(
         () => [
-            { title: 'Total Events', value: 0, icon: Calendar },
+            { title: 'Total Events', value: counts.all, icon: Calendar },
             { title: 'Tickets Sold', value: 0, icon: Ticket },
             { title: 'Revenue', value: '£0', icon: DollarSign },
             { title: 'Organizer Teams', value: memberships.length, icon: Users },
         ],
-        [memberships.length]
+        [counts.all, memberships.length]
     );
 
     return (
@@ -56,7 +98,7 @@ export default function DashboardPage() {
                 <div className="grid gap-6 lg:grid-cols-3">
                     {/* Recent Events - Takes 2 columns */}
                     <div className="lg:col-span-2">
-                        <RecentEvents events={[]} />
+                        <RecentEvents events={recentEventsData} />
                     </div>
 
                     {/* Sidebar */}

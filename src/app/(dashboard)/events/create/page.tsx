@@ -1,13 +1,14 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     ArrowLeft,
     Calendar,
     MapPin,
-    Clock,
     Upload,
     Ticket,
     Users,
@@ -20,12 +21,12 @@ import {
     Building,
     Check,
     Tag,
-    Percent,
     Eye,
     EyeOff,
     Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -45,11 +46,28 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { useEventDraft, type DraftEventInitial } from '@/hooks/useEventDraft';
+import {
+    useEventDraft,
+    type DraftEventInitial,
+    type DraftFormData,
+    type DraftTicketType,
+    type DraftLocationType,
+    type DraftPromoCode,
+} from '@/hooks/useEventDraft';
 import { useSearchParams } from 'next/navigation';
 import { consumePendingDraft, type DraftEntrySource } from '@/utils/pending-draft-storage';
 import { useOrganizers } from '@/context/organizer-context';
 import { buildDashboardPath } from '@/lib/organizer-path';
+import {
+    createEventDraft,
+    publishEvent,
+    saveEventTickets,
+    updateEventDraft,
+    type TicketInputPayload,
+    type UpsertEventPayload,
+} from '@/lib/events-api';
+import { mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
+import { ApiError } from '@/lib/api';
 
 export const steps = [
     { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
@@ -84,6 +102,139 @@ type EntryContext = {
     description?: string;
 };
 
+const DEFAULT_CURRENCY = 'GBP';
+const UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isUuid = (value: string | undefined | null) => (value ? UUID_REGEX.test(value) : false);
+const locationTypeMap: Record<DraftLocationType, 'in_person' | 'online' | 'hybrid'> = {
+    physical: 'in_person',
+    online: 'online',
+    hybrid: 'hybrid',
+};
+
+const mapLocationType = (value: DraftLocationType) => locationTypeMap[value] ?? 'in_person';
+
+const toIsoString = (date?: string, time?: string | null) => {
+    if (!date) {
+        return null;
+    }
+
+    const safeTime = time && time.trim().length > 0 ? time : '00:00';
+    const isoCandidate = new Date(`${date}T${safeTime}`);
+    if (Number.isNaN(isoCandidate.getTime())) {
+        return null;
+    }
+    return isoCandidate.toISOString();
+};
+
+const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
+    const start = toIsoString(formData.date, formData.startTime);
+    const inferredEndDate = formData.isMultiDay ? formData.endDate || formData.date : formData.date;
+    const end = toIsoString(inferredEndDate, formData.endTime || formData.startTime);
+    const locationType = mapLocationType(formData.locationType);
+    const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
+    const isOnline = locationType === 'online' || locationType === 'hybrid';
+
+    return {
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        bannerImageUrl: null,
+        startDatetime: start,
+        endDatetime: end,
+        timezone: formData.timezone || 'UTC',
+        isMultiDay: formData.isMultiDay,
+        locationType,
+        venue: isInPerson ? formData.venue || null : null,
+        address: isInPerson ? formData.address || null : null,
+        city: isInPerson ? formData.city || null : null,
+        country: null,
+        onlineUrl: isOnline ? formData.onlineUrl || null : null,
+        currency: DEFAULT_CURRENCY,
+        refundPolicy: null,
+        isListedPublicly: formData.visibility === 'public',
+    };
+};
+
+const buildTicketPayloads = (tickets: DraftTicketType[]): TicketInputPayload[] =>
+    tickets.map((ticket, index) => {
+        const parsedPrice = Number.parseFloat(ticket.price || '0');
+        const priceValue = Number.isFinite(parsedPrice) ? parsedPrice : 0;
+        const quantityValue = Number.isFinite(ticket.quantity) ? Math.max(ticket.quantity, 1) : 1;
+        const maxPerOrderValue = Number.isFinite(ticket.maxPerOrder)
+            ? Math.max(ticket.maxPerOrder, 1)
+            : undefined;
+        const backendId = isUuid(ticket.id) ? ticket.id : undefined;
+
+        return {
+            id: backendId,
+            name: ticket.name.trim() || `Ticket ${index + 1}`,
+            description: ticket.description.trim() ? ticket.description.trim() : null,
+            price: ticket.isFree ? 0 : priceValue,
+            isFree: ticket.isFree,
+            currency: DEFAULT_CURRENCY,
+            maxQuantity: quantityValue,
+            maxPerOrder: maxPerOrderValue,
+            visibility: ticket.visibility,
+            salesStart: ticket.salesStart ? toIsoString(ticket.salesStart, '00:00') : null,
+            salesEnd: ticket.salesEnd ? toIsoString(ticket.salesEnd, '23:59') : null,
+        };
+    });
+
+const deriveFieldErrorsFromMessages = (errors: string[]) => {
+    const mapped: Record<string, string> = {};
+    const unmatched: string[] = [];
+
+    errors.forEach((message) => {
+        const normalized = message.toLowerCase();
+        let matched = false;
+
+        if (normalized.includes('title is required')) {
+            mapped.title = message;
+            matched = true;
+        }
+        if (normalized.includes('start date and time are required')) {
+            mapped.date = message;
+            mapped.startTime = message;
+            matched = true;
+        }
+        if (normalized.includes('end date and time are required')) {
+            mapped.endDate = message;
+            mapped.endTime = message;
+            matched = true;
+        }
+        if (normalized.includes('end time must be after')) {
+            mapped.endTime = message;
+            matched = true;
+        }
+        if (normalized.includes('venue is required')) {
+            mapped.venue = message;
+            matched = true;
+        }
+        if (normalized.includes('online url is required')) {
+            mapped.onlineUrl = message;
+            matched = true;
+        }
+        if (normalized.includes('ticket type')) {
+            mapped.tickets = message;
+            matched = true;
+        }
+
+        if (!matched) {
+            unmatched.push(message);
+        }
+    });
+
+    return { fieldErrors: mapped, unmatched };
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message.trim().length > 0) {
+        return error.message;
+    }
+    return fallback;
+};
+
 export function EventWizard({
     mode = 'create',
     initialDraft,
@@ -100,9 +251,10 @@ export function EventWizard({
         setFormData,
         handleInputChange,
         tickets,
-        updateTicket,
-        addTicket,
-        removeTicket,
+        setTickets,
+        updateTicket: updateTicketBase,
+        addTicket: addTicketBase,
+        removeTicket: removeTicketBase,
         promoCodes,
         addPromoCode,
         updatePromoCode,
@@ -114,9 +266,255 @@ export function EventWizard({
         setIsPreviewOpen,
     } = useEventDraft(initialDraft, steps.length);
 
+    const router = useRouter();
+    const [eventId, setEventId] = useState<string | null>(initialDraft?.eventId ?? null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
+    const [actionMessage, setActionMessage] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
+    const [publishErrors, setPublishErrors] = useState<string[]>([]);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+    const clearFieldErrors = useCallback((...fields: string[]) => {
+        if (fields.length === 0) {
+            setFieldErrors({});
+            return;
+        }
+
+        setFieldErrors((prev) => {
+            let updated = false;
+            const next = { ...prev };
+            fields.forEach((field) => {
+                if (field && next[field]) {
+                    delete next[field];
+                    updated = true;
+                }
+            });
+            return updated ? next : prev;
+        });
+    }, []);
+
+    const updateTicket = useCallback(
+        <K extends keyof DraftTicketType>(id: string, field: K, value: DraftTicketType[K]) => {
+            updateTicketBase(id, field, value);
+            clearFieldErrors('tickets');
+        },
+        [clearFieldErrors, updateTicketBase],
+    );
+
+    const addTicket = useCallback(() => {
+        addTicketBase();
+        clearFieldErrors('tickets');
+    }, [addTicketBase, clearFieldErrors]);
+
+    const removeTicket = useCallback(
+        (id: string) => {
+            removeTicketBase(id);
+            clearFieldErrors('tickets');
+        },
+        [clearFieldErrors, removeTicketBase],
+    );
+
+    const handleFieldChange = useCallback(
+        (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+            handleInputChange(event);
+            clearFieldErrors(event.target.name);
+        },
+        [clearFieldErrors, handleInputChange],
+    );
+
+    const serializedDraft = useMemo(
+        () => JSON.stringify({ formData, tickets, promoCodes }),
+        [formData, tickets, promoCodes],
+    );
+    const lastSavedSnapshotRef = useRef(serializedDraft);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+    useEffect(() => {
+        setHasUnsavedChanges(serializedDraft !== lastSavedSnapshotRef.current);
+    }, [serializedDraft]);
+
+    const markSnapshotAsSaved = useCallback(
+        (override?: { formData?: DraftFormData; tickets?: DraftTicketType[]; promoCodes?: DraftPromoCode[] }) => {
+            const snapshot = JSON.stringify({
+                formData: override?.formData ?? formData,
+                tickets: override?.tickets ?? tickets,
+                promoCodes: override?.promoCodes ?? promoCodes,
+            });
+            lastSavedSnapshotRef.current = snapshot;
+            setHasUnsavedChanges(false);
+            setLastSavedAt(new Date());
+        },
+        [formData, promoCodes, tickets],
+    );
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || !hasUnsavedChanges) {
+            return;
+        }
+
+        const handler = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        window.addEventListener('beforeunload', handler);
+        return () => {
+            window.removeEventListener('beforeunload', handler);
+        };
+    }, [hasUnsavedChanges]);
+
+    useEffect(() => {
+        if (hasUnsavedChanges) {
+            setActionMessage(null);
+        }
+    }, [hasUnsavedChanges]);
+
     const headerTitle = mode === 'edit' ? 'Edit Event' : 'Create New Event';
     const { activeOrganizerId } = useOrganizers();
     const dashboardHref = activeOrganizerId ? buildDashboardPath(activeOrganizerId) : '/dashboard';
+
+    const saveDraft = useCallback(
+        async (options?: { silent?: boolean }) => {
+            if (isSaving) {
+                return eventId;
+            }
+
+            if (!activeOrganizerId) {
+                setActionError('Select or create an organiser before saving.');
+                return null;
+            }
+
+            const trimmedTitle = formData.title.trim();
+            if (trimmedTitle.length < 2) {
+                setActionError('Add a title with at least 2 characters before saving.');
+                return null;
+            }
+
+            setIsSaving(true);
+            setActionError(null);
+            if (!options?.silent) {
+                setActionMessage(null);
+            }
+
+            try {
+                const payload = buildEventPayload({ ...formData, title: trimmedTitle });
+                let nextEventId = eventId;
+
+                if (!nextEventId) {
+                    const response = await createEventDraft(activeOrganizerId, payload);
+                    nextEventId = response.event.id;
+                } else {
+                    await updateEventDraft(nextEventId, payload);
+                }
+
+                const ticketPayloads = buildTicketPayloads(tickets);
+                const ticketResponse = await saveEventTickets(nextEventId, ticketPayloads);
+                let normalizedTickets = tickets;
+                if (ticketResponse.tickets && ticketResponse.tickets.length > 0) {
+                    normalizedTickets = mapTicketRecordsToDraft(ticketResponse.tickets);
+                    setTickets(normalizedTickets);
+                }
+
+                setEventId(nextEventId);
+                markSnapshotAsSaved({ tickets: normalizedTickets });
+                setFieldErrors({});
+                setPublishErrors([]);
+
+                if (!options?.silent) {
+                    setActionMessage('Draft saved');
+                }
+
+                return nextEventId;
+            } catch (error) {
+                setActionError(getErrorMessage(error, 'Unable to save draft.'));
+                return null;
+            } finally {
+                setIsSaving(false);
+            }
+        },
+        [activeOrganizerId, eventId, formData, isSaving, markSnapshotAsSaved, setTickets, tickets],
+    );
+
+    const handleSaveDraftClick = useCallback(async () => {
+        await saveDraft();
+    }, [saveDraft]);
+
+    const handlePublishClick = useCallback(async () => {
+        if (isPublishing) {
+            return;
+        }
+
+        setActionError(null);
+        setActionMessage(null);
+        setIsPublishing(true);
+
+            try {
+                const savedEventId = await saveDraft({ silent: true });
+                if (!savedEventId) {
+                    return;
+                }
+
+                await publishEvent(savedEventId, formData.visibility);
+                setFieldErrors({});
+                setPublishErrors([]);
+                setActionMessage('Event published successfully. Redirecting...');
+                markSnapshotAsSaved();
+                const destination = activeOrganizerId
+                    ? `${buildDashboardPath(activeOrganizerId)}/events`
+                    : '/dashboard';
+                router.push(destination);
+            } catch (error) {
+                if (error instanceof ApiError) {
+                    const serverPayload = error.payload as { errors?: string[] } | null;
+                    const payloadErrors = Array.isArray(serverPayload?.errors) ? serverPayload?.errors ?? [] : [];
+                    if (payloadErrors.length > 0) {
+                        const { fieldErrors: mapped, unmatched } = deriveFieldErrorsFromMessages(payloadErrors);
+                        setFieldErrors(mapped);
+                        setPublishErrors(unmatched);
+                        const fallbackMessage =
+                            unmatched.length === 0 && payloadErrors.length > 0
+                                ? 'Fix the highlighted fields below.'
+                                : 'Unable to publish event.';
+                        setActionError(
+                            unmatched.length > 0 ? unmatched.join(' ') : fallbackMessage,
+                        );
+                    } else {
+                        setFieldErrors({});
+                        setPublishErrors([]);
+                        setActionError(getErrorMessage(error, 'Unable to publish event.'));
+                    }
+                } else {
+                    setFieldErrors({});
+                    setPublishErrors([]);
+                    setActionError(getErrorMessage(error, 'Unable to publish event.'));
+                }
+            } finally {
+                setIsPublishing(false);
+            }
+        }, [activeOrganizerId, formData.visibility, isPublishing, markSnapshotAsSaved, router, saveDraft]);
+
+    const isBusy = isSaving || isPublishing;
+    const statusLabel = !activeOrganizerId
+        ? 'Select or create an organiser to save progress.'
+        : hasUnsavedChanges
+            ? 'Unsaved changes'
+            : lastSavedAt
+                ? `Last saved ${lastSavedAt.toLocaleTimeString()}`
+                : eventId
+                    ? 'Draft saved'
+                    : 'Not saved yet';
+    const disableSaveButtons = !activeOrganizerId || isBusy;
+    const disablePublishButtons = !activeOrganizerId || isPublishing;
+    const publishButtonLabel =
+        isPublishing ? 'Publishing...' : mode === 'edit' ? 'Publish Changes' : 'Publish Event';
+    const saveButtonLabel = isSaving
+        ? mode === 'edit'
+            ? 'Saving changes...'
+            : 'Saving draft...'
+        : mode === 'edit'
+            ? 'Update Draft'
+            : 'Save Draft';
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -137,6 +535,11 @@ export function EventWizard({
                             {entryContext?.label ? (
                                 <Badge variant="outline" className="text-xs px-2 py-0.5">
                                     {entryContext.label}
+                                </Badge>
+                            ) : null}
+                            {hasUnsavedChanges && activeOrganizerId ? (
+                                <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                                    Unsaved
                                 </Badge>
                             ) : null}
                         </div>
@@ -166,7 +569,7 @@ export function EventWizard({
             <div className="lg:hidden border-b bg-background">
                 <div className="container py-3">
                     <div className="flex items-center justify-between">
-                        {steps.map((step, index) => (
+                        {steps.map((step) => (
                             <button
                                 key={step.id}
                                 onClick={() => setCurrentStep(step.id)}
@@ -241,13 +644,37 @@ export function EventWizard({
                                     <Eye className="h-5 w-5" />
                                     Preview Event
                                 </Button>
-                                <Button className="w-full h-11 justify-center gap-2">
+                                <Button
+                                    className="w-full h-11 justify-center gap-2"
+                                    onClick={handlePublishClick}
+                                    disabled={disablePublishButtons}
+                                >
                                     <Sparkles className="h-4 w-4" />
-                                    {mode === 'edit' ? 'Save Changes' : 'Publish Event'}
+                                    {publishButtonLabel}
                                 </Button>
-                                <Button variant="ghost" className="w-full justify-center text-muted-foreground">
-                                    {mode === 'edit' ? 'Update Draft' : 'Save Draft'}
+                                <Button
+                                    variant="ghost"
+                                    className="w-full justify-center text-muted-foreground"
+                                    onClick={handleSaveDraftClick}
+                                    disabled={disableSaveButtons}
+                                >
+                                    {saveButtonLabel}
                                 </Button>
+                                <div className="text-left">
+                                    <p className="text-xs text-muted-foreground">{statusLabel}</p>
+                                    {actionError ? (
+                                        <p className="text-sm text-destructive mt-1">{actionError}</p>
+                                    ) : actionMessage ? (
+                                        <p className="text-sm text-muted-foreground mt-1">{actionMessage}</p>
+                                    ) : null}
+                                </div>
+                                {publishErrors.length > 0 ? (
+                                    <ul className="mt-2 text-sm text-destructive list-disc list-inside space-y-1">
+                                        {publishErrors.map((error) => (
+                                            <li key={error}>{error}</li>
+                                        ))}
+                                    </ul>
+                                ) : null}
                             </div>
                         </div>
                     </aside>
@@ -281,9 +708,15 @@ export function EventWizard({
                                                         name="title"
                                                         placeholder="Give your event a catchy name"
                                                         value={formData.title}
-                                                        onChange={handleInputChange}
-                                                        className="h-12 text-base"
+                                                        onChange={handleFieldChange}
+                                                        className={cn(
+                                                            'h-12 text-base',
+                                                            fieldErrors.title ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                        )}
                                                     />
+                                                    {fieldErrors.title ? (
+                                                        <p className="text-sm text-destructive">{fieldErrors.title}</p>
+                                                    ) : null}
                                                 </div>
 
                                                 {/* Description */}
@@ -294,7 +727,7 @@ export function EventWizard({
                                                         name="description"
                                                         placeholder="What's your event about?"
                                                         value={formData.description}
-                                                        onChange={handleInputChange}
+                                                        onChange={handleFieldChange}
                                                         rows={4}
                                                         className="w-full rounded-lg border border-input bg-background px-4 py-3 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
                                                     />
@@ -304,10 +737,13 @@ export function EventWizard({
                                                     <Label className="text-base font-medium">Event Banner</Label>
                                                     <div className="relative flex h-40 sm:h-48 lg:h-56 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/30 transition-all hover:border-primary/50 hover:bg-muted/50 group overflow-hidden">
                                                         {formData.bannerImageDataUrl ? (
-                                                            <img
+                                                            <Image
                                                                 src={formData.bannerImageDataUrl}
                                                                 alt={formData.title || 'Event banner'}
-                                                                className="h-full w-full object-cover"
+                                                                fill
+                                                                sizes="(max-width: 768px) 100vw, 400px"
+                                                                className="object-cover"
+                                                                unoptimized
                                                             />
                                                         ) : (
                                                             <div className="text-center px-4">
@@ -346,9 +782,35 @@ export function EventWizard({
                                                         name="organizerName"
                                                         placeholder="Who is hosting this event?"
                                                         value={formData.organizerName}
-                                                        onChange={handleInputChange}
+                                                        onChange={handleFieldChange}
                                                         className="h-12 text-base"
                                                     />
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label className="text-base font-medium">Visibility</Label>
+                                                    <Select
+                                                        value={formData.visibility}
+                                                        onValueChange={(value) =>
+                                                            setFormData((prev) => ({
+                                                                ...prev,
+                                                                visibility: value as DraftFormData['visibility'],
+                                                            }))
+                                                        }
+                                                    >
+                                                        <SelectTrigger className="h-12">
+                                                            <SelectValue placeholder="Choose visibility" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="public">Public</SelectItem>
+                                                            <SelectItem value="private">Private</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {formData.visibility === 'public'
+                                                            ? 'Published events will appear on your public listings.'
+                                                            : 'Private events stay hidden and require direct links.'}
+                                                    </p>
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -383,7 +845,12 @@ export function EventWizard({
                                                         <Switch
                                                             id="multiday"
                                                             checked={formData.isMultiDay}
-                                                            onCheckedChange={(checked) => setFormData({ ...formData, isMultiDay: checked })}
+                                                            onCheckedChange={(checked) => {
+                                                                setFormData({ ...formData, isMultiDay: checked });
+                                                                if (!checked) {
+                                                                    clearFieldErrors('endDate');
+                                                                }
+                                                            }}
                                                         />
                                                     </div>
                                                 </div>
@@ -397,9 +864,15 @@ export function EventWizard({
                                                             name="date"
                                                             type="date"
                                                             value={formData.date}
-                                                            onChange={handleInputChange}
-                                                            className="h-12"
+                                                            onChange={handleFieldChange}
+                                                            className={cn(
+                                                                'h-12',
+                                                                fieldErrors.date ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                            )}
                                                         />
+                                                        {fieldErrors.date ? (
+                                                            <p className="text-sm text-destructive">{fieldErrors.date}</p>
+                                                        ) : null}
                                                     </div>
                                                     {formData.isMultiDay && (
                                                         <div className="space-y-2">
@@ -409,9 +882,15 @@ export function EventWizard({
                                                                 name="endDate"
                                                                 type="date"
                                                                 value={formData.endDate}
-                                                                onChange={handleInputChange}
-                                                                className="h-12"
+                                                                onChange={handleFieldChange}
+                                                                className={cn(
+                                                                    'h-12',
+                                                                    fieldErrors.endDate ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                )}
                                                             />
+                                                            {fieldErrors.endDate ? (
+                                                                <p className="text-sm text-destructive">{fieldErrors.endDate}</p>
+                                                            ) : null}
                                                         </div>
                                                     )}
                                                 </div>
@@ -425,9 +904,15 @@ export function EventWizard({
                                                             name="startTime"
                                                             type="time"
                                                             value={formData.startTime}
-                                                            onChange={handleInputChange}
-                                                            className="h-12"
+                                                            onChange={handleFieldChange}
+                                                            className={cn(
+                                                                'h-12',
+                                                                fieldErrors.startTime ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                            )}
                                                         />
+                                                        {fieldErrors.startTime ? (
+                                                            <p className="text-sm text-destructive">{fieldErrors.startTime}</p>
+                                                        ) : null}
                                                     </div>
                                                     <div className="space-y-2">
                                                         <Label htmlFor="endTime">End Time</Label>
@@ -436,9 +921,15 @@ export function EventWizard({
                                                             name="endTime"
                                                             type="time"
                                                             value={formData.endTime}
-                                                            onChange={handleInputChange}
-                                                            className="h-12"
+                                                            onChange={handleFieldChange}
+                                                            className={cn(
+                                                                'h-12',
+                                                                fieldErrors.endTime ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                            )}
                                                         />
+                                                        {fieldErrors.endTime ? (
+                                                            <p className="text-sm text-destructive">{fieldErrors.endTime}</p>
+                                                        ) : null}
                                                     </div>
                                                 </div>
 
@@ -486,7 +977,10 @@ export function EventWizard({
                                                     ].map((type) => (
                                                         <button
                                                             key={type.value}
-                                                            onClick={() => setFormData({ ...formData, locationType: type.value as typeof formData.locationType })}
+                                                            onClick={() => {
+                                                                setFormData({ ...formData, locationType: type.value as typeof formData.locationType });
+                                                                clearFieldErrors('venue', 'onlineUrl');
+                                                            }}
                                                             className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 sm:p-4 transition-all ${formData.locationType === type.value
                                                                 ? 'border-primary bg-primary/5'
                                                                 : 'border-border hover:border-primary/50'
@@ -510,9 +1004,15 @@ export function EventWizard({
                                                                 name="venue"
                                                                 placeholder="e.g., London Central Mosque"
                                                                 value={formData.venue}
-                                                                onChange={handleInputChange}
-                                                                className="h-12"
+                                                                onChange={handleFieldChange}
+                                                                className={cn(
+                                                                    'h-12',
+                                                                    fieldErrors.venue ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                )}
                                                             />
+                                                            {fieldErrors.venue ? (
+                                                                <p className="text-sm text-destructive">{fieldErrors.venue}</p>
+                                                            ) : null}
                                                         </div>
                                                         <div className="grid gap-4 sm:grid-cols-2">
                                                             <div className="space-y-2">
@@ -522,7 +1022,7 @@ export function EventWizard({
                                                                     name="address"
                                                                     placeholder="Street address"
                                                                     value={formData.address}
-                                                                    onChange={handleInputChange}
+                                                                    onChange={handleFieldChange}
                                                                     className="h-12"
                                                                 />
                                                             </div>
@@ -533,7 +1033,7 @@ export function EventWizard({
                                                                     name="city"
                                                                     placeholder="City"
                                                                     value={formData.city}
-                                                                    onChange={handleInputChange}
+                                                                    onChange={handleFieldChange}
                                                                     className="h-12"
                                                                 />
                                                             </div>
@@ -558,9 +1058,15 @@ export function EventWizard({
                                                             name="onlineUrl"
                                                             placeholder="https://zoom.us/j/..."
                                                             value={formData.onlineUrl}
-                                                            onChange={handleInputChange}
-                                                            className="h-12"
+                                                            onChange={handleFieldChange}
+                                                            className={cn(
+                                                                'h-12',
+                                                                fieldErrors.onlineUrl ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                            )}
                                                         />
+                                                        {fieldErrors.onlineUrl ? (
+                                                            <p className="text-sm text-destructive">{fieldErrors.onlineUrl}</p>
+                                                        ) : null}
                                                     </div>
                                                 )}
                                             </CardContent>
@@ -581,6 +1087,9 @@ export function EventWizard({
                                         <div>
                                             <h2 className="font-display text-2xl lg:text-3xl font-bold">Set up your tickets</h2>
                                             <p className="mt-1 lg:mt-2 text-muted-foreground">Create one or more ticket types</p>
+                                            {fieldErrors.tickets ? (
+                                                <p className="text-sm text-destructive mt-2">{fieldErrors.tickets}</p>
+                                            ) : null}
                                         </div>
 
                                         {/* Ticket Cards */}
@@ -873,8 +1382,13 @@ export function EventWizard({
                                 </Button>
 
                                 <div className="flex gap-2 sm:gap-3">
-                                    <Button variant="outline" className="lg:hidden">
-                                        Save
+                                    <Button
+                                        variant="outline"
+                                        className="lg:hidden"
+                                        onClick={handleSaveDraftClick}
+                                        disabled={disableSaveButtons}
+                                    >
+                                        {saveButtonLabel}
                                     </Button>
                                     {currentStep < steps.length ? (
                                         <Button onClick={nextStep} className="gap-2 px-4 sm:px-6">
@@ -882,9 +1396,13 @@ export function EventWizard({
                                             <ChevronRight className="h-4 w-4" />
                                         </Button>
                                     ) : (
-                                        <Button className="gap-2 px-4 sm:px-6">
+                                        <Button
+                                            className="gap-2 px-4 sm:px-6"
+                                            onClick={handlePublishClick}
+                                            disabled={disablePublishButtons}
+                                        >
                                             <Sparkles className="h-4 w-4" />
-                                            <span className="hidden sm:inline">Publish</span>
+                                            <span className="hidden sm:inline">{publishButtonLabel}</span>
                                             <span className="sm:hidden">Create</span>
                                         </Button>
                                     )}
@@ -904,12 +1422,15 @@ export function EventWizard({
 
                     <div className="p-6 pt-4">
                         {/* Event Banner */}
-                        <div className="aspect-[4/5] rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-6 border overflow-hidden">
+                        <div className="aspect-[4/5] rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-6 border overflow-hidden relative">
                             {formData.bannerImageDataUrl ? (
-                                <img
+                                <Image
                                     src={formData.bannerImageDataUrl}
                                     alt={formData.title || 'Event banner'}
-                                    className="h-full w-full object-cover"
+                                    fill
+                                    sizes="(max-width: 768px) 100vw, 500px"
+                                    className="object-cover"
+                                    unoptimized
                                 />
                             ) : formData.title ? (
                                 <div className="text-center p-8">

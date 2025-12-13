@@ -34,7 +34,7 @@ export function CheckoutModal({
 }: CheckoutModalProps) {
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'bank'>('card');
     const [saveCard, setSaveCard] = useState(false);
-    const [step, setStep] = useState(2); // 1: Info, 2: Payment, 3: Complete
+    const step = 2; // 1: Info, 2: Payment, 3: Complete
 
     const subtotal = items.reduce((sum, item) => sum + item.price, 0);
     const total = subtotal + fees - discount.amount;

@@ -160,7 +160,7 @@ export default function ProfilePage() {
                         transition={{ duration: 0.5, delay: 0.2 }}
                         className="mt-8 grid grid-cols-3 gap-4 sm:max-w-md"
                     >
-                        {stats.map((stat, index) => (
+                        {stats.map((stat) => (
                             <motion.div
                                 key={stat.label}
                                 whileHover={{ y: -4 }}
@@ -309,7 +309,7 @@ export default function ProfilePage() {
                             <h3 className="mb-4 font-semibold">Quick Actions</h3>
                             <Card className="overflow-hidden">
                                 <CardContent className="p-0">
-                                    {menuItems.map((item, index) => (
+                                    {menuItems.map((item) => (
                                         <Link
                                             key={item.label}
                                             href={item.href}

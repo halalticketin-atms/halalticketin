@@ -10,6 +10,7 @@ export interface DraftFormData {
   bannerImageDataUrl: string;
   category: string;
   organizerName: string;
+  visibility: 'public' | 'private';
   date: string;
   endDate: string;
   isMultiDay: boolean;
@@ -50,6 +51,7 @@ export interface DraftPromoCode {
 }
 
 export interface DraftEventInitial {
+  eventId?: string;
   formData?: Partial<DraftFormData>;
   tickets?: DraftTicketType[];
   promoCodes?: DraftPromoCode[];
@@ -64,6 +66,7 @@ const defaultFormData: DraftFormData = {
   bannerImageDataUrl: '',
   category: '',
   organizerName: '',
+  visibility: 'public',
   date: '',
   endDate: '',
   isMultiDay: false,
@@ -78,7 +81,7 @@ const defaultFormData: DraftFormData = {
 };
 
 const createDefaultTicket = (): DraftTicketType => ({
-  id: String(Date.now()),
+  id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   name: 'General Admission',
   price: '',
   isFree: false,

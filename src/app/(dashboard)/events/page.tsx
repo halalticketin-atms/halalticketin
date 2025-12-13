@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'motion/react';
@@ -11,40 +11,79 @@ import {
     Filter,
     Heart,
     ChevronDown,
+    Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-type EventCardData = {
-    id: string;
-    title: string;
-    date: string;
-    time: string;
-    location: string;
-    venue: string;
-    price: number;
-    category: string;
-    imageUrl?: string;
-    attendees?: number;
-};
-
-const events: EventCardData[] = [];
+import { usePublicEvents } from '@/hooks/usePublicEvents';
+import { PublicEventRecord } from '@/lib/events-api';
 
 const categories = ['All', 'Iftar', 'Conference', 'Workshop', 'Sisters', 'Youth', 'Charity', 'Education'];
 
+/**
+ * Transform a public event record into display format.
+ */
+function formatEventForDisplay(event: PublicEventRecord) {
+    const start = event.startDatetime ? new Date(event.startDatetime) : null;
+
+    const date = start
+        ? start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+        : 'Date TBD';
+
+    const time = start
+        ? start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+        : '';
+
+    let location = 'Location TBD';
+    if (event.locationType === 'online') {
+        location = 'Online Event';
+    } else if (event.city) {
+        location = event.city;
+    }
+
+    let venue = '';
+    if (event.venue) {
+        venue = event.venue;
+    } else if (event.locationType === 'online') {
+        venue = 'Online';
+    }
+
+    return {
+        id: event.id,
+        slug: event.slug,
+        title: event.title || 'Untitled Event',
+        date,
+        time,
+        location,
+        venue,
+        price: 0, // Will show "Free" or actual price when we have ticket data
+        category: 'Community', // Placeholder - events don't have categories yet
+        imageUrl: event.bannerImageUrl,
+        attendees: 0, // Placeholder
+    };
+}
+
 export default function BrowseEventsPage() {
+    const { events: publicEvents, isLoading, error } = usePublicEvents();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [likedEvents, setLikedEvents] = useState<Set<string>>(new Set());
 
-    const filteredEvents = events.filter((event) => {
-        const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            event.location.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory;
-        return matchesSearch && matchesCategory;
-    });
+    // Transform API events to display format
+    const events = useMemo(() => {
+        return publicEvents.map(formatEventForDisplay);
+    }, [publicEvents]);
+
+    const filteredEvents = useMemo(() => {
+        return events.filter((event) => {
+            const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                event.location.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory;
+            return matchesSearch && matchesCategory;
+        });
+    }, [events, searchQuery, selectedCategory]);
 
     const toggleLike = (eventId: string) => {
         setLikedEvents((prev) => {
@@ -131,128 +170,130 @@ export default function BrowseEventsPage() {
                     </Button>
                 </div>
 
+                {/* Loading State */}
+                {isLoading && (
+                    <div className="flex items-center justify-center py-16">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <span className="ml-2 text-muted-foreground">Loading events...</span>
+                    </div>
+                )}
+
+                {/* Error State */}
+                {error && !isLoading && (
+                    <Card className="p-12 text-center">
+                        <Calendar className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold">Unable to load events</h3>
+                        <p className="text-muted-foreground mt-2">{error}</p>
+                    </Card>
+                )}
+
                 {/* Events Grid */}
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {filteredEvents.length === 0 ? (
-                        <Card className="sm:col-span-2 lg:col-span-3 p-12 text-center">
-                            <Calendar className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                            <h3 className="text-lg font-semibold">No events available yet</h3>
-                            <p className="text-muted-foreground mt-2">
-                                Once organisers publish events, they will appear here automatically.
-                            </p>
-                            <Button className="mt-4" asChild>
-                                <Link href="/events/new">Create an event</Link>
-                            </Button>
-                        </Card>
-                    ) : (
-                        <>
-                        {filteredEvents.map((event, index) => (
-                            <motion.div
-                                key={event.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.4, delay: index * 0.05 }}
-                            >
-                                <Link href={`/events/${event.id}`}>
-                                    <Card className="group overflow-hidden border-border/50 transition-all hover:shadow-lg hover:border-primary/20">
-                                        {/* Image */}
-                                        <div className="relative aspect-[16/10] overflow-hidden">
-                                            {event.imageUrl ? (
-                                                <Image
-                                                    src={event.imageUrl}
-                                                    alt={event.title}
-                                                    fill
-                                                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                                />
-                                            ) : (
-                                                <div className="absolute inset-0 bg-muted flex items-center justify-center text-muted-foreground text-sm">
-                                                    No image
+                {!isLoading && !error && (
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                        {filteredEvents.length === 0 ? (
+                            <Card className="sm:col-span-2 lg:col-span-3 p-12 text-center">
+                                <Calendar className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                                <h3 className="text-lg font-semibold">No events available yet</h3>
+                                <p className="text-muted-foreground mt-2">
+                                    Once organisers publish events, they will appear here automatically.
+                                </p>
+                                <Button className="mt-4" asChild>
+                                    <Link href="/events/new">Create an event</Link>
+                                </Button>
+                            </Card>
+                        ) : (
+                            <>
+                                {filteredEvents.map((event, index) => (
+                                    <motion.div
+                                        key={event.id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.4, delay: index * 0.05 }}
+                                    >
+                                        <Link href={`/events/${event.slug || event.id}`}>
+                                            <Card className="group overflow-hidden border-border/50 transition-all hover:shadow-lg hover:border-primary/20">
+                                                {/* Image */}
+                                                <div className="relative aspect-[16/10] overflow-hidden">
+                                                    {event.imageUrl ? (
+                                                        <Image
+                                                            src={event.imageUrl}
+                                                            alt={event.title}
+                                                            fill
+                                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                                        />
+                                                    ) : (
+                                                        <div className="absolute inset-0 bg-muted flex items-center justify-center text-muted-foreground text-sm">
+                                                            <Calendar className="h-8 w-8" />
+                                                        </div>
+                                                    )}
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                                                    {/* Category Badge */}
+                                                    <Badge className="absolute left-3 top-3 bg-background/90 text-foreground backdrop-blur-sm">
+                                                        {event.category}
+                                                    </Badge>
+
+                                                    {/* Like Button */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            toggleLike(event.id);
+                                                        }}
+                                                        className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/90 backdrop-blur-sm transition-transform hover:scale-110"
+                                                    >
+                                                        <Heart
+                                                            className={`h-5 w-5 ${likedEvents.has(event.id)
+                                                                ? 'fill-red-500 text-red-500'
+                                                                : 'text-muted-foreground'
+                                                                }`}
+                                                        />
+                                                    </button>
+
+                                                    {/* Price */}
+                                                    <div className="absolute bottom-3 right-3">
+                                                        <Badge variant="secondary" className="bg-primary text-primary-foreground font-semibold">
+                                                            {event.price === 0 ? 'Free' : `£${event.price}`}
+                                                        </Badge>
+                                                    </div>
                                                 </div>
-                                            )}
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-                                            {/* Category Badge */}
-                                            <Badge className="absolute left-3 top-3 bg-background/90 text-foreground backdrop-blur-sm">
-                                                {event.category}
-                                            </Badge>
+                                                {/* Content */}
+                                                <CardContent className="p-4">
+                                                    <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-primary transition-colors">
+                                                        {event.title}
+                                                    </h3>
 
-                                            {/* Like Button */}
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    toggleLike(event.id);
-                                                }}
-                                                className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-background/90 backdrop-blur-sm transition-transform hover:scale-110"
-                                            >
-                                                <Heart
-                                                    className={`h-5 w-5 ${likedEvents.has(event.id)
-                                                            ? 'fill-red-500 text-red-500'
-                                                            : 'text-muted-foreground'
-                                                        }`}
-                                                />
-                                            </button>
+                                                    <div className="mt-3 space-y-2">
+                                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                            <Calendar className="h-4 w-4 shrink-0" />
+                                                            <span>{event.date}{event.time && ` • ${event.time}`}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                            <MapPin className="h-4 w-4 shrink-0" />
+                                                            <span className="truncate">{event.venue || event.location}</span>
+                                                        </div>
+                                                    </div>
 
-                                            {/* Price */}
-                                            <div className="absolute bottom-3 right-3">
-                                                <Badge variant="secondary" className="bg-primary text-primary-foreground font-semibold">
-                                                    {event.price === 0 ? 'Free' : `£${event.price}`}
-                                                </Badge>
-                                            </div>
-                                        </div>
-
-                                        {/* Content */}
-                                        <CardContent className="p-4">
-                                            <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-primary transition-colors">
-                                                {event.title}
-                                            </h3>
-
-                                            <div className="mt-3 space-y-2">
-                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                    <Calendar className="h-4 w-4 shrink-0" />
-                                                    <span>{event.date} • {event.time}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                    <MapPin className="h-4 w-4 shrink-0" />
-                                                    <span className="truncate">{event.venue}</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="mt-4 pt-4 border-t flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">
-                                                    {event.attendees} attending
-                                                </span>
-                                                <Button size="sm" variant="ghost" className="text-primary">
-                                                    View Details
-                                                </Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </Link>
-                            </motion.div>
-                        ))}
-                        </>
-                    )}
-                </div>
-
-                {/* Empty State */}
-                {filteredEvents.length === 0 && (
-                    <div className="text-center py-16">
-                        <p className="text-muted-foreground text-lg">No events found matching your criteria</p>
-                        <Button
-                            variant="outline"
-                            className="mt-4"
-                            onClick={() => {
-                                setSearchQuery('');
-                                setSelectedCategory('All');
-                            }}
-                        >
-                            Clear filters
-                        </Button>
+                                                    <div className="mt-4 pt-4 border-t flex items-center justify-between">
+                                                        <span className="text-sm text-muted-foreground">
+                                                            {event.attendees} attending
+                                                        </span>
+                                                        <Button size="sm" variant="ghost" className="text-primary">
+                                                            View Details
+                                                        </Button>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </Link>
+                                    </motion.div>
+                                ))}
+                            </>
+                        )}
                     </div>
                 )}
 
                 {/* Load More */}
-                {filteredEvents.length > 0 && (
+                {!isLoading && !error && filteredEvents.length > 0 && (
                     <div className="mt-12 text-center">
                         <Button variant="outline" size="lg">
                             Load more events

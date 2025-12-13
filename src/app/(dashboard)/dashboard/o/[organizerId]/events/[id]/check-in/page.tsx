@@ -12,9 +12,7 @@ import {
     Users,
     Ticket,
     Mail,
-    Phone,
     AlertCircle,
-    ChevronDown,
     RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

@@ -1,8 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
-import { ScanLine, Search, Users, Loader2 } from 'lucide-react';
+import { Search, Users, Loader2 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +14,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { CheckInResult } from '@/types';
-import { CheckInStatsBar } from '@/components/check-in/CheckInStatsBar';
 import { DesktopQRRedirect } from '@/components/check-in/DesktopQRRedirect';
 import { ScanResultOverlay } from '@/components/check-in/ScanResultOverlay';
 import { AttendeeCard } from '@/components/check-in/AttendeeCard';

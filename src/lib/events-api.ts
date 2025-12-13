@@ -1,0 +1,163 @@
+import api from './api';
+
+export type BackendLocationType = 'in_person' | 'online' | 'hybrid';
+export type EventVisibility = 'public' | 'private';
+
+export interface EventRecord {
+    id: string;
+    organizerId: string;
+    title: string | null;
+    description: string | null;
+    bannerImageUrl: string | null;
+    status: 'draft' | 'published' | 'cancelled' | 'archived';
+    startDatetime: string | null;
+    endDatetime: string | null;
+    timezone: string;
+    isMultiDay: boolean;
+    locationType: BackendLocationType;
+    venue: string | null;
+    address: string | null;
+    city: string | null;
+    country: string | null;
+    onlineUrl: string | null;
+    currency: string;
+    refundPolicy: string | null;
+    isListedPublicly: boolean;
+    slug: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface TicketRecord {
+    id: string;
+    eventId: string;
+    name: string;
+    description: string | null;
+    price: string | null;
+    currency: string;
+    maxQuantity: number | null;
+    maxPerOrder: number | null;
+    type: 'free' | 'paid' | 'donation';
+    visibility: 'public' | 'hidden';
+    salesStart: string | null;
+    salesEnd: string | null;
+}
+
+export interface UpsertEventPayload {
+    title: string;
+    description?: string | null;
+    bannerImageUrl?: string | null;
+    startDatetime?: string | null;
+    endDatetime?: string | null;
+    timezone?: string;
+    isMultiDay?: boolean;
+    locationType?: BackendLocationType;
+    venue?: string | null;
+    address?: string | null;
+    city?: string | null;
+    country?: string | null;
+    onlineUrl?: string | null;
+    currency?: string;
+    refundPolicy?: string | null;
+    isListedPublicly?: boolean;
+}
+
+export interface TicketInputPayload {
+    id?: string;
+    name: string;
+    description?: string | null;
+    price?: number;
+    isFree?: boolean;
+    currency?: string;
+    maxQuantity?: number;
+    maxPerOrder?: number;
+    visibility?: 'public' | 'hidden';
+    salesStart?: string | null;
+    salesEnd?: string | null;
+}
+
+export const createEventDraft = async (organizerId: string, payload: UpsertEventPayload) => {
+    return api.post<{ event: EventRecord }>(`/api/v1/organizers/${organizerId}/events`, payload);
+};
+
+export const updateEventDraft = async (eventId: string, payload: UpsertEventPayload) => {
+    return api.patch<{ event: EventRecord }>(`/api/v1/events/${eventId}`, payload);
+};
+
+export const saveEventTickets = async (eventId: string, tickets: TicketInputPayload[]) => {
+    return api.put<{ tickets: TicketRecord[] }>(`/api/v1/events/${eventId}/tickets`, { tickets });
+};
+
+export const publishEvent = async (eventId: string, visibility: EventVisibility) => {
+    return api.post<{ event: EventRecord }>(`/api/v1/events/${eventId}/publish`, {
+        visibility,
+    });
+};
+
+export const fetchEventDetails = async (eventId: string) => {
+    return api.get<{ event: EventRecord; tickets: TicketRecord[] }>(`/api/v1/events/${eventId}`);
+};
+
+export const listOrganizerEvents = async (
+    organizerId: string,
+    options?: { status?: 'draft' | 'published' | 'cancelled' | 'archived' },
+) => {
+    const params = options?.status ? { status: options.status } : undefined;
+    return api.get<{ events: EventRecord[] }>(`/api/v1/organizers/${organizerId}/events`, {
+        params,
+    });
+};
+
+// ============================================================================
+// Public Event API (no authentication required)
+// ============================================================================
+
+export interface PublicEventRecord {
+    id: string;
+    slug: string | null;
+    title: string | null;
+    description: string | null;
+    bannerImageUrl: string | null;
+    startDatetime: string | null;
+    endDatetime: string | null;
+    timezone: string;
+    isMultiDay: boolean;
+    locationType: BackendLocationType;
+    venue: string | null;
+    address: string | null;
+    city: string | null;
+    country: string | null;
+    onlineUrl: string | null;
+    currency: string;
+    organizerName: string | null;
+}
+
+export interface PublicTicketRecord {
+    id: string;
+    name: string;
+    description: string | null;
+    price: string | null;
+    currency: string;
+    maxQuantity: number | null;
+    maxPerOrder: number | null;
+    type: 'free' | 'paid' | 'donation';
+    salesStart: string | null;
+    salesEnd: string | null;
+}
+
+export const fetchPublicEvents = async (options?: { limit?: number; organizerId?: string }) => {
+    const params: Record<string, string> = {};
+    if (options?.limit) params.limit = String(options.limit);
+    if (options?.organizerId) params.organizerId = options.organizerId;
+
+    return api.get<{ events: PublicEventRecord[] }>('/api/v1/public/events', {
+        params: Object.keys(params).length > 0 ? params : undefined,
+    });
+};
+
+
+export const fetchPublicEventBySlug = async (slug: string) => {
+    return api.get<{ event: PublicEventRecord; tickets: PublicTicketRecord[] }>(
+        `/api/v1/public/events/${slug}`,
+    );
+};

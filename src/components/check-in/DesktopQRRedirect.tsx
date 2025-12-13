@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -11,19 +10,14 @@ interface DesktopQRRedirectProps {
 }
 
 export function DesktopQRRedirect({ eventId, eventName, organizerId }: DesktopQRRedirectProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const scannerUrl = mounted
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const scannerUrl = origin
     ? organizerId
-      ? `${window.location.origin}/dashboard/o/${organizerId}/check-in?event=${eventId}&mode=scan`
-      : `${window.location.origin}/dashboard`
+      ? `${origin}/dashboard/o/${organizerId}/check-in?event=${eventId}&mode=scan`
+      : `${origin}/dashboard`
     : '';
 
-  if (!mounted) {
+  if (!origin) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
         <div className="text-center">
