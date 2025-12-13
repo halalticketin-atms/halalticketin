@@ -32,8 +32,7 @@ import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents, DashboardEvent, DashboardEventStatus } from '@/hooks/useOrganizerEvents';
 
 const statusConfig: Record<DashboardEventStatus, { label: string; color: string; icon: typeof Clock }> = {
-    ongoing: { label: 'Ongoing', color: 'bg-blue-100 text-blue-700', icon: Clock },
-    upcoming: { label: 'Upcoming', color: 'bg-green-100 text-green-700', icon: Calendar },
+    active: { label: 'Active', color: 'bg-green-100 text-green-700', icon: Calendar },
     past: { label: 'Completed', color: 'bg-gray-100 text-gray-600', icon: CheckCircle },
     draft: { label: 'Draft', color: 'bg-yellow-100 text-yellow-700', icon: Archive },
 };
@@ -258,11 +257,8 @@ export default function MyEventsPage() {
                         <TabsTrigger value="all" className="gap-2">
                             All <Badge variant="secondary" className="ml-1">{counts.all}</Badge>
                         </TabsTrigger>
-                        <TabsTrigger value="ongoing" className="gap-2">
-                            Ongoing <Badge variant="secondary" className="ml-1">{counts.ongoing}</Badge>
-                        </TabsTrigger>
-                        <TabsTrigger value="upcoming" className="gap-2">
-                            Upcoming <Badge variant="secondary" className="ml-1">{counts.upcoming}</Badge>
+                        <TabsTrigger value="active" className="gap-2">
+                            Active <Badge variant="secondary" className="ml-1">{counts.active}</Badge>
                         </TabsTrigger>
                         <TabsTrigger value="past" className="gap-2">
                             Past <Badge variant="secondary" className="ml-1">{counts.past}</Badge>
@@ -272,7 +268,7 @@ export default function MyEventsPage() {
                         </TabsTrigger>
                     </TabsList>
 
-                    {['all', 'ongoing', 'upcoming', 'past', 'draft'].map(tab => (
+                    {['all', 'active', 'past', 'draft'].map(tab => (
                         <TabsContent key={tab} value={tab} className="space-y-4">
                             {getFilteredEvents(tab).length === 0 ? (
                                 <Card className="p-12 text-center">
@@ -283,7 +279,9 @@ export default function MyEventsPage() {
                                             ? "You don't have any draft events."
                                             : tab === 'all'
                                                 ? "You haven't created any events yet."
-                                                : `You don't have any ${tab} events yet.`}
+                                                : tab === 'active'
+                                                    ? "You don't have any active events."
+                                                    : "You don't have any past events yet."}
                                     </p>
                                     <Button asChild className="mt-4">
                                         <Link href={organizerId ? `/events/new?organizerId=${organizerId}` : '/events/new'}>

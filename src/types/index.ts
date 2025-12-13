@@ -155,6 +155,7 @@ export interface EventDetails {
 // Check-in types
 export interface CheckInTicket {
     id: string;
+    ticketCode: string;
     orderId: string;
     orderNumber: string;
     attendeeName: string;
@@ -163,6 +164,7 @@ export interface CheckInTicket {
     checkInStatus: 'checked_in' | 'not_checked_in';
     checkedInAt?: Date;
     checkedInBy?: string;
+    checkedInByName?: string | null;
     // Group awareness
     groupSize: number;
     groupCheckedIn: number;

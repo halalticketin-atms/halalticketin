@@ -1,93 +1,34 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CheckInTicket, CheckInStats, CheckInResult } from '@/types';
+import {
+  listCheckInTickets,
+  getCheckInStats,
+  checkInTicket as apiCheckIn,
+  undoCheckIn as apiUndoCheckIn,
+  CheckInTicketRecord,
+} from '@/lib/check-in-api';
 
-// Event-aware mock tickets (frontend-only scaffold)
-const mockTicketsByEvent: Record<string, CheckInTicket[]> = {
-  // Halal Food Festival 2024
-  '1': [
-    {
-      id: 'TKT-001',
-      orderId: 'ORD-2024-001',
-      orderNumber: 'ORD-2024-001',
-      attendeeName: 'Ahmed Hassan',
-      attendeeEmail: 'ahmed@example.com',
-      ticketType: 'VIP Pass',
-      checkInStatus: 'not_checked_in',
-      groupSize: 2,
-      groupCheckedIn: 0,
-    },
-    {
-      id: 'TKT-002',
-      orderId: 'ORD-2024-001',
-      orderNumber: 'ORD-2024-001',
-      attendeeName: 'Ahmed Hassan',
-      attendeeEmail: 'ahmed@example.com',
-      ticketType: 'VIP Pass',
-      checkInStatus: 'not_checked_in',
-      groupSize: 2,
-      groupCheckedIn: 0,
-    },
-    {
-      id: 'TKT-003',
-      orderId: 'ORD-2024-002',
-      orderNumber: 'ORD-2024-002',
-      attendeeName: 'Fatima Khan',
-      attendeeEmail: 'fatima.k@example.com',
-      ticketType: 'General Admission',
-      checkInStatus: 'checked_in',
-      checkedInAt: new Date('2024-12-07T14:30:00'),
-      groupSize: 1,
-      groupCheckedIn: 1,
-    },
-    {
-      id: 'TKT-004',
-      orderId: 'ORD-2024-003',
-      orderNumber: 'ORD-2024-003',
-      attendeeName: 'Omar Ali',
-      attendeeEmail: 'omar.ali@example.com',
-      ticketType: 'General Admission',
-      checkInStatus: 'not_checked_in',
-      groupSize: 1,
-      groupCheckedIn: 0,
-    },
-    {
-      id: 'TKT-005',
-      orderId: 'ORD-2024-004',
-      orderNumber: 'ORD-2024-004',
-      attendeeName: 'Aisha Mohammed',
-      attendeeEmail: 'aisha.m@example.com',
-      ticketType: 'Family Pack',
-      checkInStatus: 'not_checked_in',
-      groupSize: 4,
-      groupCheckedIn: 0,
-    },
-  ],
-  // Islamic Art Exhibition
-  '2': [
-    {
-      id: 'TKT-201',
-      orderId: 'ORD-2025-010',
-      orderNumber: 'ORD-2025-010',
-      attendeeName: 'Zainab Malik',
-      attendeeEmail: 'zainab.m@example.com',
-      ticketType: 'Exhibition Pass',
-      checkInStatus: 'not_checked_in',
-      groupSize: 1,
-      groupCheckedIn: 0,
-    },
-    {
-      id: 'TKT-202',
-      orderId: 'ORD-2025-011',
-      orderNumber: 'ORD-2025-011',
-      attendeeName: 'Yusuf Ahmed',
-      attendeeEmail: 'yusuf.a@example.com',
-      ticketType: 'VIP Preview',
-      checkInStatus: 'not_checked_in',
-      groupSize: 1,
-      groupCheckedIn: 0,
-    },
-  ],
-};
+/**
+ * Transform API ticket record to frontend CheckInTicket format.
+ */
+export function transformCheckInTicket(record: CheckInTicketRecord): CheckInTicket {
+  return {
+    id: record.id,
+    ticketCode: record.ticketCode,
+    orderId: record.orderNumber, // Using orderNumber as orderId for display
+    orderNumber: record.orderNumber,
+    attendeeName: record.attendeeName ?? 'Unknown',
+    attendeeEmail: record.attendeeEmail ?? '',
+    ticketType: record.ticketType,
+    checkInStatus: record.status === 'checked_in' ? 'checked_in' : 'not_checked_in',
+    checkedInAt: record.checkedInAt ? new Date(record.checkedInAt) : undefined,
+    checkedInBy: record.checkedInBy ?? undefined,
+    checkedInByName: record.checkedInByName,
+    // Group features not yet implemented in backend
+    groupSize: 1,
+    groupCheckedIn: record.status === 'checked_in' ? 1 : 0,
+  };
+}
 
 interface UseCheckInTicketsResult {
   tickets: CheckInTicket[];
@@ -97,126 +38,171 @@ interface UseCheckInTicketsResult {
   isLoading: boolean;
   updatingTicketId: string | null;
   error: string | null;
+  refresh: () => Promise<void>;
 }
 
-export function useCheckInTickets(eventId: string): UseCheckInTicketsResult {
+export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResult {
   const [tickets, setTickets] = useState<CheckInTicket[]>([]);
+  const [apiStats, setApiStats] = useState<CheckInStats | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const fetchIdRef = useRef(0);
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
+    const requestId = ++fetchIdRef.current;
+    if (!eventId) {
+      setTickets([]);
+      setApiStats(null);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
-    // In a real app, this is where you'd fetch tickets for the event.
-    const timeout = setTimeout(() => {
-      const eventTickets = mockTicketsByEvent[eventId] ?? [];
-      setTickets(eventTickets);
-      setIsLoading(false);
-    }, 0);
+    try {
+      // Fetch tickets and stats in parallel
+      const [ticketsRes, statsRes] = await Promise.all([
+        listCheckInTickets(eventId),
+        getCheckInStats(eventId),
+      ]);
 
-    return () => clearTimeout(timeout);
+      if (fetchIdRef.current !== requestId) {
+        return;
+      }
+
+      setTickets(ticketsRes.tickets.map(transformCheckInTicket));
+      setApiStats(statsRes);
+    } catch (err) {
+      if (fetchIdRef.current !== requestId) {
+        return;
+      }
+      const message = err instanceof Error ? err.message : 'Failed to load check-in data';
+      setError(message);
+      setTickets([]);
+      setApiStats(null);
+    } finally {
+      if (fetchIdRef.current === requestId) {
+        setIsLoading(false);
+      }
+    }
   }, [eventId]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Compute stats from API response or fallback to local calculation
   const stats: CheckInStats = useMemo(() => {
+    if (apiStats) {
+      return apiStats;
+    }
+    // Fallback: calculate from local tickets
     const totalTickets = tickets.length;
     const checkedIn = tickets.filter((t) => t.checkInStatus === 'checked_in').length;
     const notCheckedIn = tickets.filter((t) => t.checkInStatus === 'not_checked_in').length;
-    const percentage =
-      totalTickets > 0 ? (checkedIn / totalTickets) * 100 : 0;
-
-    return {
-      totalTickets,
-      checkedIn,
-      notCheckedIn,
-      percentage,
-    };
-  }, [tickets]);
+    const percentage = totalTickets > 0 ? (checkedIn / totalTickets) * 100 : 0;
+    return { totalTickets, checkedIn, notCheckedIn, percentage };
+  }, [tickets, apiStats]);
 
   const checkIn = useCallback(
     async (ticketId: string): Promise<CheckInResult> => {
+      if (!eventId) {
+        const message = 'Select an event before checking in tickets.';
+        setError(message);
+        return { status: 'invalid', message };
+      }
+
       setError(null);
       setUpdatingTicketId(ticketId);
 
       try {
-        let result: CheckInResult = { status: 'invalid', message: 'Ticket not found' };
+        const response = await apiCheckIn(eventId, ticketId);
 
-        setTickets((prev) => {
-          const ticketForOrder = prev.find((t) => t.id === ticketId);
-          const orderId = ticketForOrder?.orderId;
+        if (response.success) {
+          const updatedTicket = transformCheckInTicket(response.ticket);
 
-          if (!ticketForOrder) {
-            return prev;
-          }
-
-          result = {
-            status: 'success',
-            ticket: {
-              ...ticketForOrder,
-              checkInStatus: 'checked_in',
-            },
-          };
-
-          return prev.map((t) =>
-            t.id === ticketId
-              ? {
-                  ...t,
-                  checkInStatus: 'checked_in',
-                  checkedInAt: new Date(),
-                  groupCheckedIn: t.groupCheckedIn + 1,
-                }
-              : orderId && t.orderId === orderId
-              ? { ...t, groupCheckedIn: t.groupCheckedIn + 1 }
-              : t,
+          // Update local state
+          setTickets((prev) =>
+            prev.map((t) => (t.id === ticketId ? updatedTicket : t))
           );
-        });
 
-        // Placeholder for future async API call
-        await Promise.resolve();
+          // Update stats
+          setApiStats((prev) =>
+            prev
+              ? {
+                ...prev,
+                checkedIn: prev.checkedIn + 1,
+                notCheckedIn: prev.notCheckedIn - 1,
+                percentage:
+                  prev.totalTickets > 0
+                    ? ((prev.checkedIn + 1) / prev.totalTickets) * 100
+                    : 0,
+              }
+              : prev
+          );
 
-        return result;
-      } catch {
-        setError('Failed to check in ticket. Please try again.');
-        return { status: 'invalid', message: 'Failed to check in ticket.' };
+          return { status: 'success', ticket: updatedTicket };
+        }
+
+        return { status: 'invalid', message: 'Failed to check in ticket' };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to check in ticket';
+        setError(message);
+        return { status: 'invalid', message };
       } finally {
         setUpdatingTicketId(null);
       }
     },
-    [],
+    [eventId]
   );
 
-  const undo = useCallback(async (ticketId: string): Promise<void> => {
-    setError(null);
-    setUpdatingTicketId(ticketId);
+  const undo = useCallback(
+    async (ticketId: string): Promise<void> => {
+      if (!eventId) {
+        setError('Select an event before undoing check-ins.');
+        return;
+      }
 
-    try {
-      setTickets((prev) => {
-        const ticketForOrder = prev.find((t) => t.id === ticketId);
-        const orderId = ticketForOrder?.orderId;
+      setError(null);
+      setUpdatingTicketId(ticketId);
 
-        return prev.map((t) =>
-          t.id === ticketId
-            ? {
-                ...t,
-                checkInStatus: 'not_checked_in',
-                checkedInAt: undefined,
-                groupCheckedIn: Math.max(0, t.groupCheckedIn - 1),
+      try {
+        const response = await apiUndoCheckIn(eventId, ticketId);
+
+        if (response.success) {
+          const updatedTicket = transformCheckInTicket(response.ticket);
+
+          // Update local state
+          setTickets((prev) =>
+            prev.map((t) => (t.id === ticketId ? updatedTicket : t))
+          );
+
+          // Update stats
+          setApiStats((prev) =>
+            prev
+              ? {
+                ...prev,
+                checkedIn: prev.checkedIn - 1,
+                notCheckedIn: prev.notCheckedIn + 1,
+                percentage:
+                  prev.totalTickets > 0
+                    ? ((prev.checkedIn - 1) / prev.totalTickets) * 100
+                    : 0,
               }
-            : orderId && t.orderId === orderId
-            ? { ...t, groupCheckedIn: Math.max(0, t.groupCheckedIn - 1) }
-            : t,
-        );
-      });
-
-      // Placeholder for future async API call
-      await Promise.resolve();
-    } catch {
-      setError('Failed to undo check-in. Please try again.');
-    } finally {
-      setUpdatingTicketId(null);
-    }
-  }, []);
+              : prev
+          );
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to undo check-in';
+        setError(message);
+      } finally {
+        setUpdatingTicketId(null);
+      }
+    },
+    [eventId]
+  );
 
   return {
     tickets,
@@ -226,5 +212,6 @@ export function useCheckInTickets(eventId: string): UseCheckInTicketsResult {
     isLoading,
     updatingTicketId,
     error,
+    refresh: fetchData,
   };
 }

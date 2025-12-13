@@ -30,6 +30,7 @@ interface CheckInHeaderProps {
   error?: string | null;
   subtitle?: string;
   showModeToggle?: boolean;
+  isEventLoading?: boolean;
 }
 
 export function CheckInHeader({
@@ -42,6 +43,7 @@ export function CheckInHeader({
   error,
   subtitle,
   showModeToggle = true,
+  isEventLoading = false,
 }: CheckInHeaderProps) {
   return (
     <motion.div
@@ -57,8 +59,15 @@ export function CheckInHeader({
       </div>
 
       <Select value={selectedEventId} onValueChange={onEventChange}>
-        <SelectTrigger className="w-full md:w-[300px] mt-2">
-          <SelectValue />
+        <SelectTrigger
+          className="w-full md:w-[300px] mt-2"
+          disabled={isEventLoading || events.length === 0}
+        >
+          <SelectValue
+            placeholder={
+              isEventLoading ? 'Loading events...' : events.length === 0 ? 'No active events' : undefined
+            }
+          />
         </SelectTrigger>
         <SelectContent>
           {events.map((event) => (
@@ -68,6 +77,10 @@ export function CheckInHeader({
           ))}
         </SelectContent>
       </Select>
+
+      {!isEventLoading && events.length === 0 && (
+        <p className="text-sm text-muted-foreground">No active events available.</p>
+      )}
 
       <CheckInStatsBar stats={stats} />
 
@@ -100,4 +113,3 @@ export function CheckInHeader({
     </motion.div>
   );
 }
-

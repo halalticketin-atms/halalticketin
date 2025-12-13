@@ -19,9 +19,11 @@ import { ScanResultOverlay } from '@/components/check-in/ScanResultOverlay';
 import { AttendeeCard } from '@/components/check-in/AttendeeCard';
 import { QRScanner } from '@/components/check-in/QRScanner';
 import { CheckInHeader } from '@/components/check-in/CheckInHeader';
-import { useCheckInTickets } from '@/hooks/useCheckInTickets';
-import { checkInEventOptions } from '@/data/mock-events';
+import { useCheckInTickets, transformCheckInTicket } from '@/hooks/useCheckInTickets';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
+import { useOrganizerEvents } from '@/hooks/useOrganizerEvents';
+import { scanTicketCode } from '@/lib/check-in-api';
+import { ApiError } from '@/lib/api';
 
 // Detect if mobile/tablet
 function useIsMobile() {
@@ -70,17 +72,28 @@ function CheckInContent() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [scanResult, setScanResult] = useState<CheckInResult | null>(null);
 
+  // Fetch real events and filter to only active ones
+  const { events, isLoading: eventsLoading } = useOrganizerEvents(organizerId);
+  const activeEvents = useMemo(() => {
+    return events
+      .filter(e => e.displayStatus === 'active')
+      .map(e => ({
+        id: e.id,
+        name: e.title || 'Untitled Event',
+      }));
+  }, [events]);
+
   const selectedEventFromUrl = searchParams.get('event');
   const modeFromUrl = searchParams.get('mode');
   const viewFromUrl = searchParams.get('view');
 
   const selectedEvent = useMemo(() => {
-    const fallbackId = checkInEventOptions[0]?.id;
+    const fallbackId = activeEvents[0]?.id;
     if (!fallbackId) return '';
     if (!selectedEventFromUrl) return fallbackId;
-    const exists = checkInEventOptions.some((e) => e.id === selectedEventFromUrl);
+    const exists = activeEvents.some((e) => e.id === selectedEventFromUrl);
     return exists ? selectedEventFromUrl : fallbackId;
-  }, [selectedEventFromUrl]);
+  }, [selectedEventFromUrl, activeEvents]);
 
   const mode: 'scan' | 'search' =
     modeFromUrl === 'search' ? 'search' : 'scan';
@@ -88,7 +101,7 @@ function CheckInContent() {
   const view: 'scanner' | 'monitor' =
     viewFromUrl === 'monitor' ? 'monitor' : 'scanner';
 
-  const selectedEventData = checkInEventOptions.find((e) => e.id === selectedEvent);
+  const selectedEventData = activeEvents.find((e) => e.id === selectedEvent);
 
   const {
     tickets,
@@ -98,7 +111,29 @@ function CheckInContent() {
     isLoading,
     updatingTicketId,
     error,
-  } = useCheckInTickets(selectedEvent);
+  } = useCheckInTickets(selectedEvent || null);
+
+  const noActiveEvents = !eventsLoading && activeEvents.length === 0;
+
+  if (eventsLoading && activeEvents.length === 0) {
+    return <CheckInFallback />;
+  }
+
+  if (noActiveEvents || !selectedEvent) {
+    return (
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-8 text-center space-y-3">
+            <Users className="h-10 w-10 mx-auto text-muted-foreground" />
+            <h2 className="font-semibold text-lg">No active events available</h2>
+            <p className="text-muted-foreground">
+              Publish an event with a future end time to start checking in attendees.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const updateQuery = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -119,6 +154,14 @@ function CheckInContent() {
   });
 
   const handleCheckIn = async (ticketId: string) => {
+    if (!selectedEvent) {
+      setScanResult({
+        status: 'invalid',
+        message: 'Select an event before checking in attendees.',
+      });
+      return;
+    }
+
     const result = await checkIn(ticketId);
     if (result) {
       setScanResult(result);
@@ -133,28 +176,45 @@ function CheckInContent() {
     const trimmed = data.trim();
     if (!trimmed) return;
 
-    const ticket = tickets.find(
-      (t) => t.id === trimmed || t.orderNumber === trimmed,
-    );
-
-    if (!ticket) {
+    if (!selectedEvent) {
       setScanResult({
         status: 'invalid',
-        message: 'Ticket not found for this code.',
+        message: 'Select an event before scanning tickets.',
       });
       return;
     }
 
-    if (ticket.checkInStatus === 'checked_in') {
+    try {
+      const scanResponse = await scanTicketCode(selectedEvent, trimmed);
+
+      if (!scanResponse.valid || !scanResponse.ticket) {
+        setScanResult({
+          status: 'invalid',
+          message: scanResponse.message || 'Ticket not valid for this event.',
+        });
+        return;
+      }
+
+      const normalizedTicket = transformCheckInTicket(scanResponse.ticket);
+
+      if (scanResponse.alreadyCheckedIn) {
+        setScanResult({
+          status: 'already_checked_in',
+          ticket: normalizedTicket,
+          checkedInAt: normalizedTicket.checkedInAt || new Date(),
+        });
+        return;
+      }
+
+      await handleCheckIn(normalizedTicket.id);
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : 'Failed to scan ticket. Please try again.';
       setScanResult({
-        status: 'already_checked_in',
-        ticket,
-        checkedInAt: ticket.checkedInAt || new Date(),
+        status: 'invalid',
+        message,
       });
-      return;
     }
-
-    await handleCheckIn(ticket.id);
   };
 
   // Desktop monitor view
@@ -163,13 +223,14 @@ function CheckInContent() {
       <div className="min-h-screen bg-muted/30 pb-24">
         <div className="container py-6 space-y-4">
           <CheckInHeader
-            events={checkInEventOptions}
+            events={activeEvents}
             selectedEventId={selectedEvent}
             onEventChange={(value) => updateQuery('event', value)}
             stats={stats}
             showModeToggle={false}
             error={error}
             subtitle="Monitor attendees and manage check-ins"
+            isEventLoading={eventsLoading}
           />
 
           <div className="flex justify-end">
@@ -252,12 +313,13 @@ function CheckInContent() {
       <div className="min-h-screen bg-muted/30">
         <div className="container py-8">
           <CheckInHeader
-            events={checkInEventOptions}
+            events={activeEvents}
             selectedEventId={selectedEvent}
             onEventChange={(value) => updateQuery('event', value)}
             stats={stats}
             showModeToggle={false}
             subtitle="Scan tickets and manage attendee check-ins"
+            isEventLoading={eventsLoading}
           />
 
           <div className="flex justify-end mb-4">
@@ -287,13 +349,14 @@ function CheckInContent() {
     <div className="min-h-screen bg-muted/30 pb-24">
       <div className="container py-6">
         <CheckInHeader
-          events={checkInEventOptions}
+          events={activeEvents}
           selectedEventId={selectedEvent}
           onEventChange={(value) => updateQuery('event', value)}
           stats={stats}
           mode={mode}
           onModeChange={(next) => updateQuery('mode', next)}
           error={error}
+          isEventLoading={eventsLoading}
         />
 
         {/* Scanner Mode */}
@@ -302,7 +365,7 @@ function CheckInContent() {
             <CardContent className="p-4 space-y-4">
               <QRScanner
                 onScan={handleScan}
-                isActive={!isLoading}
+                isActive={!isLoading && !!selectedEvent}
               />
 
               {/* Demo buttons for testing */}
@@ -318,7 +381,7 @@ function CheckInContent() {
                       const unchecked = tickets.find(
                         (t) => t.checkInStatus === 'not_checked_in',
                       );
-                      if (unchecked) handleCheckIn(unchecked.id);
+                      if (unchecked) handleScan(unchecked.ticketCode);
                     }}
                   >
                     Simulate Valid Scan
@@ -333,11 +396,7 @@ function CheckInContent() {
                         (t) => t.checkInStatus === 'checked_in',
                       );
                       if (checked) {
-                        setScanResult({
-                          status: 'already_checked_in',
-                          ticket: checked,
-                          checkedInAt: checked.checkedInAt || new Date(),
-                        });
+                        handleScan(checked.ticketCode);
                       }
                     }}
                   >

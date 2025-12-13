@@ -73,6 +73,11 @@ export function ScanResultOverlay({ result, onClose }: ScanResultOverlayProps) {
                   Checked in at {result.checkedInAt.toLocaleTimeString()}
                 </p>
               )}
+              {result.ticket.checkedInByName && (
+                <p className="text-sm opacity-80 mt-1">
+                  Scanned by {result.ticket.checkedInByName}
+                </p>
+              )}
             </>
           )}
 

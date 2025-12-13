@@ -13,6 +13,11 @@ interface AttendeeCardProps {
 
 export function AttendeeCard({ ticket, onCheckIn, onUndo, isUpdating }: AttendeeCardProps) {
   const isCheckedIn = ticket.checkInStatus === 'checked_in';
+  const checkedInTime =
+    ticket.checkedInAt?.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    }) ?? null;
 
   return (
     <motion.div
@@ -34,6 +39,13 @@ export function AttendeeCard({ ticket, onCheckIn, onUndo, isUpdating }: Attendee
             </Badge>
           )}
         </div>
+        {isCheckedIn && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Checked in
+            {checkedInTime ? ` at ${checkedInTime}` : ''}
+            {ticket.checkedInByName ? ` by ${ticket.checkedInByName}` : ''}
+          </p>
+        )}
       </div>
       <div>
         {isCheckedIn ? (

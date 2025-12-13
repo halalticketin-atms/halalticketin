@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { EventRecord, listOrganizerEvents } from '@/lib/events-api';
 
-export type DashboardEventStatus = 'draft' | 'ongoing' | 'upcoming' | 'past';
+export type DashboardEventStatus = 'draft' | 'active' | 'past';
 
 export interface DashboardEvent extends EventRecord {
     /** Computed status based on dates and published state */
@@ -12,34 +12,43 @@ export interface DashboardEvent extends EventRecord {
 
 /**
  * Classify an event's display status based on its publish status and dates.
+ * 
+ * - draft: Not published
+ * - active: Published and hasn't ended yet (includes upcoming + happening now)
+ * - past: Published and has ended
  */
 function classifyEventStatus(event: EventRecord): DashboardEventStatus {
     if (event.status === 'draft') {
         return 'draft';
     }
 
-    // For published/archived/cancelled events, classify by date
+    // For published/archived/cancelled events, classify by end date
     const now = new Date();
-    const start = event.startDatetime ? new Date(event.startDatetime) : null;
     const end = event.endDatetime ? new Date(event.endDatetime) : null;
 
-    // If we have both start and end, check if event is ongoing
-    if (start && end && start <= now && now <= end) {
-        return 'ongoing';
+    // If no end date, check start date - if in past, it's past; otherwise active
+    if (!end) {
+        const start = event.startDatetime ? new Date(event.startDatetime) : null;
+        if (start && start < now) {
+            // Event started but no end date - consider it past if it started more than 24h ago
+            const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            return start < oneDayAgo ? 'past' : 'active';
+        }
+        return 'active';
     }
 
-    // If start is in the future, it's upcoming
-    if (start && start > now) {
-        return 'upcoming';
+    // Event has ended
+    if (end < now) {
+        return 'past';
     }
 
-    // Otherwise it's past (or dates are missing, treat as past)
-    return 'past';
+    // Event hasn't ended yet (upcoming or happening now)
+    return 'active';
 }
 
 /**
  * Hook for fetching and managing organizer events.
- * Automatically classifies events into draft/ongoing/upcoming/past.
+ * Automatically classifies events into draft/active/past.
  */
 export function useOrganizerEvents(organizerId: string | null) {
     const [events, setEvents] = useState<DashboardEvent[]>([]);
@@ -91,8 +100,7 @@ export function useOrganizerEvents(organizerId: string | null) {
     const counts = {
         all: events.length,
         draft: events.filter((e) => e.displayStatus === 'draft').length,
-        ongoing: events.filter((e) => e.displayStatus === 'ongoing').length,
-        upcoming: events.filter((e) => e.displayStatus === 'upcoming').length,
+        active: events.filter((e) => e.displayStatus === 'active').length,
         past: events.filter((e) => e.displayStatus === 'past').length,
     };
 
