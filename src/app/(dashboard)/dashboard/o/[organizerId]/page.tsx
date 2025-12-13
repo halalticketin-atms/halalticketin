@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Calendar, Ticket, DollarSign, Users, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
@@ -9,13 +9,51 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents, DashboardEvent } from '@/hooks/useOrganizerEvents';
+import api from '@/lib/api';
+
+interface AnalyticsStats {
+    totalRevenue: number;
+    ticketsSold: number;
+    paidOrders: number;
+    totalEvents: number;
+    currency: string;
+}
+
+interface AnalyticsResponse {
+    stats: AnalyticsStats;
+}
 
 const upcomingMilestones: Array<{ event: string; milestone: string; progress: number }> = [];
+
+const formatCurrency = (amount: number, currency: string) => {
+    try {
+        return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amount);
+    } catch {
+        return `£${amount.toFixed(2)}`;
+    }
+};
 
 export default function DashboardPage() {
     const organizerId = useOrganizerFromParams();
     const { user, memberships, isLoading } = useAuth();
     const { events, counts } = useOrganizerEvents(organizerId);
+    const [analyticsStats, setAnalyticsStats] = useState<AnalyticsStats | null>(null);
+
+    const fetchAnalytics = useCallback(async () => {
+        if (!organizerId) return;
+        try {
+            const response = await api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
+                params: { organizerId },
+            });
+            setAnalyticsStats(response.stats);
+        } catch {
+            // Silently fail - dashboard will show defaults
+        }
+    }, [organizerId]);
+
+    useEffect(() => {
+        void fetchAnalytics();
+    }, [fetchAnalytics]);
 
     const greetingName = user?.name || user?.email?.split('@')[0] || 'there';
     const welcomeTitle = user ? `Welcome back, ${greetingName}! 👋` : 'Welcome to your dashboard';
@@ -66,11 +104,15 @@ export default function DashboardPage() {
     const stats = useMemo(
         () => [
             { title: 'Total Events', value: counts.all, icon: Calendar },
-            { title: 'Tickets Sold', value: 0, icon: Ticket },
-            { title: 'Revenue', value: '£0', icon: DollarSign },
+            { title: 'Tickets Sold', value: analyticsStats?.ticketsSold ?? 0, icon: Ticket },
+            {
+                title: 'Revenue',
+                value: formatCurrency(analyticsStats?.totalRevenue ?? 0, analyticsStats?.currency ?? 'GBP'),
+                icon: DollarSign,
+            },
             { title: 'Organizer Teams', value: memberships.length, icon: Users },
         ],
-        [counts.all, memberships.length]
+        [counts.all, memberships.length, analyticsStats]
     );
 
     return (

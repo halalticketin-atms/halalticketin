@@ -316,9 +316,9 @@ export default function AnalyticsPage() {
                                         <p className="text-3xl font-bold mt-1">
                                             {analytics && analytics.stats.ticketsSold > 0
                                                 ? formatCurrency(
-                                                      analytics.stats.totalRevenue / analytics.stats.ticketsSold,
-                                                      analytics.stats.currency
-                                                  )
+                                                    analytics.stats.totalRevenue / analytics.stats.ticketsSold,
+                                                    analytics.stats.currency
+                                                )
                                                 : formatCurrency(0, analytics?.stats.currency ?? 'GBP')}
                                         </p>
                                         <p className="text-sm text-muted-foreground mt-2">Live calculation</p>
@@ -327,15 +327,15 @@ export default function AnalyticsPage() {
                                 <Card className="border-border/50">
                                     <CardContent className="p-5">
                                         <p className="text-sm text-muted-foreground">Conversion Rate</p>
-                                        <p className="text-3xl font-bold mt-1">7.5%</p>
-                                        <p className="text-sm text-green-600 mt-2">↑ 2.1% vs last period</p>
+                                        <p className="text-3xl font-bold mt-1 text-muted-foreground/50">—</p>
+                                        <p className="text-sm text-muted-foreground mt-2">Coming soon</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="border-border/50">
                                     <CardContent className="p-5">
                                         <p className="text-sm text-muted-foreground">Refund Rate</p>
-                                        <p className="text-3xl font-bold mt-1">1.2%</p>
-                                        <p className="text-sm text-green-600 mt-2">↓ 0.3% vs last period</p>
+                                        <p className="text-3xl font-bold mt-1 text-muted-foreground/50">—</p>
+                                        <p className="text-sm text-muted-foreground mt-2">Coming soon</p>
                                     </CardContent>
                                 </Card>
                             </motion.div>
@@ -449,10 +449,10 @@ export default function AnalyticsPage() {
                                                     <td className="py-4 px-4 text-right text-muted-foreground">
                                                         {event.lastOrderAt
                                                             ? new Date(event.lastOrderAt).toLocaleDateString('en-GB', {
-                                                                  day: 'numeric',
-                                                                  month: 'short',
-                                                                  year: 'numeric',
-                                                              })
+                                                                day: 'numeric',
+                                                                month: 'short',
+                                                                year: 'numeric',
+                                                            })
                                                             : '—'}
                                                     </td>
                                                 </tr>
