@@ -1,11 +1,12 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { XCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export default function CheckoutCancelPage() {
+function CheckoutCancelContent() {
     const searchParams = useSearchParams();
     const orderId = searchParams.get('order_id');
 
@@ -68,5 +69,13 @@ export default function CheckoutCancelPage() {
                 </p>
             </div>
         </div>
+    );
+}
+
+export default function CheckoutCancelPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-white" />}>
+            <CheckoutCancelContent />
+        </Suspense>
     );
 }

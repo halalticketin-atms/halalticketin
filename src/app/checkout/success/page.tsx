@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle, Download, Calendar, MapPin, Ticket, Loader2 } from 'lucide-react';
@@ -22,7 +22,7 @@ interface OrderStatus {
     tickets?: TicketInfo[];
 }
 
-export default function CheckoutSuccessPage() {
+function CheckoutSuccessContent() {
     const searchParams = useSearchParams();
     const sessionId = searchParams.get('session_id');
     const orderId = searchParams.get('order_id');
@@ -184,5 +184,13 @@ export default function CheckoutSuccessPage() {
                 </p>
             </div>
         </div>
+    );
+}
+
+export default function CheckoutSuccessPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-white" />}>
+            <CheckoutSuccessContent />
+        </Suspense>
     );
 }
