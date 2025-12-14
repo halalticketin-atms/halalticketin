@@ -6,10 +6,12 @@ import { motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { setAuthToken } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
 
 function CallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { refresh } = useAuth();
 
     useEffect(() => {
         const handleCallback = async () => {
@@ -29,6 +31,7 @@ function CallbackContent() {
 
                     // Get the redirect path
                     const next = searchParams.get('next') || '/dashboard';
+                    await refresh();
                     router.push(next);
                 } else {
                     // No session, redirect to login
@@ -41,7 +44,7 @@ function CallbackContent() {
         };
 
         handleCallback();
-    }, [router, searchParams]);
+    }, [refresh, router, searchParams]);
 
     return (
         <div className="min-h-screen flex items-center justify-center gradient-mesh">

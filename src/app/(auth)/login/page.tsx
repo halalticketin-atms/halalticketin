@@ -10,7 +10,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
-import { setAuthToken } from '@/lib/api';
+import api, { setAuthToken } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
+
+interface LoginResponse {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+    tokenType: string;
+}
 
 function LoginContent() {
     const [email, setEmail] = useState('');
@@ -19,6 +27,7 @@ function LoginContent() {
     const [error, setError] = useState<string | null>(null);
     const searchParams = useSearchParams();
     const router = useRouter();
+    const { refresh } = useAuth();
     const nextParam = searchParams.get('next');
     const redirectPath = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard';
 
@@ -28,21 +37,13 @@ function LoginContent() {
         setError(null);
 
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const response = await api.post<LoginResponse>('/api/v1/auth/login', {
                 email,
                 password,
             });
 
-            if (error) {
-                throw error;
-            }
-
-            const accessToken = data.session?.access_token;
-            if (!accessToken) {
-                throw new Error('Unable to retrieve access token');
-            }
-
-            setAuthToken(accessToken);
+            setAuthToken(response.accessToken);
+            await refresh();
             router.push(redirectPath);
             router.refresh();
         } catch (err) {
