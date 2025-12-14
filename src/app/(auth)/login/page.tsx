@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import api, { setAuthToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 
@@ -58,7 +58,7 @@ function LoginContent() {
         setError(null);
 
         try {
-            const { error } = await supabase.auth.signInWithOAuth({
+            const { error } = await getSupabase().auth.signInWithOAuth({
                 provider: 'google',
                 options: {
                     redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectPath)}`,

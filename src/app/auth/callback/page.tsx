@@ -4,7 +4,7 @@ import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { setAuthToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 
@@ -17,7 +17,7 @@ function CallbackContent() {
         const handleCallback = async () => {
             try {
                 // Exchange code for session
-                const { data: { session }, error } = await supabase.auth.getSession();
+                const { data: { session }, error } = await getSupabase().auth.getSession();
 
                 if (error) {
                     console.error('Auth callback error:', error);
