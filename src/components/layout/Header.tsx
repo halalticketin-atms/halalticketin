@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, useScroll, useMotionValueEvent } from 'motion/react';
-import { Menu, X, Search, CreditCard, LayoutDashboard, QrCode, Mail, User } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -77,10 +77,17 @@ export function Header() {
     // Navigation Items with Icons and Brand Gradients
     const navLinks = [
         {
+            id: 'home',
+            href: '/',
+            label: 'Home',
+            gradient:
+                'radial-gradient(circle, rgba(184, 233, 234, 0.15) 0%, rgba(115, 203, 205, 0.06) 50%, rgba(56, 189, 248, 0) 100%)', // Cyan/Teal
+            iconColor: 'text-[var(--brand-cyan)]',
+        },
+        {
             id: 'browse-events',
             href: '/events',
-            label: 'Browse',
-            icon: <Search className="h-5 w-5" />,
+            label: 'Browse Events',
             gradient:
                 'radial-gradient(circle, rgba(184, 233, 234, 0.15) 0%, rgba(115, 203, 205, 0.06) 50%, rgba(56, 189, 248, 0) 100%)', // Cyan/Teal
             iconColor: 'text-[var(--brand-cyan)]',
@@ -89,34 +96,14 @@ export function Header() {
             id: 'pricing',
             href: '/pricing',
             label: 'Pricing',
-            icon: <CreditCard className="h-5 w-5" />,
             gradient:
                 'radial-gradient(circle, rgba(167, 243, 208, 0.15) 0%, rgba(52, 211, 153, 0.06) 50%, rgba(16, 185, 129, 0) 100%)', // Mint/Green
             iconColor: 'text-[var(--brand-mint)]',
         },
         {
-            id: 'dashboard',
-            href: '/dashboard',
-            label: 'Dashboard',
-            icon: <LayoutDashboard className="h-5 w-5" />,
-            gradient:
-                'radial-gradient(circle, rgba(253, 186, 116, 0.15) 0%, rgba(251, 146, 60, 0.06) 50%, rgba(249, 115, 22, 0) 100%)', // Orange (keeping distinction)
-            iconColor: 'text-orange-500',
-        },
-        {
-            id: 'check-in',
-            href: activeOrganizerId ? `/dashboard/o/${activeOrganizerId}/check-in` : '/dashboard',
-            label: 'Check-in',
-            icon: <QrCode className="h-5 w-5" />,
-            gradient:
-                'radial-gradient(circle, rgba(196, 181, 253, 0.15) 0%, rgba(167, 139, 250, 0.06) 50%, rgba(139, 92, 246, 0) 100%)', // Purple
-            iconColor: 'text-purple-500',
-        },
-        {
             id: 'contact',
             href: '/contact',
             label: 'Contact',
-            icon: <Mail className="h-5 w-5" />,
             gradient:
                 'radial-gradient(circle, rgba(252, 165, 165, 0.15) 0%, rgba(248, 113, 113, 0.06) 50%, rgba(239, 68, 68, 0) 100%)', // Red
             iconColor: 'text-red-500',
@@ -192,7 +179,7 @@ export function Header() {
                                     <motion.div>
                                         <Link href={link.href}>
                                             <motion.div
-                                                className="flex items-center gap-2 px-3 py-2 relative z-10 bg-transparent text-muted-foreground group-hover:text-foreground transition-colors rounded-xl"
+                                                className="flex items-center gap-2 px-4 py-2 relative z-10 bg-transparent text-muted-foreground transition-colors rounded-xl"
                                                 variants={itemVariants}
                                                 transition={sharedTransition}
                                                 style={{
@@ -201,31 +188,31 @@ export function Header() {
                                                 }}
                                             >
                                                 <span
-                                                    className={`transition-colors duration-300 group-hover:${link.iconColor} text-slate-600`}
+                                                    className={`text-sm font-medium transition-colors duration-300 group-hover:${link.iconColor} text-slate-600`}
                                                 >
-                                                    {link.icon}
+                                                    {link.label}
                                                 </span>
-                                                <span className="text-sm font-medium">{link.label}</span>
                                             </motion.div>
                                         </Link>
                                         <Link href={link.href} className="absolute inset-0 z-20">
                                             <motion.div
-                                                className="flex items-center gap-2 px-3 py-2 bg-transparent text-muted-foreground group-hover:text-foreground transition-colors rounded-xl h-full w-full"
+                                                className="flex items-center gap-2 px-4 py-2 bg-transparent text-muted-foreground group-hover:text-foreground transition-colors rounded-xl h-full w-full"
                                                 variants={backVariants}
                                                 transition={sharedTransition}
                                                 style={{
                                                     transformStyle: 'preserve-3d',
                                                     transformOrigin: 'center top',
                                                     rotateX: 90,
-                                                    position: 'absolute', top: 0, left: 0
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
                                                 }}
                                             >
                                                 <span
-                                                    className={`transition-colors duration-300 group-hover:${link.iconColor} text-slate-900`}
+                                                    className={`text-sm font-medium transition-colors duration-300 group-hover:${link.iconColor} text-slate-900`}
                                                 >
-                                                    {link.icon}
+                                                    {link.label}
                                                 </span>
-                                                <span className="text-sm font-medium text-slate-900">{link.label}</span>
                                             </motion.div>
                                         </Link>
                                     </motion.div>
@@ -302,10 +289,10 @@ export function Header() {
                                 Log in
                             </Link>
                             <Button
-                                className="bg-white text-slate-900 hover:bg-slate-50 rounded-full px-6 font-semibold shadow-sm border border-slate-200"
+                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 rounded-full px-6 font-semibold shadow-md"
                                 asChild
                             >
-                                <Link href="/register">Sign Up</Link>
+                                <Link href="/events/new">Create Event</Link>
                             </Button>
                         </>
                     )}
@@ -332,7 +319,6 @@ export function Header() {
                                         href={link.href}
                                         className="text-3xl font-light text-slate-800 hover:text-[var(--brand-teal)] transition-colors font-display flex items-center gap-3"
                                     >
-                                        {link.icon}
                                         {link.label}
                                     </Link>
                                 </SheetClose>
@@ -363,10 +349,10 @@ export function Header() {
                                     <>
                                         <SheetClose asChild>
                                             <Button
-                                                className="bg-white text-slate-900 w-full h-12 rounded-full text-lg font-bold shadow-md border border-slate-200"
+                                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white w-full h-12 rounded-full text-lg font-bold shadow-lg"
                                                 asChild
                                             >
-                                                <Link href="/register">Sign Up Free</Link>
+                                                <Link href="/events/new">Create Event</Link>
                                             </Button>
                                         </SheetClose>
                                         <SheetClose asChild>
