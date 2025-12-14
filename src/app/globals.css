@@ -49,6 +49,7 @@
 
 :root {
   --radius: 0.75rem;
+  --nav-height: 80px; /* Height of fixed navbar for consistent spacing */
 
   /* HalalTicketin' Brand Colors - Mint to Cyan gradient */
   --background: oklch(0.99 0.005 180);
