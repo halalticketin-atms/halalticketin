@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
@@ -17,13 +17,26 @@ import {
     Loader2,
     AlertCircle,
     ArrowLeft,
+    Plus,
+    Minus,
+    ShoppingCart,
+    Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { usePublicEvent } from '@/hooks/usePublicEvents';
 import { PublicTicketRecord } from '@/lib/events-api';
+import { handleCheckout, CartItem } from '@/lib/checkout-api';
 
 /**
  * Format a price for display.
@@ -38,11 +51,20 @@ function formatPrice(price: string | null, currency: string): string {
 }
 
 /**
- * Ticket card component.
+ * Ticket card component with quantity selection.
  */
-function TicketCard({ ticket }: { ticket: PublicTicketRecord }) {
+function TicketCard({
+    ticket,
+    quantity,
+    onQuantityChange
+}: {
+    ticket: PublicTicketRecord;
+    quantity: number;
+    onQuantityChange: (quantity: number) => void;
+}) {
     const price = formatPrice(ticket.price, ticket.currency);
     const isFree = ticket.type === 'free' || price === 'Free';
+    const maxQty = ticket.maxQuantity || 10;
 
     return (
         <div className="flex items-center justify-between p-4 border rounded-lg hover:border-primary/50 transition-colors">
@@ -51,16 +73,30 @@ function TicketCard({ ticket }: { ticket: PublicTicketRecord }) {
                 {ticket.description && (
                     <p className="text-sm text-muted-foreground mt-1">{ticket.description}</p>
                 )}
-            </div>
-            <div className="text-right ml-4">
-                <p className={`font-semibold ${isFree ? 'text-green-600' : 'text-primary'}`}>
+                <p className={`font-semibold mt-1 ${isFree ? 'text-green-600' : 'text-primary'}`}>
                     {price}
                 </p>
-                {ticket.maxQuantity && (
-                    <p className="text-xs text-muted-foreground">
-                        Limited availability
-                    </p>
-                )}
+            </div>
+            <div className="flex items-center gap-2 ml-4">
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onQuantityChange(Math.max(0, quantity - 1))}
+                    disabled={quantity === 0}
+                >
+                    <Minus className="h-4 w-4" />
+                </Button>
+                <span className="w-8 text-center font-medium">{quantity}</span>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onQuantityChange(Math.min(maxQty, quantity + 1))}
+                    disabled={quantity >= maxQty}
+                >
+                    <Plus className="h-4 w-4" />
+                </Button>
             </div>
         </div>
     );
@@ -70,6 +106,77 @@ export default function EventDetailsPage() {
     const params = useParams();
     const slug = Array.isArray(params?.id) ? params?.id[0] : params?.id;
     const { event, tickets, isLoading, error } = usePublicEvent(slug ?? null);
+
+    // Checkout state
+    const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+    const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
+    const [attendeeEmail, setAttendeeEmail] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+    // Calculate totals
+    const cartItems = useMemo(() => {
+        return tickets
+            .filter(t => (ticketQuantities[t.id] || 0) > 0)
+            .map(t => ({
+                ticket: t,
+                quantity: ticketQuantities[t.id] || 0,
+                subtotal: (ticketQuantities[t.id] || 0) * parseFloat(t.price || '0')
+            }));
+    }, [tickets, ticketQuantities]);
+
+    const totalAmount = useMemo(() =>
+        cartItems.reduce((sum, item) => sum + item.subtotal, 0)
+        , [cartItems]);
+
+    const totalTickets = useMemo(() =>
+        cartItems.reduce((sum, item) => sum + item.quantity, 0)
+        , [cartItems]);
+
+    const handleQuantityChange = (ticketId: string, quantity: number) => {
+        setTicketQuantities(prev => ({
+            ...prev,
+            [ticketId]: quantity
+        }));
+    };
+
+    const handleProceedToCheckout = async () => {
+        if (!event || !attendeeEmail || totalTickets === 0) return;
+
+        setIsProcessing(true);
+        setCheckoutError(null);
+
+        const items: CartItem[] = cartItems.map(item => ({
+            ticketTypeId: item.ticket.id,
+            quantity: item.quantity
+        }));
+
+        const result = await handleCheckout(event.id, {
+            items,
+            attendeeEmail,
+        });
+
+        if (!result.success) {
+            setCheckoutError(result.error || 'Checkout failed');
+            setIsProcessing(false);
+            return;
+        }
+
+        // If free order, redirect to success
+        if (result.isFreeOrder && result.orderId) {
+            window.location.href = `/checkout/success?order_id=${result.orderId}`;
+        }
+        // Paid orders will redirect via the handleCheckout function
+    };
+
+    const getCurrencySymbol = (currency: string) => {
+        switch (currency) {
+            case 'GBP': return '£';
+            case 'USD': return '$';
+            case 'EUR': return '€';
+            default: return currency;
+        }
+    };
 
     // Format event date/time
     const eventDateTime = useMemo(() => {
@@ -317,16 +424,38 @@ export default function EventDetailsPage() {
                                     ) : (
                                         <>
                                             {tickets.map((ticket) => (
-                                                <TicketCard key={ticket.id} ticket={ticket} />
+                                                <TicketCard
+                                                    key={ticket.id}
+                                                    ticket={ticket}
+                                                    quantity={ticketQuantities[ticket.id] || 0}
+                                                    onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
+                                                />
                                             ))}
                                         </>
                                     )}
 
                                     <Separator />
 
-                                    <Button className="w-full" size="lg" disabled={tickets.length === 0}>
-                                        <Ticket className="h-4 w-4 mr-2" />
-                                        {tickets.length === 0 ? 'No Tickets Available' : 'Get Tickets'}
+                                    {totalTickets > 0 && (
+                                        <div className="flex justify-between text-sm font-medium bg-primary/5 p-3 rounded-lg">
+                                            <span>{totalTickets} ticket{totalTickets > 1 ? 's' : ''}</span>
+                                            <span>{getCurrencySymbol(tickets[0]?.currency || 'GBP')}{totalAmount.toFixed(2)}</span>
+                                        </div>
+                                    )}
+
+                                    <Button
+                                        className="w-full"
+                                        size="lg"
+                                        disabled={tickets.length === 0 || totalTickets === 0}
+                                        onClick={() => setIsCheckoutOpen(true)}
+                                    >
+                                        <ShoppingCart className="h-4 w-4 mr-2" />
+                                        {tickets.length === 0
+                                            ? 'No Tickets Available'
+                                            : totalTickets === 0
+                                                ? 'Select Tickets'
+                                                : 'Proceed to Checkout'
+                                        }
                                     </Button>
 
                                     <p className="text-xs text-center text-muted-foreground">
@@ -350,6 +479,86 @@ export default function EventDetailsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Checkout Dialog */}
+            <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <ShoppingCart className="h-5 w-5" />
+                            Complete Your Order
+                        </DialogTitle>
+                        <DialogDescription>
+                            Enter your email to receive your tickets
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        {/* Order Summary */}
+                        <div className="space-y-2">
+                            {cartItems.map(item => (
+                                <div key={item.ticket.id} className="flex justify-between text-sm">
+                                    <span>{item.quantity}x {item.ticket.name}</span>
+                                    <span className="font-medium">
+                                        {getCurrencySymbol(item.ticket.currency)}{item.subtotal.toFixed(2)}
+                                    </span>
+                                </div>
+                            ))}
+                            <Separator />
+                            <div className="flex justify-between font-semibold">
+                                <span>Total</span>
+                                <span>
+                                    {getCurrencySymbol(tickets[0]?.currency || 'GBP')}{totalAmount.toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Email Input */}
+                        <div className="space-y-2">
+                            <Label htmlFor="email" className="flex items-center gap-2">
+                                <Mail className="h-4 w-4" />
+                                Email Address
+                            </Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                placeholder="your@email.com"
+                                value={attendeeEmail}
+                                onChange={(e) => setAttendeeEmail(e.target.value)}
+                                disabled={isProcessing}
+                            />
+                        </div>
+
+                        {checkoutError && (
+                            <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                                {checkoutError}
+                            </div>
+                        )}
+
+                        <Button
+                            className="w-full"
+                            size="lg"
+                            onClick={handleProceedToCheckout}
+                            disabled={!attendeeEmail || isProcessing}
+                        >
+                            {isProcessing ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Processing...
+                                </>
+                            ) : totalAmount === 0 ? (
+                                'Get Free Tickets'
+                            ) : (
+                                `Pay ${getCurrencySymbol(tickets[0]?.currency || 'GBP')}${totalAmount.toFixed(2)}`
+                            )}
+                        </Button>
+
+                        <p className="text-xs text-center text-muted-foreground">
+                            Secure checkout powered by Stripe
+                        </p>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
