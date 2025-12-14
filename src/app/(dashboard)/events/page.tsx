@@ -98,7 +98,7 @@ export default function BrowseEventsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-muted/30">
+        <div className="min-h-screen bg-muted/30 pt-32 md:pt-40">
             {/* Header Section */}
             <div className="bg-background border-b">
                 <div className="container py-8 lg:py-12">

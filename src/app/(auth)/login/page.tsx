@@ -68,7 +68,7 @@ function LoginContent() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-purple-50">
+        <div className="min-h-screen flex items-center justify-center p-6 pt-24 relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-purple-50">
             {/* Vibrant Animated Background */}
             <div className="absolute inset-0 overflow-hidden">
                 <motion.div

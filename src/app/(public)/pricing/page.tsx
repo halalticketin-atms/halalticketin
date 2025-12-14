@@ -81,7 +81,7 @@ export default function PricingPage() {
                 />
             </div>
 
-            <div className="relative z-10 container mx-auto px-4 py-16">
+            <div className="relative z-10 container mx-auto px-4 pt-32 pb-16">
                 {/* Header */}
                 <div className="text-center mb-16 space-y-4">
                     <motion.div

@@ -27,7 +27,7 @@ export default function ContactPage() {
     };
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] w-full relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-12 md:py-24">
+        <div className="min-h-screen w-full relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 pt-32 pb-12 md:pb-24">
             {/* Animated Background - Consistent with Login/Register */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <motion.div

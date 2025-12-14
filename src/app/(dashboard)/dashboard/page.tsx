@@ -118,7 +118,7 @@ export default function DashboardLandingPage() {
 
     return (
         <div className="min-h-screen bg-muted/30">
-            <div className="container py-12 space-y-10">
+            <div className="container pt-32 pb-12 space-y-10">
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
