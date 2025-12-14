@@ -21,6 +21,7 @@ import {
     Minus,
     ShoppingCart,
     Mail,
+    Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +37,7 @@ import {
 } from '@/components/ui/dialog';
 import { usePublicEvent } from '@/hooks/usePublicEvents';
 import { PublicTicketRecord } from '@/lib/events-api';
-import { handleCheckout, CartItem } from '@/lib/checkout-api';
+import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult } from '@/lib/checkout-api';
 
 /**
  * Format a price for display.
@@ -111,8 +112,14 @@ export default function EventDetailsPage() {
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
     const [attendeeEmail, setAttendeeEmail] = useState('');
+    const [promoCode, setPromoCode] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+    // Promo code state
+    const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+    const [appliedPromo, setAppliedPromo] = useState<ValidatePromoResult | null>(null);
+    const [promoError, setPromoError] = useState<string | null>(null);
 
     // Calculate totals
     const cartItems = useMemo(() => {
@@ -138,7 +145,39 @@ export default function EventDetailsPage() {
             ...prev,
             [ticketId]: quantity
         }));
+        // Clear applied promo when quantities change
+        setAppliedPromo(null);
+        setPromoError(null);
     };
+
+    const handleApplyPromo = async () => {
+        if (!event || !promoCode.trim()) return;
+
+        setIsValidatingPromo(true);
+        setPromoError(null);
+
+        const result = await validatePromoCode(event.id, promoCode.trim(), totalAmount);
+
+        setIsValidatingPromo(false);
+
+        if (result.valid) {
+            setAppliedPromo(result);
+            setPromoError(null);
+        } else {
+            setAppliedPromo(null);
+            setPromoError(result.message || 'Invalid promo code');
+        }
+    };
+
+    const handleRemovePromo = () => {
+        setAppliedPromo(null);
+        setPromoCode('');
+        setPromoError(null);
+    };
+
+    // Calculate final total after discount
+    const discountAmount = appliedPromo?.discountAmount ? parseFloat(appliedPromo.discountAmount) : 0;
+    const finalTotal = Math.max(0, totalAmount - discountAmount);
 
     const handleProceedToCheckout = async () => {
         if (!event || !attendeeEmail || totalTickets === 0) return;
@@ -154,6 +193,7 @@ export default function EventDetailsPage() {
         const result = await handleCheckout(event.id, {
             items,
             attendeeEmail,
+            promoCode: appliedPromo?.code || promoCode.trim() || undefined,
         });
 
         if (!result.success) {
@@ -436,10 +476,79 @@ export default function EventDetailsPage() {
 
                                     <Separator />
 
+                                    {/* Promo Code Input */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="promoCodeInput" className="flex items-center gap-2 text-sm">
+                                            <Tag className="h-4 w-4" />
+                                            Promo Code
+                                        </Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="promoCodeInput"
+                                                type="text"
+                                                placeholder="Enter code"
+                                                value={promoCode}
+                                                onChange={(e) => {
+                                                    setPromoCode(e.target.value.toUpperCase());
+                                                    if (appliedPromo) {
+                                                        setAppliedPromo(null);
+                                                    }
+                                                }}
+                                                disabled={isValidatingPromo || !!appliedPromo}
+                                                className="flex-1"
+                                            />
+                                            {appliedPromo ? (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleRemovePromo}
+                                                >
+                                                    Remove
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleApplyPromo}
+                                                    disabled={!promoCode.trim() || isValidatingPromo || totalAmount === 0}
+                                                >
+                                                    {isValidatingPromo ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        'Apply'
+                                                    )}
+                                                </Button>
+                                            )}
+                                        </div>
+                                        {promoError && (
+                                            <p className="text-xs text-red-600">{promoError}</p>
+                                        )}
+                                        {appliedPromo && (
+                                            <p className="text-xs text-green-600 flex items-center gap-1">
+                                                ✓ Code applied: {appliedPromo.discountType === 'percentage'
+                                                    ? `${appliedPromo.discountValue}% off`
+                                                    : `${getCurrencySymbol(tickets[0]?.currency || 'GBP')}${appliedPromo.discountValue} off`}
+                                            </p>
+                                        )}
+                                    </div>
+
                                     {totalTickets > 0 && (
-                                        <div className="flex justify-between text-sm font-medium bg-primary/5 p-3 rounded-lg">
-                                            <span>{totalTickets} ticket{totalTickets > 1 ? 's' : ''}</span>
-                                            <span>{getCurrencySymbol(tickets[0]?.currency || 'GBP')}{totalAmount.toFixed(2)}</span>
+                                        <div className="space-y-2 bg-primary/5 p-3 rounded-lg">
+                                            <div className="flex justify-between text-sm">
+                                                <span>{totalTickets} ticket{totalTickets > 1 ? 's' : ''}</span>
+                                                <span>{getCurrencySymbol(tickets[0]?.currency || 'GBP')}{totalAmount.toFixed(2)}</span>
+                                            </div>
+                                            {appliedPromo && discountAmount > 0 && (
+                                                <div className="flex justify-between text-sm text-green-600">
+                                                    <span>Discount ({appliedPromo.code})</span>
+                                                    <span>-{getCurrencySymbol(tickets[0]?.currency || 'GBP')}{discountAmount.toFixed(2)}</span>
+                                                </div>
+                                            )}
+                                            <Separator />
+                                            <div className="flex justify-between font-semibold">
+                                                <span>Total</span>
+                                                <span>{getCurrencySymbol(tickets[0]?.currency || 'GBP')}{finalTotal.toFixed(2)}</span>
+                                            </div>
                                         </div>
                                     )}
 
@@ -505,10 +614,16 @@ export default function EventDetailsPage() {
                                 </div>
                             ))}
                             <Separator />
+                            {appliedPromo && discountAmount > 0 && (
+                                <div className="flex justify-between text-sm text-green-600">
+                                    <span>Discount ({appliedPromo.code})</span>
+                                    <span>-{getCurrencySymbol(tickets[0]?.currency || 'GBP')}{discountAmount.toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between font-semibold">
                                 <span>Total</span>
                                 <span>
-                                    {getCurrencySymbol(tickets[0]?.currency || 'GBP')}{totalAmount.toFixed(2)}
+                                    {getCurrencySymbol(tickets[0]?.currency || 'GBP')}{finalTotal.toFixed(2)}
                                 </span>
                             </div>
                         </div>
@@ -546,10 +661,10 @@ export default function EventDetailsPage() {
                                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                     Processing...
                                 </>
-                            ) : totalAmount === 0 ? (
+                            ) : finalTotal === 0 ? (
                                 'Get Free Tickets'
                             ) : (
-                                `Pay ${getCurrencySymbol(tickets[0]?.currency || 'GBP')}${totalAmount.toFixed(2)}`
+                                `Pay ${getCurrencySymbol(tickets[0]?.currency || 'GBP')}${finalTotal.toFixed(2)}`
                             )}
                         </Button>
 

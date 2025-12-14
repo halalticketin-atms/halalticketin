@@ -178,7 +178,7 @@ function EventCard({ event, index, organizerId }: { event: DashboardEvent; index
                                         </DropdownMenuItem>
                                     )}
                                     <DropdownMenuItem asChild>
-                                        <Link href={organizerId ? `/events/create/${event.id}?organizerId=${organizerId}` : `/events/create/${event.id}`}>
+                                        <Link href={`/events/${event.id}/edit`}>
                                             <Edit className="h-4 w-4 mr-2" />
                                             Edit
                                         </Link>

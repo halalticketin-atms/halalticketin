@@ -48,10 +48,12 @@ export interface DraftPromoCode {
   usageLimit: number;
   validFrom: string;
   validUntil: string;
+  isActive?: boolean;
 }
 
 export interface DraftEventInitial {
   eventId?: string;
+  eventStatus?: 'draft' | 'published' | 'cancelled' | 'archived';
   formData?: Partial<DraftFormData>;
   tickets?: DraftTicketType[];
   promoCodes?: DraftPromoCode[];

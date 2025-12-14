@@ -60,13 +60,18 @@ import { useOrganizers } from '@/context/organizer-context';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import {
     createEventDraft,
+    createPromoCode,
+    deletePromoCode,
+    fetchEventPromoCodes,
     publishEvent,
     saveEventTickets,
     updateEventDraft,
+    updatePromoCode as updatePromoCodeApi,
+    type PromoCodeInput,
     type TicketInputPayload,
     type UpsertEventPayload,
 } from '@/lib/events-api';
-import { mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
+import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
 import { ApiError } from '@/lib/api';
 
 export const steps = [
@@ -256,6 +261,7 @@ export function EventWizard({
         addTicket: addTicketBase,
         removeTicket: removeTicketBase,
         promoCodes,
+        setPromoCodes,
         addPromoCode,
         updatePromoCode,
         removePromoCode,
@@ -268,6 +274,7 @@ export function EventWizard({
 
     const router = useRouter();
     const [eventId, setEventId] = useState<string | null>(initialDraft?.eventId ?? null);
+    const [eventStatus, setEventStatus] = useState<'draft' | 'published' | 'cancelled' | 'archived' | null>(initialDraft?.eventStatus ?? null);
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -416,8 +423,48 @@ export function EventWizard({
                     setTickets(normalizedTickets);
                 }
 
+                // Save promo codes
+                let normalizedPromoCodes = promoCodes;
+                if (promoCodes.length > 0) {
+                    const existingPromos = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
+                    const existingIds = new Set(existingPromos.promoCodes.map(p => p.id));
+
+                    for (const promo of promoCodes) {
+                        if (!promo.code.trim()) continue; // Skip empty codes
+
+                        const promoInput: PromoCodeInput = {
+                            code: promo.code.trim().toUpperCase(),
+                            discountType: promo.discountType === 'fixed' ? 'amount' : 'percentage',
+                            discountValue: parseFloat(promo.discountValue) || 0,
+                            usageLimit: promo.usageLimit || null,
+                            validFrom: promo.validFrom ? `${promo.validFrom}T00:00:00.000Z` : null,
+                            validUntil: promo.validUntil ? `${promo.validUntil}T23:59:59.000Z` : null,
+                            isActive: promo.isActive !== false,
+                        };
+
+                        if (existingIds.has(promo.id)) {
+                            await updatePromoCodeApi(nextEventId, promo.id, promoInput);
+                        } else {
+                            await createPromoCode(nextEventId, promoInput);
+                        }
+                    }
+
+                    // Delete removed promo codes
+                    const currentIds = new Set(promoCodes.map(p => p.id));
+                    for (const existing of existingPromos.promoCodes) {
+                        if (!currentIds.has(existing.id)) {
+                            await deletePromoCode(nextEventId, existing.id);
+                        }
+                    }
+
+                    // Refresh promo codes
+                    const refreshed = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
+                    normalizedPromoCodes = mapPromoCodeRecordsToDraft(refreshed.promoCodes);
+                    setPromoCodes(normalizedPromoCodes);
+                }
+
                 setEventId(nextEventId);
-                markSnapshotAsSaved({ tickets: normalizedTickets });
+                markSnapshotAsSaved({ tickets: normalizedTickets, promoCodes: normalizedPromoCodes });
                 setFieldErrors({});
                 setPublishErrors([]);
 
@@ -433,7 +480,7 @@ export function EventWizard({
                 setIsSaving(false);
             }
         },
-        [activeOrganizerId, eventId, formData, isSaving, markSnapshotAsSaved, setTickets, tickets],
+        [activeOrganizerId, eventId, formData, isSaving, markSnapshotAsSaved, promoCodes, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
@@ -449,50 +496,50 @@ export function EventWizard({
         setActionMessage(null);
         setIsPublishing(true);
 
-            try {
-                const savedEventId = await saveDraft({ silent: true });
-                if (!savedEventId) {
-                    return;
-                }
+        try {
+            const savedEventId = await saveDraft({ silent: true });
+            if (!savedEventId) {
+                return;
+            }
 
-                await publishEvent(savedEventId, formData.visibility);
-                setFieldErrors({});
-                setPublishErrors([]);
-                setActionMessage('Event published successfully. Redirecting...');
-                markSnapshotAsSaved();
-                const destination = activeOrganizerId
-                    ? `${buildDashboardPath(activeOrganizerId)}/events`
-                    : '/dashboard';
-                router.push(destination);
-            } catch (error) {
-                if (error instanceof ApiError) {
-                    const serverPayload = error.payload as { errors?: string[] } | null;
-                    const payloadErrors = Array.isArray(serverPayload?.errors) ? serverPayload?.errors ?? [] : [];
-                    if (payloadErrors.length > 0) {
-                        const { fieldErrors: mapped, unmatched } = deriveFieldErrorsFromMessages(payloadErrors);
-                        setFieldErrors(mapped);
-                        setPublishErrors(unmatched);
-                        const fallbackMessage =
-                            unmatched.length === 0 && payloadErrors.length > 0
-                                ? 'Fix the highlighted fields below.'
-                                : 'Unable to publish event.';
-                        setActionError(
-                            unmatched.length > 0 ? unmatched.join(' ') : fallbackMessage,
-                        );
-                    } else {
-                        setFieldErrors({});
-                        setPublishErrors([]);
-                        setActionError(getErrorMessage(error, 'Unable to publish event.'));
-                    }
+            await publishEvent(savedEventId, formData.visibility);
+            setFieldErrors({});
+            setPublishErrors([]);
+            setActionMessage('Event published successfully. Redirecting...');
+            markSnapshotAsSaved();
+            const destination = activeOrganizerId
+                ? `${buildDashboardPath(activeOrganizerId)}/events`
+                : '/dashboard';
+            router.push(destination);
+        } catch (error) {
+            if (error instanceof ApiError) {
+                const serverPayload = error.payload as { errors?: string[] } | null;
+                const payloadErrors = Array.isArray(serverPayload?.errors) ? serverPayload?.errors ?? [] : [];
+                if (payloadErrors.length > 0) {
+                    const { fieldErrors: mapped, unmatched } = deriveFieldErrorsFromMessages(payloadErrors);
+                    setFieldErrors(mapped);
+                    setPublishErrors(unmatched);
+                    const fallbackMessage =
+                        unmatched.length === 0 && payloadErrors.length > 0
+                            ? 'Fix the highlighted fields below.'
+                            : 'Unable to publish event.';
+                    setActionError(
+                        unmatched.length > 0 ? unmatched.join(' ') : fallbackMessage,
+                    );
                 } else {
                     setFieldErrors({});
                     setPublishErrors([]);
                     setActionError(getErrorMessage(error, 'Unable to publish event.'));
                 }
-            } finally {
-                setIsPublishing(false);
+            } else {
+                setFieldErrors({});
+                setPublishErrors([]);
+                setActionError(getErrorMessage(error, 'Unable to publish event.'));
             }
-        }, [activeOrganizerId, formData.visibility, isPublishing, markSnapshotAsSaved, router, saveDraft]);
+        } finally {
+            setIsPublishing(false);
+        }
+    }, [activeOrganizerId, formData.visibility, isPublishing, markSnapshotAsSaved, router, saveDraft]);
 
     const isBusy = isSaving || isPublishing;
     const statusLabel = !activeOrganizerId
@@ -506,8 +553,15 @@ export function EventWizard({
                     : 'Not saved yet';
     const disableSaveButtons = !activeOrganizerId || isBusy;
     const disablePublishButtons = !activeOrganizerId || isPublishing;
+    const isAlreadyPublished = eventStatus === 'published';
     const publishButtonLabel =
-        isPublishing ? 'Publishing...' : mode === 'edit' ? 'Publish Changes' : 'Publish Event';
+        isPublishing
+            ? (isAlreadyPublished ? 'Updating...' : 'Publishing...')
+            : isAlreadyPublished
+                ? 'Update Event'
+                : mode === 'edit'
+                    ? 'Publish Changes'
+                    : 'Publish Event';
     const saveButtonLabel = isSaving
         ? mode === 'edit'
             ? 'Saving changes...'

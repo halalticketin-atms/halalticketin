@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { EventWizard } from '@/app/(dashboard)/events/create/page';
 import { useOrganizers } from '@/context/organizer-context';
 import { buildDashboardPath } from '@/lib/organizer-path';
-import { fetchEventDetails } from '@/lib/events-api';
+import { fetchEventDetails, fetchEventPromoCodes } from '@/lib/events-api';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
 
@@ -44,9 +44,18 @@ export default function EditEventPage() {
             setIsLoading(true);
             setError(null);
             try {
-                const response = await fetchEventDetails(eventId);
+                const [eventResponse, promoResponse] = await Promise.all([
+                    fetchEventDetails(eventId),
+                    fetchEventPromoCodes(eventId).catch(() => ({ promoCodes: [] })),
+                ]);
                 if (cancelled) return;
-                setInitialDraft(buildDraftFromEventRecord(response.event, response.tickets));
+                setInitialDraft(
+                    buildDraftFromEventRecord(
+                        eventResponse.event,
+                        eventResponse.tickets,
+                        promoResponse.promoCodes
+                    )
+                );
             } catch (err) {
                 if (cancelled) return;
                 setInitialDraft(null);

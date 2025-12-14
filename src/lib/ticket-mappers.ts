@@ -1,5 +1,5 @@
-import type { DraftEventInitial, DraftLocationType, DraftTicketType } from '@/hooks/useEventDraft';
-import type { EventRecord, TicketRecord } from '@/lib/events-api';
+import type { DraftEventInitial, DraftLocationType, DraftPromoCode, DraftTicketType } from '@/hooks/useEventDraft';
+import type { EventRecord, PromoCodeRecord, TicketRecord } from '@/lib/events-api';
 
 const isoToDate = (iso?: string | null) => {
     if (!iso) return '';
@@ -36,6 +36,18 @@ export const mapTicketRecordsToDraft = (rows: TicketRecord[]): DraftTicketType[]
         };
     });
 
+export const mapPromoCodeRecordsToDraft = (rows: PromoCodeRecord[]): DraftPromoCode[] =>
+    rows.map((promo) => ({
+        id: promo.id,
+        code: promo.code,
+        discountType: promo.discountType === 'amount' ? 'fixed' : 'percentage',
+        discountValue: promo.discountValue,
+        usageLimit: promo.usageLimit ?? 100,
+        validFrom: isoToDate(promo.validFrom),
+        validUntil: isoToDate(promo.validUntil),
+        isActive: promo.isActive,
+    }));
+
 const backendToDraftLocation = (value: EventRecord['locationType']): DraftLocationType => {
     if (value === 'online' || value === 'hybrid') {
         return value;
@@ -46,8 +58,10 @@ const backendToDraftLocation = (value: EventRecord['locationType']): DraftLocati
 export const buildDraftFromEventRecord = (
     event: EventRecord,
     tickets: TicketRecord[],
+    promoCodes: PromoCodeRecord[] = [],
 ): DraftEventInitial => ({
     eventId: event.id,
+    eventStatus: event.status,
     formData: {
         title: event.title ?? '',
         description: event.description ?? '',
@@ -68,6 +82,6 @@ export const buildDraftFromEventRecord = (
         onlineUrl: event.onlineUrl ?? '',
     },
     tickets: tickets.length > 0 ? mapTicketRecordsToDraft(tickets) : undefined,
-    promoCodes: [],
+    promoCodes: promoCodes.length > 0 ? mapPromoCodeRecordsToDraft(promoCodes) : [],
     currentStep: 1,
 });

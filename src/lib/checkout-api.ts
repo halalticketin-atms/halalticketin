@@ -169,3 +169,37 @@ export async function handleCheckout(
         error: 'Unexpected response from server'
     };
 }
+
+/**
+ * Validate a promo code and get discount info
+ */
+export interface ValidatePromoResult {
+    valid: boolean;
+    message?: string;
+    discountType?: 'percentage' | 'amount';
+    discountValue?: string;
+    discountAmount?: string;
+    code?: string;
+}
+
+export async function validatePromoCode(
+    eventId: string,
+    promoCode: string,
+    subtotal: number
+): Promise<ValidatePromoResult> {
+    try {
+        const response = await fetch(
+            `${API_URL}/api/v1/events/${eventId}/checkout/validate-promo`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ promoCode, subtotal })
+            }
+        );
+
+        return await response.json();
+    } catch {
+        return { valid: false, message: 'Failed to validate promo code' };
+    }
+}
+

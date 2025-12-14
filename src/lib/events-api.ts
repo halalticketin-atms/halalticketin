@@ -109,6 +109,58 @@ export const listOrganizerEvents = async (
 };
 
 // ============================================================================
+// Promo Code API
+// ============================================================================
+
+export interface PromoCodeRecord {
+    id: string;
+    eventId: string;
+    code: string;
+    discountType: 'percentage' | 'amount';
+    discountValue: string;
+    usageLimit: number | null;
+    usageCount: number;
+    validFrom: string | null;
+    validUntil: string | null;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface PromoCodeInput {
+    code: string;
+    discountType: 'percentage' | 'amount';
+    discountValue: number;
+    usageLimit?: number | null;
+    validFrom?: string | null;
+    validUntil?: string | null;
+    isActive?: boolean;
+}
+
+export const fetchEventPromoCodes = async (eventId: string) => {
+    return api.get<{ promoCodes: PromoCodeRecord[] }>(`/api/v1/events/${eventId}/promo-codes`);
+};
+
+export const createPromoCode = async (eventId: string, data: PromoCodeInput) => {
+    return api.post<{ promoCode: PromoCodeRecord }>(`/api/v1/events/${eventId}/promo-codes`, data);
+};
+
+export const updatePromoCode = async (
+    eventId: string,
+    promoId: string,
+    data: Partial<PromoCodeInput>
+) => {
+    return api.patch<{ promoCode: PromoCodeRecord }>(
+        `/api/v1/events/${eventId}/promo-codes/${promoId}`,
+        data
+    );
+};
+
+export const deletePromoCode = async (eventId: string, promoId: string) => {
+    return api.delete(`/api/v1/events/${eventId}/promo-codes/${promoId}`);
+};
+
+// ============================================================================
 // Public Event API (no authentication required)
 // ============================================================================
 
