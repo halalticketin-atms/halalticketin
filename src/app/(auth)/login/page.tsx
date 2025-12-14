@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
+import { setAuthToken } from '@/lib/api';
 
 function LoginContent() {
     const [email, setEmail] = useState('');
@@ -27,7 +28,7 @@ function LoginContent() {
         setError(null);
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
@@ -36,6 +37,12 @@ function LoginContent() {
                 throw error;
             }
 
+            const accessToken = data.session?.access_token;
+            if (!accessToken) {
+                throw new Error('Unable to retrieve access token');
+            }
+
+            setAuthToken(accessToken);
             router.push(redirectPath);
             router.refresh();
         } catch (err) {

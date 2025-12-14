@@ -80,33 +80,37 @@ export function Header() {
             id: 'home',
             href: '/',
             label: 'Home',
+            // Bright Green (Logo Green) - Stronger
             gradient:
-                'radial-gradient(circle, rgba(184, 233, 234, 0.15) 0%, rgba(115, 203, 205, 0.06) 50%, rgba(56, 189, 248, 0) 100%)', // Cyan/Teal
-            iconColor: 'text-[var(--brand-cyan)]',
+                'radial-gradient(circle, rgba(34, 197, 94, 0.25) 0%, rgba(34, 197, 94, 0.1) 50%, rgba(34, 197, 94, 0) 100%)',
+            iconColor: 'text-green-600',
         },
         {
             id: 'browse-events',
             href: '/events',
             label: 'Browse Events',
+            // Turquoise - Stronger
             gradient:
-                'radial-gradient(circle, rgba(184, 233, 234, 0.15) 0%, rgba(115, 203, 205, 0.06) 50%, rgba(56, 189, 248, 0) 100%)', // Cyan/Teal
-            iconColor: 'text-[var(--brand-cyan)]',
+                'radial-gradient(circle, rgba(20, 184, 166, 0.25) 0%, rgba(20, 184, 166, 0.1) 50%, rgba(20, 184, 166, 0) 100%)',
+            iconColor: 'text-teal-500',
         },
         {
             id: 'pricing',
             href: '/pricing',
             label: 'Pricing',
+            // Cyan - Stronger
             gradient:
-                'radial-gradient(circle, rgba(167, 243, 208, 0.15) 0%, rgba(52, 211, 153, 0.06) 50%, rgba(16, 185, 129, 0) 100%)', // Mint/Green
-            iconColor: 'text-[var(--brand-mint)]',
+                'radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, rgba(6, 182, 212, 0.1) 50%, rgba(6, 182, 212, 0) 100%)',
+            iconColor: 'text-cyan-600',
         },
         {
             id: 'contact',
             href: '/contact',
             label: 'Contact',
+            // Blue - Stronger
             gradient:
-                'radial-gradient(circle, rgba(252, 165, 165, 0.15) 0%, rgba(248, 113, 113, 0.06) 50%, rgba(239, 68, 68, 0) 100%)', // Red
-            iconColor: 'text-red-500',
+                'radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.1) 50%, rgba(59, 130, 246, 0) 100%)',
+            iconColor: 'text-blue-600',
         },
     ];
 
