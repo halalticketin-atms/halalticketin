@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Search, MapPin, Calendar, ArrowRight, Ticket, Users, Sparkles } from 'lucide-react';
+import { Search, MapPin, ArrowRight, Ticket, Users, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -92,6 +94,18 @@ function FloatingEventCard({
 }
 
 export default function Home() {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [location, setLocation] = useState('');
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) params.set('q', searchQuery.trim());
+    if (location.trim()) params.set('location', location.trim());
+    router.push(`/events${params.toString() ? `?${params.toString()}` : ''}`);
+  };
+
   return (
     <>
       {/* Hero Section */}
@@ -163,16 +177,18 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.6 }}
-            className="mt-12 w-full max-w-3xl"
+            className="mt-12 w-full max-w-2xl"
           >
             <Card className="border-border/50 bg-card/80 backdrop-blur-md shadow-xl">
               <CardContent className="p-3 sm:p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   {/* Search Input */}
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Search events, workshops, conferences..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
                       className="h-12 border-0 bg-muted/50 pl-10 text-base focus-visible:ring-1"
                     />
                   </div>
@@ -182,49 +198,20 @@ export default function Home() {
                     <MapPin className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Location"
-                      className="h-12 border-0 bg-muted/50 pl-10 text-base focus-visible:ring-1"
-                    />
-                  </div>
-
-                  {/* Date Input */}
-                  <div className="relative flex-1 sm:max-w-[180px]">
-                    <Calendar className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="date"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
                       className="h-12 border-0 bg-muted/50 pl-10 text-base focus-visible:ring-1"
                     />
                   </div>
 
                   {/* Search Button */}
-                  <Button size="lg" className="h-12 px-8 font-semibold">
+                  <Button type="submit" size="lg" className="h-12 px-8 font-semibold">
                     <Search className="mr-2 h-4 w-4" />
                     Search
                   </Button>
-                </div>
+                </form>
               </CardContent>
             </Card>
-          </motion.div>
-
-          {/* Quick Links */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 0.6 }}
-            className="mt-8 flex flex-wrap items-center justify-center gap-3"
-          >
-            <span className="text-sm text-muted-foreground">Popular:</span>
-            {['Iftars', 'Workshops', 'Conferences', 'Sisters Events', 'Youth'].map(
-              (tag) => (
-                <Button
-                  key={tag}
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full border-border/50 bg-background/50 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-                >
-                  {tag}
-                </Button>
-              )
-            )}
           </motion.div>
         </div>
       </section>

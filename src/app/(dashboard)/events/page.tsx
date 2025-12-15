@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
     Search,
@@ -65,11 +66,23 @@ function formatEventForDisplay(event: PublicEventRecord) {
     };
 }
 
-export default function BrowseEventsPage() {
+function BrowseEventsContent() {
+    const searchParams = useSearchParams();
     const { events: publicEvents, isLoading, error } = usePublicEvents();
+
+    // Initialize search state from URL params
     const [searchQuery, setSearchQuery] = useState('');
+    const [locationFilter, setLocationFilter] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [likedEvents, setLikedEvents] = useState<Set<string>>(new Set());
+
+    // Sync state with URL params on mount
+    useEffect(() => {
+        const q = searchParams.get('q') || '';
+        const loc = searchParams.get('location') || '';
+        setSearchQuery(q);
+        setLocationFilter(loc);
+    }, [searchParams]);
 
     // Transform API events to display format
     const events = useMemo(() => {
@@ -78,12 +91,16 @@ export default function BrowseEventsPage() {
 
     const filteredEvents = useMemo(() => {
         return events.filter((event) => {
-            const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            const matchesSearch = searchQuery === '' ||
+                event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 event.location.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesLocation = locationFilter === '' ||
+                event.location.toLowerCase().includes(locationFilter.toLowerCase()) ||
+                event.venue.toLowerCase().includes(locationFilter.toLowerCase());
             const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory;
-            return matchesSearch && matchesCategory;
+            return matchesSearch && matchesLocation && matchesCategory;
         });
-    }, [events, searchQuery, selectedCategory]);
+    }, [events, searchQuery, locationFilter, selectedCategory]);
 
     const toggleLike = (eventId: string) => {
         setLikedEvents((prev) => {
@@ -302,5 +319,17 @@ export default function BrowseEventsPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function BrowseEventsPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-muted/30 pt-32 md:pt-40 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        }>
+            <BrowseEventsContent />
+        </Suspense>
     );
 }

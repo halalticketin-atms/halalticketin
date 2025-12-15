@@ -49,7 +49,8 @@
 
 :root {
   --radius: 0.75rem;
-  --nav-height: 80px; /* Height of fixed navbar for consistent spacing */
+  --nav-height: 80px;
+  /* Height of fixed navbar for consistent spacing */
 
   /* HalalTicketin' Brand Colors - Mint to Cyan gradient */
   --background: oklch(0.99 0.005 180);
@@ -190,28 +191,8 @@
     font-family: var(--font-display);
   }
 
-  .text-gradient {
-    background: linear-gradient(135deg, var(--festival-coral) 0%, var(--festival-purple) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
   .bg-noise {
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-  }
-
-  .animate-float {
-    animation: float 6s ease-in-out infinite;
-  }
-
-  .animate-float-delayed {
-    animation: float 6s ease-in-out infinite;
-    animation-delay: -3s;
-  }
-
-  .animate-pulse-slow {
-    animation: pulse 4s ease-in-out infinite;
   }
 
   .gradient-border {
@@ -238,30 +219,6 @@
   .input-teal-border:focus {
     border-color: var(--brand-teal);
     box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
-  }
-}
-
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-
-  50% {
-    transform: translateY(-20px) rotate(2deg);
-  }
-}
-
-@keyframes pulse {
-
-  0%,
-  100% {
-    opacity: 0.6;
-  }
-
-  50% {
-    opacity: 1;
   }
 }
 
