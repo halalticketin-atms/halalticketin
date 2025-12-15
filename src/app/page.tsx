@@ -108,8 +108,8 @@ export default function Home() {
 
   return (
     <>
-      {/* Hero Section */}
-      <section className="relative min-h-[90vh] overflow-hidden gradient-mesh">
+      {/* Hero Section - extends behind header for seamless background */}
+      <section className="relative min-h-[90vh] overflow-hidden gradient-mesh -mt-[var(--nav-height)] pt-[var(--nav-height)]">
         {/* Floating Event Cards */}
         {floatingEvents.map((event) => (
           <FloatingEventCard key={event.id} event={event} />
