@@ -58,8 +58,11 @@ export default function PricingPage() {
     const rate = currencies[currency].rate;
 
     return (
-        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 font-sans -mt-[var(--nav-height)]">
-            {/* Animated Background - Consistent with Login/Register */}
+        <div className="min-h-screen relative overflow-hidden gradient-mesh -mt-[var(--nav-height)]">
+            {/* Noise texture overlay - consistent with Home page */}
+            <div className="absolute inset-0 bg-noise pointer-events-none" />
+
+            {/* Animated Background Orbs */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <motion.div
                     className="absolute -top-[10%] -left-[10%] h-[50vh] w-[50vh] rounded-full blur-3xl opacity-30 mix-blend-multiply filter"
