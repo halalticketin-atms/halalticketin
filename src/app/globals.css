@@ -210,16 +210,7 @@
     box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.08);
   }
 
-  .input-teal-border {
-    border: 1.5px solid var(--brand-cyan);
-    border-radius: var(--radius);
-    background: white;
-  }
 
-  .input-teal-border:focus {
-    border-color: var(--brand-teal);
-    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
-  }
 }
 
 /* Gradient mesh background */

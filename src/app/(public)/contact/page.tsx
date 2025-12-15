@@ -14,7 +14,7 @@ export default function ContactPage() {
         firstName: '',
         lastName: '',
         email: '',
-        phone: '',
+        subject: '',
         message: '',
         agreed: false,
     });
@@ -27,7 +27,7 @@ export default function ContactPage() {
     };
 
     return (
-        <div className="min-h-screen w-full relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 pt-32 pb-12 md:pb-24">
+        <div className="min-h-screen w-full relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 -mt-[var(--nav-height)] pt-[calc(var(--nav-height)+4rem)] pb-12 md:pb-24">
             {/* Animated Background - Consistent with Login/Register */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <motion.div
@@ -51,7 +51,7 @@ export default function ContactPage() {
             </div>
 
             <div className="container relative z-10 flex items-center justify-center">
-                <div className="w-full max-w-2xl p-8 shadow-2xl md:p-12 backdrop-blur-2xl bg-white/30 border border-white/50 rounded-3xl ring-1 ring-white/60">
+                <div className="w-full max-w-2xl p-6 shadow-2xl md:p-12 backdrop-blur-2xl bg-white/30 border border-white/50 rounded-3xl ring-1 ring-white/60">
                     <div className="mb-8">
                         <h1 className="mb-2 text-3xl font-bold tracking-tight">Send us a message</h1>
                         <p className="text-muted-foreground">
@@ -99,14 +99,14 @@ export default function ContactPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="phone" className="text-muted-foreground">Phone number</Label>
+                                <Label htmlFor="subject" className="text-muted-foreground">Subject</Label>
                                 <Input
-                                    id="phone"
-                                    type="tel"
-                                    className="input-teal-border"
-                                    placeholder="Phone number"
-                                    value={formData.phone}
-                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    id="subject"
+                                    className="bg-white/50 border-white/50 focus:border-[var(--brand-cyan)] backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                    placeholder="Subject"
+                                    value={formData.subject}
+                                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                                    required
                                 />
                             </div>
                         </div>
@@ -115,7 +115,7 @@ export default function ContactPage() {
                             <Label htmlFor="message" className="text-muted-foreground">Message</Label>
                             <Textarea
                                 id="message"
-                                className="input-teal-border"
+                                className="bg-white/50 border-white/50 focus:border-[var(--brand-cyan)] backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                 placeholder="Message"
                                 rows={6}
                                 value={formData.message}
