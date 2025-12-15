@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -53,9 +53,9 @@ export default function ProfilePage() {
     const pastEvents: typeof upcomingEvents = [];
 
     return (
-        <div className="min-h-screen bg-muted/30">
+        <div className="min-h-screen bg-muted/30 -mt-[var(--nav-height)]">
             {/* Profile Header */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-primary/5">
+            <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-primary/5 pt-[var(--nav-height)]">
                 {/* Animated Background Elements */}
                 <div className="absolute inset-0 overflow-hidden">
                     <motion.div

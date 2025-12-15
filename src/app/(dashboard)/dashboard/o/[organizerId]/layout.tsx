@@ -9,9 +9,9 @@ export default async function OrganizerDashboardLayout({
 }) {
     const resolvedParams = await params;
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen -mt-[var(--nav-height)]">
             <DashboardSidebar organizerId={resolvedParams.organizerId} />
-            <main className="pl-0 lg:pl-[260px] transition-all">
+            <main className="pl-0 lg:pl-[260px] transition-all pt-[calc(var(--nav-height)+2rem)]">
                 {children}
             </main>
         </div>

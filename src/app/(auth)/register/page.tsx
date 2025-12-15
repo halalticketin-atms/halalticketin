@@ -2,10 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -64,7 +63,7 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-6 pt-24 relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-purple-50">
+        <div className="min-h-screen flex items-center justify-center p-4 md:p-6 -mt-[var(--nav-height)] pt-[calc(var(--nav-height)+3rem)] md:pt-[calc(var(--nav-height)+6rem)] relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-purple-50">
             {/* Vibrant Animated Background */}
             <div className="absolute inset-0 overflow-hidden">
                 <motion.div
