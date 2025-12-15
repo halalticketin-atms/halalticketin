@@ -109,7 +109,9 @@ export default function Home() {
   return (
     <>
       {/* Hero Section - extends behind header for seamless background */}
-      <section className="relative min-h-[90vh] overflow-hidden gradient-mesh -mt-[var(--nav-height)] pt-[var(--nav-height)]">
+      {/* Hero Section - extends behind header for seamless background */}
+      {/* Updated to 100svh to fix mobile address bar whitespace issues */}
+      <section className="relative min-h-[100svh] overflow-hidden gradient-mesh -mt-[var(--nav-height)] pt-[var(--nav-height)]">
         {/* Floating Event Cards */}
         {floatingEvents.map((event) => (
           <FloatingEventCard key={event.id} event={event} />
@@ -131,7 +133,9 @@ export default function Home() {
         />
 
         {/* Main Content */}
-        <div className="container relative z-10 flex min-h-[90vh] flex-col items-center justify-center py-20">
+        {/* Main Content */}
+        {/* Updated to 100svh to match hero section height */}
+        <div className="container relative z-10 flex min-h-[100svh] flex-col items-center justify-center py-20">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
