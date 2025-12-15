@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Check, Info, Sparkles, ArrowRight, Ticket, Zap, Shield } from 'lucide-react';
+import { Check, Info, Ticket, Zap, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -58,7 +58,7 @@ export default function PricingPage() {
     const rate = currencies[currency].rate;
 
     return (
-        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 font-sans">
+        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 font-sans -mt-[var(--nav-height)]">
             {/* Animated Background - Consistent with Login/Register */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <motion.div
@@ -81,9 +81,9 @@ export default function PricingPage() {
                 />
             </div>
 
-            <div className="relative z-10 container mx-auto px-4 pt-32 pb-16">
+            <div className="relative z-10 container mx-auto px-4 pt-24 md:pt-32 pb-16">
                 {/* Header */}
-                <div className="text-center mb-16 space-y-4">
+                <div className="text-center mb-12 md:mb-16 space-y-4">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -119,7 +119,7 @@ export default function PricingPage() {
                 </div>
 
                 {/* Main Content Layout */}
-                <div className="flex flex-col lg:flex-row gap-8 max-w-6xl mx-auto mb-24">
+                <div className="flex flex-col lg:flex-row gap-6 md:gap-8 max-w-6xl mx-auto mb-24">
 
                     {/* Left Column: Marketing Card */}
                     <motion.div
