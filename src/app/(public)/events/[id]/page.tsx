@@ -40,6 +40,7 @@ import { PublicTicketRecord } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult } from '@/lib/checkout-api';
 import { showError } from '@/lib/errors';
 import { PAYG_FEE_GBP, getCurrencySymbol as getFeeCurrencySymbol } from '@/lib/fees';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 
 /**
  * Format a price for display.
@@ -109,6 +110,7 @@ export default function EventDetailsPage() {
     const params = useParams();
     const slug = Array.isArray(params?.id) ? params?.id[0] : params?.id;
     const { event, tickets, isLoading, error } = usePublicEvent(slug ?? null);
+    const { convertFromGBP } = useExchangeRates();
 
     // Checkout state
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -541,7 +543,8 @@ export default function EventDetailsPage() {
 
                                     {totalTickets > 0 && (() => {
                                         // Platform fee calculation using shared constant
-                                        const platformFee = event.absorbFee ? 0 : totalTickets * PAYG_FEE_GBP;
+                                        const unitFee = convertFromGBP(PAYG_FEE_GBP, event.currency || 'GBP');
+                                        const platformFee = event.absorbFee ? 0 : totalTickets * unitFee;
                                         const grandTotal = finalTotal + platformFee;
                                         const currencySymbol = getCurrencySymbol(tickets[0]?.currency || 'GBP');
 
@@ -631,7 +634,8 @@ export default function EventDetailsPage() {
                         {/* Order Summary */}
                         {(() => {
                             // Platform fee calculation using shared constant
-                            const platformFee = event.absorbFee ? 0 : totalTickets * PAYG_FEE_GBP;
+                            const unitFee = convertFromGBP(PAYG_FEE_GBP, event.currency || 'GBP');
+                            const platformFee = event.absorbFee ? 0 : totalTickets * unitFee;
                             const grandTotal = finalTotal + platformFee;
                             const currencySymbol = getCurrencySymbol(tickets[0]?.currency || 'GBP');
 

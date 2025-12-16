@@ -251,6 +251,7 @@ function normalizeFormData(
     city: raw.city ?? '',
     onlineUrl: raw.onlineUrl ?? '',
     absorbFee: raw.absorbFee ?? false,
+    currency: 'GBP',
   };
 }
 

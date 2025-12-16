@@ -74,7 +74,7 @@ import {
 import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
 import { ApiError } from '@/lib/api';
 import { FeeBreakdown } from '@/components/fee-breakdown';
-import { PAYG_FEE_GBP } from '@/lib/fees';
+import { PAYG_FEE_GBP, getCurrencySymbol, convertFromGBP } from '@/lib/fees';
 
 export const steps = [
     { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
@@ -109,7 +109,7 @@ type EntryContext = {
     description?: string;
 };
 
-const DEFAULT_CURRENCY = 'GBP';
+
 const UUID_REGEX =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -157,14 +157,14 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         city: isInPerson ? formData.city || null : null,
         country: null,
         onlineUrl: isOnline ? formData.onlineUrl || null : null,
-        currency: DEFAULT_CURRENCY,
+        currency: formData.currency,
         refundPolicy: null,
         isListedPublicly: formData.visibility === 'public',
         absorbFee: formData.absorbFee,
     };
 };
 
-const buildTicketPayloads = (tickets: DraftTicketType[]): TicketInputPayload[] =>
+const buildTicketPayloads = (tickets: DraftTicketType[], currency: string): TicketInputPayload[] =>
     tickets.map((ticket, index) => {
         const parsedPrice = Number.parseFloat(ticket.price || '0');
         const priceValue = Number.isFinite(parsedPrice) ? parsedPrice : 0;
@@ -180,7 +180,7 @@ const buildTicketPayloads = (tickets: DraftTicketType[]): TicketInputPayload[] =
             description: ticket.description.trim() ? ticket.description.trim() : null,
             price: ticket.isFree ? 0 : priceValue,
             isFree: ticket.isFree,
-            currency: DEFAULT_CURRENCY,
+            currency: currency,
             maxQuantity: quantityValue,
             maxPerOrder: maxPerOrderValue,
             visibility: ticket.visibility,
@@ -274,6 +274,16 @@ export function EventWizard({
         isPreviewOpen,
         setIsPreviewOpen,
     } = useEventDraft(initialDraft, steps.length);
+
+    const { activeOrganizerId, organizers } = useOrganizers();
+    const currentOrganizer = organizers.find(o => o.id === activeOrganizerId);
+
+    // Sync currency from organizer default if likely untouched
+    useEffect(() => {
+        if (currentOrganizer?.defaultCurrency && (!initialDraft?.formData?.currency || initialDraft.formData.currency === 'GBP')) {
+            setFormData(prev => ({ ...prev, currency: currentOrganizer.defaultCurrency! }));
+        }
+    }, [currentOrganizer?.defaultCurrency, initialDraft?.formData?.currency, setFormData]);
 
     const router = useRouter();
     const [eventId, setEventId] = useState<string | null>(initialDraft?.eventId ?? null);
@@ -381,7 +391,6 @@ export function EventWizard({
     }, [hasUnsavedChanges]);
 
     const headerTitle = mode === 'edit' ? 'Edit Event' : 'Create New Event';
-    const { activeOrganizerId } = useOrganizers();
     const dashboardHref = activeOrganizerId ? buildDashboardPath(activeOrganizerId) : '/dashboard';
 
     const saveDraft = useCallback(
@@ -418,7 +427,7 @@ export function EventWizard({
                     await updateEventDraft(nextEventId, payload);
                 }
 
-                const ticketPayloads = buildTicketPayloads(tickets);
+                const ticketPayloads = buildTicketPayloads(tickets, formData.currency);
                 const ticketResponse = await saveEventTickets(nextEventId, ticketPayloads);
                 let normalizedTickets = tickets;
                 if (ticketResponse.tickets && ticketResponse.tickets.length > 0) {
@@ -1197,7 +1206,7 @@ export function EventWizard({
                                                                 </div>
                                                                 <div className="space-y-2">
                                                                     <div className="flex items-center justify-between">
-                                                                        <Label>Price (£)</Label>
+                                                                        <Label>Price ({getCurrencySymbol(formData.currency)})</Label>
                                                                         <div className="flex items-center gap-2">
                                                                             <Label htmlFor={`free-${ticket.id}`} className="text-sm text-muted-foreground">Free</Label>
                                                                             <Switch
@@ -1278,7 +1287,7 @@ export function EventWizard({
                                                                 {ticket.hasEarlyBird && (
                                                                     <div className="grid gap-4 sm:grid-cols-2">
                                                                         <div className="space-y-2">
-                                                                            <Label className="text-sm">Early Bird Price (£)</Label>
+                                                                            <Label className="text-sm">Early Bird Price ({getCurrencySymbol(formData.currency)})</Label>
                                                                             <Input
                                                                                 type="number"
                                                                                 placeholder="Discounted price"
@@ -1310,8 +1319,8 @@ export function EventWizard({
                                                                             </Label>
                                                                             <p className="text-xs text-muted-foreground">
                                                                                 {formData.absorbFee
-                                                                                    ? `You pay the £${PAYG_FEE_GBP.toFixed(2)}/ticket fee – customers see ticket price only`
-                                                                                    : `Customers pay £${PAYG_FEE_GBP.toFixed(2)}/ticket fee on top`
+                                                                                    ? `You pay the ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}/ticket fee – customers see ticket price only`
+                                                                                    : `Customers pay ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}/ticket fee on top`
                                                                                 }
                                                                             </p>
                                                                         </div>
@@ -1391,7 +1400,7 @@ export function EventWizard({
                                                                             </SelectTrigger>
                                                                             <SelectContent>
                                                                                 <SelectItem value="percentage">Percentage (%)</SelectItem>
-                                                                                <SelectItem value="fixed">Fixed Amount (£)</SelectItem>
+                                                                                <SelectItem value="fixed">Fixed Amount ({getCurrencySymbol(formData.currency)})</SelectItem>
                                                                             </SelectContent>
                                                                         </Select>
                                                                     </div>
@@ -1406,7 +1415,7 @@ export function EventWizard({
                                                                                 className="h-10 pr-8"
                                                                             />
                                                                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                                                                {promo.discountType === 'percentage' ? '%' : '£'}
+                                                                                {promo.discountType === 'percentage' ? '%' : getCurrencySymbol(formData.currency)}
                                                                             </span>
                                                                         </div>
                                                                     </div>

@@ -178,7 +178,7 @@ export function calculatePlatformFee(params: FeeCalculationParams): FeeCalculati
             totalFee: feePerTicket * ticketCount,
             ticketsUsingCredits: 0,
             ticketsUsingPayg: ticketCount,
-            feeDescription: `£${CHARITY_FEE_GBP.toFixed(2)}/ticket (Charity rate)`
+            feeDescription: `${getCurrencySymbol(currency)}${feePerTicket.toFixed(2)}/ticket (Charity rate)`
         };
     }
 
@@ -198,9 +198,9 @@ export function calculatePlatformFee(params: FeeCalculationParams): FeeCalculati
 
         let feeDescription: string;
         if (ticketsUsingPayg === 0) {
-            feeDescription = `£${creditFeePerTicket.toFixed(2)}/ticket (using credits)`;
+            feeDescription = `${getCurrencySymbol(currency)}${creditFeePerTicket.toFixed(2)}/ticket (using credits)`;
         } else {
-            feeDescription = `£${creditFeePerTicket.toFixed(2)}/ticket for first ${ticketsUsingCredits}, then £${PAYG_FEE_GBP.toFixed(2)}/ticket`;
+            feeDescription = `${getCurrencySymbol(currency)}${creditFeePerTicket.toFixed(2)}/ticket for first ${ticketsUsingCredits}, then ${getCurrencySymbol(currency)}${paygFeePerTicket.toFixed(2)}/ticket`;
         }
 
         return {
@@ -219,7 +219,7 @@ export function calculatePlatformFee(params: FeeCalculationParams): FeeCalculati
         totalFee: feePerTicket * ticketCount,
         ticketsUsingCredits: 0,
         ticketsUsingPayg: ticketCount,
-        feeDescription: `£${PAYG_FEE_GBP.toFixed(2)}/ticket`
+        feeDescription: `${getCurrencySymbol(currency)}${feePerTicket.toFixed(2)}/ticket`
     };
 }
 

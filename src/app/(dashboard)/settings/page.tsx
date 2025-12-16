@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,15 +8,53 @@ import { Button } from '@/components/ui/button';
 import { StripeConnectStatus } from '@/components/stripe-connect-status';
 import { useOrganizers } from '@/context/organizer-context';
 import { useAuth } from '@/context/auth-context';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Check } from 'lucide-react';
+import { SUPPORTED_CURRENCIES, type SupportedCurrency } from '@/lib/fees';
+import api from '@/lib/api';
 
 export default function SettingsPage() {
     const { user, isLoading: authLoading } = useAuth();
-    const { activeOrganizerId, organizers, isLoading: organizersLoading } = useOrganizers();
+    const { activeOrganizerId, organizers, isLoading: organizersLoading, refresh } = useOrganizers();
 
     const isLoading = authLoading || organizersLoading;
     const hasOrganizer = organizers.length > 0;
     const currentOrganizer = organizers.find(o => o.id === activeOrganizerId);
+
+    const [selectedCurrency, setSelectedCurrency] = useState<string>(
+        currentOrganizer?.defaultCurrency || 'GBP'
+    );
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+
+    useEffect(() => {
+        if (currentOrganizer?.defaultCurrency) {
+            setSelectedCurrency(currentOrganizer.defaultCurrency);
+        }
+    }, [currentOrganizer?.defaultCurrency]);
+
+    const handleSaveCurrency = async () => {
+        if (!activeOrganizerId) return;
+
+        setIsSaving(true);
+        setSaveSuccess(false);
+        try {
+            await api.patch(`/api/v1/organizers/${activeOrganizerId}`, {
+                defaultCurrency: selectedCurrency
+            });
+            setSaveSuccess(true);
+            await refresh();
+            setTimeout(() => setSaveSuccess(false), 2000);
+        } catch {
+            // Error handled by API layer
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const currencyOptions = Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => ({
+        value: code,
+        label: `${info.symbol} ${code} - ${info.name}`
+    }));
 
     return (
         <div className="container py-8">
@@ -58,6 +97,53 @@ export default function SettingsPage() {
                     </CardContent>
                 </Card>
 
+                {/* Currency Preference Card - Only for Organizers */}
+                {hasOrganizer && activeOrganizerId && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Default Currency</CardTitle>
+                            <CardDescription>
+                                Set the default currency for new events created by {currentOrganizer?.name || 'your organization'}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="currency">Currency</Label>
+                                <select
+                                    id="currency"
+                                    value={selectedCurrency}
+                                    onChange={(e) => setSelectedCurrency(e.target.value)}
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {currencyOptions.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <Button
+                                onClick={handleSaveCurrency}
+                                disabled={isSaving || selectedCurrency === currentOrganizer?.defaultCurrency}
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : saveSuccess ? (
+                                    <>
+                                        <Check className="mr-2 h-4 w-4" />
+                                        Saved
+                                    </>
+                                ) : (
+                                    'Save Currency'
+                                )}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Payment Settings - Stripe Connect */}
                 {isLoading ? (
                     <Card>
@@ -99,3 +185,4 @@ export default function SettingsPage() {
         </div>
     );
 }
+

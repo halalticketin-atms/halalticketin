@@ -80,6 +80,7 @@ export const buildDraftFromEventRecord = (
         address: event.address ?? '',
         city: event.city ?? '',
         onlineUrl: event.onlineUrl ?? '',
+        currency: event.currency ?? 'GBP',
     },
     tickets: tickets.length > 0 ? mapTicketRecordsToDraft(tickets) : undefined,
     promoCodes: promoCodes.length > 0 ? mapPromoCodeRecordsToDraft(promoCodes) : [],

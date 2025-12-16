@@ -22,6 +22,8 @@ export interface OrganizerSummary {
     avatarUrl: string | null;
     bio: string | null;
     website: string | null;
+    defaultTimezone?: string;
+    defaultCurrency?: string;
     role: string;
     status: string;
     membershipId: string;
