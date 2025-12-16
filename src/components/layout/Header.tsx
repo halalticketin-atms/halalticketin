@@ -18,7 +18,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-import { useAuth } from '@/context/auth-context';
+import { useOptionalAuth } from '@/context/auth-context';
 
 // Animation variants from v0 design
 const itemVariants = {
@@ -72,7 +72,8 @@ export function Header() {
 
     const router = useRouter();
     const pathname = usePathname();
-    const { user, signOut } = useAuth();
+    const auth = useOptionalAuth();
+    const user = auth?.user ?? null;
 
     // Navigation Items with Icons and Brand Gradients
     const navLinks = [
@@ -120,7 +121,7 @@ export function Header() {
     const isAuthenticated = Boolean(user);
 
     const handleSignOut = () => {
-        signOut();
+        auth?.signOut?.();
         router.push('/login');
     };
 

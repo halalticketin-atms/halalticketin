@@ -15,6 +15,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
 type Currency = 'GBP' | 'USD' | 'EUR';
 
@@ -59,30 +60,7 @@ export default function PricingPage() {
 
     return (
         <div className="min-h-screen relative overflow-hidden gradient-mesh -mt-[var(--nav-height)]">
-            {/* Noise texture overlay - consistent with Home page */}
-            <div className="absolute inset-0 bg-noise pointer-events-none" />
-
-            {/* Animated Background Orbs */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <motion.div
-                    className="absolute -top-[10%] -left-[10%] h-[50vh] w-[50vh] rounded-full blur-3xl opacity-30 mix-blend-multiply filter"
-                    style={{ background: 'radial-gradient(circle, var(--brand-mint), transparent)' }}
-                    animate={{ x: [0, 50, 0], y: [0, 30, 0], scale: [1, 1.1, 1] }}
-                    transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-                />
-                <motion.div
-                    className="absolute top-[20%] right-[10%] h-[60vh] w-[60vh] rounded-full blur-3xl opacity-30 mix-blend-multiply filter"
-                    style={{ background: 'radial-gradient(circle, var(--brand-cyan), transparent)' }}
-                    animate={{ x: [0, -40, 0], y: [0, 50, 0], scale: [1, 1.2, 1] }}
-                    transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-                />
-                <motion.div
-                    className="absolute -bottom-[10%] left-[20%] h-[70vh] w-[70vh] rounded-full blur-3xl opacity-30 mix-blend-multiply filter"
-                    style={{ background: 'radial-gradient(circle, var(--brand-teal), transparent)' }}
-                    animate={{ x: [0, 30, 0], y: [0, -30, 0], scale: [1, 1.1, 1] }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "easeInOut", delay: 5 }}
-                />
-            </div>
+            <AmbientBackground />
 
             <div className="relative z-10 container mx-auto px-4 pt-24 md:pt-32 pb-16">
                 {/* Header */}

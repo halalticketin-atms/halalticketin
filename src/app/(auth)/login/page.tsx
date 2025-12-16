@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { getSupabase } from '@/lib/supabase';
 import api, { setAuthToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
+import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
 interface LoginResponse {
     accessToken: string;
@@ -77,53 +78,7 @@ function LoginContent() {
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 md:p-6 -mt-[var(--nav-height)] pt-[calc(var(--nav-height)+3rem)] md:pt-[calc(var(--nav-height)+6rem)] relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-purple-50">
-            {/* Vibrant Animated Background */}
-            <div className="absolute inset-0 overflow-hidden">
-                <motion.div
-                    className="absolute -top-[10%] -left-[10%] h-[50vh] w-[50vh] rounded-full blur-3xl opacity-40 mix-blend-multiply filter"
-                    style={{ background: 'radial-gradient(circle, var(--brand-mint), transparent)' }}
-                    animate={{
-                        x: [0, 50, 0],
-                        y: [0, 30, 0],
-                        scale: [1, 1.1, 1],
-                    }}
-                    transition={{
-                        duration: 15,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                />
-                <motion.div
-                    className="absolute top-[20%] right-[10%] h-[60vh] w-[60vh] rounded-full blur-3xl opacity-40 mix-blend-multiply filter"
-                    style={{ background: 'radial-gradient(circle, var(--brand-cyan), transparent)' }}
-                    animate={{
-                        x: [0, -40, 0],
-                        y: [0, 50, 0],
-                        scale: [1, 1.2, 1],
-                    }}
-                    transition={{
-                        duration: 18,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: 2
-                    }}
-                />
-                <motion.div
-                    className="absolute -bottom-[10%] left-[20%] h-[70vh] w-[70vh] rounded-full blur-3xl opacity-40 mix-blend-multiply filter"
-                    style={{ background: 'radial-gradient(circle, var(--brand-teal), transparent)' }}
-                    animate={{
-                        x: [0, 30, 0],
-                        y: [0, -30, 0],
-                        scale: [1, 1.1, 1],
-                    }}
-                    transition={{
-                        duration: 20,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: 5
-                    }}
-                />
-            </div>
+            <AmbientBackground showNoise={false} />
 
             <motion.div
                 initial={{ opacity: 0, y: 20 }}

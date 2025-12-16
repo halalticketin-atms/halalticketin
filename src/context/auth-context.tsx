@@ -97,9 +97,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+export function useOptionalAuth() {
+    return useContext(AuthContext) ?? null;
+}
+
 export function useAuth() {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
+    const context = useOptionalAuth();
+    if (context === null) {
         throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;
