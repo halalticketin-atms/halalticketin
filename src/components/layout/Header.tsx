@@ -321,16 +321,25 @@ export function Header() {
                 </div>
 
                 {/* Mobile Menu Content (Inside the morphing pill) */}
-                <AnimatePresence>
+                <AnimatePresence mode="wait">
                     {mobileMenuOpen && (
                         <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
-                            transition={{ type: 'spring', duration: 0.5, bounce: 0.2 }}
-                            className="relative w-full z-40 overflow-hidden"
+                            transition={{
+                                height: { duration: 0.35, ease: [0.4, 0, 0.2, 1] },
+                                opacity: { duration: 0.25, ease: 'easeOut' }
+                            }}
+                            className="relative w-full z-40 overflow-hidden will-change-[height,opacity]"
                         >
-                            <div className="p-6 pt-2 flex flex-col gap-6">
+                            <motion.div
+                                className="p-6 pt-2 flex flex-col gap-6"
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.25, ease: 'easeOut', delay: 0.1 }}
+                            >
                                 {/* Animated Background Blobs with Gradient Fade-in */}
                                 <div
                                     className="absolute inset-0 overflow-hidden pointer-events-none z-0"
@@ -359,34 +368,57 @@ export function Header() {
                                     />
                                 </div>
 
-                                {/* Menu Links */}
+                                {/* Menu Links with staggered animation */}
                                 <div className="relative z-10 flex flex-col gap-2 items-end">
-                                    {navLinks.map((link) => {
+                                    {navLinks.map((link, index) => {
                                         const isActive = pathname === link.href;
                                         return (
-                                            <Link
+                                            <motion.div
                                                 key={link.id}
-                                                href={link.href}
-                                                onClick={() => setMobileMenuOpen(false)}
-                                                className="text-lg font-medium px-4 py-3 rounded-2xl transition-all flex items-center gap-3"
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: 20 }}
+                                                transition={{
+                                                    duration: 0.25,
+                                                    ease: [0.4, 0, 0.2, 1],
+                                                    delay: 0.05 * index
+                                                }}
                                             >
-                                                <span
-                                                    className={cn(
-                                                        'transition-colors duration-300',
-                                                        isActive ? 'text-teal-500' : 'text-slate-600'
-                                                    )}
+                                                <Link
+                                                    href={link.href}
+                                                    onClick={() => setMobileMenuOpen(false)}
+                                                    className="text-lg font-medium px-4 py-3 rounded-2xl transition-all flex items-center gap-3"
                                                 >
-                                                    {link.label}
-                                                </span>
-                                            </Link>
+                                                    <span
+                                                        className={cn(
+                                                            'transition-colors duration-300',
+                                                            isActive ? 'text-teal-500' : 'text-slate-600'
+                                                        )}
+                                                    >
+                                                        {link.label}
+                                                    </span>
+                                                </Link>
+                                            </motion.div>
                                         );
                                     })}
                                 </div>
 
-                                <div className="relative z-10 h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                                <motion.div
+                                    className="relative z-10 h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent"
+                                    initial={{ opacity: 0, scaleX: 0 }}
+                                    animate={{ opacity: 1, scaleX: 1 }}
+                                    exit={{ opacity: 0, scaleX: 0 }}
+                                    transition={{ duration: 0.3, ease: 'easeOut', delay: 0.15 }}
+                                />
 
-                                {/* Authenticated Actions */}
-                                <div className="relative z-10 flex flex-col gap-3">
+                                {/* Authenticated Actions with staggered animation */}
+                                <motion.div
+                                    className="relative z-10 flex flex-col gap-3"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                    transition={{ duration: 0.25, ease: 'easeOut', delay: 0.2 }}
+                                >
                                     {isAuthenticated ? (
                                         <>
                                             <Button
@@ -423,8 +455,8 @@ export function Header() {
                                             </Link>
                                         </>
                                     )}
-                                </div>
-                            </div>
+                                </motion.div>
+                            </motion.div>
                         </motion.div>
                     )}
                 </AnimatePresence>
