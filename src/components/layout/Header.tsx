@@ -138,13 +138,14 @@ export function Header() {
         >
             <div
                 className={cn(
-                    'max-w-7xl mx-auto rounded-full transition-all duration-300 flex items-center justify-between px-4 py-2',
-                    'backdrop-blur-xl bg-white/60 border border-white/50 shadow-lg ring-1 ring-white/60 relative overflow-hidden'
+                    'max-w-7xl mx-auto rounded-[2rem] transition-all duration-300 flex items-center justify-between px-4 py-2',
+                    'bg-white/95 border border-white/70 shadow-lg ring-1 ring-white/60 relative overflow-hidden',
+                    'md:bg-white/60 md:backdrop-blur-xl md:border-white/50'
                 )}
             >
                 {/* Background Glow Effect */}
                 <motion.div
-                    className="absolute -inset-2 bg-gradient-radial from-transparent via-blue-400/10 via-30% via-purple-400/10 via-60% via-red-400/10 via-90% to-transparent rounded-3xl z-0 pointer-events-none"
+                    className="hidden md:block absolute -inset-2 bg-gradient-radial from-transparent via-blue-400/10 via-30% via-purple-400/10 via-60% via-red-400/10 via-90% to-transparent rounded-3xl z-0 pointer-events-none"
                     variants={navGlowVariants}
                     initial="initial"
                     whileHover="hover"
@@ -307,7 +308,7 @@ export function Header() {
                 {/* Mobile Menu Toggle */}
                 {/* Mobile Menu Toggle */}
                 <button
-                    className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/50 transition-colors"
+                    className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/70 transition-colors bg-white/90 border border-white/80 shadow-sm"
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 >
                     {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -329,16 +330,12 @@ export function Header() {
                         />
 
                         <motion.div
-                            initial={{ opacity: 0, y: -20, scale: 0.95, filter: 'blur(10px)' }}
-                            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                            exit={{ opacity: 0, y: -20, scale: 0.95, filter: 'blur(10px)' }}
-                            transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
-                            className="absolute top-[calc(100%-0.5rem)] left-0 right-0 mx-4 p-6 md:hidden z-50 rounded-3xl backdrop-blur-3xl bg-white/20 border border-white/30 shadow-2xl ring-1 ring-white/20 flex flex-col gap-6 overflow-hidden"
+                            initial={{ opacity: 0, y: -16, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -16, scale: 0.98 }}
+                            transition={{ type: 'spring', duration: 0.4, bounce: 0.2 }}
+                            className="absolute top-[calc(100%-0.5rem)] left-0 right-0 mx-4 p-6 md:hidden z-50 rounded-3xl bg-white shadow-2xl border border-white/70 flex flex-col gap-6"
                         >
-                            {/* Background Blobs */}
-                            <div className="absolute top-0 left-0 -ml-20 -mt-20 w-64 h-64 bg-[var(--brand-cyan)]/30 rounded-full blur-3xl pointer-events-none" />
-                            <div className="absolute bottom-0 right-0 -mr-20 -mb-20 w-64 h-64 bg-[var(--brand-teal)]/30 rounded-full blur-3xl pointer-events-none" />
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-[var(--brand-mint)]/20 rounded-full blur-3xl pointer-events-none" />
                             <div className="flex flex-col gap-2">
                                 {navLinks.map((link) => {
                                     const isActive = pathname === link.href;
