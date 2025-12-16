@@ -124,18 +124,19 @@ export default function ContactPage() {
                             />
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-start space-x-2">
                             <Checkbox
                                 id="terms"
                                 checked={formData.agreed}
                                 onCheckedChange={(checked) =>
                                     setFormData({ ...formData, agreed: checked as boolean })
                                 }
+                                className="mt-0.5"
                                 required
                             />
                             <Label
                                 htmlFor="terms"
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-muted-foreground"
+                                className="text-sm font-medium leading-normal peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-muted-foreground"
                             >
                                 I&apos;ve read and agree with{' '}
                                 <Link href="/terms" className="underline hover:text-foreground">
