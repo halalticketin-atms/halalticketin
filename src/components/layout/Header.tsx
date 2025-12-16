@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from 'motion/react';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -66,6 +66,7 @@ export function Header() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const { scrollY } = useScroll();
+    const pathname = usePathname();
 
     useMotionValueEvent(scrollY, 'change', (latest) => {
         setIsScrolled(latest > 50);
@@ -136,261 +137,304 @@ export function Header() {
                 isScrolled ? 'pb-4' : 'pb-6'
             )}
         >
-            <div
+            <motion.div
+                layout
                 className={cn(
-                    'max-w-7xl mx-auto rounded-full transition-all duration-300 flex items-center justify-between px-4 py-2',
+                    'max-w-7xl mx-auto flex flex-col transition-all duration-300',
                     'backdrop-blur-xl bg-white/60 border border-white/50 shadow-lg ring-1 ring-white/60 relative overflow-hidden'
                 )}
+                style={{
+                    borderRadius: mobileMenuOpen ? '24px' : '9999px'
+                }}
             >
                 {/* Background Glow Effect */}
                 <motion.div
-                    className="absolute -inset-2 bg-gradient-radial from-transparent via-blue-400/10 via-30% via-purple-400/10 via-60% via-red-400/10 via-90% to-transparent rounded-3xl z-0 pointer-events-none"
+                    className="absolute -inset-2 bg-gradient-radial from-transparent via-blue-400/10 via-30% via-purple-400/10 via-60% via-red-400/10 via-90% to-transparent z-0 pointer-events-none"
                     variants={navGlowVariants}
                     initial="initial"
                     whileHover="hover"
                 />
 
-                {/* Logo */}
-                <Link href="/" className="flex items-center gap-2 relative z-50 pl-2">
-                    <Image
-                        src="/images/HTlogocr.png"
-                        alt="HalalTicketin' Logo"
-                        width={120}
-                        height={35}
-                        className="h-8 w-auto"
-                        priority
-                    />
-                </Link>
-
-                {/* Centered Desktop Menu - Liquid Glass Dock */}
-                <div className="hidden md:flex items-center gap-1 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                    <ul className="flex items-center gap-2">
-                        {navLinks.map((link) => (
-                            <motion.li key={link.id} className="relative">
-                                <motion.div
-                                    className="block rounded-xl overflow-visible group relative"
-                                    style={{ perspective: '600px' }}
-                                    whileHover="hover"
-                                    initial="initial"
-                                >
-                                    <motion.div
-                                        className="absolute inset-0 z-0 pointer-events-none"
-                                        variants={glowVariants}
-                                        style={{
-                                            background: link.gradient,
-                                            opacity: 0,
-                                            borderRadius: '16px',
-                                        }}
-                                    />
-                                    <motion.div>
-                                        <Link href={link.href}>
-                                            <motion.div
-                                                className="flex items-center gap-2 px-4 py-2 relative z-10 bg-transparent text-muted-foreground transition-colors rounded-xl"
-                                                variants={itemVariants}
-                                                transition={sharedTransition}
-                                                style={{
-                                                    transformStyle: 'preserve-3d',
-                                                    transformOrigin: 'center bottom',
-                                                }}
-                                            >
-                                                <span
-                                                    className={`text-sm font-medium transition-colors duration-300 group-hover:${link.iconColor} text-slate-600`}
-                                                >
-                                                    {link.label}
-                                                </span>
-                                            </motion.div>
-                                        </Link>
-                                        <Link href={link.href} className="absolute inset-0 z-20">
-                                            <motion.div
-                                                className="flex items-center gap-2 px-4 py-2 bg-transparent text-muted-foreground group-hover:text-foreground transition-colors rounded-xl h-full w-full"
-                                                variants={backVariants}
-                                                transition={sharedTransition}
-                                                style={{
-                                                    transformStyle: 'preserve-3d',
-                                                    transformOrigin: 'center top',
-                                                    rotateX: 90,
-                                                    position: 'absolute',
-                                                    top: 0,
-                                                    left: 0,
-                                                }}
-                                            >
-                                                <span
-                                                    className={`text-sm font-medium transition-colors duration-300 group-hover:${link.iconColor} text-slate-900`}
-                                                >
-                                                    {link.label}
-                                                </span>
-                                            </motion.div>
-                                        </Link>
-                                    </motion.div>
-                                </motion.div>
-                            </motion.li>
-                        ))}
-                    </ul>
-                </div>
-
-                {/* Right Side Actions */}
-                <div className="hidden md:flex items-center gap-3 ml-auto relative z-50">
-                    {isAuthenticated ? (
-                        <>
-                            <Button
-                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 rounded-full px-6 font-semibold shadow-md"
-                                asChild
-                            >
-                                <Link href="/events/new">Create Event</Link>
-                            </Button>
-
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        className="relative h-9 w-9 rounded-full ring-2 ring-white hover:ring-[var(--brand-cyan)] transition-all p-0"
-                                    >
-                                        <Avatar className="h-9 w-9">
-                                            <AvatarImage src={user?.avatarUrl ?? undefined} alt={displayName} />
-                                            <AvatarFallback className="bg-[var(--brand-mint)] text-[var(--brand-teal)] font-bold">
-                                                {avatarInitial}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    className="w-56 backdrop-blur-xl bg-white/90"
-                                    align="end"
-                                    forceMount
-                                >
-                                    <DropdownMenuLabel className="font-normal">
-                                        <div className="flex flex-col space-y-1">
-                                            <p className="text-sm font-medium">{displayName}</p>
-                                            <p className="text-xs text-muted-foreground">{displayEmail}</p>
-                                        </div>
-                                    </DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/profile">Profile</Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/dashboard">Dashboard</Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/settings">Settings</Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            handleSignOut();
-                                        }}
-                                    >
-                                        Sign Out
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </>
-                    ) : (
-                        <>
-                            <Link
-                                href="/login"
-                                className="text-sm font-semibold text-slate-800 hover:text-[var(--brand-teal)]"
-                            >
-                                Log in
-                            </Link>
-                            <Button
-                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 rounded-full px-6 font-semibold shadow-md"
-                                asChild
-                            >
-                                <Link href="/events/new">Create Event</Link>
-                            </Button>
-                        </>
-                    )}
-                </div>
-
-                {/* Mobile Menu Toggle */}
-                {/* Mobile Menu Toggle */}
-                <button
-                    className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/50 transition-colors"
-                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                >
-                    {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-                </button>
-
-                {/* Mobile Menu Dropdown */}
-
-            </div>
-            <AnimatePresence>
-                {mobileMenuOpen && (
-                    <>
-                        {/* Backdrop to close on click outside */}
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-40 bg-black/5" // Subtle dim
-                            onClick={() => setMobileMenuOpen(false)}
+                {/* Top Bar (Logo, Desktop Nav, Toggle) */}
+                <div className="flex items-center justify-between px-4 py-2 relative z-50">
+                    {/* Logo */}
+                    <Link href="/" className="flex items-center gap-2 pl-2">
+                        <Image
+                            src="/images/HTlogocr.png"
+                            alt="HalalTicketin' Logo"
+                            width={120}
+                            height={35}
+                            className="h-8 w-auto"
+                            priority
                         />
+                    </Link>
 
-                        <motion.div
-                            initial={{ opacity: 0, y: -20, scale: 0.95, filter: 'blur(10px)' }}
-                            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                            exit={{ opacity: 0, y: -20, scale: 0.95, filter: 'blur(10px)' }}
-                            transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
-                            className="absolute top-[calc(100%-0.5rem)] left-0 right-0 mx-4 p-6 md:hidden z-50 rounded-3xl backdrop-blur-2xl bg-white/80 border border-white/40 shadow-xl ring-1 ring-black/5 flex flex-col gap-6"
-                        >
-                            <div className="flex flex-col gap-2">
-                                {navLinks.map((link) => (
-                                    <Link
-                                        key={link.id}
-                                        href={link.href}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        className="text-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-white/50 px-4 py-3 rounded-2xl transition-all flex items-center gap-3"
+                    {/* Centered Desktop Menu - Liquid Glass Dock */}
+                    <div className="hidden md:flex items-center gap-1 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                        <ul className="flex items-center gap-2">
+                            {navLinks.map((link) => (
+                                <motion.li key={link.id} className="relative">
+                                    <motion.div
+                                        className="block rounded-xl overflow-visible group relative"
+                                        style={{ perspective: '600px' }}
+                                        whileHover="hover"
+                                        initial="initial"
                                     >
-                                        <span className={cn('w-2 h-2 rounded-full opacity-50', link.iconColor.replace('text-', 'bg-'))} />
-                                        {link.label}
-                                    </Link>
-                                ))}
-                            </div>
+                                        <motion.div
+                                            className="absolute inset-0 z-0 pointer-events-none"
+                                            variants={glowVariants}
+                                            style={{
+                                                background: link.gradient,
+                                                opacity: 0,
+                                                borderRadius: '16px',
+                                            }}
+                                        />
+                                        <motion.div>
+                                            <Link href={link.href}>
+                                                <motion.div
+                                                    className="flex items-center gap-2 px-4 py-2 relative z-10 bg-transparent text-muted-foreground transition-colors rounded-xl"
+                                                    variants={itemVariants}
+                                                    transition={sharedTransition}
+                                                    style={{
+                                                        transformStyle: 'preserve-3d',
+                                                        transformOrigin: 'center bottom',
+                                                    }}
+                                                >
+                                                    <span
+                                                        className={`text-sm font-medium transition-colors duration-300 group-hover:${link.iconColor} text-slate-600`}
+                                                    >
+                                                        {link.label}
+                                                    </span>
+                                                </motion.div>
+                                            </Link>
+                                            <Link href={link.href} className="absolute inset-0 z-20">
+                                                <motion.div
+                                                    className="flex items-center gap-2 px-4 py-2 bg-transparent text-muted-foreground group-hover:text-foreground transition-colors rounded-xl h-full w-full"
+                                                    variants={backVariants}
+                                                    transition={sharedTransition}
+                                                    style={{
+                                                        transformStyle: 'preserve-3d',
+                                                        transformOrigin: 'center top',
+                                                        rotateX: 90,
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                    }}
+                                                >
+                                                    <span
+                                                        className={`text-sm font-medium transition-colors duration-300 group-hover:${link.iconColor} text-slate-900`}
+                                                    >
+                                                        {link.label}
+                                                    </span>
+                                                </motion.div>
+                                            </Link>
+                                        </motion.div>
+                                    </motion.div>
+                                </motion.li>
+                            ))}
+                        </ul>
+                    </div>
 
-                            <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                    {/* Right Side Actions */}
+                    <div className="hidden md:flex items-center gap-3 ml-auto">
+                        {isAuthenticated ? (
+                            <>
+                                <Button
+                                    className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 rounded-full px-6 font-semibold shadow-md"
+                                    asChild
+                                >
+                                    <Link href="/events/new">Create Event</Link>
+                                </Button>
 
-                            <div className="flex flex-col gap-3">
-                                {isAuthenticated ? (
-                                    <>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
                                         <Button
-                                            className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white w-full h-12 rounded-xl text-md font-bold shadow-lg shadow-teal-500/20"
-                                            asChild
-                                            onClick={() => setMobileMenuOpen(false)}
+                                            variant="ghost"
+                                            className="relative h-9 w-9 rounded-full ring-2 ring-white hover:ring-[var(--brand-cyan)] transition-all p-0"
                                         >
-                                            <Link href="/events/new">Create Event</Link>
+                                            <Avatar className="h-9 w-9">
+                                                <AvatarImage src={user?.avatarUrl ?? undefined} alt={displayName} />
+                                                <AvatarFallback className="bg-[var(--brand-mint)] text-[var(--brand-teal)] font-bold">
+                                                    {avatarInitial}
+                                                </AvatarFallback>
+                                            </Avatar>
                                         </Button>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full h-12 rounded-xl text-md border-slate-200 bg-white/50 hover:bg-white"
-                                            asChild
-                                            onClick={() => setMobileMenuOpen(false)}
-                                        >
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                        className="w-56 backdrop-blur-xl bg-white/90"
+                                        align="end"
+                                        forceMount
+                                    >
+                                        <DropdownMenuLabel className="font-normal">
+                                            <div className="flex flex-col space-y-1">
+                                                <p className="text-sm font-medium">{displayName}</p>
+                                                <p className="text-xs text-muted-foreground">{displayEmail}</p>
+                                            </div>
+                                        </DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem asChild>
+                                            <Link href="/profile">Profile</Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild>
                                             <Link href="/dashboard">Dashboard</Link>
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Button
-                                            className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white w-full h-12 rounded-xl text-md font-bold shadow-lg shadow-teal-500/20"
-                                            asChild
-                                            onClick={() => setMobileMenuOpen(false)}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem asChild>
+                                            <Link href="/settings">Settings</Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                handleSignOut();
+                                            }}
                                         >
-                                            <Link href="/events/new">Create Event</Link>
-                                        </Button>
-                                        <Link
-                                            href="/login"
-                                            onClick={() => setMobileMenuOpen(false)}
-                                            className="w-full h-12 flex items-center justify-center rounded-xl text-md font-semibold text-slate-600 hover:bg-white/50 transition-colors"
-                                        >
-                                            Log in
-                                        </Link>
-                                    </>
-                                )}
+                                            Sign Out
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    href="/login"
+                                    className="text-sm font-semibold text-slate-800 hover:text-[var(--brand-teal)]"
+                                >
+                                    Log in
+                                </Link>
+                                <Button
+                                    className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 rounded-full px-6 font-semibold shadow-md"
+                                    asChild
+                                >
+                                    <Link href="/events/new">Create Event</Link>
+                                </Button>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Mobile Menu Toggle */}
+                    <button
+                        className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/50 transition-colors"
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    >
+                        {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                    </button>
+                </div>
+
+                {/* Mobile Menu Content (Inside the morphing pill) */}
+                <AnimatePresence>
+                    {mobileMenuOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ type: 'spring', duration: 0.5, bounce: 0.2 }}
+                            className="relative w-full z-40 overflow-hidden"
+                        >
+                            <div className="p-6 pt-2 flex flex-col gap-6">
+                                {/* Animated Background Blobs */}
+                                <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                                    <motion.div
+                                        className="absolute -top-[20%] -left-[20%] h-[200px] w-[200px] rounded-full blur-3xl opacity-40 mix-blend-multiply filter"
+                                        style={{ background: 'radial-gradient(circle, var(--brand-mint), transparent)' }}
+                                        animate={{ x: [0, 20, 0], y: [0, 10, 0], scale: [1, 1.1, 1] }}
+                                        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                                    />
+                                    <motion.div
+                                        className="absolute top-[10%] -right-[20%] h-[250px] w-[250px] rounded-full blur-3xl opacity-40 mix-blend-multiply filter"
+                                        style={{ background: 'radial-gradient(circle, var(--brand-cyan), transparent)' }}
+                                        animate={{ x: [0, -20, 0], y: [0, 20, 0], scale: [1, 1.2, 1] }}
+                                        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                                    />
+                                    <motion.div
+                                        className="absolute -bottom-[20%] left-[20%] h-[250px] w-[250px] rounded-full blur-3xl opacity-40 mix-blend-multiply filter"
+                                        style={{ background: 'radial-gradient(circle, var(--brand-teal), transparent)' }}
+                                        animate={{ x: [0, 20, 0], y: [0, -20, 0], scale: [1, 1.1, 1] }}
+                                        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+                                    />
+                                </div>
+
+                                {/* Menu Links */}
+                                <div className="relative z-10 flex flex-col gap-2 items-end">
+                                    {navLinks.map((link) => {
+                                        const isActive = pathname === link.href;
+                                        return (
+                                            <Link
+                                                key={link.id}
+                                                href={link.href}
+                                                onClick={() => setMobileMenuOpen(false)}
+                                                className="text-lg font-medium px-4 py-3 rounded-2xl transition-all flex items-center gap-3"
+                                            >
+                                                <span
+                                                    className={cn(
+                                                        'transition-colors duration-300',
+                                                        isActive ? link.iconColor : 'text-slate-600'
+                                                    )}
+                                                >
+                                                    {link.label}
+                                                </span>
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="relative z-10 h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+                                {/* Authenticated Actions */}
+                                <div className="relative z-10 flex flex-col gap-3">
+                                    {isAuthenticated ? (
+                                        <>
+                                            <Button
+                                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white w-full h-12 rounded-xl text-md font-bold shadow-lg shadow-teal-500/20"
+                                                asChild
+                                                onClick={() => setMobileMenuOpen(false)}
+                                            >
+                                                <Link href="/events/new">Create Event</Link>
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full h-12 rounded-xl text-md border-slate-200 bg-white/50 hover:bg-white"
+                                                asChild
+                                                onClick={() => setMobileMenuOpen(false)}
+                                            >
+                                                <Link href="/dashboard">Dashboard</Link>
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Button
+                                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white w-full h-12 rounded-xl text-md font-bold shadow-lg shadow-teal-500/20"
+                                                asChild
+                                                onClick={() => setMobileMenuOpen(false)}
+                                            >
+                                                <Link href="/events/new">Create Event</Link>
+                                            </Button>
+                                            <Link
+                                                href="/login"
+                                                onClick={() => setMobileMenuOpen(false)}
+                                                className="w-full h-12 flex items-center justify-center rounded-xl text-md font-semibold text-slate-600 hover:bg-white/50 transition-colors"
+                                            >
+                                                Log in
+                                            </Link>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </motion.div>
-                    </>
+                    )}
+                </AnimatePresence>
+            </motion.div>
+
+            {/* Click-outside Backdrop */}
+            <AnimatePresence>
+                {mobileMenuOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-40 bg-black/5 md:hidden"
+                        style={{ zIndex: 40 }}
+                        onClick={() => setMobileMenuOpen(false)}
+                    />
                 )}
             </AnimatePresence>
         </motion.nav>
