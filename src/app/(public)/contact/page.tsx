@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { useState } from 'react';
-import { motion } from 'motion/react';
+import { AmbientBackground } from '@/components/layout/AmbientBackground';
 
 export default function ContactPage() {
     const [formData, setFormData] = useState({
@@ -27,31 +27,11 @@ export default function ContactPage() {
     };
 
     return (
-        <div className="min-h-screen w-full relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 -mt-[var(--nav-height)] pt-[calc(var(--nav-height)+4rem)] pb-12 md:pb-24">
-            {/* Animated Background - Consistent with Login/Register */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <motion.div
-                    className="absolute -top-[10%] -left-[10%] h-[50vh] w-[50vh] rounded-full blur-3xl opacity-30 mix-blend-multiply filter"
-                    style={{ background: 'radial-gradient(circle, var(--brand-mint), transparent)' }}
-                    animate={{ x: [0, 50, 0], y: [0, 30, 0], scale: [1, 1.1, 1] }}
-                    transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-                />
-                <motion.div
-                    className="absolute top-[20%] right-[10%] h-[60vh] w-[60vh] rounded-full blur-3xl opacity-30 mix-blend-multiply filter"
-                    style={{ background: 'radial-gradient(circle, var(--brand-cyan), transparent)' }}
-                    animate={{ x: [0, -40, 0], y: [0, 50, 0], scale: [1, 1.2, 1] }}
-                    transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-                />
-                <motion.div
-                    className="absolute -bottom-[10%] left-[20%] h-[70vh] w-[70vh] rounded-full blur-3xl opacity-30 mix-blend-multiply filter"
-                    style={{ background: 'radial-gradient(circle, var(--brand-teal), transparent)' }}
-                    animate={{ x: [0, 30, 0], y: [0, -30, 0], scale: [1, 1.1, 1] }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "easeInOut", delay: 5 }}
-                />
-            </div>
+        <div className="min-h-screen w-full relative overflow-hidden gradient-mesh -mt-[var(--nav-height)] pt-[calc(var(--nav-height)+4rem)] pb-12 md:pb-24">
+            <AmbientBackground showNoise={false} />
 
             <div className="container relative z-10 flex items-center justify-center">
-                <div className="w-full max-w-2xl p-6 shadow-2xl md:p-12 backdrop-blur-2xl bg-white/30 border border-white/50 rounded-3xl ring-1 ring-white/60">
+                <div className="w-full max-w-2xl p-6 shadow-2xl md:p-12 glass-surface md:backdrop-blur-2xl border border-white/50 rounded-3xl ring-1 ring-white/60">
                     <div className="mb-8">
                         <h1 className="mb-2 text-3xl font-bold tracking-tight">Send us a message</h1>
                         <p className="text-muted-foreground">
@@ -65,7 +45,7 @@ export default function ContactPage() {
                                 <Label htmlFor="firstName" className="text-muted-foreground">First name</Label>
                                 <Input
                                     id="firstName"
-                                    className="bg-white/50 border-white/50 focus:border-[var(--brand-cyan)] backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                     placeholder="First name"
                                     value={formData.firstName}
                                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
@@ -76,7 +56,7 @@ export default function ContactPage() {
                                 <Label htmlFor="lastName" className="text-muted-foreground">Last name</Label>
                                 <Input
                                     id="lastName"
-                                    className="bg-white/50 border-white/50 focus:border-[var(--brand-cyan)] backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                     placeholder="Last name"
                                     value={formData.lastName}
                                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
@@ -91,7 +71,7 @@ export default function ContactPage() {
                                 <Input
                                     id="email"
                                     type="email"
-                                    className="bg-white/50 border-white/50 focus:border-[var(--brand-cyan)] backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                     placeholder="Email address"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -102,7 +82,7 @@ export default function ContactPage() {
                                 <Label htmlFor="subject" className="text-muted-foreground">Subject</Label>
                                 <Input
                                     id="subject"
-                                    className="bg-white/50 border-white/50 focus:border-[var(--brand-cyan)] backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                     placeholder="Subject"
                                     value={formData.subject}
                                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
@@ -115,7 +95,7 @@ export default function ContactPage() {
                             <Label htmlFor="message" className="text-muted-foreground">Message</Label>
                             <Textarea
                                 id="message"
-                                className="bg-white/50 border-white/50 focus:border-[var(--brand-cyan)] backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                 placeholder="Message"
                                 rows={6}
                                 value={formData.message}
