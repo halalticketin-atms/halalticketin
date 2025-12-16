@@ -31,7 +31,7 @@ export default function ContactPage() {
             <AmbientBackground showNoise={false} />
 
             <div className="container relative z-10 flex items-center justify-center">
-                <div className="w-full max-w-2xl p-6 shadow-2xl md:p-12 glass-surface md:backdrop-blur-2xl border border-white/50 rounded-3xl ring-1 ring-white/60">
+                <div className="w-full max-w-2xl p-6 shadow-2xl md:p-12 glass-surface md:backdrop-blur-2xl border border-white/50 rounded-3xl ring-1 ring-white/60 animate-fade-up">
                     <div className="mb-8">
                         <h1 className="mb-2 text-3xl font-bold tracking-tight">Send us a message</h1>
                         <p className="text-muted-foreground">

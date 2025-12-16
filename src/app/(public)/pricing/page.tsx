@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from 'react';
 import { Check, Info, Ticket, Zap, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +23,9 @@ const currencies: Record<Currency, { symbol: string; rate: number }> = {
     USD: { symbol: '$', rate: 1.27 },
     EUR: { symbol: '€', rate: 1.17 },
 };
+
+type FadeStyle = CSSProperties & { '--fade-delay'?: string };
+const fadeStyle = (delay: string): FadeStyle => ({ '--fade-delay': delay });
 
 export default function PricingPage() {
     const [currency, setCurrency] = useState<Currency>('GBP');
@@ -93,7 +96,7 @@ export default function PricingPage() {
 
             <div className="relative z-10 container mx-auto px-4 pt-24 md:pt-32 pb-16">
                 {/* Header */}
-                <div className="text-center mb-12 md:mb-16 space-y-4">
+                <div className="text-center mb-12 md:mb-16 space-y-4 animate-fade-up">
                     <div className="inline-block px-4 py-1.5 rounded-full bg-white/80 md:bg-white/50 md:backdrop-blur-md border border-white/60 text-teal-700 text-sm font-bold shadow-sm mb-4">
                         Transparent Pricing
                     </div>
@@ -118,7 +121,7 @@ export default function PricingPage() {
                 <div className="flex flex-col lg:flex-row gap-6 md:gap-8 max-w-6xl mx-auto mb-24">
 
                     {/* Left Column: Marketing Card */}
-                    <div className="lg:w-1/3 flex">
+                    <div className="lg:w-1/3 flex animate-fade-up" style={fadeStyle('0.1s')}>
                         <div className="w-full bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#334155] rounded-[2.5rem] p-8 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden group">
                             {/* Decorative gradients */}
                             <div className="hidden md:block absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[var(--brand-cyan)] to-transparent opacity-20 blur-3xl rounded-full transform translate-x-1/2 -translate-y-1/2 group-hover:opacity-30 transition-opacity duration-500" />
@@ -167,7 +170,7 @@ export default function PricingPage() {
                     <div className="lg:w-2/3 grid gap-6">
 
                         {/* Free Card */}
-                        <div className="glass-surface md:backdrop-blur-xl rounded-[2rem] p-6 md:p-8 shadow-lg hover:shadow-xl transition-all flex flex-col md:flex-row items-center gap-6 group relative overflow-hidden">
+                        <div className="glass-surface md:backdrop-blur-xl rounded-[2rem] p-6 md:p-8 shadow-lg hover:shadow-xl transition-all flex flex-col md:flex-row items-center gap-6 group relative overflow-hidden animate-fade-up" style={fadeStyle('0.15s')}>
                             <div className="flex-1 text-center md:text-left z-10">
                                 <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
                                     <h3 className="font-display text-2xl font-bold text-slate-800">Free</h3>
@@ -191,7 +194,7 @@ export default function PricingPage() {
                         </div>
 
                         {/* Pay Upfront Card (Highlighted) */}
-                        <div className="glass-surface md:backdrop-blur-xl border-2 border-[var(--brand-cyan)] rounded-[2rem] p-6 md:p-8 shadow-xl shadow-[var(--brand-cyan)]/10 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden scale-[1.02]">
+                        <div className="glass-surface md:backdrop-blur-xl border-2 border-[var(--brand-cyan)] rounded-[2rem] p-6 md:p-8 shadow-xl shadow-[var(--brand-cyan)]/10 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden scale-[1.02] animate-fade-up" style={fadeStyle('0.2s')}>
                             <div className="absolute top-0 right-0 bg-[var(--brand-cyan)] text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl z-20">
                                 MOST POPULAR
                             </div>
@@ -224,7 +227,7 @@ export default function PricingPage() {
                         </div>
 
                         {/* Pay As You Sell Card */}
-                        <div className="glass-surface md:backdrop-blur-xl rounded-[2rem] p-6 md:p-8 shadow-lg hover:shadow-xl transition-all flex flex-col md:flex-row items-center gap-6 group relative overflow-hidden">
+                        <div className="glass-surface md:backdrop-blur-xl rounded-[2rem] p-6 md:p-8 shadow-lg hover:shadow-xl transition-all flex flex-col md:flex-row items-center gap-6 group relative overflow-hidden animate-fade-up" style={fadeStyle('0.25s')}>
                             <div className="flex-1 text-center md:text-left z-10">
                                 <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
                                     <h3 className="font-display text-2xl font-bold text-slate-800">Pay As You Sell</h3>
@@ -258,7 +261,7 @@ export default function PricingPage() {
                 </div>
 
                 {/* Calculator Section - Redesigned */}
-                <div id="calc" ref={calculatorRef} className="max-w-5xl mx-auto">
+                <div id="calc" ref={calculatorRef} className="max-w-5xl mx-auto animate-fade-up" style={fadeStyle('0.3s')}>
                     {shouldRenderCalculator ? (
                         <>
                             <div className="text-center mb-12">

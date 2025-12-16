@@ -207,6 +207,30 @@
     border: 1px solid color-mix(in oklch, var(--border), transparent 30%);
     background-color: color-mix(in oklch, var(--card), transparent 20%);
   }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-up {
+    opacity: 0;
+    animation: fade-up 0.6s calc(var(--fade-delay, 0s)) ease forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-up {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
   .gradient-border {
     position: relative;
     background: linear-gradient(var(--background), var(--background)) padding-box,
