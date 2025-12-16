@@ -38,6 +38,7 @@ import {
 import { usePublicEvent } from '@/hooks/usePublicEvents';
 import { PublicTicketRecord } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult } from '@/lib/checkout-api';
+import { showError } from '@/lib/errors';
 
 /**
  * Format a price for display.
@@ -197,7 +198,9 @@ export default function EventDetailsPage() {
         });
 
         if (!result.success) {
-            setCheckoutError(result.error || 'Checkout failed');
+            const errorMessage = result.error || 'Checkout failed. Please try again.';
+            setCheckoutError(errorMessage);
+            showError(new Error(errorMessage));
             setIsProcessing(false);
             return;
         }
