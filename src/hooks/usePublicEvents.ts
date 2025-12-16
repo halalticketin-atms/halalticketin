@@ -15,13 +15,14 @@ export function usePublicEvents(options?: { limit?: number; organizerId?: string
     const [events, setEvents] = useState<PublicEventRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { limit, organizerId } = options ?? {};
 
     const fetch = useCallback(async () => {
         setIsLoading(true);
         setError(null);
 
         try {
-            const response = await fetchPublicEvents(options);
+            const response = await fetchPublicEvents({ limit, organizerId });
             setEvents(response.events);
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to load events';
@@ -30,7 +31,7 @@ export function usePublicEvents(options?: { limit?: number; organizerId?: string
         } finally {
             setIsLoading(false);
         }
-    }, [options?.limit, options?.organizerId]);
+    }, [limit, organizerId]);
 
     useEffect(() => {
         fetch();

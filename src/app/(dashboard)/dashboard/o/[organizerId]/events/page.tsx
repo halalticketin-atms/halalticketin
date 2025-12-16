@@ -76,7 +76,7 @@ function getLocationDisplay(event: DashboardEvent): string {
     return 'Location TBD';
 }
 
-function EventCard({ event, index, organizerId }: { event: DashboardEvent; index: number; organizerId: string | null }) {
+function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
     const config = statusConfig[event.displayStatus];
     const StatusIcon = config.icon;
     const { date, time } = formatEventDateTime(event);
@@ -291,7 +291,7 @@ export default function MyEventsPage() {
                                 </Card>
                             ) : (
                                 getFilteredEvents(tab).map((event, i) => (
-                                    <EventCard key={event.id} event={event} index={i} organizerId={organizerId} />
+                                    <EventCard key={event.id} event={event} index={i} />
                                 ))
                             )}
                         </TabsContent>

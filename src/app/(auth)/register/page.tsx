@@ -74,7 +74,7 @@ export default function RegisterPage() {
                 className="w-full max-w-md relative z-10"
             >
                 {/* Ultra-Glass Card */}
-                <Card className="backdrop-blur-2xl bg-white/40 border-white/50 shadow-2xl shadow-xl ring-1 ring-white/60">
+                <Card className="glass-surface md:backdrop-blur-2xl shadow-2xl shadow-xl ring-1 ring-white/60">
                     <CardHeader className="text-center pb-6">
                         <CardTitle className="text-3xl font-bold font-display text-slate-800">Create Account</CardTitle>
                         <CardDescription className="text-base text-slate-600 font-medium">

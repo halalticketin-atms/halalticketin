@@ -68,7 +68,7 @@ export default function PricingPage() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="inline-block px-4 py-1.5 rounded-full bg-white/50 backdrop-blur-md border border-white/60 text-teal-700 text-sm font-bold shadow-sm mb-4"
+                        className="inline-block px-4 py-1.5 rounded-full bg-white/80 md:bg-white/50 md:backdrop-blur-md border border-white/60 text-teal-700 text-sm font-bold shadow-sm mb-4"
                     >
                         Transparent Pricing
                     </motion.div>
@@ -87,7 +87,7 @@ export default function PricingPage() {
                         className="flex justify-center mt-6"
                     >
                         <Select value={currency} onValueChange={(v) => setCurrency(v as Currency)}>
-                            <SelectTrigger className="w-[120px] bg-white/60 border-white/60 backdrop-blur-sm text-slate-700 font-semibold h-10 rounded-full shadow-sm">
+                            <SelectTrigger className="w-[120px] bg-white/85 md:bg-white/60 border-white/60 md:backdrop-blur-sm text-slate-700 font-semibold h-10 rounded-full shadow-sm">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -125,19 +125,19 @@ export default function PricingPage() {
                                 </div>
                                 <div className="space-y-4 pt-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm">
+                                        <div className="w-10 h-10 rounded-full bg-white/60 md:bg-white/10 flex items-center justify-center md:backdrop-blur-sm">
                                             <Zap className="h-5 w-5 text-[var(--brand-cyan)]" />
                                         </div>
                                         <span className="font-semibold text-lg">Instant Payouts</span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm">
+                                        <div className="w-10 h-10 rounded-full bg-white/60 md:bg-white/10 flex items-center justify-center md:backdrop-blur-sm">
                                             <Shield className="h-5 w-5 text-[var(--brand-cyan)]" />
                                         </div>
                                         <span className="font-semibold text-lg">Secure Booking</span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm">
+                                        <div className="w-10 h-10 rounded-full bg-white/60 md:bg-white/10 flex items-center justify-center md:backdrop-blur-sm">
                                             <Ticket className="h-5 w-5 text-[var(--brand-cyan)]" />
                                         </div>
                                         <span className="font-semibold text-lg">Smart Ticketing</span>
@@ -161,7 +161,7 @@ export default function PricingPage() {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.4 }}
-                            className="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[2rem] p-6 md:p-8 shadow-lg hover:shadow-xl transition-all flex flex-col md:flex-row items-center gap-6 group relative overflow-hidden"
+                            className="glass-surface md:backdrop-blur-xl rounded-[2rem] p-6 md:p-8 shadow-lg hover:shadow-xl transition-all flex flex-col md:flex-row items-center gap-6 group relative overflow-hidden"
                         >
                             <div className="flex-1 text-center md:text-left z-10">
                                 <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
@@ -190,7 +190,7 @@ export default function PricingPage() {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.5 }}
-                            className="bg-white/80 backdrop-blur-xl border-2 border-[var(--brand-cyan)] rounded-[2rem] p-6 md:p-8 shadow-xl shadow-[var(--brand-cyan)]/10 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden scale-[1.02]"
+                            className="glass-surface md:backdrop-blur-xl border-2 border-[var(--brand-cyan)] rounded-[2rem] p-6 md:p-8 shadow-xl shadow-[var(--brand-cyan)]/10 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden scale-[1.02]"
                         >
                             <div className="absolute top-0 right-0 bg-[var(--brand-cyan)] text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl z-20">
                                 MOST POPULAR
@@ -228,7 +228,7 @@ export default function PricingPage() {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.6 }}
-                            className="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[2rem] p-6 md:p-8 shadow-lg hover:shadow-xl transition-all flex flex-col md:flex-row items-center gap-6 group relative overflow-hidden"
+                            className="glass-surface md:backdrop-blur-xl rounded-[2rem] p-6 md:p-8 shadow-lg hover:shadow-xl transition-all flex flex-col md:flex-row items-center gap-6 group relative overflow-hidden"
                         >
                             <div className="flex-1 text-center md:text-left z-10">
                                 <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
@@ -272,12 +272,12 @@ export default function PricingPage() {
                 >
                     <div className="text-center mb-12">
                         <h2 className="font-display text-3xl md:text-4xl font-bold text-slate-900 mb-4">Calculate your savings</h2>
-                        <p className="text-slate-600 max-w-2xl mx-auto">See exactly how much you'll pay (or save) based on your ticket price and volume.</p>
+                        <p className="text-slate-600 max-w-2xl mx-auto">See exactly how much you&rsquo;ll pay (or save) based on your ticket price and volume.</p>
                     </div>
 
                     <div className="grid md:grid-cols-12 gap-8">
                         {/* Calculator Controls */}
-                        <div className="md:col-span-7 bg-white/50 backdrop-blur-xl border border-white/60 rounded-[2.5rem] p-8 shadow-xl">
+                        <div className="md:col-span-7 glass-surface md:backdrop-blur-xl rounded-[2.5rem] p-8 shadow-xl">
 
                             {/* Model Toggle */}
                             <div className="mb-10">

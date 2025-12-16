@@ -274,7 +274,7 @@ export function EventWizard({
 
     const router = useRouter();
     const [eventId, setEventId] = useState<string | null>(initialDraft?.eventId ?? null);
-    const [eventStatus, setEventStatus] = useState<'draft' | 'published' | 'cancelled' | 'archived' | null>(initialDraft?.eventStatus ?? null);
+    const [eventStatus] = useState<'draft' | 'published' | 'cancelled' | 'archived' | null>(initialDraft?.eventStatus ?? null);
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [actionMessage, setActionMessage] = useState<string | null>(null);

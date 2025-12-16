@@ -218,13 +218,16 @@ export default function EventDetailsPage() {
         }
     };
 
+    const startDatetime = event?.startDatetime ?? null;
+    const endDatetime = event?.endDatetime ?? null;
+
     // Format event date/time
     const eventDateTime = useMemo(() => {
-        if (!event?.startDatetime) {
+        if (!startDatetime) {
             return { date: 'Date TBD', time: '', endTime: '' };
         }
-        const start = new Date(event.startDatetime);
-        const end = event.endDatetime ? new Date(event.endDatetime) : null;
+        const start = new Date(startDatetime);
+        const end = endDatetime ? new Date(endDatetime) : null;
 
         const date = start.toLocaleDateString('en-GB', {
             weekday: 'long',
@@ -241,7 +244,7 @@ export default function EventDetailsPage() {
             : '';
 
         return { date, time, endTime };
-    }, [event?.startDatetime, event?.endDatetime]);
+    }, [startDatetime, endDatetime]);
 
     // Loading state
     if (isLoading) {

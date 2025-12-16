@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Calendar, Ticket, DollarSign, Users, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
@@ -39,21 +39,24 @@ export default function DashboardPage() {
     const { events, counts } = useOrganizerEvents(organizerId);
     const [analyticsStats, setAnalyticsStats] = useState<AnalyticsStats | null>(null);
 
-    const fetchAnalytics = useCallback(async () => {
-        if (!organizerId) return;
+    const fetchAnalytics = useEffectEvent(async (currentOrganizerId: string | null) => {
+        if (!currentOrganizerId) {
+            setAnalyticsStats(null);
+            return;
+        }
         try {
             const response = await api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
-                params: { organizerId },
+                params: { organizerId: currentOrganizerId },
             });
             setAnalyticsStats(response.stats);
         } catch {
             // Silently fail - dashboard will show defaults
         }
-    }, [organizerId]);
+    });
 
     useEffect(() => {
-        void fetchAnalytics();
-    }, [fetchAnalytics]);
+        void fetchAnalytics(organizerId ?? null);
+    }, [organizerId]);
 
     const greetingName = user?.name || user?.email?.split('@')[0] || 'there';
     const welcomeTitle = user ? `Welcome back, ${greetingName}! 👋` : 'Welcome to your dashboard';

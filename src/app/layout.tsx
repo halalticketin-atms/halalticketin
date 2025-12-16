@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { DM_Sans, Geist, Geist_Mono, Sora } from 'next/font/google';
 import './globals.css';
 import { Header, ConditionalFooter } from '@/components/layout';
 import { AuthProvider } from '@/context/auth-context';
@@ -7,11 +7,25 @@ import { AuthProvider } from '@/context/auth-context';
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
+  display: 'swap',
 });
 
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
+  display: 'swap',
+});
+
+const dmSans = DM_Sans({
+  variable: '--font-dm-sans',
+  subsets: ['latin'],
+  display: 'swap',
+});
+
+const sora = Sora({
+  variable: '--font-sora',
+  subsets: ['latin'],
+  display: 'swap',
 });
 
 export const viewport = {
@@ -28,8 +42,8 @@ export const metadata: Metadata = {
     'Discover and create halal events with ease. The trusted ticketing platform for the Muslim community.',
   keywords: ['halal events', 'ticketing', 'muslim events', 'event platform'],
   icons: {
-    icon: '/images/HT-icon.png',
-    apple: '/images/HT-icon.png',
+    icon: '/images/ht-icon-180.png',
+    apple: '/images/ht-icon-180.png',
   },
 };
 
@@ -40,7 +54,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="gradient-mesh">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${sora.variable} antialiased`}
+      >
         <AuthProvider>
           <div className="flex min-h-screen flex-col">
             <Header />

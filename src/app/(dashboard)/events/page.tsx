@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, useEffectEvent, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -77,12 +77,16 @@ function BrowseEventsContent() {
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [likedEvents, setLikedEvents] = useState<Set<string>>(new Set());
 
+    const syncFiltersFromParams = useEffectEvent((query: string, location: string) => {
+        setSearchQuery(query);
+        setLocationFilter(location);
+    });
+
     // Sync state with URL params on mount
     useEffect(() => {
         const q = searchParams.get('q') || '';
         const loc = searchParams.get('location') || '';
-        setSearchQuery(q);
-        setLocationFilter(loc);
+        syncFiltersFromParams(q, loc);
     }, [searchParams]);
 
     // Transform API events to display format
@@ -227,7 +231,7 @@ function BrowseEventsContent() {
                                 </div>
                                 <h3 className="text-xl font-bold">No events found</h3>
                                 <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-                                    We couldn't find any events matching your criteria. Try adjusting your search or check back later.
+                                    We couldn&rsquo;t find any events matching your criteria. Try adjusting your search or check back later.
                                 </p>
                                 <div className="mt-8 flex gap-4 justify-center">
                                     <Button variant="outline" onClick={() => {
@@ -244,15 +248,17 @@ function BrowseEventsContent() {
                             </Card>
                         ) : (
                             <>
-                                {filteredEvents.map((event, index) => (
-                                    <motion.div
-                                        key={event.id}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.4, delay: index * 0.05 }}
-                                    >
-                                        <Link href={`/events/${event.slug || event.id}`} className="block h-full">
-                                            <Card className="group h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-[var(--brand-cyan)]/5 hover:border-[var(--brand-cyan)]/30 bg-card/50 backdrop-blur-sm">
+                                {filteredEvents.map((event, index) => {
+                                    const attendeeEstimate = 20 + ((index * 13) % 40);
+                                    return (
+                                        <motion.div
+                                            key={event.id}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.4, delay: index * 0.05 }}
+                                        >
+                                            <Link href={`/events/${event.slug || event.id}`} className="block h-full">
+                                                <Card className="group h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-[var(--brand-cyan)]/5 hover:border-[var(--brand-cyan)]/30 bg-card/50 backdrop-blur-sm">
                                                 {/* Image */}
                                                 <div className="relative aspect-[16/10] overflow-hidden">
                                                     {event.imageUrl ? (
@@ -326,7 +332,7 @@ function BrowseEventsContent() {
                                                                 ))}
                                                             </div>
                                                             <span className="text-xs text-muted-foreground font-medium">
-                                                                +{Math.floor(Math.random() * 50) + 10} going
+                                                                +{attendeeEstimate} going
                                                             </span>
                                                         </div>
                                                         <span className="text-xs font-semibold text-[var(--brand-teal)] group-hover:underline">
@@ -334,10 +340,11 @@ function BrowseEventsContent() {
                                                         </span>
                                                     </div>
                                                 </CardContent>
-                                            </Card>
-                                        </Link>
-                                    </motion.div>
-                                ))}
+                                                </Card>
+                                            </Link>
+                                        </motion.div>
+                                    );
+                                })}
                             </>
                         )}
                     </div>
