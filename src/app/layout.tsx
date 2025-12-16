@@ -15,6 +15,14 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+export const viewport = {
+  themeColor: '#ffffff',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+};
+
 export const metadata: Metadata = {
   title: "HalalTicketin' - Your Trusted Halal Event Platform",
   description:
