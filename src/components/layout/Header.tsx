@@ -373,7 +373,7 @@ export function Header() {
                                                 <span
                                                     className={cn(
                                                         'transition-colors duration-300',
-                                                        isActive ? link.iconColor : 'text-slate-600'
+                                                        isActive ? 'text-teal-500' : 'text-slate-600'
                                                     )}
                                                 >
                                                     {link.label}
