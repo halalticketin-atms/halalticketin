@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { motion, useScroll, useMotionValueEvent } from 'motion/react';
+import { motion, useScroll, useMotionValueEvent, AnimatePresence } from 'motion/react';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -17,7 +17,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from '@/components/ui/sheet';
+
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 
@@ -64,6 +64,7 @@ const sharedTransition = {
 
 export function Header() {
     const [isScrolled, setIsScrolled] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const { scrollY } = useScroll();
 
     useMotionValueEvent(scrollY, 'change', (latest) => {
@@ -304,74 +305,94 @@ export function Header() {
                 </div>
 
                 {/* Mobile Menu Toggle */}
-                <Sheet>
-                    <SheetTrigger asChild>
-                        <button className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/50 transition-colors">
-                            <Menu className="h-6 w-6" />
-                        </button>
-                    </SheetTrigger>
-                    <SheetContent side="top" className="w-full h-full bg-white/95 backdrop-blur-xl border-none p-0">
-                        <div className="flex flex-col items-center justify-center h-full gap-8 p-4 text-center">
-                            <SheetClose asChild className="absolute top-6 right-6">
-                                <button className="p-2 rounded-full bg-slate-100 hover:bg-slate-200">
-                                    <X className="h-6 w-6 text-slate-800" />
-                                </button>
-                            </SheetClose>
+                {/* Mobile Menu Toggle */}
+                <button
+                    className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/50 transition-colors"
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                >
+                    {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                </button>
 
-                            {navLinks.map((link) => (
-                                <SheetClose asChild key={link.id}>
+                {/* Mobile Menu Dropdown */}
+
+            </div>
+            <AnimatePresence>
+                {mobileMenuOpen && (
+                    <>
+                        {/* Backdrop to close on click outside */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-40 bg-black/5" // Subtle dim
+                            onClick={() => setMobileMenuOpen(false)}
+                        />
+
+                        <motion.div
+                            initial={{ opacity: 0, y: -20, scale: 0.95, filter: 'blur(10px)' }}
+                            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, y: -20, scale: 0.95, filter: 'blur(10px)' }}
+                            transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
+                            className="absolute top-[calc(100%-0.5rem)] left-0 right-0 mx-4 p-6 md:hidden z-50 rounded-3xl backdrop-blur-2xl bg-white/80 border border-white/40 shadow-xl ring-1 ring-black/5 flex flex-col gap-6"
+                        >
+                            <div className="flex flex-col gap-2">
+                                {navLinks.map((link) => (
                                     <Link
+                                        key={link.id}
                                         href={link.href}
-                                        className="text-3xl font-light text-slate-800 hover:text-[var(--brand-teal)] transition-colors font-display flex items-center gap-3"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="text-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-white/50 px-4 py-3 rounded-2xl transition-all flex items-center gap-3"
                                     >
+                                        <span className={cn('w-2 h-2 rounded-full opacity-50', link.iconColor.replace('text-', 'bg-'))} />
                                         {link.label}
                                     </Link>
-                                </SheetClose>
-                            ))}
+                                ))}
+                            </div>
 
-                            <div className="flex flex-col gap-4 mt-8 w-full max-w-sm">
+                            <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
+                            <div className="flex flex-col gap-3">
                                 {isAuthenticated ? (
                                     <>
-                                        <SheetClose asChild>
-                                            <Button
-                                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white w-full h-12 rounded-full text-lg font-bold shadow-lg"
-                                                asChild
-                                            >
-                                                <Link href="/events/new">Create Event</Link>
-                                            </Button>
-                                        </SheetClose>
-                                        <SheetClose asChild>
-                                            <Button
-                                                variant="outline"
-                                                className="w-full h-12 rounded-full text-lg border-slate-300"
-                                                asChild
-                                            >
-                                                <Link href="/dashboard">Dashboard</Link>
-                                            </Button>
-                                        </SheetClose>
+                                        <Button
+                                            className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white w-full h-12 rounded-xl text-md font-bold shadow-lg shadow-teal-500/20"
+                                            asChild
+                                            onClick={() => setMobileMenuOpen(false)}
+                                        >
+                                            <Link href="/events/new">Create Event</Link>
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full h-12 rounded-xl text-md border-slate-200 bg-white/50 hover:bg-white"
+                                            asChild
+                                            onClick={() => setMobileMenuOpen(false)}
+                                        >
+                                            <Link href="/dashboard">Dashboard</Link>
+                                        </Button>
                                     </>
                                 ) : (
                                     <>
-                                        <SheetClose asChild>
-                                            <Button
-                                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white w-full h-12 rounded-full text-lg font-bold shadow-lg"
-                                                asChild
-                                            >
-                                                <Link href="/events/new">Create Event</Link>
-                                            </Button>
-                                        </SheetClose>
-                                        <SheetClose asChild>
-                                            <Link href="/login" className="text-lg font-medium text-slate-600">
-                                                Log in
-                                            </Link>
-                                        </SheetClose>
+                                        <Button
+                                            className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white w-full h-12 rounded-xl text-md font-bold shadow-lg shadow-teal-500/20"
+                                            asChild
+                                            onClick={() => setMobileMenuOpen(false)}
+                                        >
+                                            <Link href="/events/new">Create Event</Link>
+                                        </Button>
+                                        <Link
+                                            href="/login"
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="w-full h-12 flex items-center justify-center rounded-xl text-md font-semibold text-slate-600 hover:bg-white/50 transition-colors"
+                                        >
+                                            Log in
+                                        </Link>
                                     </>
                                 )}
                             </div>
-                        </div>
-                    </SheetContent>
-                </Sheet>
-            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </motion.nav>
     );
 }
