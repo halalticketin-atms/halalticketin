@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import './globals.css';
 import { Header, ConditionalFooter } from '@/components/layout';
 import { AuthProvider } from '@/context/auth-context';
+import { ExchangeRatesProvider } from '@/hooks/useExchangeRates';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -59,14 +60,17 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${sora.variable} antialiased`}
       >
         <AuthProvider>
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1 pt-[var(--nav-safe-offset)]">{children}</main>
-            <ConditionalFooter />
-          </div>
-          <Toaster richColors position="top-center" />
+          <ExchangeRatesProvider>
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <main className="flex-1 pt-[var(--nav-safe-offset)]">{children}</main>
+              <ConditionalFooter />
+            </div>
+            <Toaster richColors position="top-center" />
+          </ExchangeRatesProvider>
         </AuthProvider>
       </body>
     </html>
   );
 }
+

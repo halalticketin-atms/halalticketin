@@ -60,6 +60,7 @@ export interface UpsertEventPayload {
     currency?: string;
     refundPolicy?: string | null;
     isListedPublicly?: boolean;
+    absorbFee?: boolean;
 }
 
 export interface TicketInputPayload {
@@ -182,6 +183,7 @@ export interface PublicEventRecord {
     onlineUrl: string | null;
     currency: string;
     organizerName: string | null;
+    absorbFee: boolean;
 }
 
 export interface PublicTicketRecord {

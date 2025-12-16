@@ -22,6 +22,7 @@ export interface DraftFormData {
   address: string;
   city: string;
   onlineUrl: string;
+  absorbFee: boolean;
 }
 
 export interface DraftTicketType {
@@ -80,6 +81,7 @@ const defaultFormData: DraftFormData = {
   address: '',
   city: '',
   onlineUrl: '',
+  absorbFee: false,
 };
 
 const createDefaultTicket = (): DraftTicketType => ({

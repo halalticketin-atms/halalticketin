@@ -60,7 +60,7 @@ function formatEventForDisplay(event: PublicEventRecord) {
         time,
         location,
         venue,
-        price: 0, // Will show "Free" or actual price when we have ticket data
+        price: null as number | null, // Price unknown from list endpoint - requires fetching ticket data
         category: 'Community', // Placeholder - events don't have categories yet
         imageUrl: event.bannerImageUrl,
         attendees: 0, // Placeholder
@@ -299,7 +299,7 @@ function BrowseEventsContent() {
                                                         {/* Price */}
                                                         <div className="absolute bottom-4 right-4">
                                                             <Badge className="bg-[var(--brand-cyan)] text-white hover:bg-[var(--brand-teal)] border-0 font-bold shadow-sm">
-                                                                {event.price === 0 ? 'Free' : `£${event.price}`}
+                                                                {event.price === null ? 'View' : event.price === 0 ? 'Free' : `£${event.price}`}
                                                             </Badge>
                                                         </div>
                                                     </div>

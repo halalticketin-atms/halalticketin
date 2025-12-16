@@ -116,9 +116,9 @@ export async function generateEventDraft({
 
   const response = await fetch(
     'https://generativelanguage.googleapis.com/v1beta/models/' +
-      encodeURIComponent(GEMINI_MODEL) +
-      ':generateContent?key=' +
-      encodeURIComponent(GEMINI_API_KEY),
+    encodeURIComponent(GEMINI_MODEL) +
+    ':generateContent?key=' +
+    encodeURIComponent(GEMINI_API_KEY),
     {
       method: 'POST',
       headers: {
@@ -250,6 +250,7 @@ function normalizeFormData(
     address: raw.address ?? '',
     city: raw.city ?? '',
     onlineUrl: raw.onlineUrl ?? '',
+    absorbFee: raw.absorbFee ?? false,
   };
 }
 

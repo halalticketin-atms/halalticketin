@@ -73,6 +73,8 @@ import {
 } from '@/lib/events-api';
 import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
 import { ApiError } from '@/lib/api';
+import { FeeBreakdown } from '@/components/fee-breakdown';
+import { PAYG_FEE_GBP } from '@/lib/fees';
 
 export const steps = [
     { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
@@ -158,6 +160,7 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         currency: DEFAULT_CURRENCY,
         refundPolicy: null,
         isListedPublicly: formData.visibility === 'public',
+        absorbFee: formData.absorbFee,
     };
 };
 
@@ -1296,6 +1299,30 @@ export function EventWizard({
                                                                     </div>
                                                                 )}
                                                             </div>
+
+                                                            {/* Platform Fee Toggle - only for paid tickets */}
+                                                            {!ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                <div className="border rounded-xl p-4 space-y-4 bg-muted/30">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <div className="space-y-0.5">
+                                                                            <Label htmlFor={`absorb-fee-${ticket.id}`} className="font-medium cursor-pointer">
+                                                                                Absorb platform fee
+                                                                            </Label>
+                                                                            <p className="text-xs text-muted-foreground">
+                                                                                {formData.absorbFee
+                                                                                    ? `You pay the £${PAYG_FEE_GBP.toFixed(2)}/ticket fee – customers see ticket price only`
+                                                                                    : `Customers pay £${PAYG_FEE_GBP.toFixed(2)}/ticket fee on top`
+                                                                                }
+                                                                            </p>
+                                                                        </div>
+                                                                        <Switch
+                                                                            id={`absorb-fee-${ticket.id}`}
+                                                                            checked={formData.absorbFee}
+                                                                            onCheckedChange={(value) => setFormData(prev => ({ ...prev, absorbFee: value }))}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </CardContent>
                                                 </Card>

@@ -15,26 +15,31 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
-
-type Currency = 'GBP' | 'USD' | 'EUR';
-
-const currencies: Record<Currency, { symbol: string; rate: number }> = {
-    GBP: { symbol: '£', rate: 1 },
-    USD: { symbol: '$', rate: 1.27 },
-    EUR: { symbol: '€', rate: 1.17 },
-};
+import {
+    PAYG_FEE_GBP,
+    MIN_CREDITS,
+    MAX_CREDITS,
+    calculateCreditPrice,
+    SUPPORTED_CURRENCIES,
+    type SupportedCurrency
+} from '@/lib/fees';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 
 type FadeStyle = CSSProperties & { '--fade-delay'?: string };
 const fadeStyle = (delay: string): FadeStyle => ({ '--fade-delay': delay });
 
 export default function PricingPage() {
-    const [currency, setCurrency] = useState<Currency>('GBP');
+    const [currency, setCurrency] = useState<SupportedCurrency>('GBP');
     const [payUpfront, setPayUpfront] = useState(true);
     const [ticketPrice, setTicketPrice] = useState(20);
     const [credits, setCredits] = useState(500);
     const [passFees, setPassFees] = useState(false);
     const calculatorRef = useRef<HTMLDivElement | null>(null);
     const [shouldRenderCalculator, setShouldRenderCalculator] = useState(false);
+
+    // Use live exchange rates from API
+    const { rates, convertFromGBP, isLoading: isLoadingRates } = useExchangeRates();
+
     const enableCalculator = useEffectEvent(() => {
         setShouldRenderCalculator(true);
     });
@@ -64,28 +69,12 @@ export default function PricingPage() {
         return () => observer.disconnect();
     }, [shouldRenderCalculator]);
 
-    // Fee Constants - aligned with backend/src/lib/fees.ts
-    const PAY_AS_YOU_GO_FEE_GBP = 0.55; // £0.55 per ticket
-
-    // Credit system constants (in EUR)
-    const MIN_CREDITS = 100;
-    const MAX_CREDITS = 20000;
-    const MAX_PRICE_EUR = 0.55; // Price at minimum credits
-    const MIN_PRICE_EUR = 0.27; // Price at maximum credits
-
-    // Calculate cost per credit based on volume - uses linear interpolation
-    const getCreditPrice = (count: number): number => {
-        if (count < MIN_CREDITS) return MAX_PRICE_EUR; // Show max price for display
-        const clampedCredits = Math.min(count, MAX_CREDITS);
-        return MAX_PRICE_EUR - (MAX_PRICE_EUR - MIN_PRICE_EUR) *
-            (clampedCredits - MIN_CREDITS) / (MAX_CREDITS - MIN_CREDITS);
-    };
-
-    const currentCreditPrice = getCreditPrice(credits);
+    // Use shared fee constants from @/lib/fees
+    const currentCreditPrice = calculateCreditPrice(credits);
     const totalCreditCost = credits * currentCreditPrice;
 
-    // Breakdown Calculations
-    const platformFee = payUpfront ? currentCreditPrice : PAY_AS_YOU_GO_FEE_GBP;
+    // Breakdown Calculations - use live rates
+    const platformFee = payUpfront ? currentCreditPrice : PAYG_FEE_GBP;
     const processingFee = (ticketPrice * 0.015) + 0.20; // Stripe approx 1.5% + 20p
     const vat = platformFee * 0.2; // 20% VAT on platform fee
 
@@ -93,8 +82,10 @@ export default function PricingPage() {
     const buyerPays = passFees ? ticketPrice + totalFees : ticketPrice;
     const youReceive = passFees ? ticketPrice : ticketPrice - totalFees;
 
-    const symbol = currencies[currency].symbol;
-    const rate = currencies[currency].rate;
+    // Get currency info from SUPPORTED_CURRENCIES and live rates
+    const currencyInfo = SUPPORTED_CURRENCIES[currency];
+    const symbol = currencyInfo?.symbol ?? currency;
+    const rate = rates[currency] ?? 1;
 
     return (
         <div className="min-h-screen relative overflow-hidden gradient-mesh -mt-[var(--nav-safe-offset)]">
@@ -110,16 +101,21 @@ export default function PricingPage() {
                         Simple pricing for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)]">everyone</span>
                     </h1>
                     <div className="flex justify-center mt-6">
-                        <Select value={currency} onValueChange={(v) => setCurrency(v as Currency)}>
-                            <SelectTrigger className="w-[120px] bg-white/85 md:bg-white/60 border-white/60 md:backdrop-blur-sm text-slate-700 font-semibold h-10 rounded-full shadow-sm">
+                        <Select value={currency} onValueChange={(v) => setCurrency(v as SupportedCurrency)}>
+                            <SelectTrigger className="w-[180px] bg-white/85 md:bg-white/60 border-white/60 md:backdrop-blur-sm text-slate-700 font-semibold h-10 rounded-full shadow-sm">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="GBP">GBP (£)</SelectItem>
-                                <SelectItem value="USD">USD ($)</SelectItem>
-                                <SelectItem value="EUR">EUR (€)</SelectItem>
+                            <SelectContent className="max-h-[300px]">
+                                {Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => (
+                                    <SelectItem key={code} value={code}>
+                                        {code} ({info.symbol})
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
+                        {isLoadingRates && (
+                            <span className="ml-2 text-xs text-slate-500 self-center">Loading rates...</span>
+                        )}
                     </div>
                 </div>
 
@@ -250,7 +246,7 @@ export default function PricingPage() {
                             <div className="text-center z-10">
                                 <div className="text-xs text-slate-500 mb-1 font-medium uppercase tracking-wide">From</div>
                                 <div className="font-display text-5xl font-bold text-slate-900 mb-1">
-                                    {symbol}{(PAY_AS_YOU_GO_FEE_GBP * rate).toFixed(2)}
+                                    {symbol}{(PAYG_FEE_GBP * rate).toFixed(2)}
                                 </div>
                                 <div className="text-sm text-slate-500">per ticket</div>
                                 <Button
