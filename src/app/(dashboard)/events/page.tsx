@@ -130,7 +130,7 @@ function BrowseEventsContent() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
+                        transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
                         className="text-center"
                     >
                         <Badge variant="secondary" className="mb-4">
@@ -148,7 +148,7 @@ function BrowseEventsContent() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.1 }}
+                        transition={{ duration: 0.6, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
                         className="mt-8 max-w-2xl mx-auto"
                     >
                         <div className="relative group">
@@ -166,7 +166,7 @@ function BrowseEventsContent() {
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.2 }}
+                        transition={{ duration: 0.6, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
                         className="mt-8 flex flex-wrap justify-center gap-2"
                     >
                         {categories.map((category) => (
@@ -176,8 +176,8 @@ function BrowseEventsContent() {
                                 size="sm"
                                 onClick={() => setSelectedCategory(category)}
                                 className={`rounded-full transition-all ${selectedCategory === category
-                                        ? 'bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white border-0 shadow-md hover:opacity-90'
-                                        : 'hover:border-[var(--brand-cyan)] hover:text-[var(--brand-teal)]'
+                                    ? 'bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white border-0 shadow-md hover:opacity-90'
+                                    : 'hover:border-[var(--brand-cyan)] hover:text-[var(--brand-teal)]'
                                     }`}
                             >
                                 {category}
@@ -259,87 +259,87 @@ function BrowseEventsContent() {
                                         >
                                             <Link href={`/events/${event.slug || event.id}`} className="block h-full">
                                                 <Card className="group h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-[var(--brand-cyan)]/5 hover:border-[var(--brand-cyan)]/30 bg-card/50 backdrop-blur-sm">
-                                                {/* Image */}
-                                                <div className="relative aspect-[16/10] overflow-hidden">
-                                                    {event.imageUrl ? (
-                                                        <Image
-                                                            src={event.imageUrl}
-                                                            alt={event.title}
-                                                            fill
-                                                            className="object-cover transition-transform duration-500 group-hover:scale-105"
-                                                        />
-                                                    ) : (
-                                                        <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-mint)]/10 to-[var(--brand-cyan)]/10 flex items-center justify-center text-muted-foreground">
-                                                            <Calendar className="h-10 w-10 opacity-20" />
-                                                        </div>
-                                                    )}
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 transition-opacity group-hover:opacity-70" />
-
-                                                    {/* Category Badge */}
-                                                    <Badge className="absolute left-4 top-4 bg-white/90 text-slate-900 hover:bg-white border-0 font-medium backdrop-blur-md shadow-sm">
-                                                        {event.category}
-                                                    </Badge>
-
-                                                    {/* Like Button */}
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            toggleLike(event.id);
-                                                        }}
-                                                        className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white backdrop-blur-md transition-all hover:bg-white hover:text-red-500 hover:scale-110"
-                                                    >
-                                                        <Heart
-                                                            className={`h-4 w-4 ${likedEvents.has(event.id)
-                                                                ? 'fill-red-500 text-red-500'
-                                                                : 'current-color'
-                                                                }`}
-                                                        />
-                                                    </button>
-
-                                                    {/* Price */}
-                                                    <div className="absolute bottom-4 right-4">
-                                                        <Badge className="bg-[var(--brand-cyan)] text-white hover:bg-[var(--brand-teal)] border-0 font-bold shadow-sm">
-                                                            {event.price === 0 ? 'Free' : `£${event.price}`}
-                                                        </Badge>
-                                                    </div>
-                                                </div>
-
-                                                {/* Content */}
-                                                <CardContent className="p-5">
-                                                    <h3 className="font-display font-bold text-lg line-clamp-1 group-hover:text-[var(--brand-teal)] transition-colors">
-                                                        {event.title}
-                                                    </h3>
-
-                                                    <div className="mt-4 space-y-2.5">
-                                                        <div className="flex items-center gap-2.5 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                                                            <Calendar className="h-4 w-4 shrink-0 text-[var(--brand-cyan)]" />
-                                                            <span className="font-medium">{event.date}{event.time && ` • ${event.time}`}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                                                            <MapPin className="h-4 w-4 shrink-0 text-[var(--brand-mint)]" />
-                                                            <span className="truncate">{event.venue || event.location}</span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="mt-5 pt-4 border-t border-border/50 flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="flex -space-x-2">
-                                                                {[...Array(3)].map((_, i) => (
-                                                                    <div key={i} className="w-6 h-6 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[8px] overflow-hidden">
-                                                                        {/* Placeholder for avatars */}
-                                                                        <Users className="h-3 w-3 text-muted-foreground opacity-50" />
-                                                                    </div>
-                                                                ))}
+                                                    {/* Image */}
+                                                    <div className="relative aspect-[16/10] overflow-hidden">
+                                                        {event.imageUrl ? (
+                                                            <Image
+                                                                src={event.imageUrl}
+                                                                alt={event.title}
+                                                                fill
+                                                                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                                            />
+                                                        ) : (
+                                                            <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-mint)]/10 to-[var(--brand-cyan)]/10 flex items-center justify-center text-muted-foreground">
+                                                                <Calendar className="h-10 w-10 opacity-20" />
                                                             </div>
-                                                            <span className="text-xs text-muted-foreground font-medium">
-                                                                +{attendeeEstimate} going
+                                                        )}
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 transition-opacity group-hover:opacity-70" />
+
+                                                        {/* Category Badge */}
+                                                        <Badge className="absolute left-4 top-4 bg-white/90 text-slate-900 hover:bg-white border-0 font-medium backdrop-blur-md shadow-sm">
+                                                            {event.category}
+                                                        </Badge>
+
+                                                        {/* Like Button */}
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                toggleLike(event.id);
+                                                            }}
+                                                            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white backdrop-blur-md transition-all hover:bg-white hover:text-red-500 hover:scale-110"
+                                                        >
+                                                            <Heart
+                                                                className={`h-4 w-4 ${likedEvents.has(event.id)
+                                                                    ? 'fill-red-500 text-red-500'
+                                                                    : 'current-color'
+                                                                    }`}
+                                                            />
+                                                        </button>
+
+                                                        {/* Price */}
+                                                        <div className="absolute bottom-4 right-4">
+                                                            <Badge className="bg-[var(--brand-cyan)] text-white hover:bg-[var(--brand-teal)] border-0 font-bold shadow-sm">
+                                                                {event.price === 0 ? 'Free' : `£${event.price}`}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Content */}
+                                                    <CardContent className="p-5">
+                                                        <h3 className="font-display font-bold text-lg line-clamp-1 group-hover:text-[var(--brand-teal)] transition-colors">
+                                                            {event.title}
+                                                        </h3>
+
+                                                        <div className="mt-4 space-y-2.5">
+                                                            <div className="flex items-center gap-2.5 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                                                                <Calendar className="h-4 w-4 shrink-0 text-[var(--brand-cyan)]" />
+                                                                <span className="font-medium">{event.date}{event.time && ` • ${event.time}`}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                                                                <MapPin className="h-4 w-4 shrink-0 text-[var(--brand-mint)]" />
+                                                                <span className="truncate">{event.venue || event.location}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-5 pt-4 border-t border-border/50 flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex -space-x-2">
+                                                                    {[...Array(3)].map((_, i) => (
+                                                                        <div key={i} className="w-6 h-6 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[8px] overflow-hidden">
+                                                                            {/* Placeholder for avatars */}
+                                                                            <Users className="h-3 w-3 text-muted-foreground opacity-50" />
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                                <span className="text-xs text-muted-foreground font-medium">
+                                                                    +{attendeeEstimate} going
+                                                                </span>
+                                                            </div>
+                                                            <span className="text-xs font-semibold text-[var(--brand-teal)] group-hover:underline">
+                                                                Details &rarr;
                                                             </span>
                                                         </div>
-                                                        <span className="text-xs font-semibold text-[var(--brand-teal)] group-hover:underline">
-                                                            Details &rarr;
-                                                        </span>
-                                                    </div>
-                                                </CardContent>
+                                                    </CardContent>
                                                 </Card>
                                             </Link>
                                         </motion.div>
