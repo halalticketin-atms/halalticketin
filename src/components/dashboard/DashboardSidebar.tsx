@@ -146,7 +146,7 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
             </Button>
 
             {/* Desktop Sidebar - Always visible, below header */}
-            <aside className="hidden lg:flex fixed top-[var(--nav-height)] left-0 h-[calc(100vh-var(--nav-height))] w-[260px] bg-card/95 backdrop-blur-sm border-r border-border flex-col z-30 shadow-sm">
+            <aside className="hidden lg:flex fixed top-[var(--nav-safe-offset)] left-0 h-[calc(100vh-var(--nav-safe-offset))] w-[260px] bg-card/95 backdrop-blur-sm border-r border-border flex-col z-30 shadow-sm">
                 {/* Main Navigation - Centered vertically */}
                 <nav className="flex-1 flex flex-col justify-center px-4 space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 mb-2">

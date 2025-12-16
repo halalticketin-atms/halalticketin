@@ -64,7 +64,7 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 md:p-6 -mt-[var(--nav-height)] pt-[calc(var(--nav-height)+3rem)] md:pt-[calc(var(--nav-height)+6rem)] relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-purple-50">
+        <div className="min-h-screen flex items-center justify-center p-4 md:p-6 -mt-[var(--nav-safe-offset)] pt-[calc(var(--nav-safe-offset)+3rem)] md:pt-[calc(var(--nav-safe-offset)+6rem)] relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-purple-50">
             <AmbientBackground showNoise={false} />
 
             <motion.div

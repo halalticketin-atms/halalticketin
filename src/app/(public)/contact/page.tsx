@@ -27,7 +27,7 @@ export default function ContactPage() {
     };
 
     return (
-        <div className="min-h-screen w-full relative overflow-hidden gradient-mesh -mt-[var(--nav-height)] pt-[calc(var(--nav-height)+4rem)] pb-12 md:pb-24">
+        <div className="min-h-screen w-full relative overflow-hidden gradient-mesh -mt-[var(--nav-safe-offset)] pt-[calc(var(--nav-safe-offset)+4rem)] pb-12 md:pb-24">
             <AmbientBackground showNoise={false} />
 
             <div className="container relative z-10 flex items-center justify-center">

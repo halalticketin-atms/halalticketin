@@ -111,7 +111,7 @@ export default function Home() {
       {/* Hero Section - extends behind header for seamless background */}
       {/* Hero Section - extends behind header for seamless background */}
       {/* Updated to 100svh to fix mobile address bar whitespace issues */}
-      <section className="relative min-h-[100svh] overflow-hidden gradient-mesh -mt-[var(--nav-height)] pt-[var(--nav-height)]">
+      <section className="relative min-h-[100svh] overflow-hidden gradient-mesh -mt-[var(--nav-safe-offset)] pt-[var(--nav-safe-offset)]">
         {/* Floating Event Cards */}
         {floatingEvents.map((event) => (
           <FloatingEventCard key={event.id} event={event} />

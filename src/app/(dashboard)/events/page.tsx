@@ -122,7 +122,7 @@ function BrowseEventsContent() {
     return (
         <div className="min-h-screen bg-muted/30">
             {/* Header Section */}
-            <div className="bg-background border-b relative overflow-hidden -mt-[var(--nav-height)] pt-[calc(var(--nav-height)+3rem)] pb-12">
+            <div className="bg-background border-b relative overflow-hidden -mt-[var(--nav-safe-offset)] pt-[calc(var(--nav-safe-offset)+3rem)] pb-12">
                 {/* Background Glow - matches Home page vibe */}
                 <div className="absolute inset-0 bg-gradient-radial from-[oklch(0.78_0.14_165/0.1)] via-transparent to-transparent opacity-50 pointer-events-none" />
 

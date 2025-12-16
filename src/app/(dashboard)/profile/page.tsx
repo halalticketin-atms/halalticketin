@@ -53,9 +53,9 @@ export default function ProfilePage() {
     const pastEvents: typeof upcomingEvents = [];
 
     return (
-        <div className="min-h-screen bg-muted/30 -mt-[var(--nav-height)]">
+        <div className="min-h-screen bg-muted/30 -mt-[var(--nav-safe-offset)]">
             {/* Profile Header */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-primary/5 pt-[var(--nav-height)]">
+            <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-primary/5 pt-[var(--nav-safe-offset)]">
                 {/* Animated Background Elements */}
                 <div className="absolute inset-0 overflow-hidden">
                     <motion.div

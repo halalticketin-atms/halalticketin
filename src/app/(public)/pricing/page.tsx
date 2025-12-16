@@ -91,7 +91,7 @@ export default function PricingPage() {
     const rate = currencies[currency].rate;
 
     return (
-        <div className="min-h-screen relative overflow-hidden gradient-mesh -mt-[var(--nav-height)]">
+        <div className="min-h-screen relative overflow-hidden gradient-mesh -mt-[var(--nav-safe-offset)]">
             <AmbientBackground />
 
             <div className="relative z-10 container mx-auto px-4 pt-24 md:pt-32 pb-16">

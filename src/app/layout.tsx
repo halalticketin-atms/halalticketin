@@ -60,7 +60,7 @@ export default function RootLayout({
         <AuthProvider>
           <div className="flex min-h-screen flex-col">
             <Header />
-            <main className="flex-1 pt-[var(--nav-height)]">{children}</main>
+            <main className="flex-1 pt-[var(--nav-safe-offset)]">{children}</main>
             <ConditionalFooter />
           </div>
         </AuthProvider>

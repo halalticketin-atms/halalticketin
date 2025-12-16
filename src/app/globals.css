@@ -48,6 +48,10 @@
   --radius: 0.75rem;
   --nav-height: 80px;
   /* Height of fixed navbar for consistent spacing */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  /* Dynamic padding for devices with display cutouts */
+  --nav-safe-offset: calc(var(--nav-height) + var(--safe-area-top));
+  /* Navbar height including safe area */
 
   /* HalalTicketin' Brand Colors - Mint to Cyan gradient */
   --background: oklch(0.99 0.005 180);
