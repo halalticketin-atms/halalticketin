@@ -120,17 +120,25 @@ export default function Home() {
         {/* Background Decorative Elements */}
         <div className="absolute inset-0 bg-noise pointer-events-none" />
 
-        {/* Animated gradient orbs - brand colors */}
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.25)] blur-3xl"
-        />
-        <motion.div
-          animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.25)] blur-3xl"
-        />
+        {/* Gradient orbs - static on mobile, animated on desktop for performance */}
+        {/* Mobile: Static orbs */}
+        <div className="md:hidden">
+          <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.2)] blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.2)] blur-3xl" />
+        </div>
+        {/* Desktop: Animated orbs */}
+        <div className="hidden md:block">
+          <motion.div
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.25)] blur-3xl"
+          />
+          <motion.div
+            animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.25)] blur-3xl"
+          />
+        </div>
 
         {/* Main Content */}
         {/* Main Content */}
