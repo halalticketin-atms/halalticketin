@@ -140,7 +140,7 @@ export function Header() {
             <motion.div
                 layout
                 className={cn(
-                    'max-w-7xl mx-auto flex flex-col transition-all duration-300',
+                    'max-w-7xl mx-auto flex flex-col transition-all duration-300 relative z-50',
                     'backdrop-blur-xl bg-white/60 border border-white/50 shadow-lg ring-1 ring-white/60 relative overflow-hidden'
                 )}
                 style={{
@@ -331,8 +331,14 @@ export function Header() {
                             className="relative w-full z-40 overflow-hidden"
                         >
                             <div className="p-6 pt-2 flex flex-col gap-6">
-                                {/* Animated Background Blobs */}
-                                <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                                {/* Animated Background Blobs with Gradient Fade-in */}
+                                <div
+                                    className="absolute inset-0 overflow-hidden pointer-events-none z-0"
+                                    style={{
+                                        maskImage: 'linear-gradient(to bottom, transparent 0%, transparent 15%, black 40%)',
+                                        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, transparent 15%, black 40%)'
+                                    }}
+                                >
                                     <motion.div
                                         className="absolute -top-[20%] -left-[20%] h-[200px] w-[200px] rounded-full blur-3xl opacity-40 mix-blend-multiply filter"
                                         style={{ background: 'radial-gradient(circle, var(--brand-mint), transparent)' }}
