@@ -346,14 +346,14 @@ export function Header() {
                                         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                                     />
                                     <motion.div
-                                        className="absolute top-[10%] -right-[20%] h-[250px] w-[250px] rounded-full blur-3xl opacity-40 mix-blend-multiply filter"
+                                        className="absolute top-[10%] -right-[20%] h-[250px] w-[250px] rounded-full blur-3xl opacity-30 mix-blend-multiply filter"
                                         style={{ background: 'radial-gradient(circle, var(--brand-cyan), transparent)' }}
                                         animate={{ x: [0, -20, 0], y: [0, 20, 0], scale: [1, 1.2, 1] }}
                                         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
                                     />
                                     <motion.div
-                                        className="absolute -bottom-[20%] left-[20%] h-[250px] w-[250px] rounded-full blur-3xl opacity-40 mix-blend-multiply filter"
-                                        style={{ background: 'radial-gradient(circle, var(--brand-teal), transparent)' }}
+                                        className="absolute -bottom-[20%] -left-[10%] h-[300px] w-[300px] rounded-full blur-3xl opacity-50 mix-blend-multiply filter"
+                                        style={{ background: 'radial-gradient(circle, var(--brand-mint), transparent)' }}
                                         animate={{ x: [0, 20, 0], y: [0, -20, 0], scale: [1, 1.1, 1] }}
                                         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 2 }}
                                     />
