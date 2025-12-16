@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 import { useAuth } from '@/context/auth-context';
-import { useOrganizers } from '@/context/organizer-context';
 
 // Animation variants from v0 design
 const itemVariants = {
@@ -74,7 +73,6 @@ export function Header() {
     const router = useRouter();
     const pathname = usePathname();
     const { user, signOut } = useAuth();
-    const { activeOrganizerId } = useOrganizers();
 
     // Navigation Items with Icons and Brand Gradients
     const navLinks = [

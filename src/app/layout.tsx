@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Header, ConditionalFooter } from '@/components/layout';
 import { AuthProvider } from '@/context/auth-context';
-import { OrganizerProvider } from '@/context/organizer-context';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -43,13 +42,11 @@ export default function RootLayout({
     <html lang="en" className="gradient-mesh">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
-          <OrganizerProvider>
-            <div className="flex min-h-screen flex-col">
-              <Header />
-              <main className="flex-1 pt-[var(--nav-height)]">{children}</main>
-              <ConditionalFooter />
-            </div>
-          </OrganizerProvider>
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            <main className="flex-1 pt-[var(--nav-height)]">{children}</main>
+            <ConditionalFooter />
+          </div>
         </AuthProvider>
       </body>
     </html>
