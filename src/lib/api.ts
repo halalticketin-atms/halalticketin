@@ -95,12 +95,21 @@ class ApiClient {
                 errorPayload = null;
             }
 
-            const message =
-                (typeof errorPayload === 'string' && errorPayload.trim()) ||
-                (typeof errorPayload === 'object' && errorPayload !== null && 'message' in errorPayload
-                    ? String((errorPayload as { message?: string }).message)
-                    : undefined) ||
-                `API Error: ${response.status} ${response.statusText}`;
+            let message = `API Error: ${response.status} ${response.statusText}`;
+
+            if (typeof errorPayload === 'object' && errorPayload !== null) {
+                // Check for standardized { error: { message } } format
+                const standardError = (errorPayload as { error?: { message?: string } }).error;
+                if (typeof standardError === 'object' && standardError?.message) {
+                    message = standardError.message;
+                }
+                // Fallback to { message } format
+                else if ('message' in errorPayload && typeof (errorPayload as { message: string }).message === 'string') {
+                    message = (errorPayload as { message: string }).message;
+                }
+            } else if (typeof errorPayload === 'string' && errorPayload.trim()) {
+                message = errorPayload.trim();
+            }
 
             throw new ApiError(message, response.status, errorPayload);
         }

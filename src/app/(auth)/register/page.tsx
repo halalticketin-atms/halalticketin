@@ -4,10 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import api, { setAuthToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
@@ -26,6 +27,7 @@ export default function RegisterPage() {
         email: '',
         password: '',
     });
+    const [wantToOrganize, setWantToOrganize] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
@@ -42,6 +44,7 @@ export default function RegisterPage() {
                 email: formData.email,
                 password: formData.password,
                 name: formData.name,
+                isOrganizer: wantToOrganize,
             });
 
             // Automatically log them in to obtain an access token
@@ -119,6 +122,28 @@ export default function RegisterPage() {
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                     className="bg-white/50 border-white/60 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/50 transition-all h-12 shadow-sm placeholder:text-slate-400 text-slate-900"
                                     required
+                                />
+                            </div>
+
+                            {/* Organizer Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-slate-50/80 rounded-xl border border-slate-200/60">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] flex items-center justify-center">
+                                        <Calendar className="h-5 w-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="organizer-toggle" className="text-slate-700 font-semibold cursor-pointer">
+                                            I want to create events
+                                        </Label>
+                                        <p className="text-xs text-slate-500">
+                                            Become an organizer and host your own events
+                                        </p>
+                                    </div>
+                                </div>
+                                <Switch
+                                    id="organizer-toggle"
+                                    checked={wantToOrganize}
+                                    onCheckedChange={setWantToOrganize}
                                 />
                             </div>
 

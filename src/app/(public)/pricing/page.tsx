@@ -64,22 +64,28 @@ export default function PricingPage() {
         return () => observer.disconnect();
     }, [shouldRenderCalculator]);
 
-    // Constants
-    const PAY_AS_YOU_GO_FEE = 0.60;
+    // Fee Constants - aligned with backend/src/lib/fees.ts
+    const PAY_AS_YOU_GO_FEE_GBP = 0.55; // £0.55 per ticket
 
-    // Calculate cost per credit based on volume (simplified logic)
-    const getCreditPrice = (count: number) => {
-        if (count >= 1000) return 0.22;
-        if (count >= 500) return 0.41;
-        if (count >= 100) return 0.45;
-        return 0.50;
+    // Credit system constants (in EUR)
+    const MIN_CREDITS = 100;
+    const MAX_CREDITS = 20000;
+    const MAX_PRICE_EUR = 0.55; // Price at minimum credits
+    const MIN_PRICE_EUR = 0.27; // Price at maximum credits
+
+    // Calculate cost per credit based on volume - uses linear interpolation
+    const getCreditPrice = (count: number): number => {
+        if (count < MIN_CREDITS) return MAX_PRICE_EUR; // Show max price for display
+        const clampedCredits = Math.min(count, MAX_CREDITS);
+        return MAX_PRICE_EUR - (MAX_PRICE_EUR - MIN_PRICE_EUR) *
+            (clampedCredits - MIN_CREDITS) / (MAX_CREDITS - MIN_CREDITS);
     };
 
     const currentCreditPrice = getCreditPrice(credits);
     const totalCreditCost = credits * currentCreditPrice;
 
     // Breakdown Calculations
-    const platformFee = payUpfront ? currentCreditPrice : PAY_AS_YOU_GO_FEE;
+    const platformFee = payUpfront ? currentCreditPrice : PAY_AS_YOU_GO_FEE_GBP;
     const processingFee = (ticketPrice * 0.015) + 0.20; // Stripe approx 1.5% + 20p
     const vat = platformFee * 0.2; // 20% VAT on platform fee
 
@@ -244,7 +250,7 @@ export default function PricingPage() {
                             <div className="text-center z-10">
                                 <div className="text-xs text-slate-500 mb-1 font-medium uppercase tracking-wide">From</div>
                                 <div className="font-display text-5xl font-bold text-slate-900 mb-1">
-                                    {symbol}{(0.60 * rate).toFixed(2)}
+                                    {symbol}{(PAY_AS_YOU_GO_FEE_GBP * rate).toFixed(2)}
                                 </div>
                                 <div className="text-sm text-slate-500">per ticket</div>
                                 <Button
@@ -322,9 +328,9 @@ export default function PricingPage() {
                                                 <Slider
                                                     value={[credits]}
                                                     onValueChange={(vals) => setCredits(vals[0])}
-                                                    min={50}
-                                                    max={5000}
-                                                    step={50}
+                                                    min={MIN_CREDITS}
+                                                    max={MAX_CREDITS}
+                                                    step={100}
                                                     className="py-4"
                                                 />
                                                 <div className="mt-4 flex justify-between items-center text-sm">
