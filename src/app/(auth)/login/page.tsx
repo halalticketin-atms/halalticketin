@@ -85,10 +85,9 @@ function LoginContent() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
                 className="w-full max-w-md relative z-10"
-                style={{ willChange: 'transform, opacity' }}
             >
                 {/* Ultra-Glass Card */}
-                <Card className="glass-surface md:backdrop-blur-2xl shadow-2xl ring-1 ring-white/60">
+                <Card className="glass-surface md:backdrop-blur-2xl shadow-2xl shadow-xl ring-1 ring-white/60">
                     <CardHeader className="text-center pb-6">
                         <CardTitle className="text-3xl font-bold font-display text-slate-800">Salaam 👋</CardTitle>
                         <CardDescription className="text-base text-slate-600 font-medium">
