@@ -15,7 +15,7 @@ import { buildDashboardPath } from '@/lib/organizer-path';
 
 export default function DashboardLandingPage() {
     const router = useRouter();
-    const { user, isLoading: authLoading } = useAuth();
+    const { user, isLoading: authLoading, isOrganizer } = useAuth();
     const {
         organizers,
         isLoading: organizersLoading,
@@ -112,6 +112,32 @@ export default function DashboardLandingPage() {
         return (
             <div className="min-h-screen bg-muted/30 flex items-center justify-center">
                 <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+            </div>
+        );
+    }
+
+    // If user is not an organizer, redirect them to browse events
+    if (!isOrganizer) {
+        return (
+            <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+                <Card className="max-w-md w-full mx-4">
+                    <CardHeader>
+                        <CardTitle className="text-2xl font-bold">Browse Events</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-muted-foreground">
+                            The organizer dashboard is for event creators. You can browse and purchase tickets for amazing halal-friendly events!
+                        </p>
+                        <div className="space-y-2">
+                            <Button asChild className="w-full">
+                                <a href="/events">Browse Events</a>
+                            </Button>
+                            <Button asChild variant="outline" className="w-full">
+                                <a href="/profile">View My Profile</a>
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         );
     }
