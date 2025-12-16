@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from 'motion/react';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -72,6 +72,7 @@ export function Header() {
     });
 
     const router = useRouter();
+    const pathname = usePathname();
     const { user, signOut } = useAuth();
     const { activeOrganizerId } = useOrganizers();
 
@@ -333,20 +334,31 @@ export function Header() {
                             animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
                             exit={{ opacity: 0, y: -20, scale: 0.95, filter: 'blur(10px)' }}
                             transition={{ type: 'spring', duration: 0.5, bounce: 0.3 }}
-                            className="absolute top-[calc(100%-0.5rem)] left-0 right-0 mx-4 p-6 md:hidden z-50 rounded-3xl backdrop-blur-2xl bg-white/80 border border-white/40 shadow-xl ring-1 ring-black/5 flex flex-col gap-6"
+                            className="absolute top-[calc(100%-0.5rem)] left-0 right-0 mx-4 p-6 md:hidden z-50 rounded-3xl backdrop-blur-3xl bg-white/20 border border-white/30 shadow-2xl ring-1 ring-white/20 flex flex-col gap-6 overflow-hidden"
                         >
+                            {/* Background Blobs */}
+                            <div className="absolute top-0 left-0 -ml-20 -mt-20 w-64 h-64 bg-[var(--brand-cyan)]/30 rounded-full blur-3xl pointer-events-none" />
+                            <div className="absolute bottom-0 right-0 -mr-20 -mb-20 w-64 h-64 bg-[var(--brand-teal)]/30 rounded-full blur-3xl pointer-events-none" />
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-[var(--brand-mint)]/20 rounded-full blur-3xl pointer-events-none" />
                             <div className="flex flex-col gap-2">
-                                {navLinks.map((link) => (
-                                    <Link
-                                        key={link.id}
-                                        href={link.href}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        className="text-lg font-medium text-slate-600 hover:text-slate-900 hover:bg-white/50 px-4 py-3 rounded-2xl transition-all flex items-center gap-3"
-                                    >
-                                        <span className={cn('w-2 h-2 rounded-full opacity-50', link.iconColor.replace('text-', 'bg-'))} />
-                                        {link.label}
-                                    </Link>
-                                ))}
+                                {navLinks.map((link) => {
+                                    const isActive = pathname === link.href;
+                                    return (
+                                        <Link
+                                            key={link.id}
+                                            href={link.href}
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className={cn(
+                                                'text-lg font-medium px-4 py-3 rounded-2xl transition-all flex items-center justify-end gap-3',
+                                                isActive
+                                                    ? 'text-[var(--brand-teal)] bg-white/50'
+                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/30'
+                                            )}
+                                        >
+                                            {link.label}
+                                        </Link>
+                                    );
+                                })}
                             </div>
 
                             <div className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
