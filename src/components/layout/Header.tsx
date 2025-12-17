@@ -305,14 +305,15 @@ export function Header() {
                     )}
                 </div>
 
-                {/* Mobile Menu Toggle */}
-                {/* Mobile Menu Toggle */}
-                <button
-                    className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/70 transition-colors bg-white/90 border border-white/80 shadow-sm"
-                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                >
-                    {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-                </button>
+                {/* Mobile Menu Toggle - Hidden on dashboard pages where we use bottom tab bar */}
+                {!pathname.startsWith('/dashboard') && (
+                    <button
+                        className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/70 transition-colors bg-white/90 border border-white/80 shadow-sm"
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    >
+                        {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                    </button>
+                )}
 
                 {/* Mobile Menu Dropdown */}
 
