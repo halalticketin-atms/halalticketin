@@ -15,7 +15,8 @@ const floatingEvents = [
   {
     id: 1,
     title: 'Community Iftar',
-    location: 'London',
+    city: 'London',
+    country: 'United Kingdom',
     color: 'bg-[oklch(0.78_0.14_165)]',  // Brand mint
     rotation: -6,
     position: { top: '15%', left: '5%' },
@@ -24,7 +25,8 @@ const floatingEvents = [
   {
     id: 2,
     title: 'Youth Conference',
-    location: 'Birmingham',
+    city: 'Doha',
+    country: 'Qatar',
     color: 'bg-[oklch(0.72_0.15_185)]',  // Brand cyan
     rotation: 4,
     position: { top: '25%', right: '8%' },
@@ -33,7 +35,8 @@ const floatingEvents = [
   {
     id: 3,
     title: 'Islamic Finance',
-    location: 'Manchester',
+    city: 'Chicago',
+    country: 'United States',
     color: 'bg-[oklch(0.65_0.12_190)]',  // Brand teal
     rotation: -3,
     position: { bottom: '30%', left: '8%' },
@@ -42,7 +45,8 @@ const floatingEvents = [
   {
     id: 4,
     title: 'Sisters Brunch',
-    location: 'Leeds',
+    city: 'Kuala Lumpur',
+    country: 'Malaysia',
     color: 'bg-[oklch(0.82_0.1_155)]',   // Light green accent
     rotation: 5,
     position: { bottom: '25%', right: '5%' },
@@ -78,14 +82,17 @@ function FloatingEventCard({
         whileHover={{ scale: 1.05, rotate: 0 }}
         className="cursor-pointer"
       >
-        <Card className="w-48 border-none shadow-2xl backdrop-blur-sm">
-          <div className={`h-2 rounded-t-lg ${event.color}`} />
+        <Card className="w-48 border-none shadow-2xl backdrop-blur-sm py-0 overflow-hidden">
+          <div className={`h-2 ${event.color}`} />
           <CardContent className="p-4">
-            <p className="font-display text-sm font-semibold">{event.title}</p>
-            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3" />
-              {event.location}
-            </p>
+            <p className="font-display text-sm font-semibold text-foreground">{event.title}</p>
+            <div className="mt-3 space-y-0.5">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-foreground/80">
+                <MapPin className="h-3 w-3 text-muted-foreground" />
+                {event.city}
+              </p>
+              <p className="ml-[18px] text-[10px] text-muted-foreground/70 uppercase tracking-wide">{event.country}</p>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
