@@ -19,6 +19,7 @@ import {
     PAYG_FEE_GBP,
     MIN_CREDITS,
     MAX_CREDITS,
+    MIN_PRICE_GBP,
     calculateCreditPrice,
     SUPPORTED_CURRENCIES,
     type SupportedCurrency
@@ -69,23 +70,25 @@ export default function PricingPage() {
         return () => observer.disconnect();
     }, [shouldRenderCalculator]);
 
-    // Use shared fee constants from @/lib/fees
-    const currentCreditPrice = calculateCreditPrice(credits);
-    const totalCreditCost = credits * currentCreditPrice;
+    // All calculations done in GBP first, then converted to display currency
+    // Credit price is now in GBP (from fees.ts)
+    const currentCreditPriceGBP = calculateCreditPrice(credits);
+    const totalCreditCostGBP = credits * currentCreditPriceGBP;
 
-    // Breakdown Calculations - use live rates
-    const platformFee = payUpfront ? currentCreditPrice : PAYG_FEE_GBP;
-    const processingFee = (ticketPrice * 0.015) + 0.20; // Stripe approx 1.5% + 20p
-    const vat = platformFee * 0.2; // 20% VAT on platform fee
-
-    const totalFees = platformFee + processingFee + vat;
-    const buyerPays = passFees ? ticketPrice + totalFees : ticketPrice;
-    const youReceive = passFees ? ticketPrice : ticketPrice - totalFees;
-
-    // Get currency info from SUPPORTED_CURRENCIES and live rates
+    // Get currency info and exchange rate
     const currencyInfo = SUPPORTED_CURRENCIES[currency];
     const symbol = currencyInfo?.symbol ?? currency;
     const rate = rates[currency] ?? 1;
+
+    // All fee calculations in GBP first - only platform fee (no processing fee shown)
+    const platformFeeGBP = payUpfront ? currentCreditPriceGBP : PAYG_FEE_GBP;
+
+    // Convert fees to display currency for breakdown
+    const platformFeeDisplay = platformFeeGBP * rate;
+
+    // Buyer pays and you receive calculations (in display currency) - only platform fee
+    const buyerPays = passFees ? ticketPrice + platformFeeDisplay : ticketPrice;
+    const youReceive = passFees ? ticketPrice : ticketPrice - platformFeeDisplay;
 
     return (
         <div className="min-h-screen relative overflow-hidden gradient-mesh -mt-[var(--nav-safe-offset)]">
@@ -124,36 +127,36 @@ export default function PricingPage() {
 
                     {/* Left Column: Marketing Card */}
                     <div className="lg:w-1/3 flex animate-fade-up" style={fadeStyle('0.1s')}>
-                        <div className="w-full bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#334155] rounded-[2.5rem] p-8 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden group">
+                        <div className="w-full bg-gradient-to-br from-[var(--brand-cyan)] via-[var(--brand-teal)] to-[#0d9488] rounded-[2.5rem] p-8 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden group">
                             {/* Decorative gradients */}
-                            <div className="hidden md:block absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[var(--brand-cyan)] to-transparent opacity-20 blur-3xl rounded-full transform translate-x-1/2 -translate-y-1/2 group-hover:opacity-30 transition-opacity duration-500" />
-                            <div className="hidden md:block absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-[var(--brand-teal)] to-transparent opacity-20 blur-3xl rounded-full transform -translate-x-1/2 translate-y-1/2 group-hover:opacity-30 transition-opacity duration-500" />
+                            <div className="hidden md:block absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-white to-transparent opacity-15 blur-3xl rounded-full transform translate-x-1/2 -translate-y-1/2 group-hover:opacity-25 transition-opacity duration-500" />
+                            <div className="hidden md:block absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-[#0f766e] to-transparent opacity-30 blur-3xl rounded-full transform -translate-x-1/2 translate-y-1/2 group-hover:opacity-40 transition-opacity duration-500" />
 
                             <div className="relative z-10 space-y-6">
                                 <div>
                                     <h2 className="font-display text-4xl md:text-5xl font-bold leading-tight mb-4">
                                         Grow your<br />events now.
                                     </h2>
-                                    <p className="text-slate-300 text-lg leading-relaxed">
+                                    <p className="text-white/90 text-lg leading-relaxed">
                                         Manage your ticket sales effortlessly. Our platform provides everything you need to create, promote, and sell out your events.
                                     </p>
                                 </div>
                                 <div className="space-y-4 pt-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-white/60 md:bg-white/10 flex items-center justify-center md:backdrop-blur-sm">
-                                            <Zap className="h-5 w-5 text-[var(--brand-cyan)]" />
+                                        <div className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                                            <Zap className="h-5 w-5 text-white" />
                                         </div>
                                         <span className="font-semibold text-lg">Instant Payouts</span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-white/60 md:bg-white/10 flex items-center justify-center md:backdrop-blur-sm">
-                                            <Shield className="h-5 w-5 text-[var(--brand-cyan)]" />
+                                        <div className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                                            <Shield className="h-5 w-5 text-white" />
                                         </div>
                                         <span className="font-semibold text-lg">Secure Booking</span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-white/60 md:bg-white/10 flex items-center justify-center md:backdrop-blur-sm">
-                                            <Ticket className="h-5 w-5 text-[var(--brand-cyan)]" />
+                                        <div className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                                            <Ticket className="h-5 w-5 text-white" />
                                         </div>
                                         <span className="font-semibold text-lg">Smart Ticketing</span>
                                     </div>
@@ -161,7 +164,7 @@ export default function PricingPage() {
                             </div>
 
                             <div className="relative z-10 mt-12">
-                                <Button size="lg" className="w-full bg-white text-slate-900 hover:bg-slate-50 font-bold rounded-xl h-14 text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all">
+                                <Button size="lg" className="w-full bg-white text-teal-700 hover:bg-white/90 font-bold rounded-xl h-14 text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all">
                                     Contact Sales
                                 </Button>
                             </div>
@@ -216,7 +219,7 @@ export default function PricingPage() {
                             <div className="text-center z-10">
                                 <div className="text-xs text-slate-500 mb-1 font-medium uppercase tracking-wide">From</div>
                                 <div className="font-display text-5xl font-bold text-slate-900 mb-1">
-                                    {symbol}{(0.22 * rate).toFixed(2)}
+                                    {symbol}{(MIN_PRICE_GBP * rate).toFixed(2)}
                                 </div>
                                 <div className="text-sm text-slate-500">per ticket</div>
                                 <Button
@@ -330,8 +333,8 @@ export default function PricingPage() {
                                                     className="py-4"
                                                 />
                                                 <div className="mt-4 flex justify-between items-center text-sm">
-                                                    <span className="text-slate-500">Unit cost: <span className="font-bold text-slate-900">{symbol}{(currentCreditPrice * rate).toFixed(2)}</span></span>
-                                                    <span className="text-[var(--brand-teal)] font-bold">Total: {symbol}{(totalCreditCost * rate).toFixed(2)} <span className="text-xs font-normal text-slate-400">+VAT</span></span>
+                                                    <span className="text-slate-500">Unit cost: <span className="font-bold text-slate-900">{symbol}{(currentCreditPriceGBP * rate).toFixed(2)}</span></span>
+                                                    <span className="text-[var(--brand-teal)] font-bold">Total: {symbol}{(totalCreditCostGBP * rate).toFixed(2)} <span className="text-xs font-normal text-slate-400">+VAT</span></span>
                                                 </div>
                                             </div>
                                         )}
@@ -348,21 +351,13 @@ export default function PricingPage() {
                                         <div className="space-y-6 flex-1">
                                             <div className="flex justify-between items-baseline pb-4 border-b border-slate-100">
                                                 <span className="text-slate-600">Ticket Price</span>
-                                                <span className="font-bold text-xl text-slate-900">{symbol}{(ticketPrice * rate).toFixed(2)}</span>
+                                                <span className="font-bold text-xl text-slate-900">{symbol}{ticketPrice.toFixed(2)}</span>
                                             </div>
 
                                             <div className="space-y-3">
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-slate-500">Halal Ticketin Fee</span>
-                                                    <span className="font-medium text-slate-700">{symbol}{(platformFee * rate).toFixed(2)}</span>
-                                                </div>
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-slate-500 flex items-center gap-1">Processing Fees <Info className="h-3 w-3" /></span>
-                                                    <span className="font-medium text-slate-700">{symbol}{(processingFee * rate).toFixed(2)}</span>
-                                                </div>
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-slate-500">VAT (on fees)</span>
-                                                    <span className="font-medium text-slate-700">{symbol}{(vat * rate).toFixed(2)}</span>
+                                                    <span className="font-medium text-slate-700">{symbol}{platformFeeDisplay.toFixed(2)}</span>
                                                 </div>
                                             </div>
 
@@ -374,16 +369,16 @@ export default function PricingPage() {
 
                                                 <div className="flex justify-between items-end mb-2">
                                                     <span className="text-slate-600 font-medium">Buyer Pays</span>
-                                                    <span className="text-2xl font-bold text-slate-900">{symbol}{((buyerPays) * rate).toFixed(2)}</span>
+                                                    <span className="text-2xl font-bold text-slate-900">{symbol}{buyerPays.toFixed(2)}</span>
                                                 </div>
                                                 <div className="flex justify-between items-end">
                                                     <span className="text-slate-600 font-medium">You Receive</span>
-                                                    <span className="text-2xl font-bold text-[var(--brand-teal)]">{symbol}{((youReceive) * rate).toFixed(2)}</span>
+                                                    <span className="text-2xl font-bold text-[var(--brand-teal)]">{symbol}{youReceive.toFixed(2)}</span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <Button className="w-full mt-8 rounded-xl bg-slate-900 text-white hover:bg-slate-800 font-bold h-12">
+                                        <Button className="w-full mt-8 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-opacity font-bold h-12 shadow-md">
                                             Get Started
                                         </Button>
                                     </div>
@@ -393,6 +388,51 @@ export default function PricingPage() {
                     ) : (
                         <div className="glass-surface rounded-[2.5rem] p-8 shadow-xl min-h-[520px] animate-pulse" />
                     )}
+                </div>
+
+                {/* Payment Processing Fees Information */}
+                <div className="max-w-4xl mx-auto mt-16 animate-fade-up" style={fadeStyle('0.35s')}>
+                    <div className="glass-surface md:backdrop-blur-xl rounded-[2rem] p-8 md:p-10 shadow-lg">
+                        <h3 className="font-display text-2xl md:text-3xl font-bold text-slate-900 mb-4">
+                            Payment Processing Fees
+                        </h3>
+                        <div className="space-y-4 text-slate-600 leading-relaxed">
+                            <p>
+                                The pricing plans above show <strong>our platform fees only</strong>. To accept payments online,
+                                you&apos;ll also need a payment processor. We&apos;ve partnered with <strong>Stripe</strong> to make
+                                this as easy and cost-effective as possible.
+                            </p>
+                            <p>
+                                Halal Ticketin does not touch or process payments directly. All transactions are securely
+                                managed via Stripe, ensuring fast, reliable, and secure transfers between your ticket buyers
+                                and your bank account.
+                            </p>
+                        </div>
+
+                        <div className="mt-8 pt-8 border-t border-slate-200">
+                            <h4 className="font-bold text-lg text-slate-800 mb-4">Example Stripe Fees</h4>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                                {[
+                                    { region: 'UK', fee: '1.5% + £0.20' },
+                                    { region: 'US', fee: '2.9% + $0.30' },
+                                    { region: 'Eurozone', fee: '1.5% + €0.25' },
+                                    { region: 'Canada', fee: '2.9% + C$0.30' },
+                                    { region: 'Australia', fee: '1.75% + A$0.30' },
+                                ].map(({ region, fee }) => (
+                                    <div key={region} className="bg-slate-50 rounded-xl p-4 text-center">
+                                        <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">{region}</div>
+                                        <div className="font-semibold text-slate-800">{fee}</div>
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-4">
+                                * Fees may vary based on card type and region.
+                                <a href="https://stripe.com/pricing" target="_blank" rel="noopener noreferrer" className="text-[var(--brand-teal)] hover:underline ml-1">
+                                    Learn more about Stripe pricing →
+                                </a>
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

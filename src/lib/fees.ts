@@ -14,9 +14,13 @@
 export const PAYG_FEE_GBP = 0.55; // £0.55 per ticket
 export const CHARITY_FEE_GBP = 0.20; // £0.20 per ticket
 
-// Credit system constants (sold in EUR, used for token-based pricing)
+// Credit system constants (sold in GBP, used for token-based pricing)
 export const MIN_CREDITS = 100;
 export const MAX_CREDITS = 20000;
+export const MAX_PRICE_GBP = 0.47; // £0.47 per credit at 100 credits (equivalent to ~€0.55)
+export const MIN_PRICE_GBP = 0.23; // £0.23 per credit at 20,000 credits (equivalent to ~€0.27)
+
+// Legacy EUR constants (kept for reference)
 export const MAX_PRICE_EUR = 0.55; // €0.55 per credit at 100 credits
 export const MIN_PRICE_EUR = 0.27; // €0.27 per credit at 20,000 credits
 
@@ -107,16 +111,16 @@ export function convertToGBP(
 }
 
 /**
- * Calculate price per credit based on volume purchased
- * Uses linear interpolation between MAX_PRICE_EUR at MIN_CREDITS
- * and MIN_PRICE_EUR at MAX_CREDITS
+ * Calculate price per credit based on volume purchased (in GBP)
+ * Uses linear interpolation between MAX_PRICE_GBP at MIN_CREDITS
+ * and MIN_PRICE_GBP at MAX_CREDITS
  */
 export function calculateCreditPrice(credits: number): number {
     if (credits < MIN_CREDITS) {
-        return MAX_PRICE_EUR; // Use max price for below minimum
+        return MAX_PRICE_GBP; // Use max price for below minimum
     }
     const clampedCredits = Math.min(credits, MAX_CREDITS);
-    return MAX_PRICE_EUR - (MAX_PRICE_EUR - MIN_PRICE_EUR) *
+    return MAX_PRICE_GBP - (MAX_PRICE_GBP - MIN_PRICE_GBP) *
         (clampedCredits - MIN_CREDITS) / (MAX_CREDITS - MIN_CREDITS);
 }
 
