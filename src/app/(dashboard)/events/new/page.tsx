@@ -47,13 +47,13 @@ function ActionTile({ title, description, icon: Icon, badge, actionLabel, gradie
   return (
     <div
       onClick={onClick}
-      className={`group relative flex flex-col justify-between overflow-hidden rounded-[2rem] p-8 text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl cursor-pointer ${gradient}`}
+      className={`group relative flex flex-col justify-between overflow-hidden rounded-[1.5rem] p-6 text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl cursor-pointer ${gradient}`}
     >
       {/* Background Texture/Noise (Optional, keeping it clean for now) */}
 
       <div className="relative z-10 flex items-start justify-between">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md">
-          <Icon className="h-7 w-7 text-white" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md">
+          <Icon className="h-6 w-6 text-white" />
         </div>
         {badge ? (
           <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur-md">
@@ -62,14 +62,14 @@ function ActionTile({ title, description, icon: Icon, badge, actionLabel, gradie
         ) : null}
       </div>
 
-      <div className="relative z-10 mt-8 space-y-2">
-        <h3 className="font-display text-2xl font-bold tracking-tight">{title}</h3>
-        <p className="text-white/90 leading-relaxed text-sm md:text-base pr-4 opacity-90 font-medium">
+      <div className="relative z-10 mt-6 space-y-1.5">
+        <h3 className="font-display text-xl font-bold tracking-tight">{title}</h3>
+        <p className="text-white/90 leading-relaxed text-sm pr-4 opacity-90 font-medium">
           {description}
         </p>
       </div>
 
-      <div className="relative z-10 mt-8 flex items-center gap-2 font-semibold text-white group-hover:gap-3 transition-all">
+      <div className="relative z-10 mt-6 flex items-center gap-2 font-semibold text-white group-hover:gap-3 transition-all">
         {actionLabel}
         <ArrowRight className="h-4 w-4" />
       </div>
