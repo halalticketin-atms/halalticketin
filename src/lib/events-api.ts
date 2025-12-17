@@ -184,6 +184,8 @@ export interface PublicEventRecord {
     currency: string;
     organizerName: string | null;
     absorbFee: boolean;
+    feeTier: string | null;
+    customBookingFee: string | null;
 }
 
 export interface PublicTicketRecord {
