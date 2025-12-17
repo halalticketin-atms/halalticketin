@@ -39,7 +39,7 @@ import { usePublicEvent } from '@/hooks/usePublicEvents';
 import { PublicTicketRecord } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult } from '@/lib/checkout-api';
 import { showError } from '@/lib/errors';
-import { PAYG_FEE_GBP, getCurrencySymbol as getFeeCurrencySymbol } from '@/lib/fees';
+import { calculatePlatformFee, getCurrencySymbol, type FeeTier } from '@/lib/fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 
 /**
@@ -110,7 +110,7 @@ export default function EventDetailsPage() {
     const params = useParams();
     const slug = Array.isArray(params?.id) ? params?.id[0] : params?.id;
     const { event, tickets, isLoading, error } = usePublicEvent(slug ?? null);
-    const { convertFromGBP } = useExchangeRates();
+    const { rates } = useExchangeRates();
 
     // Checkout state
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -182,6 +182,29 @@ export default function EventDetailsPage() {
     // Calculate final total after discount
     const discountAmount = appliedPromo?.discountAmount ? parseFloat(appliedPromo.discountAmount) : 0;
     const finalTotal = Math.max(0, totalAmount - discountAmount);
+    const currencyCode = event?.currency || tickets[0]?.currency || 'GBP';
+    const currencySymbol = getCurrencySymbol(currencyCode);
+
+    const platformFeeAmount = useMemo(() => {
+        if (!event || totalTickets === 0) {
+            return 0;
+        }
+
+        const feeTier = (event.feeTier ?? 'payg') as FeeTier;
+        const customBookingFee = event.customBookingFee ? parseFloat(event.customBookingFee) : undefined;
+
+        const { totalFee } = calculatePlatformFee({
+            feeTier,
+            ticketCount: totalTickets,
+            currency: currencyCode,
+            customBookingFee,
+            exchangeRates: rates
+        });
+
+        return event.absorbFee ? 0 : totalFee;
+    }, [event, totalTickets, currencyCode, rates]);
+
+    const grandTotal = finalTotal + platformFeeAmount;
 
     const handleProceedToCheckout = async () => {
         if (!event || !attendeeEmail || totalTickets === 0) return;
@@ -213,15 +236,6 @@ export default function EventDetailsPage() {
             window.location.href = `/checkout/success?order_id=${result.orderId}`;
         }
         // Paid orders will redirect via the handleCheckout function
-    };
-
-    const getCurrencySymbol = (currency: string) => {
-        switch (currency) {
-            case 'GBP': return '£';
-            case 'USD': return '$';
-            case 'EUR': return '€';
-            default: return currency;
-        }
     };
 
     const startDatetime = event?.startDatetime ?? null;
@@ -536,49 +550,41 @@ export default function EventDetailsPage() {
                                             <p className="text-xs text-green-600 flex items-center gap-1">
                                                 ✓ Code applied: {appliedPromo.discountType === 'percentage'
                                                     ? `${appliedPromo.discountValue}% off`
-                                                    : `${getCurrencySymbol(tickets[0]?.currency || 'GBP')}${appliedPromo.discountValue} off`}
+                                                    : `${currencySymbol}${appliedPromo.discountValue} off`}
                                             </p>
                                         )}
                                     </div>
 
-                                    {totalTickets > 0 && (() => {
-                                        // Platform fee calculation using shared constant
-                                        const unitFee = convertFromGBP(PAYG_FEE_GBP, event.currency || 'GBP');
-                                        const platformFee = event.absorbFee ? 0 : totalTickets * unitFee;
-                                        const grandTotal = finalTotal + platformFee;
-                                        const currencySymbol = getCurrencySymbol(tickets[0]?.currency || 'GBP');
-
-                                        return (
-                                            <div className="space-y-2 bg-primary/5 p-3 rounded-lg">
-                                                <div className="flex justify-between text-sm">
-                                                    <span>{totalTickets} ticket{totalTickets > 1 ? 's' : ''}</span>
-                                                    <span>{currencySymbol}{totalAmount.toFixed(2)}</span>
-                                                </div>
-                                                {appliedPromo && discountAmount > 0 && (
-                                                    <div className="flex justify-between text-sm text-green-600">
-                                                        <span>Discount ({appliedPromo.code})</span>
-                                                        <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
-                                                    </div>
-                                                )}
-                                                {platformFee > 0 && (
-                                                    <div className="flex justify-between text-sm text-muted-foreground">
-                                                        <span>Service fee</span>
-                                                        <span>{currencySymbol}{platformFee.toFixed(2)}</span>
-                                                    </div>
-                                                )}
-                                                <Separator />
-                                                <div className="flex justify-between font-semibold">
-                                                    <span>Total</span>
-                                                    <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
-                                                </div>
-                                                {event.absorbFee && finalTotal > 0 && (
-                                                    <p className="text-xs text-muted-foreground text-center">
-                                                        No additional fees! 🎉
-                                                    </p>
-                                                )}
+                                    {totalTickets > 0 && (
+                                        <div className="space-y-2 bg-primary/5 p-3 rounded-lg">
+                                            <div className="flex justify-between text-sm">
+                                                <span>{totalTickets} ticket{totalTickets > 1 ? 's' : ''}</span>
+                                                <span>{currencySymbol}{totalAmount.toFixed(2)}</span>
                                             </div>
-                                        );
-                                    })()}
+                                            {appliedPromo && discountAmount > 0 && (
+                                                <div className="flex justify-between text-sm text-green-600">
+                                                    <span>Discount ({appliedPromo.code})</span>
+                                                    <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
+                                                </div>
+                                            )}
+                                            {platformFeeAmount > 0 && (
+                                                <div className="flex justify-between text-sm text-muted-foreground">
+                                                    <span>Service fee</span>
+                                                    <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
+                                                </div>
+                                            )}
+                                            <Separator />
+                                            <div className="flex justify-between font-semibold">
+                                                <span>Total</span>
+                                                <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
+                                            </div>
+                                            {event?.absorbFee && finalTotal > 0 && (
+                                                <p className="text-xs text-muted-foreground text-center">
+                                                    No additional fees! 🎉
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
 
                                     <Button
                                         className="w-full"
@@ -632,90 +638,80 @@ export default function EventDetailsPage() {
 
                     <div className="space-y-4 py-4">
                         {/* Order Summary */}
-                        {(() => {
-                            // Platform fee calculation using shared constant
-                            const unitFee = convertFromGBP(PAYG_FEE_GBP, event.currency || 'GBP');
-                            const platformFee = event.absorbFee ? 0 : totalTickets * unitFee;
-                            const grandTotal = finalTotal + platformFee;
-                            const currencySymbol = getCurrencySymbol(tickets[0]?.currency || 'GBP');
-
-                            return (
-                                <>
-                                    <div className="space-y-2">
-                                        {cartItems.map(item => (
-                                            <div key={item.ticket.id} className="flex justify-between text-sm">
-                                                <span>{item.quantity}x {item.ticket.name}</span>
-                                                <span className="font-medium">
-                                                    {getCurrencySymbol(item.ticket.currency)}{item.subtotal.toFixed(2)}
-                                                </span>
-                                            </div>
-                                        ))}
-                                        <Separator />
-                                        {appliedPromo && discountAmount > 0 && (
-                                            <div className="flex justify-between text-sm text-green-600">
-                                                <span>Discount ({appliedPromo.code})</span>
-                                                <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
-                                            </div>
-                                        )}
-                                        {platformFee > 0 && (
-                                            <div className="flex justify-between text-sm text-muted-foreground">
-                                                <span>Service fee</span>
-                                                <span>{currencySymbol}{platformFee.toFixed(2)}</span>
-                                            </div>
-                                        )}
-                                        <div className="flex justify-between font-semibold">
-                                            <span>Total</span>
-                                            <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
-                                        </div>
-                                        {event.absorbFee && finalTotal > 0 && (
-                                            <p className="text-xs text-muted-foreground text-center">
-                                                No additional fees! 🎉
-                                            </p>
-                                        )}
+                        <>
+                            <div className="space-y-2">
+                                {cartItems.map(item => (
+                                    <div key={item.ticket.id} className="flex justify-between text-sm">
+                                        <span>{item.quantity}x {item.ticket.name}</span>
+                                        <span className="font-medium">
+                                            {getCurrencySymbol(item.ticket.currency)}{item.subtotal.toFixed(2)}
+                                        </span>
                                     </div>
-
-                                    {/* Email Input */}
-                                    <div className="space-y-2">
-                                        <Label htmlFor="email" className="flex items-center gap-2">
-                                            <Mail className="h-4 w-4" />
-                                            Email Address
-                                        </Label>
-                                        <Input
-                                            id="email"
-                                            type="email"
-                                            placeholder="your@email.com"
-                                            value={attendeeEmail}
-                                            onChange={(e) => setAttendeeEmail(e.target.value)}
-                                            disabled={isProcessing}
-                                        />
+                                ))}
+                                <Separator />
+                                {appliedPromo && discountAmount > 0 && (
+                                    <div className="flex justify-between text-sm text-green-600">
+                                        <span>Discount ({appliedPromo.code})</span>
+                                        <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
                                     </div>
+                                )}
+                                {platformFeeAmount > 0 && (
+                                    <div className="flex justify-between text-sm text-muted-foreground">
+                                        <span>Service fee</span>
+                                        <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between font-semibold">
+                                    <span>Total</span>
+                                    <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
+                                </div>
+                                {event?.absorbFee && finalTotal > 0 && (
+                                    <p className="text-xs text-muted-foreground text-center">
+                                        No additional fees! 🎉
+                                    </p>
+                                )}
+                            </div>
 
-                                    {checkoutError && (
-                                        <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-                                            {checkoutError}
-                                        </div>
-                                    )}
+                            {/* Email Input */}
+                            <div className="space-y-2">
+                                <Label htmlFor="email" className="flex items-center gap-2">
+                                    <Mail className="h-4 w-4" />
+                                    Email Address
+                                </Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    placeholder="your@email.com"
+                                    value={attendeeEmail}
+                                    onChange={(e) => setAttendeeEmail(e.target.value)}
+                                    disabled={isProcessing}
+                                />
+                            </div>
 
-                                    <Button
-                                        className="w-full"
-                                        size="lg"
-                                        onClick={handleProceedToCheckout}
-                                        disabled={!attendeeEmail || isProcessing}
-                                    >
-                                        {isProcessing ? (
-                                            <>
-                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                Processing...
-                                            </>
-                                        ) : grandTotal === 0 ? (
-                                            'Get Free Tickets'
-                                        ) : (
-                                            `Pay ${currencySymbol}${grandTotal.toFixed(2)}`
-                                        )}
-                                    </Button>
-                                </>
-                            );
-                        })()}
+                            {checkoutError && (
+                                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                                    {checkoutError}
+                                </div>
+                            )}
+
+                            <Button
+                                className="w-full"
+                                size="lg"
+                                onClick={handleProceedToCheckout}
+                                disabled={!attendeeEmail || isProcessing}
+                            >
+                                {isProcessing ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        Processing...
+                                    </>
+                                ) : grandTotal === 0 ? (
+                                    'Get Free Tickets'
+                                ) : (
+                                    `Pay ${currencySymbol}${grandTotal.toFixed(2)}`
+                                )}
+                            </Button>
+                        </>
 
                         <p className="text-xs text-center text-muted-foreground">
                             Secure checkout powered by Stripe
