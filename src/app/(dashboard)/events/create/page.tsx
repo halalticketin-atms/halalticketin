@@ -757,18 +757,18 @@ export function EventWizard({
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="space-y-6 lg:space-y-8"
+                                        className="space-y-4 lg:space-y-5"
                                     >
                                         <div>
-                                            <h2 className="font-display text-2xl lg:text-3xl font-bold">Tell us about your event</h2>
-                                            <p className="mt-1 lg:mt-2 text-muted-foreground">Start with the basics - you can always edit later</p>
+                                            <h2 className="font-display text-xl lg:text-2xl font-bold">Tell us about your event</h2>
+                                            <p className="mt-1 text-sm text-muted-foreground">Start with the basics - you can always edit later</p>
                                         </div>
 
-                                        <Card>
-                                            <CardContent className="p-4 sm:p-6 lg:p-8 space-y-5 lg:space-y-6">
+                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
                                                 {/* Event Title */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="title" className="text-base font-medium">Event Title *</Label>
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="title" className="text-sm font-medium">Event Title *</Label>
                                                     <Input
                                                         id="title"
                                                         name="title"
@@ -776,32 +776,32 @@ export function EventWizard({
                                                         value={formData.title}
                                                         onChange={handleFieldChange}
                                                         className={cn(
-                                                            'h-12 text-base',
+                                                            'h-11',
                                                             fieldErrors.title ? 'border-destructive focus-visible:ring-destructive' : '',
                                                         )}
                                                     />
                                                     {fieldErrors.title ? (
-                                                        <p className="text-sm text-destructive">{fieldErrors.title}</p>
+                                                        <p className="text-xs text-destructive">{fieldErrors.title}</p>
                                                     ) : null}
                                                 </div>
 
                                                 {/* Description */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="description" className="text-base font-medium">Description</Label>
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="description" className="text-sm font-medium">Description</Label>
                                                     <textarea
                                                         id="description"
                                                         name="description"
                                                         placeholder="What's your event about?"
                                                         value={formData.description}
                                                         onChange={handleFieldChange}
-                                                        rows={4}
-                                                        className="w-full rounded-lg border border-input bg-background px-4 py-3 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                                                        rows={3}
+                                                        className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
                                                     />
                                                 </div>
 
-                                                <div className="space-y-2">
-                                                    <Label className="text-base font-medium">Event Banner</Label>
-                                                    <div className="relative flex h-40 sm:h-48 lg:h-56 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/30 transition-all hover:border-primary/50 hover:bg-muted/50 group overflow-hidden">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-sm font-medium">Event Banner</Label>
+                                                    <div className="relative flex h-32 sm:h-40 lg:h-44 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 transition-all hover:border-primary/40 hover:bg-muted/30 group overflow-hidden">
                                                         {formData.bannerImageDataUrl ? (
                                                             <Image
                                                                 src={formData.bannerImageDataUrl}
@@ -813,25 +813,25 @@ export function EventWizard({
                                                             />
                                                         ) : (
                                                             <div className="text-center px-4">
-                                                                <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                                                                    <Upload className="h-5 w-5" />
+                                                                <div className="mx-auto mb-1.5 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-105 transition-transform">
+                                                                    <Upload className="h-4 w-4" />
                                                                 </div>
-                                                                <p className="font-medium text-sm sm:text-base">Click to upload</p>
-                                                                <p className="mt-1 text-xs text-muted-foreground">16:9 recommended</p>
+                                                                <p className="font-medium text-sm">Click to upload</p>
+                                                                <p className="mt-0.5 text-xs text-muted-foreground">16:9 recommended</p>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
 
                                                 {/* Category */}
-                                                <div className="space-y-3">
-                                                    <Label className="text-base font-medium">Category</Label>
-                                                    <div className="flex flex-wrap gap-2">
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium">Category</Label>
+                                                    <div className="flex flex-wrap gap-1.5">
                                                         {['Conference', 'Workshop', 'Iftar', 'Sisters', 'Youth', 'Charity'].map((cat) => (
                                                             <Badge
                                                                 key={cat}
                                                                 variant={formData.category === cat ? 'default' : 'outline'}
-                                                                className="cursor-pointer px-3 py-1.5 text-sm"
+                                                                className="cursor-pointer px-2.5 py-1 text-xs"
                                                                 onClick={() => setFormData({ ...formData, category: cat })}
                                                             >
                                                                 {cat}
@@ -841,20 +841,20 @@ export function EventWizard({
                                                 </div>
 
                                                 {/* Organizer */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="organizerName" className="text-base font-medium">Organizer Name</Label>
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="organizerName" className="text-sm font-medium">Organizer Name</Label>
                                                     <Input
                                                         id="organizerName"
                                                         name="organizerName"
                                                         placeholder="Who is hosting this event?"
                                                         value={formData.organizerName}
                                                         onChange={handleFieldChange}
-                                                        className="h-12 text-base"
+                                                        className="h-11"
                                                     />
                                                 </div>
 
-                                                <div className="space-y-2">
-                                                    <Label className="text-base font-medium">Visibility</Label>
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-sm font-medium">Visibility</Label>
                                                     <Select
                                                         value={formData.visibility}
                                                         onValueChange={(value) =>
@@ -864,7 +864,7 @@ export function EventWizard({
                                                             }))
                                                         }
                                                     >
-                                                        <SelectTrigger className="h-12">
+                                                        <SelectTrigger className="h-11">
                                                             <SelectValue placeholder="Choose visibility" />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -872,7 +872,7 @@ export function EventWizard({
                                                             <SelectItem value="private">Private</SelectItem>
                                                         </SelectContent>
                                                     </Select>
-                                                    <p className="text-xs text-muted-foreground">
+                                                    <p className="text-[11px] text-muted-foreground">
                                                         {formData.visibility === 'public'
                                                             ? 'Published events will appear on your public listings.'
                                                             : 'Private events stay hidden and require direct links.'}
@@ -891,16 +891,16 @@ export function EventWizard({
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="space-y-6 lg:space-y-8"
+                                        className="space-y-4 lg:space-y-5"
                                     >
                                         <div>
-                                            <h2 className="font-display text-2xl lg:text-3xl font-bold">When and where?</h2>
-                                            <p className="mt-1 lg:mt-2 text-muted-foreground">Help attendees find your event</p>
+                                            <h2 className="font-display text-xl lg:text-2xl font-bold">When and where?</h2>
+                                            <p className="mt-1 text-sm text-muted-foreground">Help attendees find your event</p>
                                         </div>
 
                                         {/* Date & Time Card */}
-                                        <Card>
-                                            <CardContent className="p-4 sm:p-6 lg:p-8 space-y-5 lg:space-y-6">
+                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2 text-primary">
                                                         <Calendar className="h-5 w-5" />
@@ -923,7 +923,7 @@ export function EventWizard({
 
                                                 {/* Date Selection */}
                                                 <div className="grid gap-4 sm:grid-cols-2">
-                                                    <div className="space-y-2">
+                                                    <div className="space-y-1.5">
                                                         <Label htmlFor="date">{formData.isMultiDay ? 'Start Date *' : 'Date *'}</Label>
                                                         <Input
                                                             id="date"
@@ -932,16 +932,16 @@ export function EventWizard({
                                                             value={formData.date}
                                                             onChange={handleFieldChange}
                                                             className={cn(
-                                                                'h-12',
+                                                                'h-11',
                                                                 fieldErrors.date ? 'border-destructive focus-visible:ring-destructive' : '',
                                                             )}
                                                         />
                                                         {fieldErrors.date ? (
-                                                            <p className="text-sm text-destructive">{fieldErrors.date}</p>
+                                                            <p className="text-xs text-destructive">{fieldErrors.date}</p>
                                                         ) : null}
                                                     </div>
                                                     {formData.isMultiDay && (
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-1.5">
                                                             <Label htmlFor="endDate">End Date *</Label>
                                                             <Input
                                                                 id="endDate"
@@ -950,20 +950,20 @@ export function EventWizard({
                                                                 value={formData.endDate}
                                                                 onChange={handleFieldChange}
                                                                 className={cn(
-                                                                    'h-12',
+                                                                    'h-11',
                                                                     fieldErrors.endDate ? 'border-destructive focus-visible:ring-destructive' : '',
                                                                 )}
                                                             />
                                                             {fieldErrors.endDate ? (
-                                                                <p className="text-sm text-destructive">{fieldErrors.endDate}</p>
+                                                                <p className="text-xs text-destructive">{fieldErrors.endDate}</p>
                                                             ) : null}
                                                         </div>
                                                     )}
                                                 </div>
 
                                                 {/* Time Selection */}
-                                                <div className="grid gap-4 sm:grid-cols-2">
-                                                    <div className="space-y-2">
+                                                <div className="grid gap-3 sm:grid-cols-2">
+                                                    <div className="space-y-1.5">
                                                         <Label htmlFor="startTime">Start Time *</Label>
                                                         <Input
                                                             id="startTime"
@@ -972,15 +972,15 @@ export function EventWizard({
                                                             value={formData.startTime}
                                                             onChange={handleFieldChange}
                                                             className={cn(
-                                                                'h-12',
+                                                                'h-11',
                                                                 fieldErrors.startTime ? 'border-destructive focus-visible:ring-destructive' : '',
                                                             )}
                                                         />
                                                         {fieldErrors.startTime ? (
-                                                            <p className="text-sm text-destructive">{fieldErrors.startTime}</p>
+                                                            <p className="text-xs text-destructive">{fieldErrors.startTime}</p>
                                                         ) : null}
                                                     </div>
-                                                    <div className="space-y-2">
+                                                    <div className="space-y-1.5">
                                                         <Label htmlFor="endTime">End Time</Label>
                                                         <Input
                                                             id="endTime"
@@ -989,24 +989,24 @@ export function EventWizard({
                                                             value={formData.endTime}
                                                             onChange={handleFieldChange}
                                                             className={cn(
-                                                                'h-12',
+                                                                'h-11',
                                                                 fieldErrors.endTime ? 'border-destructive focus-visible:ring-destructive' : '',
                                                             )}
                                                         />
                                                         {fieldErrors.endTime ? (
-                                                            <p className="text-sm text-destructive">{fieldErrors.endTime}</p>
+                                                            <p className="text-xs text-destructive">{fieldErrors.endTime}</p>
                                                         ) : null}
                                                     </div>
                                                 </div>
 
                                                 {/* Timezone */}
-                                                <div className="space-y-2">
+                                                <div className="space-y-1.5">
                                                     <Label>Timezone</Label>
                                                     <Select
                                                         value={formData.timezone}
                                                         onValueChange={(value) => setFormData({ ...formData, timezone: value })}
                                                     >
-                                                        <SelectTrigger className="h-12">
+                                                        <SelectTrigger className="h-11">
                                                             <SelectValue placeholder="Select timezone" />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -1027,8 +1027,8 @@ export function EventWizard({
                                         </Card>
 
                                         {/* Location Card */}
-                                        <Card>
-                                            <CardContent className="p-4 sm:p-6 lg:p-8 space-y-5 lg:space-y-6">
+                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
                                                 <div className="flex items-center gap-2 text-primary">
                                                     <MapPin className="h-5 w-5" />
                                                     <h3 className="font-semibold">Location</h3>
@@ -1047,13 +1047,13 @@ export function EventWizard({
                                                                 setFormData({ ...formData, locationType: type.value as typeof formData.locationType });
                                                                 clearFieldErrors('venue', 'onlineUrl');
                                                             }}
-                                                            className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 sm:p-4 transition-all ${formData.locationType === type.value
-                                                                ? 'border-primary bg-primary/5'
-                                                                : 'border-border hover:border-primary/50'
+                                                            className={`flex flex-col items-center gap-1 rounded-lg border border-border/60 p-2.5 sm:p-3 transition-all ${formData.locationType === type.value
+                                                                ? 'border-primary/70 bg-primary/5'
+                                                                : 'hover:border-primary/40'
                                                                 }`}
                                                         >
-                                                            <type.icon className={`h-5 w-5 ${formData.locationType === type.value ? 'text-primary' : 'text-muted-foreground'}`} />
-                                                            <span className={`text-xs sm:text-sm font-medium ${formData.locationType === type.value ? 'text-primary' : ''}`}>
+                                                            <type.icon className={`h-4 w-4 ${formData.locationType === type.value ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                            <span className={`text-xs font-medium ${formData.locationType === type.value ? 'text-primary' : ''}`}>
                                                                 {type.label}
                                                             </span>
                                                         </button>
@@ -1062,8 +1062,8 @@ export function EventWizard({
 
                                                 {/* Physical Location Fields */}
                                                 {(formData.locationType === 'physical' || formData.locationType === 'hybrid') && (
-                                                    <div className="space-y-4 pt-2">
-                                                        <div className="space-y-2">
+                                                    <div className="space-y-3 pt-1.5">
+                                                        <div className="space-y-1.5">
                                                             <Label htmlFor="venue">Venue Name *</Label>
                                                             <Input
                                                                 id="venue"
@@ -1072,16 +1072,16 @@ export function EventWizard({
                                                                 value={formData.venue}
                                                                 onChange={handleFieldChange}
                                                                 className={cn(
-                                                                    'h-12',
+                                                                    'h-11',
                                                                     fieldErrors.venue ? 'border-destructive focus-visible:ring-destructive' : '',
                                                                 )}
                                                             />
                                                             {fieldErrors.venue ? (
-                                                                <p className="text-sm text-destructive">{fieldErrors.venue}</p>
+                                                                <p className="text-xs text-destructive">{fieldErrors.venue}</p>
                                                             ) : null}
                                                         </div>
-                                                        <div className="grid gap-4 sm:grid-cols-2">
-                                                            <div className="space-y-2">
+                                                        <div className="grid gap-3 sm:grid-cols-2">
+                                                            <div className="space-y-1.5">
                                                                 <Label htmlFor="address">Address</Label>
                                                                 <Input
                                                                     id="address"
@@ -1089,10 +1089,10 @@ export function EventWizard({
                                                                     placeholder="Street address"
                                                                     value={formData.address}
                                                                     onChange={handleFieldChange}
-                                                                    className="h-12"
+                                                                    className="h-11"
                                                                 />
                                                             </div>
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 <Label htmlFor="city">City</Label>
                                                                 <Input
                                                                     id="city"
@@ -1100,13 +1100,13 @@ export function EventWizard({
                                                                     placeholder="City"
                                                                     value={formData.city}
                                                                     onChange={handleFieldChange}
-                                                                    className="h-12"
+                                                                    className="h-11"
                                                                 />
                                                             </div>
                                                         </div>
 
                                                         {/* Map Placeholder */}
-                                                        <div className="h-32 sm:h-40 rounded-xl bg-muted flex items-center justify-center border">
+                                                        <div className="h-24 sm:h-28 rounded-lg bg-muted/40 flex items-center justify-center border border-border/50">
                                                             <div className="text-center text-muted-foreground">
                                                                 <MapPin className="h-6 w-6 mx-auto mb-1" />
                                                                 <p className="text-xs sm:text-sm">Map preview</p>
@@ -1117,7 +1117,7 @@ export function EventWizard({
 
                                                 {/* Online URL */}
                                                 {(formData.locationType === 'online' || formData.locationType === 'hybrid') && (
-                                                    <div className="space-y-2 pt-2">
+                                                    <div className="space-y-1.5 pt-1.5">
                                                         <Label htmlFor="onlineUrl">Event Link</Label>
                                                         <Input
                                                             id="onlineUrl"
@@ -1126,12 +1126,12 @@ export function EventWizard({
                                                             value={formData.onlineUrl}
                                                             onChange={handleFieldChange}
                                                             className={cn(
-                                                                'h-12',
+                                                                'h-11',
                                                                 fieldErrors.onlineUrl ? 'border-destructive focus-visible:ring-destructive' : '',
                                                             )}
                                                         />
                                                         {fieldErrors.onlineUrl ? (
-                                                            <p className="text-sm text-destructive">{fieldErrors.onlineUrl}</p>
+                                                            <p className="text-xs text-destructive">{fieldErrors.onlineUrl}</p>
                                                         ) : null}
                                                     </div>
                                                 )}
@@ -1148,21 +1148,21 @@ export function EventWizard({
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="space-y-6 lg:space-y-8"
+                                        className="space-y-4 lg:space-y-5"
                                     >
                                         <div>
-                                            <h2 className="font-display text-2xl lg:text-3xl font-bold">Set up your tickets</h2>
-                                            <p className="mt-1 lg:mt-2 text-muted-foreground">Create one or more ticket types</p>
+                                            <h2 className="font-display text-xl lg:text-2xl font-bold">Set up your tickets</h2>
+                                            <p className="mt-1 text-sm text-muted-foreground">Create one or more ticket types</p>
                                             {fieldErrors.tickets ? (
-                                                <p className="text-sm text-destructive mt-2">{fieldErrors.tickets}</p>
+                                                <p className="text-xs text-destructive mt-1.5">{fieldErrors.tickets}</p>
                                             ) : null}
                                         </div>
 
                                         {/* Ticket Cards */}
-                                        <div className="space-y-4">
+                                        <div className="space-y-3">
                                             {tickets.map((ticket, index) => (
-                                                <Card key={ticket.id}>
-                                                    <CardContent className="p-4 sm:p-6 lg:p-8">
+                                                <Card key={ticket.id} className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+                                                    <CardContent className="p-3 sm:p-4 lg:p-5">
                                                         <div className="flex items-center justify-between mb-4">
                                                             <div className="flex items-center gap-2 text-primary">
                                                                 <Ticket className="h-5 w-5" />
@@ -1192,23 +1192,23 @@ export function EventWizard({
                                                             </div>
                                                         </div>
 
-                                                        <div className="space-y-5">
+                                                        <div className="space-y-4">
                                                             {/* Name and Price */}
-                                                            <div className="grid gap-4 sm:grid-cols-2">
-                                                                <div className="space-y-2">
+                                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                                <div className="space-y-1.5">
                                                                     <Label>Ticket Name *</Label>
                                                                     <Input
                                                                         placeholder="e.g., General Admission"
                                                                         value={ticket.name}
                                                                         onChange={(e) => updateTicket(ticket.id, 'name', e.target.value)}
-                                                                        className="h-12"
+                                                                        className="h-11"
                                                                     />
                                                                 </div>
-                                                                <div className="space-y-2">
+                                                                <div className="space-y-1.5">
                                                                     <div className="flex items-center justify-between">
                                                                         <Label>Price ({getCurrencySymbol(formData.currency)})</Label>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Label htmlFor={`free-${ticket.id}`} className="text-sm text-muted-foreground">Free</Label>
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <Label htmlFor={`free-${ticket.id}`} className="text-xs text-muted-foreground">Free</Label>
                                                                             <Switch
                                                                                 id={`free-${ticket.id}`}
                                                                                 checked={ticket.isFree}
@@ -1224,48 +1224,48 @@ export function EventWizard({
                                                                         placeholder="0.00"
                                                                         value={ticket.price}
                                                                         onChange={(e) => updateTicket(ticket.id, 'price', e.target.value)}
-                                                                        className="h-12"
+                                                                        className="h-11"
                                                                         disabled={ticket.isFree}
                                                                     />
                                                                 </div>
                                                             </div>
 
                                                             {/* Quantity and Max Per Order */}
-                                                            <div className="grid gap-4 sm:grid-cols-2">
-                                                                <div className="space-y-2">
+                                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                                <div className="space-y-1.5">
                                                                     <Label>Total Quantity</Label>
                                                                     <div className="flex items-center gap-2">
                                                                         <Button
                                                                             variant="outline"
                                                                             size="icon"
-                                                                            className="h-12 w-12 shrink-0"
+                                                                            className="h-10 w-10 shrink-0"
                                                                             onClick={() => updateTicket(ticket.id, 'quantity', Math.max(1, ticket.quantity - 10))}
                                                                         >
-                                                                            <Minus className="h-4 w-4" />
+                                                                            <Minus className="h-3.5 w-3.5" />
                                                                         </Button>
                                                                         <Input
                                                                             type="number"
                                                                             value={ticket.quantity}
                                                                             onChange={(e) => updateTicket(ticket.id, 'quantity', parseInt(e.target.value) || 0)}
-                                                                            className="h-12 text-center font-semibold"
+                                                                            className="h-10 text-center font-semibold"
                                                                         />
                                                                         <Button
                                                                             variant="outline"
                                                                             size="icon"
-                                                                            className="h-12 w-12 shrink-0"
+                                                                            className="h-10 w-10 shrink-0"
                                                                             onClick={() => updateTicket(ticket.id, 'quantity', ticket.quantity + 10)}
                                                                         >
-                                                                            <Plus className="h-4 w-4" />
+                                                                            <Plus className="h-3.5 w-3.5" />
                                                                         </Button>
                                                                     </div>
                                                                 </div>
-                                                                <div className="space-y-2">
+                                                                <div className="space-y-1.5">
                                                                     <Label>Max Per Order</Label>
                                                                     <Input
                                                                         type="number"
                                                                         value={ticket.maxPerOrder}
                                                                         onChange={(e) => updateTicket(ticket.id, 'maxPerOrder', parseInt(e.target.value) || 1)}
-                                                                        className="h-12"
+                                                                        className="h-10"
                                                                         min={1}
                                                                         max={ticket.quantity}
                                                                     />
@@ -1273,11 +1273,11 @@ export function EventWizard({
                                                             </div>
 
                                                             {/* Early Bird Toggle */}
-                                                            <div className="border rounded-xl p-4 space-y-4">
+                                                            <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">
                                                                 <div className="flex items-center justify-between">
                                                                     <div className="flex items-center gap-2">
-                                                                        <Sparkles className="h-4 w-4 text-amber-500" />
-                                                                        <Label className="font-medium">Early Bird Pricing</Label>
+                                                                        <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                                                                        <Label className="text-sm font-medium">Early Bird Pricing</Label>
                                                                     </div>
                                                                     <Switch
                                                                         checked={ticket.hasEarlyBird}
@@ -1285,24 +1285,24 @@ export function EventWizard({
                                                                     />
                                                                 </div>
                                                                 {ticket.hasEarlyBird && (
-                                                                    <div className="grid gap-4 sm:grid-cols-2">
-                                                                        <div className="space-y-2">
-                                                                            <Label className="text-sm">Early Bird Price ({getCurrencySymbol(formData.currency)})</Label>
+                                                                    <div className="grid gap-3 sm:grid-cols-2">
+                                                                        <div className="space-y-1.5">
+                                                                            <Label className="text-xs">Early Bird Price ({getCurrencySymbol(formData.currency)})</Label>
                                                                             <Input
                                                                                 type="number"
                                                                                 placeholder="Discounted price"
                                                                                 value={ticket.earlyBirdPrice}
                                                                                 onChange={(e) => updateTicket(ticket.id, 'earlyBirdPrice', e.target.value)}
-                                                                                className="h-10"
+                                                                                className="h-9"
                                                                             />
                                                                         </div>
-                                                                        <div className="space-y-2">
-                                                                            <Label className="text-sm">Ends On</Label>
+                                                                        <div className="space-y-1.5">
+                                                                            <Label className="text-xs">Ends On</Label>
                                                                             <Input
                                                                                 type="date"
                                                                                 value={ticket.earlyBirdEndDate}
                                                                                 onChange={(e) => updateTicket(ticket.id, 'earlyBirdEndDate', e.target.value)}
-                                                                                className="h-10"
+                                                                                className="h-9"
                                                                             />
                                                                         </div>
                                                                     </div>
@@ -1311,13 +1311,13 @@ export function EventWizard({
 
                                                             {/* Platform Fee Toggle - only for paid tickets */}
                                                             {!ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
-                                                                <div className="border rounded-xl p-4 space-y-4 bg-muted/30">
+                                                                <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">
                                                                     <div className="flex items-center justify-between">
                                                                         <div className="space-y-0.5">
-                                                                            <Label htmlFor={`absorb-fee-${ticket.id}`} className="font-medium cursor-pointer">
+                                                                            <Label htmlFor={`absorb-fee-${ticket.id}`} className="text-sm font-medium cursor-pointer">
                                                                                 Absorb platform fee
                                                                             </Label>
-                                                                            <p className="text-xs text-muted-foreground">
+                                                                            <p className="text-[11px] text-muted-foreground">
                                                                                 {formData.absorbFee
                                                                                     ? `You pay the ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}/ticket fee – customers see ticket price only`
                                                                                     : `Customers pay ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}/ticket fee on top`
@@ -1341,16 +1341,16 @@ export function EventWizard({
                                         {/* Add Ticket Button */}
                                         <Button
                                             variant="outline"
-                                            className="w-full h-12 border-dashed"
+                                            className="w-full h-10 border-dashed border-border/60 text-sm"
                                             onClick={addTicket}
                                         >
-                                            <Plus className="mr-2 h-4 w-4" />
+                                            <Plus className="mr-1.5 h-3.5 w-3.5" />
                                             Add Another Ticket
                                         </Button>
 
                                         {/* Promo Codes Section */}
-                                        <Card className="mt-6">
-                                            <CardContent className="p-4 sm:p-6 lg:p-8">
+                                        <Card className="mt-4 border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+                                            <CardContent className="p-3 sm:p-4 lg:p-5">
                                                 <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-2 text-primary">
                                                         <Tag className="h-5 w-5" />
