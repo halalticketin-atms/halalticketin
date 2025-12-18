@@ -186,7 +186,15 @@ export default function SettingsPage() {
                             <CardHeader>
                                 <CardTitle>Meta Pixel Tracking</CardTitle>
                                 <CardDescription>
-                                    Allow your Meta ads to measure views, checkouts, and purchases on your event + checkout pages (after attendees consent to marketing cookies).
+                                    Allow your Meta ads to measure views, checkouts, and purchases on your event + checkout pages (after attendees accept optional cookies).{' '}
+                                    <a
+                                        href="https://www.facebook.com/business/help/952192354843755"
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-primary underline"
+                                    >
+                                        Learn how to verify events in Meta Events Manager
+                                    </a>.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">

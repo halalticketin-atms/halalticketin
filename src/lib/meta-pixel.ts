@@ -45,7 +45,14 @@ const ensureBaseSnippet = () => {
         script.async = true;
         script.src = META_PIXEL_SRC;
         const firstScript = document.getElementsByTagName('script')[0];
-        firstScript?.parentNode?.insertBefore(script, firstScript);
+
+        if (firstScript?.parentNode) {
+            firstScript.parentNode.insertBefore(script, firstScript);
+        } else if (document.head) {
+            document.head.appendChild(script);
+        } else if (document.body) {
+            document.body.appendChild(script);
+        }
     }
 };
 

@@ -77,6 +77,21 @@ function CheckoutSuccessContent() {
         if (!orderStatus || orderStatus.status !== 'completed' || !orderStatus.metaPixelId) {
             return;
         }
+
+        const storageKey = orderStatus.orderId ? `ht_purchase_tracked:${orderStatus.orderId}` : null;
+
+        if (typeof window !== 'undefined' && storageKey) {
+            try {
+                const alreadyTracked = window.localStorage.getItem(storageKey) === '1';
+                if (alreadyTracked) {
+                    purchaseTrackedRef.current = true;
+                    return;
+                }
+            } catch {
+                // Ignore storage errors (e.g., disabled cookies) and continue
+            }
+        }
+
         if (purchaseTrackedRef.current) {
             return;
         }
@@ -100,6 +115,14 @@ function CheckoutSuccessContent() {
 
         track(orderStatus.metaPixelId, 'Purchase', purchasePayload, eventOptions);
         purchaseTrackedRef.current = true;
+
+        if (typeof window !== 'undefined' && storageKey) {
+            try {
+                window.localStorage.setItem(storageKey, '1');
+            } catch {
+                // Ignore storage errors
+            }
+        }
     }, [orderStatus, track]);
 
     if (loading) {
