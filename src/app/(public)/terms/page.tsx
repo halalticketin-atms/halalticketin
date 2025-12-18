@@ -97,7 +97,7 @@ export default function TermsPage() {
           >
             <p className="text-sm uppercase tracking-wide text-muted-foreground">Halal Ticketin’</p>
             <h1 className="font-display text-4xl font-bold mt-3">Terms and Conditions</h1>
-            <p className="mt-3 text-muted-foreground">Effective Date: [Insert Date]</p>
+            <p className="mt-3 text-muted-foreground">Effective Date: 18 December 2025</p>
             <p className="mt-2 text-sm text-muted-foreground">
               Need help?{' '}
               <Link href="/contact" className="text-primary underline">

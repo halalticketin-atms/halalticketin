@@ -87,7 +87,7 @@ const sections: Section[] = [
       'Withdraw consent where processing relies on consent.',
       'Request data portability to another service.',
     ],
-    note: 'Submit requests by contacting us at [Insert Email Address].',
+    note: 'Submit requests by contacting us at info@halalticketin.com.',
   },
   {
     title: '9. Cookies',
@@ -115,7 +115,7 @@ const sections: Section[] = [
   {
     title: '13. Contact Us',
     body:
-      'If you have questions about this policy or wish to exercise your data rights, contact us at: [Insert Email Address].',
+      'If you have questions about this policy or wish to exercise your data rights, contact us at: info@halalticketin.com.',
   },
   {
     title: '14. Regional Disclosures',
@@ -138,7 +138,7 @@ export default function PrivacyPolicyPage() {
           >
             <p className="text-sm uppercase tracking-wide text-muted-foreground">Halal Ticketin’</p>
             <h1 className="font-display text-4xl font-bold mt-3">Privacy Policy</h1>
-            <p className="mt-3 text-muted-foreground">Effective Date: [Insert Date]</p>
+            <p className="mt-3 text-muted-foreground">Effective Date: 18 December 2025</p>
             <p className="mt-2 text-sm text-muted-foreground">
               Need assistance?{' '}
               <Link href="/contact" className="text-primary underline">
