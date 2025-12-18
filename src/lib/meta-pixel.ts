@@ -102,3 +102,26 @@ export const trackPixelEvent = (
         fbq('trackSingle', pixelId, eventName);
     }
 };
+
+export const teardownMetaPixel = () => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    initializedPixels.clear();
+    snippetInserted = false;
+
+    if (typeof document !== 'undefined') {
+        const scripts = document.querySelectorAll<HTMLScriptElement>(`script[src="${META_PIXEL_SRC}"]`);
+        scripts.forEach((script) => script.parentNode?.removeChild(script));
+    }
+
+    try {
+        window.fbq?.('consent', 'revoke');
+    } catch {
+        // Ignore fbq errors during teardown.
+    }
+
+    delete window.fbq;
+    delete window._fbq;
+};

@@ -3,12 +3,24 @@
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Card, CardContent } from '@/components/ui/card';
+import { BROWSER_STORAGE_ITEMS, FIRST_PARTY_COOKIES, MARKETING_TECHNOLOGIES } from '@/lib/consent-inventory';
 
 type Section = {
   title: string;
   body: string | string[];
   note?: string;
 };
+
+const consentCookie = FIRST_PARTY_COOKIES[0];
+const consentCookieName = consentCookie?.name ?? 'ht_consent';
+const consentCookieRetention = consentCookie?.retention ?? '180 days';
+const browserStorageSummary =
+  BROWSER_STORAGE_ITEMS.length > 0
+    ? BROWSER_STORAGE_ITEMS.map((item) => `${item.key} (${item.storage})`).join(', ')
+    : 'our essential browser storage keys';
+const marketingToolsSummary =
+  MARKETING_TECHNOLOGIES.length > 0 ? MARKETING_TECHNOLOGIES.map((tech) => tech.name).join(', ') : 'any marketing tooling we enable';
+const marketingRunsWhen = MARKETING_TECHNOLOGIES[0]?.runsWhen ?? 'Optional scripts only load after you accept marketing storage.';
 
 const sections: Section[] = [
   {
@@ -79,8 +91,11 @@ const sections: Section[] = [
   },
   {
     title: '9. Cookies',
-    body:
-      'We use cookies and similar technologies to improve user experience and understand site usage. Optional cookies may include organiser-owned Meta Pixels so they can measure ad performance; these only run after you choose “Accept all cookies.” You can switch back to “Essential only” any time via the “Manage cookies” link in our footer. For full details, see our Cookie Policy.',
+    body: [
+      `We set a single first-party cookie (${consentCookieName}) to remember whether you opted into marketing storage. It expires after ${consentCookieRetention}.`,
+      `Essential browser storage keys (${browserStorageSummary}) power secure login tokens, organiser selection, exchange-rate caching, draft recovery, and purchase deduplication. We do not store auth cookies.`,
+      `${marketingToolsSummary} only loads on public and checkout pages ${marketingRunsWhen}. You can switch back to “Essential only” at any time via the “Manage cookies” link in our footer. See our Cookie Policy for the full inventory.`
+    ],
   },
   {
     title: '10. Children’s Data',

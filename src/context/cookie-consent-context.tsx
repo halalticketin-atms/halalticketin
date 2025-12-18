@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useTransition } from 'react';
 import { readConsentPreferences, writeConsentPreferences, type ConsentPreferences } from '@/lib/consent';
+import { useOptionalAuth } from '@/context/auth-context';
+import api from '@/lib/api';
 
 interface CookieConsentContextValue {
     marketingAllowed: boolean;
@@ -28,6 +30,10 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
     const [showDetailedPreferences, setShowDetailedPreferences] = useState(false);
     const [, startTransition] = useTransition();
 
+    const auth = useOptionalAuth();
+    const isLoggedIn = auth?.user !== null && auth?.user !== undefined;
+
+    // Load consent from cookie on mount
     useEffect(() => {
         const stored = readConsentPreferences();
         startTransition(() => {
@@ -43,6 +49,29 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         });
     }, [startTransition]);
 
+    // Sync consent from DB when user logs in (DB takes precedence if set)
+    useEffect(() => {
+        if (!isLoggedIn) return;
+
+        const syncFromDb = async () => {
+            try {
+                const response = await api.get<{ marketing: boolean; updatedAt: string | null }>('/api/v1/auth/me/consent');
+                // If DB has a consent record, use it
+                if (response.updatedAt !== null) {
+                    const dbPreferences = { marketing: response.marketing };
+                    setPreferences(dbPreferences);
+                    setHasResponded(true);
+                    setIsBannerVisible(false);
+                    writeConsentPreferences(dbPreferences); // Sync cookie with DB
+                }
+            } catch {
+                // Silently fail - cookie consent still works
+            }
+        };
+
+        syncFromDb();
+    }, [isLoggedIn]);
+
     const persistPreferences = useCallback((marketing: boolean) => {
         const next = { marketing };
         setPreferences(next);
@@ -50,7 +79,14 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         setIsBannerVisible(false);
         setShowDetailedPreferences(false);
         writeConsentPreferences(next);
-    }, []);
+
+        // If logged in, also sync to database
+        if (isLoggedIn) {
+            api.patch('/api/v1/auth/me/consent', { marketing }).catch(() => {
+                // Silently fail - cookie consent still works as fallback
+            });
+        }
+    }, [isLoggedIn]);
 
     const acceptAll = useCallback(() => {
         persistPreferences(true);

@@ -68,26 +68,28 @@ export function CookieBanner() {
 
     return (
         <>
-            <div className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-md rounded-2xl border bg-background/95 p-6 shadow-2xl backdrop-blur">
+            <div className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-2xl border bg-background/95 p-5 shadow-2xl backdrop-blur">
                 <div className="flex flex-col gap-4">
                     <div>
-                        <h3 className="text-lg font-semibold">Cookies &amp; Privacy</h3>
+                        <h3 className="text-base font-semibold">This website uses cookies</h3>
                         <p className="text-sm text-muted-foreground">
-                            We use essential cookies to make Halal Ticketin&apos; work. Optional cookies (like organisers&apos;
-                            Meta Pixels) only run after you accept them, helping organisers measure their ads.
+                            We use cookies to improve your experience and help organisers measure their ads.
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                        <Button variant="outline" onClick={rejectMarketing} className="flex-1 sm:flex-none">
-                            Essential only
+                    <div className="flex items-center gap-3">
+                        <Button onClick={acceptAll} size="sm" className="flex-1">
+                            Accept all
                         </Button>
-                        <Button onClick={acceptAll} className="flex-1 sm:flex-none">
-                            Accept all cookies
-                        </Button>
-                        <Button variant="ghost" onClick={handleOpenPreferences} className="flex-1 sm:flex-none">
-                            Manage preferences
+                        <Button variant="outline" onClick={rejectMarketing} size="sm" className="flex-1">
+                            Necessary only
                         </Button>
                     </div>
+                    <button
+                        onClick={handleOpenPreferences}
+                        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors self-start"
+                    >
+                        Manage settings
+                    </button>
                 </div>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
@@ -95,15 +97,16 @@ export function CookieBanner() {
                     <DialogHeader>
                         <DialogTitle>Cookie preferences</DialogTitle>
                         <DialogDescription>
-                            Toggle marketing cookies whenever you like. Essential cookies are always active.
+                            Essential storage is always active. Enable marketing storage only if you want organisers to
+                            measure ads with Meta Pixels.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <div className="flex items-center justify-between rounded-lg border p-4">
                             <div>
-                                <p className="font-medium">Marketing cookies</p>
+                                <p className="font-medium">Marketing storage</p>
                                 <p className="text-sm text-muted-foreground">
-                                    Allow organisers&apos; Meta Pixels so they can optimise their ads.
+                                    Allows organisers to measure their ad performance using Meta Pixel.
                                 </p>
                             </div>
                             <Switch checked={pendingMarketing} onCheckedChange={setPendingMarketing} />

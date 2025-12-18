@@ -34,7 +34,7 @@ function CheckoutSuccessContent() {
     const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const { track } = useMetaPixel();
+    const { track, canTrack } = useMetaPixel();
     const purchaseTrackedRef = useRef(false);
     const purchaseEventIdRef = useRef<string | null>(null);
 
@@ -74,7 +74,7 @@ function CheckoutSuccessContent() {
     }, [orderId, sessionId]);
 
     useEffect(() => {
-        if (!orderStatus || orderStatus.status !== 'completed' || !orderStatus.metaPixelId) {
+        if (!orderStatus || orderStatus.status !== 'completed' || !orderStatus.metaPixelId || !canTrack) {
             return;
         }
 
@@ -123,7 +123,7 @@ function CheckoutSuccessContent() {
                 // Ignore storage errors
             }
         }
-    }, [orderStatus, track]);
+    }, [canTrack, orderStatus, track]);
 
     if (loading) {
         return (

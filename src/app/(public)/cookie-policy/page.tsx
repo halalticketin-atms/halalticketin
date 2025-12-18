@@ -1,114 +1,158 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Card, CardContent } from '@/components/ui/card';
+import { BROWSER_STORAGE_ITEMS, FIRST_PARTY_COOKIES, MARKETING_TECHNOLOGIES, getConsentCategory } from '@/lib/consent-inventory';
 
-const sections = [
-  {
-    title: '1. Introduction',
-    body:
-      'This Cookie Policy explains how Halal Ticketin’ (“we”, “us”, or “our”) uses cookies and similar technologies when you visit our website or use our services. It describes what cookies are, why we use them, and your rights to control their use.',
-  },
-  {
-    title: '2. What Are Cookies?',
-    body:
-      'Cookies are small data files stored on your device (computer, smartphone, tablet) when you visit a website. They help the website recognize your device and remember information about your visit.',
-  },
-  {
-    title: '3. Types of Cookies We Use',
-    body: [
-      'Strictly Necessary Cookies: Required for the operation of our website (e.g., log-in, checkout security, Stripe payments). These run regardless of consent.',
-      'Optional Cookies (performance/analytics/advertising): Only active after you choose “Accept all cookies.” They can include organiser-owned Meta Pixels so they can measure ad performance, plus any analytics we enable to improve the product.',
-      'Functionality Cookies: Remember preferences and enhance the experience. Some may be necessary (e.g., saved organizer context), others are optional and only set after consent.',
-      'Third-Party Cookies: Set by third parties providing services through our site (e.g., Stripe, help widgets, Meta). We only load optional third-party scripts after you opt in via the banner.',
-    ],
-  },
-  {
-    title: '4. Why We Use Cookies',
-    body: [
-      'Maintain secure login sessions.',
-      'Facilitate secure payments through third-party processors (e.g., Stripe).',
-      'Analyze website usage and performance (if analytics are enabled and you have accepted optional cookies).',
-      'Give event organisers the option to measure their Meta ads using their own Meta Pixels (only after you accept optional cookies).',
-      'Enhance site functionality and user experience.',
-    ],
-  },
-  {
-    title: '5. Your Choices',
-    body:
-      'You can manage or disable cookies through your browser settings. However, disabling certain cookies may affect the functionality of our services. You can also opt out of optional cookies at any time by using the “Manage cookies” link in our site footer (choose “Essential only” or “Accept all cookies”). Some third parties also offer their own opt-out mechanisms.',
-  },
-  {
-    title: '6. Consent',
-    body:
-      'Where required by law, we request your consent before placing cookies (e.g., through a cookie banner or preferences tool).',
-  },
-  {
-    title: '7. Updates to This Policy',
-    body:
-      'We may update this Cookie Policy from time to time. Any changes will be posted on this page with a revised effective date.',
-  },
-  {
-    title: '8. Contact Us',
-    body:
-      'If you have any questions about our use of cookies, please contact us at: [Insert Email Address]',
-  },
+type Section = {
+    title: string;
+    content: ReactNode;
+};
+
+const essentialCategory = getConsentCategory('essential');
+const marketingCategory = getConsentCategory('marketing');
+const essentialBrowserStorage = BROWSER_STORAGE_ITEMS.filter((item) => item.categoryId === 'essential');
+
+const sections: Section[] = [
+    {
+        title: '1. Storage categories we use',
+        content: (
+            <div className="space-y-3 text-muted-foreground">
+                <p>{essentialCategory?.description ?? "Essential storage keeps Halal Ticketin' working across visits."}</p>
+                <p>{marketingCategory?.description ?? 'Marketing storage only runs after you opt in.'}</p>
+            </div>
+        )
+    },
+    {
+        title: '2. Our first-party cookie',
+        content: (
+            <ul className="space-y-4">
+                {FIRST_PARTY_COOKIES.map((cookie) => (
+                    <li key={cookie.name} className="rounded-lg border p-4">
+                        <p className="font-medium">{cookie.name}</p>
+                        <p className="text-sm text-muted-foreground">{cookie.purpose}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Retention: {cookie.retention}</p>
+                    </li>
+                ))}
+                {FIRST_PARTY_COOKIES.length === 0 && (
+                    <li className="text-sm text-muted-foreground">We do not set any first-party cookies.</li>
+                )}
+            </ul>
+        )
+    },
+    {
+        title: '3. Essential browser storage (non-cookie)',
+        content: (
+            <ul className="space-y-4">
+                {essentialBrowserStorage.map((item) => (
+                    <li key={item.key} className="rounded-lg border p-4">
+                        <p className="font-medium">
+                            {item.storage} — {item.key}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{item.purpose}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{item.retention}</p>
+                    </li>
+                ))}
+            </ul>
+        )
+    },
+    {
+        title: '4. Optional marketing technology',
+        content: (
+            <ul className="space-y-4">
+                {MARKETING_TECHNOLOGIES.map((tech) => (
+                    <li key={tech.name} className="rounded-lg border p-4">
+                        <p className="font-medium">{tech.name}</p>
+                        <p className="text-sm text-muted-foreground">{tech.purpose}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Provider: {tech.provider} &middot; Host: {tech.host}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Cookies placed: {tech.cookies.join(', ')} &middot; {tech.runsWhen}
+                        </p>
+                    </li>
+                ))}
+                {MARKETING_TECHNOLOGIES.length === 0 && (
+                    <li className="text-sm text-muted-foreground">
+                        We are not loading any optional marketing scripts right now.
+                    </li>
+                )}
+            </ul>
+        )
+    },
+    {
+        title: '5. Your choices',
+        content: (
+            <div className="space-y-3 text-muted-foreground">
+                <p>
+                    You can opt into or out of marketing storage anytime via the “Manage cookies” link in our site
+                    footer. Choosing “Essential only” keeps Halal Ticketin running but blocks Meta Pixels.
+                </p>
+                <p>
+                    You can also clear cookies or browser storage inside your browser settings. Doing so will sign you
+                    out and reset cached data described above.
+                </p>
+            </div>
+        )
+    },
+    {
+        title: '6. Updates & contact',
+        content: (
+            <div className="space-y-3 text-muted-foreground">
+                <p>We update this policy whenever our storage inventory changes and will note the new effective date.</p>
+                <p>
+                    Questions? Email us at info@halalticketin.com or{' '}
+                    <Link href="/contact" className="text-primary underline">
+                        contact support
+                    </Link>
+                    .
+                </p>
+            </div>
+        )
+    }
 ];
 
 export default function CookiePolicyPage() {
-  return (
-    <div className="min-h-screen bg-muted/30">
-      <div className="border-b bg-background">
-        <div className="container py-10 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <p className="text-sm uppercase tracking-wide text-muted-foreground">Halal Ticketin’</p>
-            <h1 className="font-display text-4xl font-bold mt-3">Cookie Policy</h1>
-            <p className="mt-3 text-muted-foreground">
-              Effective Date: [Insert Date]
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Need more details?{' '}
-              <Link href="/contact" className="text-primary underline">
-                Contact us
-              </Link>
-              .
-            </p>
-          </motion.div>
-        </div>
-      </div>
+    return (
+        <div className="min-h-screen bg-muted/30">
+            <div className="border-b bg-background">
+                <div className="container py-10 text-center">
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+                        <p className="text-sm uppercase tracking-wide text-muted-foreground">Halal Ticketin’</p>
+                        <h1 className="font-display text-4xl font-bold mt-3">Cookie Policy</h1>
+                        <p className="mt-3 text-muted-foreground">Effective Date: 18 December 2025</p>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            Need more details?{' '}
+                            <Link href="/contact" className="text-primary underline">
+                                Contact us
+                            </Link>
+                            .
+                        </p>
+                    </motion.div>
+                </div>
+            </div>
 
-      <div className="container py-10">
-        <div className="mx-auto max-w-3xl space-y-6">
-          {sections.map((section, index) => (
-            <motion.div
-              key={section.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05, duration: 0.4 }}
-            >
-              <Card className="border-border/50">
-                <CardContent className="p-6 space-y-4">
-                  <h2 className="text-xl font-semibold">{section.title}</h2>
-                  {Array.isArray(section.body) ? (
-                    <ul className="list-disc space-y-2 pl-6 text-muted-foreground">
-                      {section.body.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-muted-foreground leading-relaxed">{section.body}</p>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+            <div className="container py-10">
+                <div className="mx-auto max-w-3xl space-y-6">
+                    {sections.map((section, index) => (
+                        <motion.div
+                            key={section.title}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05, duration: 0.4 }}
+                        >
+                            <Card className="border-border/50">
+                                <CardContent className="p-6 space-y-4">
+                                    <h2 className="text-xl font-semibold">{section.title}</h2>
+                                    <div>{section.content}</div>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+                    ))}
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
