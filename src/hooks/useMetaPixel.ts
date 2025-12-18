@@ -15,12 +15,13 @@ export function useMetaPixel() {
 
     const track = useCallback(
         (pixelId: string | null | undefined, eventName: string, params?: Record<string, unknown>, options?: PixelEventOptions) => {
-            if (!marketingAllowed || !pixelId) {
+            const normalizedId = pixelId?.trim();
+            if (!marketingAllowed || !normalizedId) {
                 return;
             }
 
-            initMetaPixel(pixelId);
-            trackPixelEvent(pixelId, eventName, params, options);
+            initMetaPixel(normalizedId);
+            trackPixelEvent(normalizedId, eventName, params, options);
         },
         [marketingAllowed]
     );

@@ -80,7 +80,7 @@ const sections: Section[] = [
   {
     title: '9. Cookies',
     body:
-      'We use cookies and similar technologies to improve user experience and understand site usage. For full details, see our Cookie Policy.',
+      'We use cookies and similar technologies to improve user experience and understand site usage. Optional cookies may include organiser-owned Meta Pixels so they can measure ad performance; these only run after you choose “Accept all cookies.” You can switch back to “Essential only” any time via the “Manage cookies” link in our footer. For full details, see our Cookie Policy.',
   },
   {
     title: '10. Children’s Data',
