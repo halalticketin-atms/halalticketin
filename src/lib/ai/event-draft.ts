@@ -6,6 +6,7 @@ import type {
   DraftTicketType,
   DraftPromoCode,
 } from '@/hooks/useEventDraft';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const GEMINI_MODEL =
@@ -114,7 +115,7 @@ export async function generateEventDraft({
     ],
   };
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     'https://generativelanguage.googleapis.com/v1beta/models/' +
     encodeURIComponent(GEMINI_MODEL) +
     ':generateContent?key=' +
@@ -125,6 +126,8 @@ export async function generateEventDraft({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      timeoutMs: 15000,
+      retries: 1,
     },
   );
 

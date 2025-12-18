@@ -112,7 +112,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                 detailsSubmitted: true
             });
             setError(null);
-        } catch (err) {
+        } catch {
             // Fallback to local-only simulation if backend fails
             setDevModeSkipped(true);
             setStatus({

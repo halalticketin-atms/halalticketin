@@ -5,13 +5,7 @@ import { Info } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-    PAYG_FEE_GBP,
-    CHARITY_FEE_GBP,
-    calculateFeePerTicket,
-    getCurrencySymbol,
-    type FeeTier
-} from '@/lib/fees';
+import { PAYG_FEE_GBP, CHARITY_FEE_GBP } from '@/lib/fees';
 
 
 interface FeeBreakdownProps {

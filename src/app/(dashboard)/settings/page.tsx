@@ -9,7 +9,7 @@ import { StripeConnectStatus } from '@/components/stripe-connect-status';
 import { useOrganizers } from '@/context/organizer-context';
 import { useAuth } from '@/context/auth-context';
 import { Loader2, AlertCircle, Check } from 'lucide-react';
-import { SUPPORTED_CURRENCIES, type SupportedCurrency } from '@/lib/fees';
+import { SUPPORTED_CURRENCIES } from '@/lib/fees';
 import api from '@/lib/api';
 
 export default function SettingsPage() {
@@ -185,4 +185,3 @@ export default function SettingsPage() {
         </div>
     );
 }
-

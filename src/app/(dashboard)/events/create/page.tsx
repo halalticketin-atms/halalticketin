@@ -73,7 +73,7 @@ import {
 } from '@/lib/events-api';
 import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
 import { ApiError } from '@/lib/api';
-import { FeeBreakdown } from '@/components/fee-breakdown';
+import { getUserFriendlyMessage } from '@/lib/errors';
 import { PAYG_FEE_GBP, getCurrencySymbol, convertFromGBP } from '@/lib/fees';
 
 export const steps = [
@@ -234,13 +234,6 @@ const deriveFieldErrorsFromMessages = (errors: string[]) => {
     });
 
     return { fieldErrors: mapped, unmatched };
-};
-
-const getErrorMessage = (error: unknown, fallback: string) => {
-    if (error instanceof Error && error.message.trim().length > 0) {
-        return error.message;
-    }
-    return fallback;
 };
 
 export function EventWizard({
@@ -486,7 +479,8 @@ export function EventWizard({
 
                 return nextEventId;
             } catch (error) {
-                setActionError(getErrorMessage(error, 'Unable to save draft.'));
+                const message = getUserFriendlyMessage(error) || 'Unable to save draft.';
+                setActionError(message);
                 return null;
             } finally {
                 setIsSaving(false);
@@ -541,12 +535,14 @@ export function EventWizard({
                 } else {
                     setFieldErrors({});
                     setPublishErrors([]);
-                    setActionError(getErrorMessage(error, 'Unable to publish event.'));
+                    const message = getUserFriendlyMessage(error) || 'Unable to publish event.';
+                    setActionError(message);
                 }
             } else {
                 setFieldErrors({});
                 setPublishErrors([]);
-                setActionError(getErrorMessage(error, 'Unable to publish event.'));
+                const message = getUserFriendlyMessage(error) || 'Unable to publish event.';
+                setActionError(message);
             }
         } finally {
             setIsPublishing(false);

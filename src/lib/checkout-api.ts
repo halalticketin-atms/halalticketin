@@ -13,6 +13,8 @@ export interface CheckoutRequest {
     items: CartItem[];
     attendeeEmail: string;
     attendeeName?: string;
+    attendeeAge?: string;
+    attendeeGender?: string;
     promoCode?: string;
 }
 

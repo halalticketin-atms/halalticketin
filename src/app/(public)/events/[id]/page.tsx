@@ -20,7 +20,6 @@ import {
     Plus,
     Minus,
     ShoppingCart,
-    Mail,
     Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,6 +34,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { usePublicEvent } from '@/hooks/usePublicEvents';
 import { PublicTicketRecord } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult } from '@/lib/checkout-api';
@@ -115,7 +121,10 @@ export default function EventDetailsPage() {
     // Checkout state
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
+    const [attendeeName, setAttendeeName] = useState('');
     const [attendeeEmail, setAttendeeEmail] = useState('');
+    const [attendeeAge, setAttendeeAge] = useState('');
+    const [attendeeGender, setAttendeeGender] = useState('');
     const [promoCode, setPromoCode] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -219,7 +228,10 @@ export default function EventDetailsPage() {
 
         const result = await handleCheckout(event.id, {
             items,
+            attendeeName,
             attendeeEmail,
+            attendeeAge,
+            attendeeGender,
             promoCode: appliedPromo?.code || promoCode.trim() || undefined,
         });
 
@@ -601,9 +613,7 @@ export default function EventDetailsPage() {
                                         }
                                     </Button>
 
-                                    <p className="text-xs text-center text-muted-foreground">
-                                        Secure checkout powered by Stripe
-                                    </p>
+
                                 </CardContent>
                             </Card>
 
@@ -625,97 +635,139 @@ export default function EventDetailsPage() {
 
             {/* Checkout Dialog */}
             <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <ShoppingCart className="h-5 w-5" />
-                            Complete Your Order
-                        </DialogTitle>
-                        <DialogDescription>
-                            Enter your email to receive your tickets
-                        </DialogDescription>
-                    </DialogHeader>
+                <DialogContent className="sm:max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none text-white">
+                    <div className="bg-gradient-to-br from-[#02AAB0] to-[#00CDAC] p-8 rounded-[1.5rem] shadow-2xl border border-white/20 min-h-[400px] flex flex-col justify-between relative overflow-hidden">
+                        {/* Decorative subtle patterns - Matte effect with reduced opacity */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none opacity-30" />
+                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none opacity-30" />
 
-                    <div className="space-y-4 py-4">
-                        {/* Order Summary */}
-                        <>
-                            <div className="space-y-2">
-                                {cartItems.map(item => (
-                                    <div key={item.ticket.id} className="flex justify-between text-sm">
-                                        <span>{item.quantity}x {item.ticket.name}</span>
-                                        <span className="font-medium">
-                                            {getCurrencySymbol(item.ticket.currency)}{item.subtotal.toFixed(2)}
-                                        </span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 h-full">
+                            {/* Left Column - Details */}
+                            <div className="flex flex-col justify-between space-y-6">
+                                <div>
+                                    <DialogHeader className="mb-4 text-left p-0">
+                                        <DialogTitle className="flex items-center gap-3 text-3xl font-bold text-white tracking-wide">
+                                            <ShoppingCart className="h-8 w-8 text-white/90" />
+                                            Checkout
+                                        </DialogTitle>
+                                        <DialogDescription className="text-white/80 text-lg">
+                                            Complete your order securely.
+                                        </DialogDescription>
+                                    </DialogHeader>
+
+                                    {/* Order Summary Compact */}
+                                    <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md border border-white/20 mt-4">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="font-medium opacity-90 text-sm uppercase tracking-wider">Total</span>
+                                            <span className="text-2xl font-bold">{currencySymbol}{grandTotal.toFixed(2)}</span>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {cartItems.map(item => (
+                                                <div key={item.ticket.id} className="flex justify-between text-white/80 text-sm">
+                                                    <span>{item.quantity}x {item.ticket.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                ))}
-                                <Separator />
-                                {appliedPromo && discountAmount > 0 && (
-                                    <div className="flex justify-between text-sm text-green-600">
-                                        <span>Discount ({appliedPromo.code})</span>
-                                        <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                {platformFeeAmount > 0 && (
-                                    <div className="flex justify-between text-sm text-muted-foreground">
-                                        <span>Service fee</span>
-                                        <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                <div className="flex justify-between font-semibold">
-                                    <span>Total</span>
-                                    <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
                                 </div>
-                                {event?.absorbFee && finalTotal > 0 && (
-                                    <p className="text-xs text-muted-foreground text-center">
-                                        No additional fees! 🎉
-                                    </p>
-                                )}
+
+                                <div className="hidden md:block mt-8">
+                                    <div className="relative h-12 w-32 transition-all filter brightness-[1.1] contrast-[1.1] drop-shadow-sm">
+                                        <Image
+                                            src="/images/HTlogocr.png"
+                                            alt="Halal Ticketin"
+                                            fill
+                                            className="object-contain object-left-bottom"
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Email Input */}
-                            <div className="space-y-2">
-                                <Label htmlFor="email" className="flex items-center gap-2">
-                                    <Mail className="h-4 w-4" />
-                                    Email Address
-                                </Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="your@email.com"
-                                    value={attendeeEmail}
-                                    onChange={(e) => setAttendeeEmail(e.target.value)}
-                                    disabled={isProcessing}
-                                />
-                            </div>
+                            {/* Right Column - Form */}
+                            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/10 flex flex-col justify-center">
+                                <div className="space-y-4">
+                                    {/* Name */}
+                                    <div className="space-y-1">
+                                        <Label htmlFor="name" className="text-white/90 text-xs uppercase tracking-wider pl-1">Name on Ticket</Label>
+                                        <Input
+                                            id="name"
+                                            placeholder="J. Appleseed"
+                                            value={attendeeName}
+                                            onChange={(e) => setAttendeeName(e.target.value)}
+                                            disabled={isProcessing}
+                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 focus:bg-black/20 focus:border-white/50 h-10 transition-all"
+                                        />
+                                    </div>
 
-                            {checkoutError && (
-                                <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-                                    {checkoutError}
+                                    {/* Email */}
+                                    <div className="space-y-1">
+                                        <Label htmlFor="email" className="text-white/90 text-xs uppercase tracking-wider pl-1">Email Address</Label>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            placeholder="john@example.com"
+                                            value={attendeeEmail}
+                                            onChange={(e) => setAttendeeEmail(e.target.value)}
+                                            disabled={isProcessing}
+                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 focus:bg-black/20 focus:border-white/50 h-10 transition-all"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* Age */}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="age" className="text-white/90 text-xs uppercase tracking-wider pl-1">Age</Label>
+                                            <Input
+                                                id="age"
+                                                type="number"
+                                                placeholder="25"
+                                                min="0"
+                                                max="120"
+                                                value={attendeeAge}
+                                                onChange={(e) => setAttendeeAge(e.target.value)}
+                                                disabled={isProcessing}
+                                                className="bg-black/10 border-white/20 text-white placeholder:text-white/40 focus:bg-black/20 focus:border-white/50 h-10 transition-all"
+                                            />
+                                        </div>
+
+                                        {/* Gender */}
+                                        <div className="space-y-1">
+                                            <Label className="text-white/90 text-xs uppercase tracking-wider pl-1">Gender</Label>
+                                            <Select value={attendeeGender} onValueChange={setAttendeeGender} disabled={isProcessing}>
+                                                <SelectTrigger className="bg-black/10 border-white/20 text-white focus:ring-white/50 h-10">
+                                                    <SelectValue placeholder="Select" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="male">Male</SelectItem>
+                                                    <SelectItem value="female">Female</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+
+                                    {checkoutError && (
+                                        <div className="text-xs text-red-200 bg-red-900/40 p-2 rounded border border-red-500/30">
+                                            {checkoutError}
+                                        </div>
+                                    )}
+
+                                    <Button
+                                        className="w-full bg-white text-teal-600 hover:bg-white/90 font-bold text-lg h-12 rounded-lg shadow-lg mt-2"
+                                        onClick={handleProceedToCheckout}
+                                        disabled={!attendeeEmail || !attendeeName || !attendeeAge || !attendeeGender || isProcessing}
+                                    >
+                                        {isProcessing ? (
+                                            <>
+                                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                                                Processing...
+                                            </>
+                                        ) : (
+                                            `Pay ${currencySymbol}${grandTotal.toFixed(2)}`
+                                        )}
+                                    </Button>
                                 </div>
-                            )}
-
-                            <Button
-                                className="w-full"
-                                size="lg"
-                                onClick={handleProceedToCheckout}
-                                disabled={!attendeeEmail || isProcessing}
-                            >
-                                {isProcessing ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Processing...
-                                    </>
-                                ) : grandTotal === 0 ? (
-                                    'Get Free Tickets'
-                                ) : (
-                                    `Pay ${currencySymbol}${grandTotal.toFixed(2)}`
-                                )}
-                            </Button>
-                        </>
-
-                        <p className="text-xs text-center text-muted-foreground">
-                            Secure checkout powered by Stripe
-                        </p>
+                            </div>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>

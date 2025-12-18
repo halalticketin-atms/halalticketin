@@ -30,6 +30,7 @@ import type { DraftEventInitial } from '@/hooks/useEventDraft';
 import { useOrganizers } from '@/context/organizer-context';
 import { fetchEventDetails, listOrganizerEvents, type EventRecord } from '@/lib/events-api';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
+import { getUserFriendlyMessage } from '@/lib/errors';
 
 type DraftSource = 'ai' | 'clone' | 'draft';
 
@@ -145,7 +146,8 @@ export default function NewEventChooserPage() {
         }
       } catch (error) {
         if (!cancelled) {
-          setDraftsError(getErrorMessage(error, 'Unable to load drafts right now.'));
+          const message = getUserFriendlyMessage(error) || 'Unable to load drafts right now.';
+          setDraftsError(message);
         }
       } finally {
         if (!cancelled) {
@@ -203,7 +205,8 @@ export default function NewEventChooserPage() {
       });
       setDraftOpen(false);
     } catch (error) {
-      setDraftsError(getErrorMessage(error, 'Unable to load this draft.'));
+      const message = getUserFriendlyMessage(error) || 'Unable to load this draft.';
+      setDraftsError(message);
     } finally {
       setSelectedDraftId(null);
     }
@@ -321,10 +324,3 @@ export default function NewEventChooserPage() {
     </>
   );
 }
-
-const getErrorMessage = (error: unknown, fallback: string) => {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-  return fallback;
-};

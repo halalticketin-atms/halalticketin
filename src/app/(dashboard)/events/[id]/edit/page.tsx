@@ -11,13 +11,7 @@ import { buildDashboardPath } from '@/lib/organizer-path';
 import { fetchEventDetails, fetchEventPromoCodes } from '@/lib/events-api';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
-
-const getErrorMessage = (error: unknown, fallback: string) => {
-    if (error instanceof Error && error.message.trim().length > 0) {
-        return error.message;
-    }
-    return fallback;
-};
+import { getUserFriendlyMessage } from '@/lib/errors';
 
 export default function EditEventPage() {
     const params = useParams<{ id: string }>();
@@ -59,7 +53,8 @@ export default function EditEventPage() {
             } catch (err) {
                 if (cancelled) return;
                 setInitialDraft(null);
-                setError(getErrorMessage(err, 'Unable to load this event.'));
+                const message = getUserFriendlyMessage(err) || 'Unable to load this event.';
+                setError(message);
             } finally {
                 if (!cancelled) {
                     setIsLoading(false);

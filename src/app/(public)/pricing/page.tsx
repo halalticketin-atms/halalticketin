@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from 'react';
-import { Check, Info, Ticket, Zap, Shield } from 'lucide-react';
+import { Check, Ticket, Zap, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -39,7 +39,7 @@ export default function PricingPage() {
     const [shouldRenderCalculator, setShouldRenderCalculator] = useState(false);
 
     // Use live exchange rates from API
-    const { rates, convertFromGBP, isLoading: isLoadingRates } = useExchangeRates();
+    const { rates, isLoading: isLoadingRates } = useExchangeRates();
 
     const enableCalculator = useEffectEvent(() => {
         setShouldRenderCalculator(true);

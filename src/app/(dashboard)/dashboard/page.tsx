@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Building2, Users } from 'lucide-react';
@@ -100,7 +101,7 @@ export default function DashboardLandingPage() {
                             Sign in to manage organizers, events, and team members.
                         </p>
                         <Button asChild className="w-full">
-                            <a href="/login">Go to login</a>
+                            <Link href="/login">Go to login</Link>
                         </Button>
                     </CardContent>
                 </Card>
@@ -130,10 +131,10 @@ export default function DashboardLandingPage() {
                         </p>
                         <div className="space-y-2">
                             <Button asChild className="w-full">
-                                <a href="/events">Browse Events</a>
+                                <Link href="/events">Browse Events</Link>
                             </Button>
                             <Button asChild variant="outline" className="w-full">
-                                <a href="/profile">View My Profile</a>
+                                <Link href="/profile">View My Profile</Link>
                             </Button>
                         </div>
                     </CardContent>
