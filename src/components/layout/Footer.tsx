@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Linkedin, Instagram } from 'lucide-react';
+import { ManageCookiesButton } from '@/components/privacy/manage-cookies-button';
 
 export function Footer() {
     return (
@@ -105,6 +106,9 @@ export function Footer() {
                                 <Link href="/cookie-policy" className="hover:text-foreground transition-colors">
                                     Cookie Policy
                                 </Link>
+                            </li>
+                            <li>
+                                <ManageCookiesButton />
                             </li>
                             <li>
                                 <Link href="/terms" className="hover:text-foreground transition-colors">

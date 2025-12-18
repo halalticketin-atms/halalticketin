@@ -186,6 +186,7 @@ export interface PublicEventRecord {
     absorbFee: boolean;
     feeTier: string | null;
     customBookingFee: string | null;
+    metaPixelId: string | null;
 }
 
 export interface PublicTicketRecord {

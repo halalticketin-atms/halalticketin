@@ -3,8 +3,10 @@ import { DM_Sans, Geist, Geist_Mono, Sora } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
 import { Header, ConditionalFooter } from '@/components/layout';
+import { CookieConsentProvider } from '@/context/cookie-consent-context';
 import { AuthProvider } from '@/context/auth-context';
 import { ExchangeRatesProvider } from '@/hooks/useExchangeRates';
+import { CookieBanner } from '@/components/privacy/cookie-banner';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -59,18 +61,20 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${sora.variable} antialiased`}
       >
-        <AuthProvider>
-          <ExchangeRatesProvider>
-            <div className="flex min-h-screen flex-col">
-              <Header />
-              <main className="flex-1 pt-[var(--nav-safe-offset)]">{children}</main>
-              <ConditionalFooter />
-            </div>
-            <Toaster richColors position="top-center" />
-          </ExchangeRatesProvider>
-        </AuthProvider>
+        <CookieConsentProvider>
+          <AuthProvider>
+            <ExchangeRatesProvider>
+              <div className="flex min-h-screen flex-col">
+                <Header />
+                <main className="flex-1 pt-[var(--nav-safe-offset)]">{children}</main>
+                <ConditionalFooter />
+              </div>
+              <Toaster richColors position="top-center" />
+              <CookieBanner />
+            </ExchangeRatesProvider>
+          </AuthProvider>
+        </CookieConsentProvider>
       </body>
     </html>
   );
 }
-

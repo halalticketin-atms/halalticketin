@@ -19,9 +19,9 @@ const sections = [
     title: '3. Types of Cookies We Use',
     body: [
       'Strictly Necessary Cookies: Required for the operation of our website (e.g., log-in, security).',
-      'Performance Cookies: Collect anonymized data on how users interact with our website to improve performance (e.g., Google Analytics, if implemented).',
+      'Performance Cookies: Collect anonymized data on how users interact with our website to improve performance (e.g., analytics tools, if enabled).',
       'Functionality Cookies: Remember user preferences to enhance user experience.',
-      'Third-Party Cookies: Set by third-party services (e.g., Stripe) to facilitate payment or embedded services.',
+      "Third-Party Cookies: Set by third-party services (e.g., Stripe for payments, Meta Pixel for organisers' ad attribution when you allow marketing cookies).",
     ],
   },
   {
@@ -30,13 +30,14 @@ const sections = [
       'Maintain secure login sessions.',
       'Facilitate secure payments through third-party processors (e.g., Stripe).',
       'Analyze website usage and performance (if analytics are used).',
+      "Give event organisers the option to measure their Meta ads (only when you opt into marketing cookies).",
       'Enhance site functionality and user experience.',
     ],
   },
   {
     title: '5. Your Choices',
     body:
-      'You can manage or disable cookies through your browser settings. However, disabling certain cookies may affect the functionality of our services. You can also opt out of certain third-party cookies directly via their privacy settings.',
+      'You can manage or disable cookies through your browser settings. However, disabling certain cookies may affect the functionality of our services. You can also opt out of certain third-party cookies directly via their privacy settings or by using the “Manage cookies” link in our site footer.',
   },
   {
     title: '6. Consent',

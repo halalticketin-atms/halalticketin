@@ -24,6 +24,7 @@ export interface OrganizerSummary {
     website: string | null;
     defaultTimezone?: string;
     defaultCurrency?: string;
+    metaPixelId: string | null;
     role: string;
     status: string;
     membershipId: string;

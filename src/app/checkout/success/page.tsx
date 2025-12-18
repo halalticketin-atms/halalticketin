@@ -1,10 +1,11 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle, Download, Calendar, MapPin, Ticket, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useMetaPixel } from '@/hooks/useMetaPixel';
 
 interface TicketInfo {
     id: string;
@@ -19,6 +20,9 @@ interface OrderStatus {
     status: string;
     totalAmount: number;
     currency: string;
+    organizerId: string;
+    eventId: string;
+    metaPixelId: string | null;
     tickets?: TicketInfo[];
 }
 
@@ -30,6 +34,9 @@ function CheckoutSuccessContent() {
     const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { track } = useMetaPixel();
+    const purchaseTrackedRef = useRef(false);
+    const purchaseEventIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         const fetchOrderStatus = async () => {
@@ -65,6 +72,35 @@ function CheckoutSuccessContent() {
 
         fetchOrderStatus();
     }, [orderId, sessionId]);
+
+    useEffect(() => {
+        if (!orderStatus || orderStatus.status !== 'completed' || !orderStatus.metaPixelId) {
+            return;
+        }
+        if (purchaseTrackedRef.current) {
+            return;
+        }
+
+        if (!purchaseEventIdRef.current && typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            purchaseEventIdRef.current = crypto.randomUUID();
+        }
+
+        const purchasePayload: Record<string, unknown> = {
+            value: Number(orderStatus.totalAmount.toFixed(2)),
+            currency: orderStatus.currency,
+            content_type: 'product',
+            num_items: orderStatus.tickets?.length ?? undefined
+        };
+
+        if (orderStatus.eventId) {
+            purchasePayload.content_ids = [orderStatus.eventId];
+        }
+
+        const eventOptions = purchaseEventIdRef.current ? { eventId: purchaseEventIdRef.current } : undefined;
+
+        track(orderStatus.metaPixelId, 'Purchase', purchasePayload, eventOptions);
+        purchaseTrackedRef.current = true;
+    }, [orderStatus, track]);
 
     if (loading) {
         return (

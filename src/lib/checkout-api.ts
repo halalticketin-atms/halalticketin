@@ -102,6 +102,9 @@ export async function getOrderStatus(orderId: string): Promise<{
     status: string;
     totalAmount: number;
     currency: string;
+    organizerId: string;
+    eventId: string;
+    metaPixelId: string | null;
     tickets?: Array<{
         id: string;
         ticketCode: string;
@@ -204,4 +207,3 @@ export async function validatePromoCode(
         return { valid: false, message: 'Failed to validate promo code' };
     }
 }
-

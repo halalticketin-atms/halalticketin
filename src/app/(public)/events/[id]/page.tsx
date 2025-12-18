@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
@@ -42,6 +42,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { usePublicEvent } from '@/hooks/usePublicEvents';
+import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { PublicTicketRecord } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult } from '@/lib/checkout-api';
 import { showError } from '@/lib/errors';
@@ -117,6 +118,8 @@ export default function EventDetailsPage() {
     const slug = Array.isArray(params?.id) ? params?.id[0] : params?.id;
     const { event, tickets, isLoading, error } = usePublicEvent(slug ?? null);
     const { rates } = useExchangeRates();
+    const { track } = useMetaPixel();
+    const eventPixelId = event?.metaPixelId ?? null;
 
     // Checkout state
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -194,6 +197,34 @@ export default function EventDetailsPage() {
     const currencyCode = event?.currency || tickets[0]?.currency || 'GBP';
     const currencySymbol = getCurrencySymbol(currencyCode);
 
+    useEffect(() => {
+        if (!eventPixelId) {
+            return;
+        }
+
+        const pageParams =
+            typeof window !== 'undefined'
+                ? {
+                      page_path: window.location.pathname
+                  }
+                : undefined;
+
+        track(eventPixelId, 'PageView', pageParams);
+
+        const viewContentPayload: Record<string, unknown> = {
+            currency: currencyCode,
+            content_type: 'product'
+        };
+        if (event?.id) {
+            viewContentPayload.content_ids = [event.id];
+        }
+        if (event?.title) {
+            viewContentPayload.content_name = event.title;
+        }
+
+        track(eventPixelId, 'ViewContent', viewContentPayload);
+    }, [eventPixelId, event?.id, event?.title, currencyCode, track]);
+
     const platformFeeAmount = useMemo(() => {
         if (!event || totalTickets === 0) {
             return 0;
@@ -225,6 +256,16 @@ export default function EventDetailsPage() {
             ticketTypeId: item.ticket.id,
             quantity: item.quantity
         }));
+
+        if (eventPixelId && totalTickets > 0) {
+            track(eventPixelId, 'InitiateCheckout', {
+                value: Number(finalTotal.toFixed(2)),
+                currency: currencyCode,
+                num_items: totalTickets,
+                content_ids: event?.id ? [event.id] : undefined,
+                content_type: 'product'
+            });
+        }
 
         const result = await handleCheckout(event.id, {
             items,

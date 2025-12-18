@@ -25,12 +25,20 @@ export default function SettingsPage() {
     );
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
+    const [metaPixelInput, setMetaPixelInput] = useState<string>(currentOrganizer?.metaPixelId || '');
+    const [isSavingMetaPixel, setIsSavingMetaPixel] = useState(false);
+    const [metaPixelStatus, setMetaPixelStatus] = useState<'success' | 'error' | null>(null);
+    const [metaPixelError, setMetaPixelError] = useState<string | null>(null);
 
     useEffect(() => {
         if (currentOrganizer?.defaultCurrency) {
             setSelectedCurrency(currentOrganizer.defaultCurrency);
         }
     }, [currentOrganizer?.defaultCurrency]);
+
+    useEffect(() => {
+        setMetaPixelInput(currentOrganizer?.metaPixelId || '');
+    }, [currentOrganizer?.metaPixelId]);
 
     const handleSaveCurrency = async () => {
         if (!activeOrganizerId) return;
@@ -50,6 +58,36 @@ export default function SettingsPage() {
             setIsSaving(false);
         }
     };
+
+    const handleSaveMetaPixel = async () => {
+        if (!activeOrganizerId) return;
+
+        setIsSavingMetaPixel(true);
+        setMetaPixelStatus(null);
+        setMetaPixelError(null);
+
+        const payloadValue = metaPixelInput.trim();
+
+        try {
+            await api.patch(`/api/v1/organizers/${activeOrganizerId}`, {
+                metaPixelId: payloadValue === '' ? null : payloadValue
+            });
+            setMetaPixelStatus('success');
+            await refresh();
+            setTimeout(() => setMetaPixelStatus(null), 2000);
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : 'Failed to update Meta Pixel ID. Please try again.';
+            setMetaPixelStatus('error');
+            setMetaPixelError(message);
+        } finally {
+            setIsSavingMetaPixel(false);
+        }
+    };
+
+    const normalizedPixelInput = metaPixelInput.trim();
+    const normalizedCurrentPixel = currentOrganizer?.metaPixelId || '';
+    const metaPixelChanged = normalizedPixelInput !== normalizedCurrentPixel;
 
     const currencyOptions = Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => ({
         value: code,
@@ -97,51 +135,97 @@ export default function SettingsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Currency Preference Card - Only for Organizers */}
+                {/* Currency & Marketing Settings - Only for Organizers */}
                 {hasOrganizer && activeOrganizerId && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Default Currency</CardTitle>
-                            <CardDescription>
-                                Set the default currency for new events created by {currentOrganizer?.name || 'your organization'}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="currency">Currency</Label>
-                                <select
-                                    id="currency"
-                                    value={selectedCurrency}
-                                    onChange={(e) => setSelectedCurrency(e.target.value)}
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    <>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Default Currency</CardTitle>
+                                <CardDescription>
+                                    Set the default currency for new events created by {currentOrganizer?.name || 'your organization'}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="currency">Currency</Label>
+                                    <select
+                                        id="currency"
+                                        value={selectedCurrency}
+                                        onChange={(e) => setSelectedCurrency(e.target.value)}
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {currencyOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <Button
+                                    onClick={handleSaveCurrency}
+                                    disabled={isSaving || selectedCurrency === currentOrganizer?.defaultCurrency}
                                 >
-                                    {currencyOptions.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <Button
-                                onClick={handleSaveCurrency}
-                                disabled={isSaving || selectedCurrency === currentOrganizer?.defaultCurrency}
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : saveSuccess ? (
-                                    <>
-                                        <Check className="mr-2 h-4 w-4" />
-                                        Saved
-                                    </>
-                                ) : (
-                                    'Save Currency'
-                                )}
-                            </Button>
-                        </CardContent>
-                    </Card>
+                                    {isSaving ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : saveSuccess ? (
+                                        <>
+                                            <Check className="mr-2 h-4 w-4" />
+                                            Saved
+                                        </>
+                                    ) : (
+                                        'Save Currency'
+                                    )}
+                                </Button>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Meta Pixel Tracking</CardTitle>
+                                <CardDescription>
+                                    Allow your Meta ads to measure views, checkouts, and purchases on your event + checkout pages (after attendees consent to marketing cookies).
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="metaPixelId">Meta Pixel ID</Label>
+                                    <Input
+                                        id="metaPixelId"
+                                        value={metaPixelInput}
+                                        onChange={(event) => setMetaPixelInput(event.target.value.replace(/\D/g, ''))}
+                                        placeholder="e.g. 123456789012345"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        We only load this pixel for your public event and checkout pages after attendees opt into marketing cookies.
+                                    </p>
+                                    {metaPixelStatus === 'success' && (
+                                        <p className="text-sm text-green-600">Pixel ID saved.</p>
+                                    )}
+                                    {metaPixelStatus === 'error' && (
+                                        <p className="text-sm text-destructive">{metaPixelError || 'Unable to save Pixel ID.'}</p>
+                                    )}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button variant="outline" onClick={() => setMetaPixelInput('')} disabled={isSavingMetaPixel || (!metaPixelInput && !currentOrganizer?.metaPixelId)}>
+                                        Clear
+                                    </Button>
+                                    <Button onClick={handleSaveMetaPixel} disabled={isSavingMetaPixel || !metaPixelChanged}>
+                                        {isSavingMetaPixel ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            'Save Pixel'
+                                        )}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </>
                 )}
 
                 {/* Payment Settings - Stripe Connect */}
