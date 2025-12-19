@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, startTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
@@ -44,10 +44,19 @@ import {
 import { usePublicEvent } from '@/hooks/usePublicEvents';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { PublicTicketRecord } from '@/lib/events-api';
-import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult } from '@/lib/checkout-api';
+import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, type TicketAttendeePayload } from '@/lib/checkout-api';
 import { showError } from '@/lib/errors';
 import { calculatePlatformFee, getCurrencySymbol, type FeeTier } from '@/lib/fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
+
+// Per-ticket attendee info structure
+interface TicketAttendee {
+    name: string;
+    email: string;
+    gender: 'male' | 'female' | '';
+    age: string;
+    customAnswers: Record<string, string>;
+}
 
 /**
  * Format a price for display.
@@ -132,6 +141,10 @@ export default function EventDetailsPage() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
+    // Attendee info mode states
+    const [useSharedInfo, setUseSharedInfo] = useState(true);
+    const [ticketAttendees, setTicketAttendees] = useState<TicketAttendee[]>([]);
+
     // Promo code state
     const [isValidatingPromo, setIsValidatingPromo] = useState(false);
     const [appliedPromo, setAppliedPromo] = useState<ValidatePromoResult | null>(null);
@@ -156,6 +169,27 @@ export default function EventDetailsPage() {
         cartItems.reduce((sum, item) => sum + item.quantity, 0)
         , [cartItems]);
 
+    const customQuestionCount = event?.customQuestions?.length ?? 0;
+    const forcePerTicket = customQuestionCount > 0;
+    const requiresPerTicket = useMemo(() => {
+        if (!event || totalTickets === 0) {
+            return false;
+        }
+        if (forcePerTicket) {
+            return true;
+        }
+        if (event.attendeeInfoMode === 'per_ticket') {
+            return true;
+        }
+        return event.attendeeInfoMode === 'buyer_choice' && !useSharedInfo;
+    }, [event, forcePerTicket, totalTickets, useSharedInfo]);
+
+    useEffect(() => {
+        if (forcePerTicket && useSharedInfo) {
+            startTransition(() => setUseSharedInfo(false));
+        }
+    }, [forcePerTicket, useSharedInfo]);
+
     const handleQuantityChange = (ticketId: string, quantity: number) => {
         setTicketQuantities(prev => ({
             ...prev,
@@ -165,6 +199,32 @@ export default function EventDetailsPage() {
         setAppliedPromo(null);
         setPromoError(null);
     };
+
+    // Sync ticketAttendees array with total ticket count
+    useEffect(() => {
+        if (!requiresPerTicket || totalTickets === 0) {
+            startTransition(() => setTicketAttendees([]));
+            return;
+        }
+
+        startTransition(() => {
+            setTicketAttendees((prev) => {
+                if (prev.length === totalTickets) return prev;
+
+                const newAttendees: TicketAttendee[] = [];
+                for (let i = 0; i < totalTickets; i++) {
+                    newAttendees.push(prev[i] || {
+                        name: '',
+                        email: '',
+                        gender: '',
+                        age: '',
+                        customAnswers: {},
+                    });
+                }
+                return newAttendees;
+            });
+        });
+    }, [requiresPerTicket, totalTickets]);
 
     const handleApplyPromo = async () => {
         if (!event || !promoCode.trim()) return;
@@ -205,8 +265,8 @@ export default function EventDetailsPage() {
         const pageParams =
             typeof window !== 'undefined'
                 ? {
-                      page_path: window.location.pathname
-                  }
+                    page_path: window.location.pathname
+                }
                 : undefined;
 
         track(eventPixelId, 'PageView', pageParams);
@@ -246,11 +306,63 @@ export default function EventDetailsPage() {
 
     const grandTotal = finalTotal + platformFeeAmount;
 
+    const validateCheckout = (): string | null => {
+        if (!attendeeName.trim() || !attendeeEmail.trim() || !attendeeGender || !attendeeAge.trim()) {
+            return 'Please provide your name, email, age, and gender.';
+        }
+
+        const buyerAgeNumber = Number(attendeeAge);
+        if (Number.isNaN(buyerAgeNumber) || buyerAgeNumber <= 0) {
+            return 'Please enter a valid age.';
+        }
+
+        if (totalTickets === 0) {
+            return 'Please select at least one ticket.';
+        }
+
+        if (requiresPerTicket) {
+            if (ticketAttendees.length !== totalTickets) {
+                return 'Please add attendee information for each ticket.';
+            }
+
+            for (let i = 0; i < ticketAttendees.length; i += 1) {
+                const attendee = ticketAttendees[i];
+                if (!attendee.name.trim() || !attendee.email.trim() || !attendee.gender || !attendee.age.trim()) {
+                    return `Ticket ${i + 1}: attendee name, email, gender, and age are required.`;
+                }
+
+                const ageNumber = Number(attendee.age);
+                if (Number.isNaN(ageNumber) || ageNumber <= 0) {
+                    return `Ticket ${i + 1}: please enter a valid age.`;
+                }
+
+                if (event?.customQuestions?.length) {
+                    for (const question of event.customQuestions) {
+                        if (!question.required) continue;
+                        const answer = attendee.customAnswers[question.id];
+                        if (answer === undefined || answer === null || answer === '') {
+                            return `Ticket ${i + 1}: please answer "${question.label}".`;
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
+    };
+
     const handleProceedToCheckout = async () => {
         if (!event || !attendeeEmail || totalTickets === 0) return;
 
         setIsProcessing(true);
         setCheckoutError(null);
+
+        const validationMessage = validateCheckout();
+        if (validationMessage) {
+            setCheckoutError(validationMessage);
+            setIsProcessing(false);
+            return;
+        }
 
         const items: CartItem[] = cartItems.map(item => ({
             ticketTypeId: item.ticket.id,
@@ -267,12 +379,36 @@ export default function EventDetailsPage() {
             });
         }
 
+        const buyerAgeNumber = Number(attendeeAge);
+
+        const ticketAttendeePayload: TicketAttendeePayload[] | undefined = requiresPerTicket
+            ? ticketAttendees.map((attendee) => {
+                const normalizedAnswers = Object.entries(attendee.customAnswers).reduce<Record<string, string>>((acc, [key, value]) => {
+                    if (value !== undefined && value !== null && value !== '') {
+                        acc[key] = value;
+                    }
+                    return acc;
+                }, {});
+                const hasAnswers = Object.keys(normalizedAnswers).length > 0;
+
+                return {
+                    name: attendee.name.trim(),
+                    email: attendee.email.trim(),
+                    gender: attendee.gender as 'male' | 'female',
+                    age: attendee.age ? Number(attendee.age) : undefined,
+                    customAnswers: hasAnswers ? normalizedAnswers : undefined,
+                };
+            })
+            : undefined;
+
         const result = await handleCheckout(event.id, {
             items,
-            attendeeName,
-            attendeeEmail,
-            attendeeAge,
-            attendeeGender,
+            attendeeName: attendeeName.trim(),
+            attendeeEmail: attendeeEmail.trim(),
+            attendeeAge: buyerAgeNumber,
+            attendeeGender: attendeeGender as 'male' | 'female',
+            useSharedInfo: !requiresPerTicket && useSharedInfo,
+            ticketAttendees: ticketAttendeePayload,
             promoCode: appliedPromo?.code || promoCode.trim() || undefined,
         });
 
@@ -753,6 +889,167 @@ export default function EventDetailsPage() {
                                             className="bg-black/10 border-white/20 text-white placeholder:text-white/40 focus:bg-black/20 focus:border-white/50 h-10 transition-all"
                                         />
                                     </div>
+
+                                    {/* Use shared info toggle - hidden when custom questions force per-ticket */}
+                                    {event?.attendeeInfoMode === 'buyer_choice' && totalTickets > 1 && !forcePerTicket && (
+                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
+                                            <input
+                                                type="checkbox"
+                                                id="useSharedInfo"
+                                                checked={useSharedInfo}
+                                                onChange={(e) => setUseSharedInfo(e.target.checked)}
+                                                className="h-4 w-4 rounded border-white/30 bg-white/10 text-teal-500 focus:ring-teal-500"
+                                                disabled={isProcessing}
+                                            />
+                                            <label htmlFor="useSharedInfo" className="text-sm text-white/90 cursor-pointer">
+                                                Use my info for all {totalTickets} tickets
+                                            </label>
+                                        </div>
+                                    )}
+
+                                    {forcePerTicket && customQuestionCount > 0 && (
+                                        <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-sm text-white/80">
+                                            Custom questions are enabled for this event, so attendee details are required for each ticket.
+                                        </div>
+                                    )}
+
+                                    {/* Per-ticket attendee forms */}
+                                    {ticketAttendees.length > 0 && (
+                                        <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                                            <p className="text-xs text-white/70 font-medium uppercase tracking-wider">Attendee Details</p>
+                                            {ticketAttendees.map((attendee, index) => (
+                                                <div key={index} className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-2">
+                                                    <p className="text-xs font-medium text-white/80">Ticket {index + 1}</p>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <Input
+                                                            placeholder="Name"
+                                                            value={attendee.name}
+                                                            onChange={(e) => {
+                                                                const updated = [...ticketAttendees];
+                                                                updated[index] = { ...updated[index], name: e.target.value };
+                                                                setTicketAttendees(updated);
+                                                            }}
+                                                            disabled={isProcessing}
+                                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 h-8 text-sm"
+                                                        />
+                                                        <Input
+                                                            placeholder="Email"
+                                                            type="email"
+                                                            value={attendee.email}
+                                                            onChange={(e) => {
+                                                                const updated = [...ticketAttendees];
+                                                                updated[index] = { ...updated[index], email: e.target.value };
+                                                                setTicketAttendees(updated);
+                                                            }}
+                                                            disabled={isProcessing}
+                                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 h-8 text-sm"
+                                                        />
+                                                        <Input
+                                                            placeholder="Age"
+                                                            type="number"
+                                                            min="0"
+                                                            max="120"
+                                                            value={attendee.age}
+                                                            onChange={(e) => {
+                                                                const updated = [...ticketAttendees];
+                                                                updated[index] = { ...updated[index], age: e.target.value };
+                                                                setTicketAttendees(updated);
+                                                            }}
+                                                            disabled={isProcessing}
+                                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 h-8 text-sm"
+                                                        />
+                                                        <Select
+                                                            value={attendee.gender}
+                                                            onValueChange={(value) => {
+                                                                const updated = [...ticketAttendees];
+                                                                updated[index] = { ...updated[index], gender: value as 'male' | 'female' };
+                                                                setTicketAttendees(updated);
+                                                            }}
+                                                            disabled={isProcessing}
+                                                        >
+                                                            <SelectTrigger className="bg-black/10 border-white/20 text-white h-8 text-sm">
+                                                                <SelectValue placeholder="Gender" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="male">Male</SelectItem>
+                                                                <SelectItem value="female">Female</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    {/* Custom questions for this attendee */}
+                                                    {event?.customQuestions && event.customQuestions.length > 0 && (
+                                                        <div className="space-y-2 pt-2 border-t border-white/10">
+                                                            {event.customQuestions.map((q) => (
+                                                                <div key={q.id} className="space-y-1">
+                                                                    <label className="text-xs text-white/70">
+                                                                        {q.label}{q.required && <span className="text-red-400">*</span>}
+                                                                    </label>
+                                                                    {q.type === 'text' && (
+                                                                        <Input
+                                                                            placeholder={q.label}
+                                                                            value={attendee.customAnswers[q.id] || ''}
+                                                                            onChange={(e) => {
+                                                                                const updated = [...ticketAttendees];
+                                                                                updated[index] = {
+                                                                                    ...updated[index],
+                                                                                    customAnswers: { ...updated[index].customAnswers, [q.id]: e.target.value }
+                                                                                };
+                                                                                setTicketAttendees(updated);
+                                                                            }}
+                                                                            disabled={isProcessing}
+                                                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 h-8 text-sm"
+                                                                        />
+                                                                    )}
+                                                                    {q.type === 'checkbox' && (
+                                                                        <label className="flex items-center gap-2 text-sm text-white/90">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={attendee.customAnswers[q.id] === 'true'}
+                                                                                onChange={(e) => {
+                                                                                    const updated = [...ticketAttendees];
+                                                                                    updated[index] = {
+                                                                                        ...updated[index],
+                                                                                        customAnswers: { ...updated[index].customAnswers, [q.id]: e.target.checked ? 'true' : 'false' }
+                                                                                    };
+                                                                                    setTicketAttendees(updated);
+                                                                                }}
+                                                                                disabled={isProcessing}
+                                                                                className="h-4 w-4 rounded border-white/30"
+                                                                            />
+                                                                            Yes
+                                                                        </label>
+                                                                    )}
+                                                                    {q.type === 'select' && q.options && (
+                                                                        <Select
+                                                                            value={attendee.customAnswers[q.id] || ''}
+                                                                            onValueChange={(value) => {
+                                                                                const updated = [...ticketAttendees];
+                                                                                updated[index] = {
+                                                                                    ...updated[index],
+                                                                                    customAnswers: { ...updated[index].customAnswers, [q.id]: value }
+                                                                                };
+                                                                                setTicketAttendees(updated);
+                                                                            }}
+                                                                            disabled={isProcessing}
+                                                                        >
+                                                                            <SelectTrigger className="bg-black/10 border-white/20 text-white h-8 text-sm">
+                                                                                <SelectValue placeholder="Select..." />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                {q.options.map((opt) => (
+                                                                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                                                ))}
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
 
                                     <div className="grid grid-cols-2 gap-3">
                                         {/* Age */}

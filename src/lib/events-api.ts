@@ -1,6 +1,7 @@
 import api from './api';
 
 export type BackendLocationType = 'in_person' | 'online' | 'hybrid';
+export type BackendFeeTier = 'payg' | 'token' | 'charity';
 export type EventVisibility = 'public' | 'private';
 
 export interface EventRecord {
@@ -24,6 +25,11 @@ export interface EventRecord {
     refundPolicy: string | null;
     isListedPublicly: boolean;
     slug: string | null;
+    feeTier: BackendFeeTier;
+    customBookingFee: number | null;
+    absorbFee: boolean;
+    attendeeInfoMode: 'per_ticket' | 'buyer_choice';
+    customQuestions: CustomQuestionPayload[] | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -41,6 +47,14 @@ export interface TicketRecord {
     visibility: 'public' | 'hidden';
     salesStart: string | null;
     salesEnd: string | null;
+}
+
+export interface CustomQuestionPayload {
+    id: string;
+    label: string;
+    type: 'text' | 'select' | 'checkbox';
+    required: boolean;
+    options?: string[];
 }
 
 export interface UpsertEventPayload {
@@ -61,6 +75,8 @@ export interface UpsertEventPayload {
     refundPolicy?: string | null;
     isListedPublicly?: boolean;
     absorbFee?: boolean;
+    attendeeInfoMode?: 'per_ticket' | 'buyer_choice';
+    customQuestions?: CustomQuestionPayload[] | null;
 }
 
 export interface TicketInputPayload {
@@ -184,9 +200,11 @@ export interface PublicEventRecord {
     currency: string;
     organizerName: string | null;
     absorbFee: boolean;
-    feeTier: string | null;
+    feeTier: BackendFeeTier | null;
     customBookingFee: string | null;
     metaPixelId: string | null;
+    attendeeInfoMode: 'per_ticket' | 'buyer_choice' | null;
+    customQuestions: CustomQuestionPayload[] | null;
 }
 
 export interface PublicTicketRecord {

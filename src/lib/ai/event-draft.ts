@@ -255,6 +255,8 @@ function normalizeFormData(
     onlineUrl: raw.onlineUrl ?? '',
     absorbFee: raw.absorbFee ?? false,
     currency: 'GBP',
+    attendeeInfoMode: raw.attendeeInfoMode ?? 'buyer_choice',
+    customQuestions: raw.customQuestions ?? [],
   };
 }
 

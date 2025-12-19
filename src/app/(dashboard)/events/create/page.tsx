@@ -80,6 +80,7 @@ export const steps = [
     { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
     { id: 2, title: 'Location & Time', description: 'When and where', icon: MapPin },
     { id: 3, title: 'Tickets', description: 'Pricing & availability', icon: Ticket },
+    { id: 4, title: 'Attendee Info', description: 'Registration settings', icon: Users },
 ];
 
 const entryContextDefaults: Record<'scratch' | DraftEntrySource, EntryContext> = {
@@ -161,6 +162,8 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         refundPolicy: null,
         isListedPublicly: formData.visibility === 'public',
         absorbFee: formData.absorbFee,
+        attendeeInfoMode: formData.attendeeInfoMode,
+        customQuestions: formData.customQuestions.length > 0 ? formData.customQuestions : null,
     };
 };
 
@@ -1450,6 +1453,220 @@ export function EventWizard({
                                                         ))}
                                                     </div>
                                                 )}</CardContent>
+                                        </Card>
+                                    </motion.div>
+                                )}
+
+                                {/* Step 4: Attendee Info */}
+                                {currentStep === 4 && (
+                                    <motion.div
+                                        key="step4"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="space-y-4 lg:space-y-5"
+                                    >
+                                        <div>
+                                            <h2 className="font-display text-xl lg:text-2xl font-bold">Attendee Information</h2>
+                                            <p className="mt-1 text-sm text-muted-foreground">Configure how you collect attendee details at checkout</p>
+                                        </div>
+
+                                        {/* Attendee Collection Mode */}
+                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
+                                                <div>
+                                                    <Label className="text-sm font-medium">Collection Mode</Label>
+                                                    <p className="text-xs text-muted-foreground mt-1">Choose how attendee info is collected during checkout</p>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    <div
+                                                        onClick={() => setFormData(prev => ({ ...prev, attendeeInfoMode: 'buyer_choice' }))}
+                                                        className={cn(
+                                                            "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all",
+                                                            formData.attendeeInfoMode === 'buyer_choice'
+                                                                ? "border-primary bg-primary/5"
+                                                                : "border-border hover:bg-muted/50"
+                                                        )}
+                                                    >
+                                                        <div className={cn(
+                                                            "mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center",
+                                                            formData.attendeeInfoMode === 'buyer_choice' ? "border-primary" : "border-muted-foreground"
+                                                        )}>
+                                                            {formData.attendeeInfoMode === 'buyer_choice' && (
+                                                                <div className="h-2 w-2 rounded-full bg-primary" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="font-medium">Let buyer choose</p>
+                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                Buyers can use their info for all tickets or add details for each attendee. Best for general admission events.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div
+                                                        onClick={() => setFormData(prev => ({ ...prev, attendeeInfoMode: 'per_ticket' }))}
+                                                        className={cn(
+                                                            "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all",
+                                                            formData.attendeeInfoMode === 'per_ticket'
+                                                                ? "border-primary bg-primary/5"
+                                                                : "border-border hover:bg-muted/50"
+                                                        )}
+                                                    >
+                                                        <div className={cn(
+                                                            "mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center",
+                                                            formData.attendeeInfoMode === 'per_ticket' ? "border-primary" : "border-muted-foreground"
+                                                        )}>
+                                                            {formData.attendeeInfoMode === 'per_ticket' && (
+                                                                <div className="h-2 w-2 rounded-full bg-primary" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="font-medium">Require info for each ticket</p>
+                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                Collect name, email, gender and age for every ticket. Best for conferences or reserved seating.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Default Fields Info */}
+                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
+                                                <div>
+                                                    <Label className="text-sm font-medium">Default Fields</Label>
+                                                    <p className="text-xs text-muted-foreground mt-1">These fields are always collected from attendees</p>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
+                                                        <Check className="h-4 w-4 text-primary" />
+                                                        <span className="text-sm">Full Name</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
+                                                        <Check className="h-4 w-4 text-primary" />
+                                                        <span className="text-sm">Email</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
+                                                        <Check className="h-4 w-4 text-primary" />
+                                                        <span className="text-sm">Gender</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
+                                                        <Check className="h-4 w-4 text-primary" />
+                                                        <span className="text-sm">Age</span>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Custom Questions */}
+                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <Label className="text-sm font-medium">Custom Questions</Label>
+                                                        <p className="text-xs text-muted-foreground mt-1">Add additional questions for attendees (max 10)</p>
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => {
+                                                            if (formData.customQuestions.length >= 10) return;
+                                                            setFormData(prev => ({
+                                                                ...prev,
+                                                                customQuestions: [
+                                                                    ...prev.customQuestions,
+                                                                    {
+                                                                        id: `q-${Date.now()}`,
+                                                                        label: '',
+                                                                        type: 'text',
+                                                                        required: false,
+                                                                    }
+                                                                ]
+                                                            }));
+                                                        }}
+                                                        disabled={formData.customQuestions.length >= 10}
+                                                    >
+                                                        <Plus className="h-4 w-4 mr-1" />
+                                                        Add Question
+                                                    </Button>
+                                                </div>
+
+                                                {formData.customQuestions.length === 0 ? (
+                                                    <div className="text-center py-8 border border-dashed rounded-lg">
+                                                        <p className="text-sm text-muted-foreground">No custom questions added</p>
+                                                        <p className="text-xs text-muted-foreground mt-1">Click &ldquo;Add Question&rdquo; to collect more info</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        {formData.customQuestions.map((question, index) => (
+                                                            <div key={question.id} className="flex gap-3 p-3 bg-muted/30 rounded-lg">
+                                                                <div className="flex-1 space-y-2">
+                                                                    <Input
+                                                                        placeholder="Question label"
+                                                                        value={question.label}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...formData.customQuestions];
+                                                                            updated[index] = { ...updated[index], label: e.target.value };
+                                                                            setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                        }}
+                                                                        className="h-9"
+                                                                    />
+                                                                    <div className="flex items-center gap-3">
+                                                                        <Select
+                                                                            value={question.type}
+                                                                            onValueChange={(value) => {
+                                                                                const updated = [...formData.customQuestions];
+                                                                                updated[index] = { ...updated[index], type: value as 'text' | 'select' | 'checkbox' };
+                                                                                setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                            }}
+                                                                        >
+                                                                            <SelectTrigger className="w-32 h-8">
+                                                                                <SelectValue />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="text">Text</SelectItem>
+                                                                                <SelectItem value="select">Dropdown</SelectItem>
+                                                                                <SelectItem value="checkbox">Checkbox</SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                        <label className="flex items-center gap-2 text-sm">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={question.required}
+                                                                                onChange={(e) => {
+                                                                                    const updated = [...formData.customQuestions];
+                                                                                    updated[index] = { ...updated[index], required: e.target.checked };
+                                                                                    setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                                }}
+                                                                                className="rounded border-muted-foreground"
+                                                                            />
+                                                                            Required
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                                                    onClick={() => {
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            customQuestions: prev.customQuestions.filter(q => q.id !== question.id)
+                                                                        }));
+                                                                    }}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </CardContent>
                                         </Card>
                                     </motion.div>
                                 )}

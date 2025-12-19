@@ -3,6 +3,15 @@
 import { useState, type ChangeEvent } from 'react';
 
 export type DraftLocationType = 'physical' | 'online' | 'hybrid';
+export type DraftAttendeeInfoMode = 'per_ticket' | 'buyer_choice';
+
+export interface DraftCustomQuestion {
+  id: string;
+  label: string;
+  type: 'text' | 'select' | 'checkbox';
+  required: boolean;
+  options?: string[];
+}
 
 export interface DraftFormData {
   title: string;
@@ -24,6 +33,8 @@ export interface DraftFormData {
   onlineUrl: string;
   absorbFee: boolean;
   currency: string;
+  attendeeInfoMode: DraftAttendeeInfoMode;
+  customQuestions: DraftCustomQuestion[];
 }
 
 export interface DraftTicketType {
@@ -62,7 +73,7 @@ export interface DraftEventInitial {
   currentStep?: number;
 }
 
-const stepsCountDefault = 3;
+const stepsCountDefault = 4;
 
 const defaultFormData: DraftFormData = {
   title: '',
@@ -84,6 +95,8 @@ const defaultFormData: DraftFormData = {
   onlineUrl: '',
   absorbFee: false,
   currency: 'GBP',
+  attendeeInfoMode: 'buyer_choice',
+  customQuestions: [],
 };
 
 const createDefaultTicket = (): DraftTicketType => ({

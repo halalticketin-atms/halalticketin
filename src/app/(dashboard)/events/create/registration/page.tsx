@@ -16,13 +16,16 @@ import {
     Eye,
     Save,
     X,
+    Users,
+    User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
     Select,
     SelectContent,
@@ -41,6 +44,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 
 type FieldType = 'text' | 'textarea' | 'dropdown' | 'checkbox' | 'radio';
+type AttendeeInfoMode = 'per_ticket' | 'buyer_choice';
 
 interface CustomField {
     id: string;
@@ -71,9 +75,12 @@ const fieldTypeLabels: Record<FieldType, string> = {
 const defaultFields: CustomField[] = [
     { id: 'default-name', type: 'text', label: 'Full Name', required: true },
     { id: 'default-email', type: 'text', label: 'Email Address', required: true },
+    { id: 'default-gender', type: 'dropdown', label: 'Gender', required: true, options: ['Male', 'Female'] },
+    { id: 'default-age', type: 'text', label: 'Age', required: false },
 ];
 
 export default function RegistrationFormBuilderPage() {
+    const [attendeeInfoMode, setAttendeeInfoMode] = useState<AttendeeInfoMode>('buyer_choice');
     const [customFields, setCustomFields] = useState<CustomField[]>([]);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [editingField, setEditingField] = useState<string | null>(null);
@@ -172,26 +179,76 @@ export default function RegistrationFormBuilderPage() {
             </div>
 
             <div className="container py-8">
-                <div className="max-w-2xl mx-auto">
+                <div className="max-w-2xl mx-auto space-y-6">
+                    {/* Attendee Info Collection Mode */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Attendee Information Collection</CardTitle>
+                            <CardDescription>
+                                Choose how you want to collect attendee information for tickets
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <RadioGroup
+                                value={attendeeInfoMode}
+                                onValueChange={(value) => setAttendeeInfoMode(value as AttendeeInfoMode)}
+                                className="space-y-3"
+                            >
+                                <div className="flex items-start gap-3 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
+                                    <RadioGroupItem value="buyer_choice" id="buyer_choice" className="mt-1" />
+                                    <div className="flex-1">
+                                        <label htmlFor="buyer_choice" className="flex items-center gap-2 font-medium cursor-pointer">
+                                            <User className="h-4 w-4 text-primary" />
+                                            Let buyer choose
+                                        </label>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            Buyers can use their info for all tickets or add details for each attendee. Good for general admission events.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-3 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
+                                    <RadioGroupItem value="per_ticket" id="per_ticket" className="mt-1" />
+                                    <div className="flex-1">
+                                        <label htmlFor="per_ticket" className="flex items-center gap-2 font-medium cursor-pointer">
+                                            <Users className="h-4 w-4 text-primary" />
+                                            Require info for each ticket
+                                        </label>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            Collect name, email, gender and age for every ticket. Best for conferences or reserved seating.
+                                        </p>
+                                    </div>
+                                </div>
+                            </RadioGroup>
+                        </CardContent>
+                    </Card>
+
                     {/* Default Fields */}
-                    <div className="mb-6">
-                        <h2 className="text-sm font-medium text-muted-foreground mb-3">Default Fields (Always Shown)</h2>
+                    <div>
+                        <h2 className="text-sm font-medium text-muted-foreground mb-3">Default Fields (Always Collected)</h2>
                         <div className="space-y-2">
-                            {defaultFields.map(field => (
-                                <Card key={field.id} className="bg-muted/30">
-                                    <CardContent className="py-3 px-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
-                                                <Type className="h-4 w-4 text-muted-foreground" />
+                            {defaultFields.map(field => {
+                                const Icon = field.type === 'dropdown' ? ChevronDown : Type;
+                                return (
+                                    <Card key={field.id} className="bg-muted/30">
+                                        <CardContent className="py-3 px-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
+                                                    <Icon className="h-4 w-4 text-muted-foreground" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="font-medium">{field.label}</p>
+                                                    {field.options && (
+                                                        <p className="text-xs text-muted-foreground">{field.options.join(' / ')}</p>
+                                                    )}
+                                                </div>
+                                                <Badge variant={field.required ? "secondary" : "outline"}>
+                                                    {field.required ? 'Required' : 'Optional'}
+                                                </Badge>
                                             </div>
-                                            <div className="flex-1">
-                                                <p className="font-medium">{field.label}</p>
-                                            </div>
-                                            <Badge variant="secondary">Required</Badge>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
                         </div>
                     </div>
 

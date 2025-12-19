@@ -9,12 +9,22 @@ export interface CartItem {
     quantity: number;
 }
 
+export interface TicketAttendeePayload {
+    name: string;
+    email: string;
+    gender: 'male' | 'female';
+    age?: number;
+    customAnswers?: Record<string, unknown>;
+}
+
 export interface CheckoutRequest {
     items: CartItem[];
     attendeeEmail: string;
-    attendeeName?: string;
-    attendeeAge?: string;
-    attendeeGender?: string;
+    attendeeName: string;
+    attendeeAge?: number;
+    attendeeGender: 'male' | 'female';
+    useSharedInfo?: boolean;
+    ticketAttendees?: TicketAttendeePayload[];
     promoCode?: string;
 }
 
