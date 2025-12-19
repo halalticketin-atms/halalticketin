@@ -144,10 +144,10 @@ export default function SettingsPage() {
 
             {/* Main Content with Glass Surface */}
             <div className="glass-surface border border-white/50 dark:border-white/10 rounded-3xl p-6 lg:p-8 shadow-xl">
-                <div className="flex flex-col lg:flex-row gap-8">
+                <div className="flex flex-col lg:flex-row gap-6 lg:gap-0">
 
                     {/* Side Navigation */}
-                    <nav className="lg:w-56 flex-shrink-0">
+                    <nav className="lg:w-52 flex-shrink-0 lg:pr-6">
                         <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
                             {visibleTabs.map((tab) => (
                                 <button
@@ -167,8 +167,8 @@ export default function SettingsPage() {
                         </div>
                     </nav>
 
-                    {/* Content Area */}
-                    <div className="flex-1 min-w-0">
+                    {/* Content Area with Left Border */}
+                    <div className="flex-1 min-w-0 lg:border-l lg:border-border/50 lg:pl-10">
                         {/* Profile Tab */}
                         {activeTab === 'profile' && (
                             <div className="space-y-6 animate-fade-up" style={{ '--fade-delay': '0s' } as React.CSSProperties}>
@@ -177,7 +177,7 @@ export default function SettingsPage() {
                                     <p className="text-muted-foreground text-sm">Update your personal information</p>
                                 </div>
 
-                                <div className="space-y-4 max-w-lg">
+                                <div className="space-y-5 max-w-xl">
                                     <div className="space-y-2">
                                         <Label htmlFor="name" className="text-muted-foreground">Display Name</Label>
                                         <Input
@@ -226,7 +226,7 @@ export default function SettingsPage() {
                                     </p>
                                 </div>
 
-                                <div className="space-y-4 max-w-lg">
+                                <div className="space-y-5 max-w-xl">
                                     <div className="space-y-2">
                                         <Label htmlFor="currency" className="text-muted-foreground">Currency</Label>
                                         <select
@@ -277,7 +277,7 @@ export default function SettingsPage() {
                                     </p>
                                 </div>
 
-                                <div className="space-y-4 max-w-lg">
+                                <div className="space-y-5 max-w-xl">
                                     {/* Info Box */}
                                     <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl">
                                         <p className="text-sm text-muted-foreground">
