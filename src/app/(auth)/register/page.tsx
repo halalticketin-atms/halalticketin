@@ -1,222 +1,66 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
-import { ArrowRight, Calendar } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import api, { setAuthToken } from '@/lib/api';
+import { SignupOnboardingDialog } from '@/components/auth/SignupOnboardingDialog';
 import { useAuth } from '@/context/auth-context';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
-
-interface LoginResponse {
-    accessToken: string;
-    refreshToken: string;
-    expiresIn: number;
-    tokenType: string;
-}
+import { Loader2 } from 'lucide-react';
 
 export default function RegisterPage() {
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        password: '',
-    });
-    const [wantToOrganize, setWantToOrganize] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [dialogOpen, setDialogOpen] = useState(true);
+    const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+    const isCompletingRef = useRef(false);
     const router = useRouter();
-    const { refresh } = useAuth();
+    const { user, isLoading } = useAuth();
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setError(null);
+    // Mark initial load as complete once auth state is first resolved
+    useEffect(() => {
+        if (!isLoading) {
+            setInitialLoadComplete(true);
+        }
+    }, [isLoading]);
 
-        try {
-            // Create the Supabase user through the backend
-            await api.post('/api/v1/auth/register', {
-                email: formData.email,
-                password: formData.password,
-                name: formData.name,
-                isOrganizer: wantToOrganize,
-            });
-
-            // Automatically log them in to obtain an access token
-            const response = await api.post<LoginResponse>('/api/v1/auth/login', {
-                email: formData.email,
-                password: formData.password,
-            });
-
-            setAuthToken(response.accessToken);
-
-            await refresh();
-
+    // If already logged in AND not in the middle of onboarding, redirect to dashboard
+    // Only check this on initial load, not during the signup flow
+    useEffect(() => {
+        if (initialLoadComplete && user && !dialogOpen) {
             router.push('/dashboard');
-        } catch (err) {
-            console.error(err);
-            setError(err instanceof Error ? err.message : 'Unable to register. Please try again.');
-        } finally {
-            setIsLoading(false);
+        }
+    }, [user, initialLoadComplete, router, dialogOpen]);
+
+    const handleDialogClose = (open: boolean) => {
+        setDialogOpen(open);
+        if (!open && !isCompletingRef.current) {
+            // Only redirect to home if user manually closed (not after completion)
+            router.push('/');
         }
     };
 
+    const handleComplete = (redirectTo: string) => {
+        isCompletingRef.current = true;
+        router.push(redirectTo);
+    };
+
+    // Only show loading spinner on initial page load, before the dialog is shown
+    // Once initial load is complete, never unmount the dialog due to auth state changes
+    if (!initialLoadComplete) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-cyan)]" />
+            </div>
+        );
+    }
+
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 md:p-6 -mt-[var(--nav-safe-offset)] pt-[calc(var(--nav-safe-offset)+3rem)] md:pt-[calc(var(--nav-safe-offset)+6rem)] relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-purple-50">
+        <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-white via-blue-50 to-purple-50">
             <AmbientBackground showNoise={false} />
-
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="w-full max-w-md relative z-10"
-            >
-                {/* Ultra-Glass Card */}
-                <Card className="glass-surface md:backdrop-blur-2xl shadow-2xl shadow-xl ring-1 ring-white/60">
-                    <CardHeader className="text-center pb-6">
-                        <CardTitle className="text-3xl font-bold font-display text-slate-800">Create Account</CardTitle>
-                        <CardDescription className="text-base text-slate-600 font-medium">
-                            Join our community of event enthusiasts
-                        </CardDescription>
-                    </CardHeader>
-
-                    <CardContent className="space-y-6">
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name" className="text-slate-700 font-semibold">Full Name</Label>
-                                <Input
-                                    id="name"
-                                    placeholder="Your full name"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="bg-white/50 border-white/60 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/50 transition-all h-12 shadow-sm placeholder:text-slate-400 text-slate-900"
-                                    required
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="email" className="text-slate-700 font-semibold">Email Address</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="you@example.com"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className="bg-white/50 border-white/60 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/50 transition-all h-12 shadow-sm placeholder:text-slate-400 text-slate-900"
-                                    required
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="password" className="text-slate-700 font-semibold">Password</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    placeholder="Create a strong password"
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className="bg-white/50 border-white/60 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/50 transition-all h-12 shadow-sm placeholder:text-slate-400 text-slate-900"
-                                    required
-                                />
-                            </div>
-
-                            {/* Organizer Toggle */}
-                            <div className="flex items-center justify-between p-4 bg-slate-50/80 rounded-xl border border-slate-200/60">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] flex items-center justify-center">
-                                        <Calendar className="h-5 w-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="organizer-toggle" className="text-slate-700 font-semibold cursor-pointer">
-                                            I want to create events
-                                        </Label>
-                                        <p className="text-xs text-slate-500">
-                                            Become an organizer and host your own events
-                                        </p>
-                                    </div>
-                                </div>
-                                <Switch
-                                    id="organizer-toggle"
-                                    checked={wantToOrganize}
-                                    onCheckedChange={setWantToOrganize}
-                                />
-                            </div>
-
-                            {error && (
-                                <p className="text-sm text-red-600 font-medium text-center bg-red-50/80 p-2 rounded-md border border-red-200">
-                                    {error}
-                                </p>
-                            )}
-
-                            <Button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full h-12 font-bold text-white text-lg bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-[var(--brand-cyan)] transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-                            >
-                                {isLoading ? (
-                                    <motion.div
-                                        animate={{ rotate: 360 }}
-                                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                                        className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full mr-2"
-                                    />
-                                ) : (
-                                    <>
-                                        Get Started
-                                        <ArrowRight className="ml-2 h-5 w-5" />
-                                    </>
-                                )}
-                            </Button>
-                        </form>
-
-                        <div className="flex items-center gap-4 my-8">
-                            <div className="h-px flex-1 bg-slate-300/30" />
-                            <span className="text-xs uppercase font-bold tracking-widest text-slate-500">
-                                OR
-                            </span>
-                            <div className="h-px flex-1 bg-slate-300/30" />
-                        </div>
-
-                        <Button
-                            variant="outline"
-                            className="w-full h-12 bg-white/50 border-white/60 hover:bg-white/80 transition-all duration-300 group relative overflow-hidden font-semibold text-slate-700 hover:text-slate-900 shadow-sm"
-                        >
-                            <span className="flex items-center justify-center gap-2">
-                                <svg className="h-5 w-5" viewBox="0 0 24 24">
-                                    <path
-                                        fill="#4285F4"
-                                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                                    />
-                                    <path
-                                        fill="#34A853"
-                                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                                    />
-                                    <path
-                                        fill="#FBBC05"
-                                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                                    />
-                                    <path
-                                        fill="#EA4335"
-                                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                                    />
-                                </svg>
-                                Continue with Google
-                            </span>
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <div className="mt-8 text-center text-sm font-medium text-slate-500">
-                    Already have an account?{' '}
-                    <Link href="/login" className="text-[var(--brand-cyan)] hover:underline hover:text-[var(--brand-teal)] transition-colors font-bold">
-                        Sign in
-                    </Link>
-                </div>
-            </motion.div>
+            <SignupOnboardingDialog
+                open={dialogOpen}
+                onOpenChange={handleDialogClose}
+                onComplete={handleComplete}
+            />
         </div>
     );
 }
+
