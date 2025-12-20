@@ -24,7 +24,7 @@ export default function RegisterPage() {
     // If already logged in AND not in the middle of onboarding, redirect to dashboard
     // Only check this on initial load, not during the signup flow
     useEffect(() => {
-        if (initialLoadComplete && user && !dialogOpen) {
+        if (initialLoadComplete && user && !dialogOpen && !isCompletingRef.current) {
             router.push('/dashboard');
         }
     }, [user, initialLoadComplete, router, dialogOpen]);
@@ -63,4 +63,3 @@ export default function RegisterPage() {
         </div>
     );
 }
-
