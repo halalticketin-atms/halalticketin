@@ -25,6 +25,7 @@ export interface EventRecord {
     refundPolicy: string | null;
     isListedPublicly: boolean;
     slug: string | null;
+    category: string | null;
     feeTier: BackendFeeTier;
     customBookingFee: number | null;
     absorbFee: boolean;
@@ -74,6 +75,7 @@ export interface UpsertEventPayload {
     currency?: string;
     refundPolicy?: string | null;
     isListedPublicly?: boolean;
+    category?: string | null;
     absorbFee?: boolean;
     attendeeInfoMode?: 'per_ticket' | 'buyer_choice';
     customQuestions?: CustomQuestionPayload[] | null;
@@ -199,6 +201,7 @@ export interface PublicEventRecord {
     onlineUrl: string | null;
     currency: string;
     organizerName: string | null;
+    category: string | null;
     absorbFee: boolean;
     feeTier: BackendFeeTier | null;
     customBookingFee: string | null;

@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
 import { PublicEventRecord } from '@/lib/events-api';
 
-const categories = ['All', 'Iftar', 'Conference', 'Workshop', 'Sisters', 'Youth', 'Charity', 'Education'];
+const categories = ['All', 'Conference', 'Workshop', 'Iftar', 'Sisters', 'Youth', 'Charity', 'Education', 'Other'];
 
 /**
  * Transform a public event record into display format.
@@ -61,7 +61,7 @@ function formatEventForDisplay(event: PublicEventRecord) {
         location,
         venue,
         price: null as number | null, // Price unknown from list endpoint - requires fetching ticket data
-        category: 'Community', // Placeholder - events don't have categories yet
+        category: event.category ?? 'Other',
         imageUrl: event.bannerImageUrl,
         attendees: 0, // Placeholder
     };

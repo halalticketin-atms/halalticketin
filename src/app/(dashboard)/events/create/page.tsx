@@ -164,6 +164,7 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         currency: formData.currency,
         refundPolicy: null,
         isListedPublicly: formData.visibility === 'public',
+        category: formData.category || null,
         absorbFee: formData.absorbFee,
         attendeeInfoMode: formData.attendeeInfoMode,
         customQuestions: formData.customQuestions.length > 0 ? formData.customQuestions : null,
@@ -966,7 +967,7 @@ export function EventWizard({
                                                 <div className="space-y-2">
                                                     <Label className="text-sm font-medium">Category</Label>
                                                     <div className="flex flex-wrap gap-1.5">
-                                                        {['Conference', 'Workshop', 'Iftar', 'Sisters', 'Youth', 'Charity'].map((cat) => (
+                                                        {['Conference', 'Workshop', 'Iftar', 'Sisters', 'Youth', 'Charity', 'Education'].map((cat) => (
                                                             <Badge
                                                                 key={cat}
                                                                 variant={formData.category === cat ? 'default' : 'outline'}
