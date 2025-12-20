@@ -24,6 +24,7 @@ import {
     Eye,
     EyeOff,
     Trash2,
+    Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -56,6 +57,7 @@ import {
 } from '@/hooks/useEventDraft';
 import { useSearchParams } from 'next/navigation';
 import { consumePendingDraft, type DraftEntrySource } from '@/utils/pending-draft-storage';
+import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import {
@@ -272,7 +274,8 @@ export function EventWizard({
         setIsPreviewOpen,
     } = useEventDraft(initialDraft, steps.length);
 
-    const { activeOrganizerId, organizers } = useOrganizers();
+    const { user, isLoading: authLoading } = useAuth();
+    const { activeOrganizerId, organizers, isLoading: organizersLoading } = useOrganizers();
     const currentOrganizer = organizers.find(o => o.id === activeOrganizerId);
 
     // Sync currency from organizer default if likely untouched
@@ -283,6 +286,12 @@ export function EventWizard({
     }, [currentOrganizer?.defaultCurrency, initialDraft?.formData?.currency, setFormData]);
 
     const router = useRouter();
+
+    useEffect(() => {
+        if (!authLoading && !user) {
+            router.replace('/login');
+        }
+    }, [authLoading, user, router]);
     const [eventId, setEventId] = useState<string | null>(initialDraft?.eventId ?? null);
     const [eventStatus] = useState<'draft' | 'published' | 'cancelled' | 'archived' | null>(initialDraft?.eventStatus ?? null);
     const [isSaving, setIsSaving] = useState(false);
@@ -576,8 +585,11 @@ export function EventWizard({
             router.push(destination);
         } catch (error) {
             if (error instanceof ApiError) {
-                const serverPayload = error.payload as { errors?: string[] } | null;
-                const payloadErrors = Array.isArray(serverPayload?.errors) ? serverPayload?.errors ?? [] : [];
+                // Backend sends { error: { code, message, details? } } format
+                const serverPayload = error.payload as { error?: { details?: string[] } } | null;
+                const payloadErrors = Array.isArray(serverPayload?.error?.details)
+                    ? serverPayload.error.details
+                    : [];
                 if (payloadErrors.length > 0) {
                     const { fieldErrors: mapped, unmatched } = deriveFieldErrorsFromMessages(payloadErrors);
                     setFieldErrors(mapped);
@@ -634,6 +646,56 @@ export function EventWizard({
         : mode === 'edit'
             ? 'Update Draft'
             : 'Save Draft';
+    const isGateLoading = authLoading || organizersLoading;
+
+    if (isGateLoading) {
+        return (
+            <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+                <Card className="max-w-md w-full">
+                    <CardContent className="pt-6 text-center space-y-4">
+                        <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                        <h2 className="text-lg font-semibold">Loading your organizer access</h2>
+                        <p className="text-muted-foreground">
+                            Checking your account details...
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    if (!user) {
+        return null;
+    }
+
+    // Guard: Block non-organizers from accessing this page
+    if (organizers.length === 0) {
+        return (
+            <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+                <Card className="max-w-md w-full">
+                    <CardContent className="pt-6 text-center space-y-4">
+                        <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                            <Building className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <h2 className="text-xl font-semibold">Organizer Account Required</h2>
+                        <p className="text-muted-foreground">
+                            You need to be an event organizer to create events. Please sign up as an organizer or contact support if you believe this is an error.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                            <Button variant="outline" asChild className="flex-1">
+                                <Link href="/events">Browse Events</Link>
+                            </Button>
+                            <Button asChild className="flex-1">
+                                <Link href="/register?role=organizer">Become an Organizer</Link>
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -853,7 +915,7 @@ export function EventWizard({
                                                 </div>
 
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-sm font-medium">Event Banner</Label>
+                                                    <Label className="text-sm font-medium">Event Poster</Label>
                                                     <input
                                                         ref={bannerInputRef}
                                                         type="file"
@@ -864,15 +926,15 @@ export function EventWizard({
                                                     />
                                                     <label
                                                         htmlFor="banner-upload"
-                                                        className="relative flex h-32 sm:h-40 lg:h-44 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 transition-all hover:border-primary/40 hover:bg-muted/30 group overflow-hidden"
+                                                        className="relative flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 transition-all hover:border-primary/40 hover:bg-muted/30 group overflow-hidden aspect-[4/5] max-w-[280px]"
                                                     >
                                                         {formData.bannerImageDataUrl ? (
                                                             <>
                                                                 <Image
                                                                     src={formData.bannerImageDataUrl}
-                                                                    alt={formData.title || 'Event banner'}
+                                                                    alt={formData.title || 'Event poster'}
                                                                     fill
-                                                                    sizes="(max-width: 768px) 100vw, 400px"
+                                                                    sizes="280px"
                                                                     className="object-cover"
                                                                     unoptimized
                                                                 />
@@ -894,7 +956,7 @@ export function EventWizard({
                                                                     <Upload className="h-4 w-4" />
                                                                 </div>
                                                                 <p className="font-medium text-sm">Click to upload</p>
-                                                                <p className="mt-0.5 text-xs text-muted-foreground">16:9 recommended</p>
+                                                                <p className="mt-0.5 text-xs text-muted-foreground">1080×1350px recommended</p>
                                                             </div>
                                                         )}
                                                     </label>

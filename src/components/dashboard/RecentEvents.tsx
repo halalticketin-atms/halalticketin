@@ -63,13 +63,19 @@ export function RecentEvents({ events }: RecentEventsProps) {
                                 transition={{ duration: 0.3, delay: index * 0.1 }}
                                 className="flex items-start gap-3 p-3 sm:p-4 hover:bg-muted/50 transition-colors"
                             >
-                                <div className="relative h-12 w-16 sm:h-16 sm:w-24 shrink-0 overflow-hidden rounded-lg">
-                                    <Image
-                                        src={event.imageUrl}
-                                        alt={event.title}
-                                        fill
-                                        className="object-cover"
-                                    />
+                                <div className="relative w-12 sm:w-16 aspect-[4/5] shrink-0 overflow-hidden rounded-lg bg-muted">
+                                    {event.imageUrl ? (
+                                        <Image
+                                            src={event.imageUrl}
+                                            alt={event.title}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                    ) : (
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-1 sm:gap-2">

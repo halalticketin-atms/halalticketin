@@ -223,9 +223,9 @@ function BrowseEventsContent() {
 
                 {/* Events Grid */}
                 {!isLoading && !error && (
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {filteredEvents.length === 0 ? (
-                            <Card className="sm:col-span-2 lg:col-span-3 p-16 text-center border-dashed border-2 bg-transparent shadow-none">
+                            <Card className="sm:col-span-2 xl:col-span-3 p-16 text-center border-dashed border-2 bg-transparent shadow-none">
                                 <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-6">
                                     <Calendar className="h-8 w-8 text-muted-foreground" />
                                 </div>
@@ -248,103 +248,85 @@ function BrowseEventsContent() {
                             </Card>
                         ) : (
                             <>
-                                {filteredEvents.map((event, index) => {
-                                    const attendeeEstimate = 20 + ((index * 13) % 40);
-                                    return (
-                                        <motion.div
-                                            key={event.id}
-                                            initial={{ opacity: 0, y: 20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ duration: 0.4, delay: index * 0.05 }}
-                                        >
-                                            <Link href={`/events/${event.slug || event.id}`} className="block h-full">
-                                                <Card className="group h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-[var(--brand-cyan)]/5 hover:border-[var(--brand-cyan)]/30 bg-card/50 backdrop-blur-sm">
-                                                    {/* Image */}
-                                                    <div className="relative aspect-[16/10] overflow-hidden">
-                                                        {event.imageUrl ? (
-                                                            <Image
-                                                                src={event.imageUrl}
-                                                                alt={event.title}
-                                                                fill
-                                                                className="object-cover transition-transform duration-500 group-hover:scale-105"
-                                                            />
-                                                        ) : (
-                                                            <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-mint)]/10 to-[var(--brand-cyan)]/10 flex items-center justify-center text-muted-foreground">
-                                                                <Calendar className="h-10 w-10 opacity-20" />
-                                                            </div>
-                                                        )}
-                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 transition-opacity group-hover:opacity-70" />
-
-                                                        {/* Category Badge */}
-                                                        <Badge className="absolute left-4 top-4 bg-white/90 text-slate-900 hover:bg-white border-0 font-medium backdrop-blur-md shadow-sm">
-                                                            {event.category}
-                                                        </Badge>
-
-                                                        {/* Like Button */}
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                toggleLike(event.id);
-                                                            }}
-                                                            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white backdrop-blur-md transition-all hover:bg-white hover:text-red-500 hover:scale-110"
-                                                        >
-                                                            <Heart
-                                                                className={`h-4 w-4 ${likedEvents.has(event.id)
-                                                                    ? 'fill-red-500 text-red-500'
-                                                                    : 'current-color'
-                                                                    }`}
-                                                            />
-                                                        </button>
-
-                                                        {/* Price */}
-                                                        <div className="absolute bottom-4 right-4">
-                                                            <Badge className="bg-[var(--brand-cyan)] text-white hover:bg-[var(--brand-teal)] border-0 font-bold shadow-sm">
-                                                                {event.price === null ? 'View' : event.price === 0 ? 'Free' : `£${event.price}`}
-                                                            </Badge>
+                                {filteredEvents.map((event, index) => (
+                                    <motion.div
+                                        key={event.id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.4, delay: index * 0.03 }}
+                                    >
+                                        <Link href={`/events/${event.slug || event.id}`} className="block h-full">
+                                            <Card className="group h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-[var(--brand-cyan)]/10 hover:border-[var(--brand-cyan)]/40 bg-card">
+                                                <div className="flex p-3 sm:p-4 gap-4">
+                                                    {/* Poster Image - Left Side with padding */}
+                                                    <div className="relative w-28 sm:w-32 md:w-36 shrink-0">
+                                                        <div className="relative aspect-[4/5] rounded-xl overflow-hidden shadow-md">
+                                                            {event.imageUrl ? (
+                                                                <Image
+                                                                    src={event.imageUrl}
+                                                                    alt={event.title}
+                                                                    fill
+                                                                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                                                />
+                                                            ) : (
+                                                                <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-mint)]/30 to-[var(--brand-cyan)]/30 flex items-center justify-center text-muted-foreground">
+                                                                    <Calendar className="h-10 w-10 opacity-40" />
+                                                                </div>
+                                                            )}
+                                                            {/* Like Button */}
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    toggleLike(event.id);
+                                                                }}
+                                                                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-muted-foreground shadow-sm transition-all hover:bg-white hover:text-red-500 hover:scale-110"
+                                                            >
+                                                                <Heart
+                                                                    className={`h-3.5 w-3.5 ${likedEvents.has(event.id)
+                                                                        ? 'fill-red-500 text-red-500'
+                                                                        : ''
+                                                                        }`}
+                                                                />
+                                                            </button>
                                                         </div>
                                                     </div>
 
-                                                    {/* Content */}
-                                                    <CardContent className="p-5">
-                                                        <h3 className="font-display font-bold text-lg line-clamp-1 group-hover:text-[var(--brand-teal)] transition-colors">
-                                                            {event.title}
-                                                        </h3>
-
-                                                        <div className="mt-4 space-y-2.5">
-                                                            <div className="flex items-center gap-2.5 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                                                                <Calendar className="h-4 w-4 shrink-0 text-[var(--brand-cyan)]" />
-                                                                <span className="font-medium">{event.date}{event.time && ` • ${event.time}`}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                                                                <MapPin className="h-4 w-4 shrink-0 text-[var(--brand-mint)]" />
-                                                                <span className="truncate">{event.venue || event.location}</span>
+                                                    {/* Content - Right Side */}
+                                                    <div className="flex-1 flex flex-col justify-between min-w-0 py-1">
+                                                        <div>
+                                                            <h3 className="font-display font-bold text-base sm:text-lg leading-snug line-clamp-2 group-hover:text-[var(--brand-teal)] transition-colors">
+                                                                {event.title}
+                                                            </h3>
+                                                            <div className="mt-3 space-y-2">
+                                                                <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                                                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--brand-cyan)]/10">
+                                                                        <Calendar className="h-3.5 w-3.5 text-[var(--brand-cyan)]" />
+                                                                    </div>
+                                                                    <span className="font-medium">{event.date}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                                                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--brand-mint)]/10">
+                                                                        <MapPin className="h-3.5 w-3.5 text-[var(--brand-mint)]" />
+                                                                    </div>
+                                                                    <span className="truncate">{event.venue || event.location}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
 
-                                                        <div className="mt-5 pt-4 border-t border-border/50 flex items-center justify-between">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="flex -space-x-2">
-                                                                    {[...Array(3)].map((_, i) => (
-                                                                        <div key={i} className="w-6 h-6 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[8px] overflow-hidden">
-                                                                            {/* Placeholder for avatars */}
-                                                                            <Users className="h-3 w-3 text-muted-foreground opacity-50" />
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                                <span className="text-xs text-muted-foreground font-medium">
-                                                                    +{attendeeEstimate} going
-                                                                </span>
-                                                            </div>
-                                                            <span className="text-xs font-semibold text-[var(--brand-teal)] group-hover:underline">
+                                                        <div className="mt-4 flex items-center justify-between">
+                                                            <Badge className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 border-0 font-semibold px-4 py-1.5 rounded-full">
+                                                                {event.price === null ? 'View' : event.price === 0 ? 'Free' : `£${event.price}`}
+                                                            </Badge>
+                                                            <span className="text-sm font-semibold text-[var(--brand-teal)] group-hover:underline">
                                                                 Details &rarr;
                                                             </span>
                                                         </div>
-                                                    </CardContent>
-                                                </Card>
-                                            </Link>
-                                        </motion.div>
-                                    );
-                                })}
+                                                    </div>
+                                                </div>
+                                            </Card>
+                                        </Link>
+                                    </motion.div>
+                                ))}
                             </>
                         )}
                     </div>

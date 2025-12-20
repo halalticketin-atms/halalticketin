@@ -243,7 +243,7 @@ function EventCard({ event }: { event: { id: string; slug?: string; title: strin
             <Link href={`/events/${event.slug || event.id}`} className="block h-full">
                 <Card className="group overflow-hidden border-border/50 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20">
                     <CardContent className="flex items-center gap-5 p-4">
-                        <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-xl bg-muted shadow-inner">
+                        <div className="relative w-16 sm:w-20 aspect-[4/5] shrink-0 overflow-hidden rounded-xl bg-muted shadow-inner">
                             {event.image ? (
                                 <Image
                                     src={event.image}
@@ -253,7 +253,7 @@ function EventCard({ event }: { event: { id: string; slug?: string; title: strin
                                 />
                             ) : (
                                 <div className="absolute inset-0 flex items-center justify-center bg-muted/50 text-muted-foreground/50">
-                                    <Calendar className="h-8 w-8 opacity-20" />
+                                    <Calendar className="h-6 w-6 opacity-20" />
                                 </div>
                             )}
                         </div>

@@ -94,8 +94,8 @@ function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
         >
             <Card className="overflow-hidden border-border/50 hover:shadow-lg transition-shadow group">
                 <div className="flex flex-col sm:flex-row">
-                    {/* Image */}
-                    <div className="relative w-full sm:w-48 h-40 sm:h-auto shrink-0 bg-muted">
+                    {/* Poster Image */}
+                    <div className="relative w-full sm:w-40 md:w-48 aspect-[4/5] sm:aspect-auto shrink-0 bg-muted overflow-hidden">
                         {event.bannerImageUrl ? (
                             <Image
                                 src={event.bannerImageUrl}
@@ -104,8 +104,8 @@ function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
                                 className="object-cover"
                             />
                         ) : (
-                            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                                <Calendar className="h-8 w-8" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+                                <Calendar className="h-8 w-8 text-muted-foreground" />
                             </div>
                         )}
                         <Badge className={`absolute top-3 left-3 ${config.color}`}>

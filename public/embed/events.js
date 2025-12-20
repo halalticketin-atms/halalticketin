@@ -45,13 +45,13 @@
         }
         .ht-embed-card-image {
             width: 100%;
-            aspect-ratio: 16 / 10;
+            aspect-ratio: 4 / 5;
             object-fit: cover;
             background: linear-gradient(135deg, #e0e0e0 0%, #f5f5f5 100%);
         }
         .ht-embed-card-image-placeholder {
             width: 100%;
-            aspect-ratio: 16 / 10;
+            aspect-ratio: 4 / 5;
             display: flex;
             align-items: center;
             justify-content: center;

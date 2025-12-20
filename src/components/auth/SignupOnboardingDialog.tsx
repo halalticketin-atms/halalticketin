@@ -40,9 +40,13 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import api, { setAuthToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
+import { uploadOrganizerAvatar } from '@/lib/upload-api';
+
+const TERMS_VERSION = '2024-12-20';
 
 const COUNTRIES = [
     { code: 'AF', name: 'Afghanistan' },
@@ -368,6 +372,7 @@ export function SignupOnboardingDialog({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [organizerId, setOrganizerId] = useState<string | null>(null);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
 
     // Avatar upload state
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -449,6 +454,10 @@ export function SignupOnboardingDialog({
                 setStep('profile');
                 break;
             case 'profile':
+                if (!acceptedTerms) {
+                    setError('You must accept the Terms of Use to create an account');
+                    return;
+                }
                 await handleRegister();
                 break;
             case 'stripe':
@@ -485,6 +494,8 @@ export function SignupOnboardingDialog({
                 password: formData.password,
                 name: formData.name || undefined,
                 isOrganizer: formData.role === 'organizer',
+                termsAccepted: acceptedTerms,
+                termsVersion: TERMS_VERSION,
             };
 
             if (formData.gender) payload.gender = formData.gender;
@@ -517,29 +528,16 @@ export function SignupOnboardingDialog({
             setAuthToken(loginResponse.accessToken);
             await refresh();
 
-            // Upload avatar if one was selected (optional, don't fail registration if upload fails)
-            if (avatarFile) {
-                try {
-                    const formDataUpload = new FormData();
-                    formDataUpload.append('file', avatarFile);
-
-                    const uploadResponse = await fetch(
-                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/v1/uploads/avatar`,
-                        {
-                            method: 'POST',
-                            headers: {
-                                Authorization: `Bearer ${loginResponse.accessToken}`,
-                            },
-                            body: formDataUpload,
-                        }
-                    );
-
-                    if (!uploadResponse.ok) {
-                        console.warn('Avatar upload failed, continuing without avatar');
+            if (avatarFile && formData.role === 'organizer') {
+                if (!registerResponse.organizerId) {
+                    console.warn('Organizer logo upload skipped: missing organizer ID');
+                } else {
+                    try {
+                        await uploadOrganizerAvatar(registerResponse.organizerId, avatarFile);
+                    } catch (uploadError) {
+                        console.warn('Organizer logo upload error:', uploadError);
+                        // Don't fail registration for logo upload issues
                     }
-                } catch (uploadError) {
-                    console.warn('Avatar upload error:', uploadError);
-                    // Don't fail registration for avatar upload issues
                 }
             }
 
@@ -965,51 +963,6 @@ export function SignupOnboardingDialog({
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show">
                                         {formData.role === 'buyer' ? (
                                             <div className="space-y-4">
-                                                {/* Avatar Upload */}
-                                                <motion.div variants={staggerItem} className="flex flex-col items-center gap-3">
-                                                    <Label className="text-sm text-slate-600 dark:text-slate-400">
-                                                        Profile Photo <span className="text-slate-400">(Optional)</span>
-                                                    </Label>
-                                                    <div className="relative group">
-                                                        <input
-                                                            ref={avatarInputRef}
-                                                            type="file"
-                                                            accept="image/*"
-                                                            onChange={handleAvatarSelect}
-                                                            className="hidden"
-                                                            id="avatar-upload"
-                                                        />
-                                                        <label
-                                                            htmlFor="avatar-upload"
-                                                            className={cn(
-                                                                'flex h-24 w-24 cursor-pointer items-center justify-center rounded-full border-2 border-dashed transition-all overflow-hidden',
-                                                                avatarPreview
-                                                                    ? 'border-transparent'
-                                                                    : 'border-slate-300 dark:border-slate-600 hover:border-[var(--brand-cyan)] bg-slate-100 dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
-                                                            )}
-                                                        >
-                                                            {avatarPreview ? (
-                                                                <img
-                                                                    src={avatarPreview}
-                                                                    alt="Avatar preview"
-                                                                    className="h-full w-full object-cover"
-                                                                />
-                                                            ) : (
-                                                                <Camera className="h-8 w-8 text-slate-400" />
-                                                            )}
-                                                        </label>
-                                                        {avatarPreview && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={removeAvatar}
-                                                                className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors"
-                                                            >
-                                                                <X className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </motion.div>
-
                                                 <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     <div className="space-y-2">
                                                         <Label>Gender</Label>
@@ -1241,6 +1194,42 @@ export function SignupOnboardingDialog({
                                                 </motion.div>
                                             </div>
                                         )}
+
+                                        {/* Terms of Use Checkbox */}
+                                        <motion.div variants={staggerItem} className="pt-4">
+                                            <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700">
+                                                <Checkbox
+                                                    id="terms-of-use"
+                                                    checked={acceptedTerms}
+                                                    onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                                                    className="mt-0.5 h-5 w-5 border-2 border-slate-400 dark:border-slate-500 data-[state=checked]:bg-[var(--brand-teal)] data-[state=checked]:border-[var(--brand-teal)]"
+                                                />
+                                                <Label
+                                                    htmlFor="terms-of-use"
+                                                    className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer leading-relaxed"
+                                                >
+                                                    I agree to the{' '}
+                                                    <a
+                                                        href="/terms"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-[var(--brand-teal)] hover:text-[var(--brand-cyan)] font-medium underline underline-offset-2 transition-colors"
+                                                    >
+                                                        Terms of Use
+                                                    </a>{' '}
+                                                    and{' '}
+                                                    <a
+                                                        href="/privacy"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-[var(--brand-teal)] hover:text-[var(--brand-cyan)] font-medium underline underline-offset-2 transition-colors"
+                                                    >
+                                                        Privacy Policy
+                                                    </a>
+                                                    <span className="text-rose-500 ml-1">*</span>
+                                                </Label>
+                                            </div>
+                                        </motion.div>
                                     </motion.div>
 
                                     {error && (

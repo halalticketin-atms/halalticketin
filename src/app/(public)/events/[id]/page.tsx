@@ -499,28 +499,57 @@ export default function EventDetailsPage() {
 
     return (
         <div className="min-h-screen bg-muted/30">
-            {/* Hero Section */}
+            {/* Hero Section - Poster with Blurred Background */}
             <div className="relative">
-                {/* Banner Image */}
-                <div className="relative h-64 sm:h-80 md:h-96 bg-muted">
+                {/* Blurred Background Layer */}
+                <div className="relative h-[400px] sm:h-[450px] md:h-[500px] overflow-hidden">
                     {event.bannerImageUrl ? (
-                        <Image
-                            src={event.bannerImageUrl}
-                            alt={event.title || 'Event'}
-                            fill
-                            className="object-cover"
-                            priority
-                        />
+                        <>
+                            {/* Blurred, zoomed background */}
+                            <div className="absolute inset-0 scale-110">
+                                <Image
+                                    src={event.bannerImageUrl}
+                                    alt=""
+                                    fill
+                                    className="object-cover blur-xl"
+                                    priority
+                                />
+                            </div>
+                            {/* Dark overlay for better contrast */}
+                            <div className="absolute inset-0 bg-black/50" />
+                        </>
                     ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                            <Calendar className="h-16 w-16 text-primary/40" />
-                        </div>
+                        /* Solid gradient fallback when no image */
+                        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+                    {/* Centered Sharp Poster */}
+                    <div className="absolute inset-0 flex items-center justify-center px-4">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.5, ease: 'easeOut' }}
+                            className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[360px] aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10"
+                        >
+                            {event.bannerImageUrl ? (
+                                <Image
+                                    src={event.bannerImageUrl}
+                                    alt={event.title || 'Event'}
+                                    fill
+                                    className="object-cover"
+                                    priority
+                                />
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
+                                    <Calendar className="h-16 w-16 text-white/40" />
+                                </div>
+                            )}
+                        </motion.div>
+                    </div>
 
                     {/* Back Button */}
-                    <div className="absolute top-4 left-4">
-                        <Button variant="secondary" size="sm" asChild className="backdrop-blur-sm">
+                    <div className="absolute top-4 left-4 z-10">
+                        <Button variant="secondary" size="sm" asChild className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50">
                             <Link href="/events">
                                 <ArrowLeft className="h-4 w-4 mr-2" />
                                 Back to Events
@@ -529,11 +558,11 @@ export default function EventDetailsPage() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="absolute top-4 right-4 flex gap-2">
-                        <Button variant="secondary" size="icon" className="backdrop-blur-sm">
+                    <div className="absolute top-4 right-4 flex gap-2 z-10">
+                        <Button variant="secondary" size="icon" className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50">
                             <Heart className="h-4 w-4" />
                         </Button>
-                        <Button variant="secondary" size="icon" className="backdrop-blur-sm">
+                        <Button variant="secondary" size="icon" className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50">
                             <Share2 className="h-4 w-4" />
                         </Button>
                     </div>
