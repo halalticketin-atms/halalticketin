@@ -75,6 +75,7 @@ import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticke
 import { ApiError } from '@/lib/api';
 import { getUserFriendlyMessage } from '@/lib/errors';
 import { PAYG_FEE_GBP, getCurrencySymbol, convertFromGBP } from '@/lib/fees';
+import { uploadEventBanner } from '@/lib/upload-api';
 
 export const steps = [
     { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
@@ -291,6 +292,48 @@ export function EventWizard({
     const [publishErrors, setPublishErrors] = useState<string[]>([]);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+    // Banner file upload state
+    const [bannerFile, setBannerFile] = useState<File | null>(null);
+    const bannerInputRef = useRef<HTMLInputElement>(null);
+
+    const handleBannerSelect = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            setActionError('Please select an image file');
+            return;
+        }
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            setActionError('Image must be less than 10MB');
+            return;
+        }
+
+        setBannerFile(file);
+        setActionError(null);
+
+        // Create preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            if (typeof reader.result === 'string') {
+                setFormData(prev => ({ ...prev, bannerImageDataUrl: reader.result as string }));
+            }
+        };
+        reader.readAsDataURL(file);
+    }, [setFormData]);
+
+    const removeBanner = useCallback(() => {
+        setBannerFile(null);
+        setFormData(prev => ({ ...prev, bannerImageDataUrl: '' }));
+        if (bannerInputRef.current) {
+            bannerInputRef.current.value = '';
+        }
+    }, [setFormData]);
+
     const clearFieldErrors = useCallback((...fields: string[]) => {
         if (fields.length === 0) {
             setFieldErrors({});
@@ -471,6 +514,17 @@ export function EventWizard({
                     setPromoCodes(normalizedPromoCodes);
                 }
 
+                // Upload banner image if a new file was selected
+                if (bannerFile) {
+                    try {
+                        await uploadEventBanner(nextEventId, bannerFile);
+                        setBannerFile(null); // Clear file after successful upload
+                    } catch (uploadError) {
+                        console.warn('Banner upload failed:', uploadError);
+                        // Don't fail the draft save, just log a warning
+                    }
+                }
+
                 setEventId(nextEventId);
                 markSnapshotAsSaved({ tickets: normalizedTickets, promoCodes: normalizedPromoCodes });
                 setFieldErrors({});
@@ -489,7 +543,7 @@ export function EventWizard({
                 setIsSaving(false);
             }
         },
-        [activeOrganizerId, eventId, formData, isSaving, markSnapshotAsSaved, promoCodes, setPromoCodes, setTickets, tickets],
+        [activeOrganizerId, bannerFile, eventId, formData, isSaving, markSnapshotAsSaved, promoCodes, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
@@ -800,16 +854,40 @@ export function EventWizard({
 
                                                 <div className="space-y-1.5">
                                                     <Label className="text-sm font-medium">Event Banner</Label>
-                                                    <div className="relative flex h-32 sm:h-40 lg:h-44 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 transition-all hover:border-primary/40 hover:bg-muted/30 group overflow-hidden">
+                                                    <input
+                                                        ref={bannerInputRef}
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleBannerSelect}
+                                                        className="hidden"
+                                                        id="banner-upload"
+                                                    />
+                                                    <label
+                                                        htmlFor="banner-upload"
+                                                        className="relative flex h-32 sm:h-40 lg:h-44 cursor-pointer items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 transition-all hover:border-primary/40 hover:bg-muted/30 group overflow-hidden"
+                                                    >
                                                         {formData.bannerImageDataUrl ? (
-                                                            <Image
-                                                                src={formData.bannerImageDataUrl}
-                                                                alt={formData.title || 'Event banner'}
-                                                                fill
-                                                                sizes="(max-width: 768px) 100vw, 400px"
-                                                                className="object-cover"
-                                                                unoptimized
-                                                            />
+                                                            <>
+                                                                <Image
+                                                                    src={formData.bannerImageDataUrl}
+                                                                    alt={formData.title || 'Event banner'}
+                                                                    fill
+                                                                    sizes="(max-width: 768px) 100vw, 400px"
+                                                                    className="object-cover"
+                                                                    unoptimized
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        removeBanner();
+                                                                    }}
+                                                                    className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors z-10"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
+                                                            </>
                                                         ) : (
                                                             <div className="text-center px-4">
                                                                 <div className="mx-auto mb-1.5 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-105 transition-transform">
@@ -819,7 +897,7 @@ export function EventWizard({
                                                                 <p className="mt-0.5 text-xs text-muted-foreground">16:9 recommended</p>
                                                             </div>
                                                         )}
-                                                    </div>
+                                                    </label>
                                                 </div>
 
                                                 {/* Category */}

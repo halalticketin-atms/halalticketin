@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, type ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -19,6 +19,8 @@ import {
     CheckCircle,
     Check,
     Sparkles,
+    Camera,
+    X,
 } from 'lucide-react';
 import {
     Dialog,
@@ -124,7 +126,6 @@ const COUNTRIES = [
     { code: 'IR', name: 'Iran' },
     { code: 'IQ', name: 'Iraq' },
     { code: 'IE', name: 'Ireland' },
-    { code: 'IL', name: 'Israel' },
     { code: 'IT', name: 'Italy' },
     { code: 'JM', name: 'Jamaica' },
     { code: 'JP', name: 'Japan' },
@@ -368,6 +369,11 @@ export function SignupOnboardingDialog({
     const [error, setError] = useState<string | null>(null);
     const [organizerId, setOrganizerId] = useState<string | null>(null);
 
+    // Avatar upload state
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState<string>('');
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+
     const router = useRouter();
     const { refresh } = useAuth();
 
@@ -376,6 +382,43 @@ export function SignupOnboardingDialog({
 
     const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const handleAvatarSelect = (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            setError('Please select an image file');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            setError('Image must be less than 5MB');
+            return;
+        }
+
+        setAvatarFile(file);
+        setError(null);
+
+        // Create preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            if (typeof reader.result === 'string') {
+                setAvatarPreview(reader.result);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const removeAvatar = () => {
+        setAvatarFile(null);
+        setAvatarPreview('');
+        if (avatarInputRef.current) {
+            avatarInputRef.current.value = '';
+        }
     };
 
     const goToStep = (stepId: Step, dir = 0) => {
@@ -473,6 +516,32 @@ export function SignupOnboardingDialog({
 
             setAuthToken(loginResponse.accessToken);
             await refresh();
+
+            // Upload avatar if one was selected (optional, don't fail registration if upload fails)
+            if (avatarFile) {
+                try {
+                    const formDataUpload = new FormData();
+                    formDataUpload.append('file', avatarFile);
+
+                    const uploadResponse = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/v1/uploads/avatar`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                Authorization: `Bearer ${loginResponse.accessToken}`,
+                            },
+                            body: formDataUpload,
+                        }
+                    );
+
+                    if (!uploadResponse.ok) {
+                        console.warn('Avatar upload failed, continuing without avatar');
+                    }
+                } catch (uploadError) {
+                    console.warn('Avatar upload error:', uploadError);
+                    // Don't fail registration for avatar upload issues
+                }
+            }
 
             setDirection(1);
             if (formData.role === 'organizer') {
@@ -896,6 +965,51 @@ export function SignupOnboardingDialog({
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show">
                                         {formData.role === 'buyer' ? (
                                             <div className="space-y-4">
+                                                {/* Avatar Upload */}
+                                                <motion.div variants={staggerItem} className="flex flex-col items-center gap-3">
+                                                    <Label className="text-sm text-slate-600 dark:text-slate-400">
+                                                        Profile Photo <span className="text-slate-400">(Optional)</span>
+                                                    </Label>
+                                                    <div className="relative group">
+                                                        <input
+                                                            ref={avatarInputRef}
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={handleAvatarSelect}
+                                                            className="hidden"
+                                                            id="avatar-upload"
+                                                        />
+                                                        <label
+                                                            htmlFor="avatar-upload"
+                                                            className={cn(
+                                                                'flex h-24 w-24 cursor-pointer items-center justify-center rounded-full border-2 border-dashed transition-all overflow-hidden',
+                                                                avatarPreview
+                                                                    ? 'border-transparent'
+                                                                    : 'border-slate-300 dark:border-slate-600 hover:border-[var(--brand-cyan)] bg-slate-100 dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                                            )}
+                                                        >
+                                                            {avatarPreview ? (
+                                                                <img
+                                                                    src={avatarPreview}
+                                                                    alt="Avatar preview"
+                                                                    className="h-full w-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <Camera className="h-8 w-8 text-slate-400" />
+                                                            )}
+                                                        </label>
+                                                        {avatarPreview && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={removeAvatar}
+                                                                className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors"
+                                                            >
+                                                                <X className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </motion.div>
+
                                                 <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     <div className="space-y-2">
                                                         <Label>Gender</Label>
@@ -963,6 +1077,51 @@ export function SignupOnboardingDialog({
                                             </div>
                                         ) : (
                                             <div className="space-y-4">
+                                                {/* Avatar Upload for Organizer */}
+                                                <motion.div variants={staggerItem} className="flex flex-col items-center gap-3">
+                                                    <Label className="text-sm text-slate-600 dark:text-slate-400">
+                                                        Brand Logo / Photo <span className="text-slate-400">(Optional)</span>
+                                                    </Label>
+                                                    <div className="relative group">
+                                                        <input
+                                                            ref={avatarInputRef}
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={handleAvatarSelect}
+                                                            className="hidden"
+                                                            id="avatar-upload-org"
+                                                        />
+                                                        <label
+                                                            htmlFor="avatar-upload-org"
+                                                            className={cn(
+                                                                'flex h-24 w-24 cursor-pointer items-center justify-center rounded-full border-2 border-dashed transition-all overflow-hidden',
+                                                                avatarPreview
+                                                                    ? 'border-transparent'
+                                                                    : 'border-slate-300 dark:border-slate-600 hover:border-[var(--brand-cyan)] bg-slate-100 dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                                            )}
+                                                        >
+                                                            {avatarPreview ? (
+                                                                <img
+                                                                    src={avatarPreview}
+                                                                    alt="Avatar preview"
+                                                                    className="h-full w-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <Camera className="h-8 w-8 text-slate-400" />
+                                                            )}
+                                                        </label>
+                                                        {avatarPreview && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={removeAvatar}
+                                                                className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors"
+                                                            >
+                                                                <X className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </motion.div>
+
                                                 <motion.div variants={staggerItem} className="space-y-2">
                                                     <Label className="flex items-center gap-2">
                                                         <Building2 className="h-4 w-4 text-slate-400" />
