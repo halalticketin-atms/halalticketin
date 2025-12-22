@@ -72,13 +72,19 @@ class ApiClient {
 
         const token = getAuthToken();
 
+        const headers = new Headers(fetchConfig.headers);
+        if (token) {
+            headers.set('Authorization', `Bearer ${token}`);
+        }
+        // Only set JSON content-type when we're actually sending a JSON body.
+        // (Fastify rejects requests that claim JSON but send an empty body.)
+        if (typeof fetchConfig.body === 'string' && !headers.has('Content-Type')) {
+            headers.set('Content-Type', 'application/json');
+        }
+
         const response = await fetch(url, {
             ...fetchConfig,
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                ...fetchConfig.headers,
-            },
+            headers,
         });
 
         if (!response.ok) {
@@ -129,7 +135,7 @@ class ApiClient {
         return this.request<T>(endpoint, {
             ...config,
             method: 'POST',
-            body: data ? JSON.stringify(data) : undefined,
+            body: data === undefined ? undefined : JSON.stringify(data),
         });
     }
 
@@ -137,7 +143,7 @@ class ApiClient {
         return this.request<T>(endpoint, {
             ...config,
             method: 'PUT',
-            body: data ? JSON.stringify(data) : undefined,
+            body: data === undefined ? undefined : JSON.stringify(data),
         });
     }
 
@@ -145,7 +151,7 @@ class ApiClient {
         return this.request<T>(endpoint, {
             ...config,
             method: 'PATCH',
-            body: data ? JSON.stringify(data) : undefined,
+            body: data === undefined ? undefined : JSON.stringify(data),
         });
     }
 
