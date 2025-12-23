@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle, Download, Calendar, MapPin, Ticket, Loader2 } from 'lucide-react';
+import { CheckCircle, Calendar, MapPin, Ticket, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 
@@ -179,18 +179,12 @@ function CheckoutSuccessContent() {
                                     {orderStatus.tickets.map((ticket) => (
                                         <div
                                             key={ticket.id}
-                                            className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
+                                            className="p-4 bg-gray-50 rounded-xl"
                                         >
-                                            <div>
-                                                <p className="font-medium text-gray-900">{ticket.ticketType}</p>
-                                                <p className="text-sm text-gray-500 font-mono">
-                                                    {ticket.ticketCode}
-                                                </p>
-                                            </div>
-                                            <Button variant="outline" size="sm">
-                                                <Download className="w-4 h-4 mr-2" />
-                                                Download
-                                            </Button>
+                                            <p className="font-medium text-gray-900">{ticket.ticketType}</p>
+                                            <p className="text-sm text-gray-500 font-mono break-all">
+                                                {ticket.ticketCode}
+                                            </p>
                                         </div>
                                     ))}
                                 </div>

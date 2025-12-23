@@ -7,17 +7,15 @@ import { useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
     Search,
-    MapPin,
     Calendar,
     Filter,
     Heart,
     ChevronDown,
     Loader2,
-    Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
 import { PublicEventRecord } from '@/lib/events-api';

@@ -3,18 +3,16 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
-    Settings,
     Calendar,
     Ticket,
     Heart,
     MapPin,
     ChevronRight,
     Edit3,
-    Share2,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,13 +20,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
-import { useOrganizerEvents } from '@/hooks/useOrganizerEvents';
+import { useOrganizerEvents, type DashboardEvent } from '@/hooks/useOrganizerEvents';
+
+type ProfileEventCard = {
+    id: string;
+    slug?: string;
+    title: string;
+    date: string;
+    image?: string | null;
+};
 
 export default function ProfilePage() {
-    const router = useRouter();
-    const { user, memberships, isLoading: authLoading, signOut } = useAuth();
+    const { user, memberships } = useAuth();
     const { activeOrganizerId } = useOrganizers();
-    const { events, isLoading: eventsLoading, getByStatus, counts } = useOrganizerEvents(activeOrganizerId);
+    const { getByStatus, counts } = useOrganizerEvents(activeOrganizerId);
     const [activeTab, setActiveTab] = useState('upcoming');
 
     const displayName = user?.name || user?.email?.split('@')[0] || 'Guest User';
@@ -37,7 +42,7 @@ export default function ProfilePage() {
     const avatarFallback = displayName.charAt(0).toUpperCase();
 
     // Map events for display
-    const formatEvent = (event: any) => ({
+    const formatEvent = (event: DashboardEvent): ProfileEventCard => ({
         id: event.id,
         slug: event.slug,
         title: event.title,
@@ -158,9 +163,8 @@ export default function ProfilePage() {
                 {/* Content Tabs */}
                 <div className="container max-w-4xl py-8">
                     <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="w-full justify-start bg-transparent border-b border-border/40 rounded-none h-auto p-0 mb-8 space-x-8">
+                            <TabsList className="w-full justify-start bg-transparent border-b border-border/40 rounded-none h-auto p-0 mb-8 space-x-8">
                             {['Upcoming', 'Past Events', 'Saved'].map((tab) => {
-                                const value = tab.toLowerCase().replace(' ', '-');
                                 const actualValue = tab === 'Past Events' ? 'past' : tab.toLowerCase();
                                 const isActive = activeTab === actualValue;
 
@@ -232,7 +236,7 @@ export default function ProfilePage() {
     );
 }
 
-function EventCard({ event }: { event: { id: string; slug?: string; title: string; date: string; image?: string | null } }) {
+function EventCard({ event }: { event: ProfileEventCard }) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -283,7 +287,7 @@ function EmptyState({
     actionLabel,
     actionHref
 }: {
-    icon: any,
+    icon: LucideIcon;
     title: string,
     description: string,
     actionLabel?: string,

@@ -35,7 +35,7 @@ const formatCurrency = (amount: number, currency: string) => {
 
 export default function DashboardPage() {
     const organizerId = useOrganizerFromParams();
-    const { user, memberships, isLoading } = useAuth();
+    const { user, memberships } = useAuth();
     const { events, counts } = useOrganizerEvents(organizerId);
     const [analyticsStats, setAnalyticsStats] = useState<AnalyticsStats | null>(null);
 

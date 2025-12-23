@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, type ChangeEvent } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -1047,17 +1048,20 @@ export function SignupOnboardingDialog({
                                                         <label
                                                             htmlFor="avatar-upload-org"
                                                             className={cn(
-                                                                'flex h-24 w-24 cursor-pointer items-center justify-center rounded-full border-2 border-dashed transition-all overflow-hidden',
+                                                                'relative flex h-24 w-24 cursor-pointer items-center justify-center rounded-full border-2 border-dashed transition-all overflow-hidden',
                                                                 avatarPreview
                                                                     ? 'border-transparent'
                                                                     : 'border-slate-300 dark:border-slate-600 hover:border-[var(--brand-cyan)] bg-slate-100 dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
                                                             )}
                                                         >
                                                             {avatarPreview ? (
-                                                                <img
+                                                                <Image
                                                                     src={avatarPreview}
                                                                     alt="Avatar preview"
-                                                                    className="h-full w-full object-cover"
+                                                                    fill
+                                                                    sizes="96px"
+                                                                    className="object-cover"
+                                                                    unoptimized
                                                                 />
                                                             ) : (
                                                                 <Camera className="h-8 w-8 text-slate-400" />

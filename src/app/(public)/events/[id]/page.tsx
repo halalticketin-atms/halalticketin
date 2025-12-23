@@ -286,7 +286,7 @@ export default function EventDetailsPage() {
     }, [eventPixelId, event?.id, event?.title, currencyCode, track]);
 
     const platformFeeAmount = useMemo(() => {
-        if (!event || totalTickets === 0) {
+        if (!event || totalTickets === 0 || finalTotal <= 0) {
             return 0;
         }
 
@@ -302,7 +302,7 @@ export default function EventDetailsPage() {
         });
 
         return event.absorbFee ? 0 : totalFee;
-    }, [event, totalTickets, currencyCode, rates]);
+    }, [event, totalTickets, currencyCode, rates, finalTotal]);
 
     const grandTotal = finalTotal + platformFeeAmount;
 

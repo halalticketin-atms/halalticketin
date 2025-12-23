@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useEffectEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { SignupOnboardingDialog } from '@/components/auth/SignupOnboardingDialog';
 import { useAuth } from '@/context/auth-context';
@@ -14,10 +14,14 @@ export default function RegisterPage() {
     const router = useRouter();
     const { user, isLoading } = useAuth();
 
+    const markInitialLoadComplete = useEffectEvent(() => {
+        setInitialLoadComplete(true);
+    });
+
     // Mark initial load as complete once auth state is first resolved
     useEffect(() => {
         if (!isLoading) {
-            setInitialLoadComplete(true);
+            markInitialLoadComplete();
         }
     }, [isLoading]);
 
