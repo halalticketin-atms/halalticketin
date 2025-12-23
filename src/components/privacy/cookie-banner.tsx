@@ -68,30 +68,32 @@ export function CookieBanner() {
 
     return (
         <>
-            <div className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-2xl border bg-background/95 p-5 shadow-2xl backdrop-blur">
-                <div className="flex flex-col gap-4">
-                    <div>
-                        <h3 className="text-base font-semibold">This website uses cookies</h3>
-                        <p className="text-sm text-muted-foreground">
-                            We use cookies to improve your experience and help organisers measure their ads.
-                        </p>
+            {!isDialogOpen && !showDetailedPreferences && (
+                <div className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-2xl border bg-background/95 p-5 shadow-2xl backdrop-blur">
+                    <div className="flex flex-col gap-4">
+                        <div>
+                            <h3 className="text-base font-semibold">This website uses cookies</h3>
+                            <p className="text-sm text-muted-foreground">
+                                We use cookies to improve your experience and help organisers measure their ads.
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Button onClick={acceptAll} size="sm" className="flex-1">
+                                Accept all
+                            </Button>
+                            <Button variant="outline" onClick={rejectMarketing} size="sm" className="flex-1">
+                                Necessary only
+                            </Button>
+                        </div>
+                        <button
+                            onClick={handleOpenPreferences}
+                            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors self-start"
+                        >
+                            Manage settings
+                        </button>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <Button onClick={acceptAll} size="sm" className="flex-1">
-                            Accept all
-                        </Button>
-                        <Button variant="outline" onClick={rejectMarketing} size="sm" className="flex-1">
-                            Necessary only
-                        </Button>
-                    </div>
-                    <button
-                        onClick={handleOpenPreferences}
-                        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors self-start"
-                    >
-                        Manage settings
-                    </button>
                 </div>
-            </div>
+            )}
             <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>

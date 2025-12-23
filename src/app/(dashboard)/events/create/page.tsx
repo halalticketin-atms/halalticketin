@@ -163,7 +163,7 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         currency: formData.currency,
         refundPolicy: null,
         isListedPublicly: formData.visibility === 'public',
-        category: formData.category || null,
+        category: formData.categories.length > 0 ? formData.categories.join(',') : null,
         absorbFee: formData.absorbFee,
         attendeeInfoMode: formData.attendeeInfoMode,
         customQuestions: formData.customQuestions.length > 0 ? formData.customQuestions : null,
@@ -969,20 +969,29 @@ export function EventWizard({
                                                     </label>
                                                 </div>
 
-                                                {/* Category */}
                                                 <div className="space-y-2">
                                                     <Label className="text-sm font-medium">Category</Label>
                                                     <div className="flex flex-wrap gap-1.5">
-                                                        {['Conference', 'Workshop', 'Iftar', 'Sisters', 'Youth', 'Charity', 'Education'].map((cat) => (
-                                                            <Badge
-                                                                key={cat}
-                                                                variant={formData.category === cat ? 'default' : 'outline'}
-                                                                className="cursor-pointer px-2.5 py-1 text-xs"
-                                                                onClick={() => setFormData({ ...formData, category: cat })}
-                                                            >
-                                                                {cat}
-                                                            </Badge>
-                                                        ))}
+                                                        {['Conference', 'Workshop', 'Iftar', 'Sisters', 'Youth', 'Charity', 'Education'].map((cat) => {
+                                                            const isSelected = formData.categories.includes(cat);
+                                                            return (
+                                                                <Badge
+                                                                    key={cat}
+                                                                    variant={isSelected ? 'default' : 'outline'}
+                                                                    className="cursor-pointer px-2.5 py-1 text-xs"
+                                                                    onClick={() => {
+                                                                        setFormData((prev) => ({
+                                                                            ...prev,
+                                                                            categories: isSelected
+                                                                                ? prev.categories.filter((c) => c !== cat)
+                                                                                : [...prev.categories, cat],
+                                                                        }));
+                                                                    }}
+                                                                >
+                                                                    {cat}
+                                                                </Badge>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
 
@@ -1893,8 +1902,12 @@ export function EventWizard({
                                     <h1 className="font-display text-2xl sm:text-3xl font-bold mb-2">
                                         {formData.title}
                                     </h1>
-                                    {formData.category && (
-                                        <Badge className="mb-2">{formData.category}</Badge>
+                                    {formData.categories.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 justify-center mb-2">
+                                            {formData.categories.map((cat) => (
+                                                <Badge key={cat}>{cat}</Badge>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
                             ) : (

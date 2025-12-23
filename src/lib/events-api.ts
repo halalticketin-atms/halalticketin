@@ -223,12 +223,13 @@ export interface PublicTicketRecord {
     salesEnd: string | null;
 }
 
-export const fetchPublicEvents = async (options?: { limit?: number; organizerId?: string }) => {
+export const fetchPublicEvents = async (options?: { limit?: number; offset?: number; organizerId?: string }) => {
     const params: Record<string, string> = {};
     if (options?.limit) params.limit = String(options.limit);
+    if (options?.offset) params.offset = String(options.offset);
     if (options?.organizerId) params.organizerId = options.organizerId;
 
-    return api.get<{ events: PublicEventRecord[] }>('/api/v1/public/events', {
+    return api.get<{ events: PublicEventRecord[]; total: number; hasMore: boolean }>('/api/v1/public/events', {
         params: Object.keys(params).length > 0 ? params : undefined,
     });
 };

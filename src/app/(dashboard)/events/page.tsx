@@ -67,7 +67,7 @@ function formatEventForDisplay(event: PublicEventRecord) {
 
 function BrowseEventsContent() {
     const searchParams = useSearchParams();
-    const { events: publicEvents, isLoading, error } = usePublicEvents();
+    const { events: publicEvents, isLoading, isLoadingMore, error, hasMore, loadMore } = usePublicEvents();
 
     // Initialize search state from URL params
     const [searchQuery, setSearchQuery] = useState('');
@@ -307,7 +307,27 @@ function BrowseEventsContent() {
                     </div>
                 )}
 
-
+                {/* Load More - only show when there are more events to load */}
+                {!isLoading && !error && hasMore && (
+                    <div className="mt-16 text-center">
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            className="rounded-full px-8 hover:border-[var(--brand-cyan)] hover:text-[var(--brand-teal)]"
+                            onClick={loadMore}
+                            disabled={isLoadingMore}
+                        >
+                            {isLoadingMore ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Loading...
+                                </>
+                            ) : (
+                                'Load more events'
+                            )}
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
     );

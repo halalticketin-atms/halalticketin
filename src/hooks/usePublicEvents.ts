@@ -9,39 +9,71 @@ import {
 } from '@/lib/events-api';
 
 /**
- * Hook for fetching public events list.
+ * Hook for fetching public events list with pagination support.
  */
 export function usePublicEvents(options?: { limit?: number; organizerId?: string }) {
     const [events, setEvents] = useState<PublicEventRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { limit, organizerId } = options ?? {};
+    const [hasMore, setHasMore] = useState(false);
+    const [offset, setOffset] = useState(0);
+    const { limit = 12, organizerId } = options ?? {};
 
-    const fetch = useCallback(async () => {
-        setIsLoading(true);
+    const fetchPage = useCallback(async (pageOffset: number, append: boolean = false) => {
+        if (append) {
+            setIsLoadingMore(true);
+        } else {
+            setIsLoading(true);
+        }
         setError(null);
 
         try {
-            const response = await fetchPublicEvents({ limit, organizerId });
-            setEvents(response.events);
+            const response = await fetchPublicEvents({ limit, offset: pageOffset, organizerId });
+
+            if (append) {
+                setEvents(prev => [...prev, ...response.events]);
+            } else {
+                setEvents(response.events);
+            }
+
+            setHasMore(response.hasMore);
+            setOffset(pageOffset + response.events.length);
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to load events';
             setError(message);
-            setEvents([]);
+            if (!append) {
+                setEvents([]);
+            }
         } finally {
             setIsLoading(false);
+            setIsLoadingMore(false);
         }
     }, [limit, organizerId]);
 
+    const loadMore = useCallback(() => {
+        if (!isLoadingMore && hasMore) {
+            fetchPage(offset, true);
+        }
+    }, [fetchPage, offset, isLoadingMore, hasMore]);
+
+    const refresh = useCallback(() => {
+        setOffset(0);
+        fetchPage(0, false);
+    }, [fetchPage]);
+
     useEffect(() => {
-        fetch();
-    }, [fetch]);
+        fetchPage(0, false);
+    }, [fetchPage]);
 
     return {
         events,
         isLoading,
+        isLoadingMore,
         error,
-        refresh: fetch,
+        hasMore,
+        loadMore,
+        refresh,
     };
 }
 

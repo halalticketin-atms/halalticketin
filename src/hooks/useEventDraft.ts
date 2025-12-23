@@ -17,7 +17,7 @@ export interface DraftFormData {
   title: string;
   description: string;
   bannerImageDataUrl: string;
-  category: string;
+  categories: string[];
   organizerName: string;
   visibility: 'public' | 'private';
   date: string;
@@ -79,7 +79,7 @@ const defaultFormData: DraftFormData = {
   title: '',
   description: '',
   bannerImageDataUrl: '',
-  category: '',
+  categories: [],
   organizerName: '',
   visibility: 'public',
   date: '',
