@@ -49,7 +49,7 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
       title: 'Community Iftar 2024',
       description:
         'Join us for a warm community iftar with inspiring talks, Qur’an recitation, and delicious food.',
-      category: 'Community',
+      categories: ['Community'],
       organizerName: 'London Islamic Centre',
       date: '2024-12-15',
       endDate: '2024-12-15',
@@ -97,7 +97,7 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
     formData: {
       title: 'Islamic Finance Workshop',
       description: 'Interactive workshop covering fundamentals of Islamic finance and fintech.',
-      category: 'Education',
+      categories: ['Education'],
       organizerName: 'HalalTicketin Team',
       date: '2025-01-10',
       endDate: '2025-01-10',
@@ -146,7 +146,7 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
       title: 'Youth Conference 2025',
       description:
         'Two-day conference equipping Muslim youth with leadership tools, mentorship, and spiritual grounding.',
-      category: 'Conference',
+      categories: ['Conference'],
       organizerName: 'UK Youth Collective',
       date: '2025-02-01',
       endDate: '2025-02-02',
@@ -209,7 +209,7 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
     formData: {
       title: 'Ramadan Prep Workshop',
       description: 'Virtual workshop covering spiritual preparation, meals, and productivity systems.',
-      category: 'Education',
+      categories: ['Education'],
       organizerName: 'Faith & Focus',
       date: '2025-03-01',
       endDate: '2025-03-01',

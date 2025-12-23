@@ -100,7 +100,9 @@ function BrowseEventsContent() {
             const matchesLocation = locationFilter === '' ||
                 event.location.toLowerCase().includes(locationFilter.toLowerCase()) ||
                 event.venue.toLowerCase().includes(locationFilter.toLowerCase());
-            const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory;
+            // Handle comma-separated categories from backend
+            const eventCategories = event.category.split(',').map((c) => c.trim());
+            const matchesCategory = selectedCategory === 'All' || eventCategories.includes(selectedCategory);
             return matchesSearch && matchesLocation && matchesCategory;
         });
     }, [events, searchQuery, locationFilter, selectedCategory]);
@@ -192,11 +194,6 @@ function BrowseEventsContent() {
                     <p className="text-muted-foreground font-medium">
                         Showing <span className="text-foreground font-bold">{filteredEvents.length}</span> events
                     </p>
-                    <Button variant="outline" size="sm" className="gap-2 rounded-lg hover:border-[var(--brand-cyan)] hover:text-[var(--brand-teal)]">
-                        <Filter className="h-4 w-4" />
-                        Filters
-                        <ChevronDown className="h-4 w-4 opacity-50" />
-                    </Button>
                 </div>
 
                 {/* Loading State */}

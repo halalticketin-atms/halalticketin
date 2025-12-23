@@ -22,33 +22,33 @@ import { useOrganizers } from '@/context/organizer-context';
 import { buildDashboardPath } from '@/lib/organizer-path';
 
 const buildFallbackDraft = (titleHint?: string): DraftEventInitial => {
-  const cleanedTitle = titleHint
-    ? titleHint.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim()
-    : 'Community Meetup';
+    const cleanedTitle = titleHint
+        ? titleHint.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim()
+        : 'Community Meetup';
 
-  return {
-    formData: {
-      title: cleanedTitle || 'Community Meetup',
-      description:
-        'Curated by the AI assistant. Review the details, edit anything you like and publish when ready.',
-      category: 'Community',
-      organizerName: 'HalalTicketin AI Draft',
-      date: '',
-      endDate: '',
-      isMultiDay: false,
-      startTime: '',
-      endTime: '',
-      timezone: 'Europe/London',
-      locationType: 'physical',
-      venue: 'To be confirmed',
-      address: '',
-      city: '',
-      onlineUrl: '',
-    },
-    tickets: [],
-    promoCodes: [],
-    currentStep: 1,
-  };
+    return {
+        formData: {
+            title: cleanedTitle || 'Community Meetup',
+            description:
+                'Curated by the AI assistant. Review the details, edit anything you like and publish when ready.',
+            categories: ['Community'],
+            organizerName: 'HalalTicketin AI Draft',
+            date: '',
+            endDate: '',
+            isMultiDay: false,
+            startTime: '',
+            endTime: '',
+            timezone: 'Europe/London',
+            locationType: 'physical',
+            venue: 'To be confirmed',
+            address: '',
+            city: '',
+            onlineUrl: '',
+        },
+        tickets: [],
+        promoCodes: [],
+        currentStep: 1,
+    };
 };
 
 export default function AIEventCreatorPage() {

@@ -66,7 +66,7 @@ export const buildDraftFromEventRecord = (
         title: event.title ?? '',
         description: event.description ?? '',
         bannerImageDataUrl: '',
-        category: event.category ?? '',
+        categories: event.category ? event.category.split(',').map((c) => c.trim()) : [],
         organizerName: '',
         visibility: event.isListedPublicly ? 'public' : 'private',
         date: isoToDate(event.startDatetime),

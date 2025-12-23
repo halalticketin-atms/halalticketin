@@ -43,7 +43,7 @@ export async function generateEventDraft({
     '  "formData": {',
     '    "title": string | null,',
     '    "description": string | null,',
-    '    "category": string | null,',
+    '    "categories": string[] | null,   // e.g. ["Workshop", "Youth"]',
     '    "organizerName": string | null,',
     '    "date": string | null,            // YYYY-MM-DD if possible',
     '    "endDate": string | null,         // YYYY-MM-DD for multi-day events',
@@ -239,7 +239,7 @@ function normalizeFormData(
     title,
     description,
     bannerImageDataUrl: raw.bannerImageDataUrl ?? '',
-    category: raw.category ?? '',
+    categories: parseCategories(raw),
     organizerName: raw.organizerName ?? 'HalalTicketin AI Draft',
     visibility: raw.visibility === 'private' ? 'private' : 'public',
     date: raw.date ?? '',
@@ -258,6 +258,18 @@ function normalizeFormData(
     attendeeInfoMode: raw.attendeeInfoMode ?? 'buyer_choice',
     customQuestions: raw.customQuestions ?? [],
   };
+}
+
+function parseCategories(raw: Partial<DraftFormData> & { category?: string }): string[] {
+  // Handle array of categories
+  if (Array.isArray(raw.categories)) {
+    return raw.categories.filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
+  }
+  // Handle legacy single category string
+  if (typeof raw.category === 'string' && raw.category.trim().length > 0) {
+    return raw.category.split(',').map((c) => c.trim()).filter((c) => c.length > 0);
+  }
+  return [];
 }
 
 function normalizeTicket(
