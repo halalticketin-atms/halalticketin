@@ -307,14 +307,7 @@ function BrowseEventsContent() {
                     </div>
                 )}
 
-                {/* Load More */}
-                {!isLoading && !error && filteredEvents.length > 0 && (
-                    <div className="mt-16 text-center">
-                        <Button variant="outline" size="lg" className="rounded-full px-8 hover:border-[var(--brand-cyan)] hover:text-[var(--brand-teal)]">
-                            Load more events
-                        </Button>
-                    </div>
-                )}
+
             </div>
         </div>
     );
