@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { Suspense, useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
@@ -75,7 +75,7 @@ function ActionTile({ title, description, icon: Icon, badge, actionLabel, gradie
   );
 }
 
-export default function NewEventChooserPage() {
+function NewEventChooserPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { activeOrganizerId, isLoading: organizersLoading } = useOrganizers();
@@ -468,5 +468,13 @@ export default function NewEventChooserPage() {
         }}
       />
     </>
+  );
+}
+
+export default function NewEventChooserPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>}>
+      <NewEventChooserPageContent />
+    </Suspense>
   );
 }
