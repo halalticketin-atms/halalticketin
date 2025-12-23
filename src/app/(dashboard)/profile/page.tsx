@@ -44,8 +44,8 @@ export default function ProfilePage() {
     // Map events for display
     const formatEvent = (event: DashboardEvent): ProfileEventCard => ({
         id: event.id,
-        slug: event.slug,
-        title: event.title,
+        slug: event.slug ?? undefined,
+        title: event.title ?? 'Untitled Event',
         date: event.startDatetime ? new Date(event.startDatetime).toLocaleDateString('en-GB', {
             day: 'numeric',
             month: 'short',
@@ -163,7 +163,7 @@ export default function ProfilePage() {
                 {/* Content Tabs */}
                 <div className="container max-w-4xl py-8">
                     <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <TabsList className="w-full justify-start bg-transparent border-b border-border/40 rounded-none h-auto p-0 mb-8 space-x-8">
+                        <TabsList className="w-full justify-start bg-transparent border-b border-border/40 rounded-none h-auto p-0 mb-8 space-x-8">
                             {['Upcoming', 'Past Events', 'Saved'].map((tab) => {
                                 const actualValue = tab === 'Past Events' ? 'past' : tab.toLowerCase();
                                 const isActive = activeTab === actualValue;

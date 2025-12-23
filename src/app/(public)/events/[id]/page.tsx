@@ -823,17 +823,7 @@ export default function EventDetailsPage() {
                                 </CardContent>
                             </Card>
 
-                            {/* Attendees placeholder */}
-                            <Card className="mt-4">
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center gap-3">
-                                        <Users className="h-5 w-5 text-muted-foreground" />
-                                        <span className="text-sm text-muted-foreground">
-                                            Be the first to register!
-                                        </span>
-                                    </div>
-                                </CardContent>
-                            </Card>
+
                         </motion.div>
                     </div>
                 </div>

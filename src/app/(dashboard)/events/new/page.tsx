@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   ArrowRight,
@@ -20,17 +20,14 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  cloneableEventOptions,
-  getTemplateByKey,
-  type CloneableEventOption,
-} from '@/data/mock-events';
 import { savePendingDraft } from '@/utils/pending-draft-storage';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
 import { useOrganizers } from '@/context/organizer-context';
+import { useAuth } from '@/context/auth-context';
 import { fetchEventDetails, listOrganizerEvents, type EventRecord } from '@/lib/events-api';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
 import { getUserFriendlyMessage } from '@/lib/errors';
+import { CreateOrganizerDialog } from '@/components/auth/CreateOrganizerDialog';
 
 type DraftSource = 'ai' | 'clone' | 'draft';
 
@@ -80,13 +77,73 @@ function ActionTile({ title, description, icon: Icon, badge, actionLabel, gradie
 
 export default function NewEventChooserPage() {
   const router = useRouter();
-  const { activeOrganizerId } = useOrganizers();
+  const searchParams = useSearchParams();
+  const { activeOrganizerId, isLoading: organizersLoading } = useOrganizers();
+  const { user, isOrganizer, isLoading: authLoading } = useAuth();
   const [cloneOpen, setCloneOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
   const [draftEvents, setDraftEvents] = useState<EventRecord[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
   const [draftsError, setDraftsError] = useState<string | null>(null);
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+
+  // Clone events state
+  const [cloneEvents, setCloneEvents] = useState<EventRecord[]>([]);
+  const [cloneLoading, setCloneLoading] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+  const [selectedCloneId, setSelectedCloneId] = useState<string | null>(null);
+
+  // Auth gating dialog
+  const [createOrgOpen, setCreateOrgOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const handleCreateOrgOpenChange = useCallback((open: boolean) => {
+    setCreateOrgOpen(open);
+    if (!open && !activeOrganizerId && !organizersLoading) {
+      setPendingAction(null);
+    }
+  }, [activeOrganizerId, organizersLoading]);
+
+  // Execute pending action when organizer context is ready
+  useEffect(() => {
+    if (pendingAction && activeOrganizerId && !organizersLoading && !createOrgOpen) {
+      pendingAction();
+      setPendingAction(null);
+    }
+  }, [pendingAction, activeOrganizerId, organizersLoading, createOrgOpen]);
+
+  useEffect(() => {
+    const openSheet = searchParams.get('open');
+    if (openSheet === 'clone') {
+      setCloneOpen(true);
+    }
+    if (openSheet === 'draft') {
+      setDraftOpen(true);
+    }
+  }, [searchParams]);
+
+  // Gated click handler that checks auth/organizer status
+  const gatedAction = useCallback((action: () => void, options?: { loginRedirect?: string }) => {
+    // Still loading? Wait for it
+    if (authLoading || organizersLoading) return;
+
+    // Not signed in → redirect to login page (they can sign up from there)
+    if (!user) {
+      const nextPath = options?.loginRedirect ?? '/events/new';
+      router.push(`/login?next=${encodeURIComponent(nextPath)}`);
+      return;
+    }
+
+    // Signed in but not an organizer → prompt to create organizer profile
+    if (!isOrganizer || !activeOrganizerId) {
+      setPendingAction(() => action);
+      setCreateOrgOpen(true);
+      return;
+    }
+
+    // User is an organizer with active profile → proceed
+    action();
+  }, [user, isOrganizer, activeOrganizerId, authLoading, organizersLoading, router]);
 
   const tiles: ActionTileProps[] = useMemo(
     () => [
@@ -97,7 +154,7 @@ export default function NewEventChooserPage() {
         badge: 'Beta',
         actionLabel: 'Start with AI',
         gradient: 'bg-gradient-to-br from-[#0CCDA3] to-[#00B4D8]', // Mint to Cyan
-        onClick: () => router.push('/events/new/ai'),
+        onClick: () => gatedAction(() => router.push('/events/new/ai')),
       },
       {
         title: 'Start from scratch',
@@ -105,7 +162,7 @@ export default function NewEventChooserPage() {
         icon: NotebookPen,
         actionLabel: 'Start from scratch',
         gradient: 'bg-gradient-to-br from-[#14b8a6] to-[#0f766e]', // Teal
-        onClick: () => router.push('/events/create'),
+        onClick: () => gatedAction(() => router.push('/events/create')),
       },
       {
         title: 'Use previous event',
@@ -113,7 +170,7 @@ export default function NewEventChooserPage() {
         icon: Copy,
         actionLabel: 'Choose event',
         gradient: 'bg-gradient-to-br from-[#6EE7B7] to-[#34D399]', // Light Green/Mint
-        onClick: () => setCloneOpen(true),
+        onClick: () => gatedAction(() => setCloneOpen(true), { loginRedirect: '/events/new?open=clone' }),
       },
       {
         title: 'Continue drafting',
@@ -121,10 +178,10 @@ export default function NewEventChooserPage() {
         icon: Wand2,
         actionLabel: 'Choose draft',
         gradient: 'bg-gradient-to-br from-[#2DD4BF] to-[#0D9488]', // Teal mix
-        onClick: () => setDraftOpen(true),
+        onClick: () => gatedAction(() => setDraftOpen(true), { loginRedirect: '/events/new?open=draft' }),
       },
     ],
-    [router],
+    [router, gatedAction],
   );
 
   useEffect(() => {
@@ -163,6 +220,46 @@ export default function NewEventChooserPage() {
     };
   }, [activeOrganizerId, draftOpen]);
 
+  // Load cloneable events when clone sheet opens
+  useEffect(() => {
+    if (!cloneOpen || !activeOrganizerId) {
+      if (!cloneOpen) {
+        setCloneError(null);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    const loadCloneEvents = async () => {
+      setCloneLoading(true);
+      setCloneError(null);
+      try {
+        // Fetch all non-draft events (active, published, past, cancelled)
+        const response = await listOrganizerEvents(activeOrganizerId);
+        if (!cancelled) {
+          // Filter out drafts - show only published/active/past events
+          const nonDraftEvents = response.events.filter(e => e.status !== 'draft');
+          setCloneEvents(nonDraftEvents);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message = getUserFriendlyMessage(error) || 'Unable to load events right now.';
+          setCloneError(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setCloneLoading(false);
+        }
+      }
+    };
+
+    void loadCloneEvents();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOrganizerId, cloneOpen]);
+
   const formatDraftDate = (value?: string | null) => {
     if (!value) return 'Date TBD';
     const parsed = new Date(value);
@@ -182,14 +279,30 @@ export default function NewEventChooserPage() {
     router.push(`/events/create?source=${source}`);
   };
 
-  const handleClone = (option: CloneableEventOption) => {
-    const draft = getTemplateByKey(option.templateKey);
-    handOffDraft('clone', draft, {
-      label: `Cloned · ${option.title}`,
-      description: option.summary,
-      key: option.id,
-    });
-    setCloneOpen(false);
+  const handleClone = async (event: EventRecord) => {
+    if (!event.id) return;
+    setSelectedCloneId(event.id);
+    try {
+      const response = await fetchEventDetails(event.id);
+      const draft = buildDraftFromEventRecord(response.event, response.tickets);
+
+      // Prefix the title with "Copy of"
+      if (draft.formData) {
+        draft.formData.title = `Copy of ${draft.formData.title || event.title || 'Untitled Event'}`;
+      }
+
+      handOffDraft('clone', draft, {
+        label: `Cloned · ${event.title ?? 'Untitled event'}`,
+        description: event.startDatetime ? formatDraftDate(event.startDatetime) : undefined,
+        key: event.id,
+      });
+      setCloneOpen(false);
+    } catch (error) {
+      const message = getUserFriendlyMessage(error) || 'Unable to clone this event.';
+      setCloneError(message);
+    } finally {
+      setSelectedCloneId(null);
+    }
   };
 
   const handleDraftContinue = async (event: EventRecord) => {
@@ -249,23 +362,46 @@ export default function NewEventChooserPage() {
             <SheetDescription>Copy all of the structure from one of your events.</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto space-y-3 p-2">
-            {cloneableEventOptions.map((option) => (
-              <Card key={option.id} className="border-border/60">
-                <CardContent className="flex flex-col gap-3 p-4">
-                  <div>
-                    <p className="font-semibold">{option.title}</p>
-                    <p className="text-sm text-muted-foreground">{option.summary}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{option.location}</p>
-                  </div>
-                  <Button variant="outline" onClick={() => handleClone(option)}>
-                    Use this template
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-            {cloneableEventOptions.length === 0 && (
+            {!activeOrganizerId ? (
+              <p className="text-sm text-muted-foreground text-center">
+                Select or create an organiser to view events.
+              </p>
+            ) : cloneLoading ? (
+              <p className="text-sm text-muted-foreground text-center">Loading events…</p>
+            ) : cloneEvents.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center">No events available yet.</p>
+            ) : (
+              cloneEvents.map((event) => (
+                <Card key={event.id} className="border-border/60">
+                  <CardContent className="flex flex-col gap-3 p-4">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold">{event.title ?? 'Untitled event'}</p>
+                        <Badge variant="secondary" className="text-xs capitalize">
+                          {event.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {event.description?.trim() || 'No description.'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatDraftDate(event.startDatetime)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      disabled={selectedCloneId === event.id}
+                      onClick={() => handleClone(event)}
+                    >
+                      {selectedCloneId === event.id ? 'Creating copy…' : 'Use this event'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))
             )}
+            {cloneError ? (
+              <p className="text-sm text-destructive text-center">{cloneError}</p>
+            ) : null}
           </div>
         </SheetContent>
       </Sheet>
@@ -321,6 +457,16 @@ export default function NewEventChooserPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Auth gating dialog */}
+
+      <CreateOrganizerDialog
+        open={createOrgOpen}
+        onOpenChange={handleCreateOrgOpenChange}
+        onSuccess={() => {
+          // Organizer context will refresh, which triggers the pending action via useEffect
+        }}
+      />
     </>
   );
 }

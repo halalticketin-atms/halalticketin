@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     ArrowLeft,
@@ -55,7 +55,6 @@ import {
     type DraftLocationType,
     type DraftPromoCode,
 } from '@/hooks/useEventDraft';
-import { useSearchParams } from 'next/navigation';
 import { consumePendingDraft, type DraftEntrySource } from '@/utils/pending-draft-storage';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
@@ -287,12 +286,19 @@ export function EventWizard({
     }, [currentOrganizer?.defaultCurrency, initialDraft?.formData?.currency, setFormData]);
 
     const router = useRouter();
+    const pathname = usePathname();
+    const authSearchParams = useSearchParams();
+    const nextPath = useMemo(() => {
+        const query = authSearchParams.toString();
+        return query ? `${pathname}?${query}` : pathname;
+    }, [authSearchParams, pathname]);
 
     useEffect(() => {
         if (!authLoading && !user) {
-            router.replace('/login');
+            router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
         }
-    }, [authLoading, user, router]);
+    }, [authLoading, user, router, nextPath]);
+
     const [eventId, setEventId] = useState<string | null>(initialDraft?.eventId ?? null);
     const [eventStatus] = useState<'draft' | 'published' | 'cancelled' | 'archived' | null>(initialDraft?.eventStatus ?? null);
     const [isSaving, setIsSaving] = useState(false);
@@ -1385,8 +1391,11 @@ export function EventWizard({
                                                                         </Button>
                                                                         <Input
                                                                             type="number"
-                                                                            value={ticket.quantity}
-                                                                            onChange={(e) => updateTicket(ticket.id, 'quantity', parseInt(e.target.value) || 0)}
+                                                                            value={ticket.quantity || ''}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                                                                updateTicket(ticket.id, 'quantity', parseInt(val) || 0);
+                                                                            }}
                                                                             className="h-10 text-center font-semibold"
                                                                         />
                                                                         <Button
@@ -1564,8 +1573,11 @@ export function EventWizard({
                                                                         <Input
                                                                             type="number"
                                                                             placeholder="100"
-                                                                            value={promo.usageLimit}
-                                                                            onChange={(e) => updatePromoCode(promo.id, 'usageLimit', parseInt(e.target.value) || 0)}
+                                                                            value={promo.usageLimit || ''}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                                                                updatePromoCode(promo.id, 'usageLimit', parseInt(val) || 0);
+                                                                            }}
                                                                             className="h-10"
                                                                         />
                                                                     </div>
