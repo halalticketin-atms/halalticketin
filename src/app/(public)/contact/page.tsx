@@ -104,28 +104,29 @@ export default function ContactPage() {
                             />
                         </div>
 
-                        <div className="flex items-start space-x-2">
+                        <div className="flex items-center gap-3 p-4 glass-surface md:backdrop-blur-sm rounded-xl border border-white/30">
                             <Checkbox
                                 id="terms"
                                 checked={formData.agreed}
                                 onCheckedChange={(checked) =>
                                     setFormData({ ...formData, agreed: checked as boolean })
                                 }
-                                className="mt-0.5"
+                                className="border-slate-400"
                                 required
                             />
                             <Label
                                 htmlFor="terms"
-                                className="text-sm font-medium leading-normal peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-muted-foreground"
+                                className="text-sm font-medium leading-none cursor-pointer text-muted-foreground whitespace-nowrap"
                             >
-                                I&apos;ve read and agree with{' '}
-                                <Link href="/terms" className="underline hover:text-foreground">
-                                    Terms of Service
+                                I agree to the{' '}
+                                <Link href="/terms" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
+                                    Terms of Use
                                 </Link>{' '}
                                 and{' '}
-                                <Link href="/privacy" className="underline hover:text-foreground">
-                                    Private Policy
+                                <Link href="/privacy" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
+                                    Privacy Policy
                                 </Link>
+                                <span className="text-red-500 ml-1">*</span>
                             </Label>
                         </div>
 
