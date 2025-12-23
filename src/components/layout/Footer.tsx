@@ -22,9 +22,9 @@ export function Footer() {
                         <p className="mt-4 text-sm text-muted-foreground">
                             Your trusted platform for halal events and ticketing.
                         </p>
-                        <div className="mt-6 flex gap-4">
+                        <div className="mt-6 hidden md:flex gap-4">
                             <Link
-                                href="https://linkedin.com"
+                                href="https://www.linkedin.com/search/results/all/?fetchDeterministicClustersOnly=true&heroEntityKey=urn%3Ali%3Aorganization%3A107720490&keywords=halalticketin%27&origin=RICH_QUERY_SUGGESTION&position=0&searchId=ba6311fc-916d-4a07-b095-44ae38281c9b&sid=A4e&spellCorrectionEnabled=false"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-muted-foreground hover:text-foreground transition-colors"
@@ -33,7 +33,7 @@ export function Footer() {
                                 <span className="sr-only">LinkedIn</span>
                             </Link>
                             <Link
-                                href="https://instagram.com"
+                                href="https://www.instagram.com/halalticketin/?utm_source=ig_web_button_share_sheet"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-muted-foreground hover:text-foreground transition-colors"
@@ -117,6 +117,28 @@ export function Footer() {
                             </li>
                         </ul>
                     </div>
+                </div>
+
+                {/* Mobile Social Icons - Bottom Right */}
+                <div className="flex md:hidden justify-end gap-4 mt-6">
+                    <Link
+                        href="https://www.linkedin.com/search/results/all/?fetchDeterministicClustersOnly=true&heroEntityKey=urn%3Ali%3Aorganization%3A107720490&keywords=halalticketin%27&origin=RICH_QUERY_SUGGESTION&position=0&searchId=ba6311fc-916d-4a07-b095-44ae38281c9b&sid=A4e&spellCorrectionEnabled=false"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        <Linkedin className="h-5 w-5" />
+                        <span className="sr-only">LinkedIn</span>
+                    </Link>
+                    <Link
+                        href="https://www.instagram.com/halalticketin/?utm_source=ig_web_button_share_sheet"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        <Instagram className="h-5 w-5" />
+                        <span className="sr-only">Instagram</span>
+                    </Link>
                 </div>
 
                 {/* Copyright */}
