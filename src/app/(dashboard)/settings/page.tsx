@@ -26,7 +26,13 @@ import {
     ExternalLink,
     Calendar,
     MapPin,
-    Camera
+    Camera,
+    Building,
+    Globe,
+    Instagram,
+    Linkedin,
+    X,
+    Youtube
 } from 'lucide-react';
 import { SUPPORTED_CURRENCIES } from '@/lib/fees';
 import { COUNTRIES } from '@/lib/organizer-options';
@@ -34,7 +40,7 @@ import { uploadAvatar, fileToDataUrl } from '@/lib/upload-api';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-type SettingsTab = 'profile' | 'currency' | 'marketing' | 'payments';
+type SettingsTab = 'profile' | 'organizer-profile' | 'currency' | 'marketing' | 'payments';
 
 interface TabItem {
     id: SettingsTab;
@@ -45,6 +51,7 @@ interface TabItem {
 
 const TABS: TabItem[] = [
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'organizer-profile', label: 'Organizer', icon: Building, organizerOnly: true },
     { id: 'currency', label: 'Currency', icon: Coins, organizerOnly: true },
     { id: 'marketing', label: 'Marketing', icon: Target, organizerOnly: true },
     { id: 'payments', label: 'Payments', icon: CreditCard, organizerOnly: true },
@@ -56,6 +63,15 @@ interface ProfileFormData {
     dateOfBirth: string;
     homeCountry: string;
     homeCity: string;
+}
+
+interface OrganizerProfileFormData {
+    bio: string;
+    website: string;
+    instagram: string;
+    tiktok: string;
+    linkedin: string;
+    youtube: string;
 }
 
 export default function SettingsPage() {
@@ -88,6 +104,19 @@ export default function SettingsPage() {
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [profileSaveStatus, setProfileSaveStatus] = useState<'success' | 'error' | null>(null);
     const [profileError, setProfileError] = useState<string | null>(null);
+
+    // Organizer profile form state
+    const [organizerProfileForm, setOrganizerProfileForm] = useState<OrganizerProfileFormData>({
+        bio: '',
+        website: '',
+        instagram: '',
+        tiktok: '',
+        linkedin: '',
+        youtube: '',
+    });
+    const [isSavingOrganizerProfile, setIsSavingOrganizerProfile] = useState(false);
+    const [organizerProfileSaveStatus, setOrganizerProfileSaveStatus] = useState<'success' | 'error' | null>(null);
+    const [organizerProfileError, setOrganizerProfileError] = useState<string | null>(null);
 
     // Avatar upload state
     const [avatarPreview, setAvatarPreview] = useState<string>('');
@@ -122,6 +151,21 @@ export default function SettingsPage() {
     useEffect(() => {
         setMetaPixelInput(currentOrganizer?.metaPixelId || '');
     }, [currentOrganizer?.metaPixelId]);
+
+    // Initialize organizer profile form
+    useEffect(() => {
+        if (currentOrganizer) {
+            const socialLinks = currentOrganizer.socialLinks || {};
+            setOrganizerProfileForm({
+                bio: currentOrganizer.bio || '',
+                website: currentOrganizer.website || '',
+                instagram: socialLinks.instagram || '',
+                tiktok: socialLinks.tiktok || '',
+                linkedin: socialLinks.linkedin || '',
+                youtube: socialLinks.youtube || '',
+            });
+        }
+    }, [currentOrganizer]);
 
     const handleAvatarSelect = async (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -257,6 +301,49 @@ export default function SettingsPage() {
         }
     };
 
+    const handleSaveOrganizerProfile = async () => {
+        if (!activeOrganizerId) return;
+
+        setIsSavingOrganizerProfile(true);
+        setOrganizerProfileSaveStatus(null);
+        setOrganizerProfileError(null);
+
+        try {
+            // Build payload with only fields that have values
+            const payload: Record<string, unknown> = {};
+
+            // Bio can be sent as empty string or with content
+            if (organizerProfileForm.bio.trim()) {
+                payload.bio = organizerProfileForm.bio.trim();
+            } else {
+                payload.bio = null;
+            }
+
+            const trimmedWebsite = organizerProfileForm.website.trim();
+            payload.website = trimmedWebsite === '' ? null : trimmedWebsite;
+
+            // Social links - only include non-empty ones
+            const socialLinks: Record<string, string> = {};
+            if (organizerProfileForm.instagram.trim()) socialLinks.instagram = organizerProfileForm.instagram.trim();
+            if (organizerProfileForm.tiktok.trim()) socialLinks.tiktok = organizerProfileForm.tiktok.trim();
+            if (organizerProfileForm.linkedin.trim()) socialLinks.linkedin = organizerProfileForm.linkedin.trim();
+            if (organizerProfileForm.youtube.trim()) socialLinks.youtube = organizerProfileForm.youtube.trim();
+
+            payload.socialLinks = Object.keys(socialLinks).length > 0 ? socialLinks : null;
+
+            await api.patch(`/api/v1/organizers/${activeOrganizerId}`, payload);
+            setOrganizerProfileSaveStatus('success');
+            await refresh();
+            setTimeout(() => setOrganizerProfileSaveStatus(null), 2000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to update organizer profile. Please try again.';
+            setOrganizerProfileSaveStatus('error');
+            setOrganizerProfileError(message);
+        } finally {
+            setIsSavingOrganizerProfile(false);
+        }
+    };
+
     const normalizedPixelInput = metaPixelInput.trim();
     const normalizedCurrentPixel = currentOrganizer?.metaPixelId || '';
     const metaPixelChanged = normalizedPixelInput !== normalizedCurrentPixel;
@@ -269,6 +356,19 @@ export default function SettingsPage() {
         (profileForm.homeCountry || '') !== (user.homeCountry || '') ||
         (profileForm.homeCity || '') !== (user.homeCity || '')
     );
+
+    // Check if organizer profile has changed
+    const organizerProfileHasChanges = currentOrganizer && (() => {
+        const currentSocialLinks = currentOrganizer.socialLinks || {};
+        return (
+            (organizerProfileForm.bio || '') !== (currentOrganizer.bio || '') ||
+            (organizerProfileForm.website || '') !== (currentOrganizer.website || '') ||
+            (organizerProfileForm.instagram || '') !== (currentSocialLinks.instagram || '') ||
+            (organizerProfileForm.tiktok || '') !== (currentSocialLinks.tiktok || '') ||
+            (organizerProfileForm.linkedin || '') !== (currentSocialLinks.linkedin || '') ||
+            (organizerProfileForm.youtube || '') !== (currentSocialLinks.youtube || '')
+        );
+    })();
 
     const currencyOptions = Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => ({
         value: code,
@@ -529,6 +629,223 @@ export default function SettingsPage() {
                                                     Saving...
                                                 </>
                                             ) : profileSaveStatus === 'success' ? (
+                                                <>
+                                                    <Check className="mr-2 h-4 w-4" />
+                                                    Updated
+                                                </>
+                                            ) : (
+                                                'Save Changes'
+                                            )}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Organizer Profile Tab */}
+                        {activeTab === 'organizer-profile' && hasOrganizer && activeOrganizerId && (
+                            <div className="space-y-6 animate-fade-up" style={{ '--fade-delay': '0s' } as React.CSSProperties}>
+                                <div>
+                                    <h2 className="text-xl font-semibold mb-1">Organizer Profile</h2>
+                                    <p className="text-muted-foreground text-sm">
+                                        Update your public organizer profile for {currentOrganizer?.name || 'your organization'}
+                                    </p>
+                                </div>
+
+                                <div className="space-y-5 max-w-xl">
+                                    {/* Bio */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="org-bio" className="text-muted-foreground flex items-center gap-2">
+                                            <Building className="h-4 w-4" />
+                                            Bio
+                                        </Label>
+                                        <textarea
+                                            id="org-bio"
+                                            rows={4}
+                                            maxLength={2000}
+                                            className="flex w-full rounded-xl border border-input glass-surface backdrop-blur-sm px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all resize-none"
+                                            placeholder="Tell people about your organization or events..."
+                                            value={organizerProfileForm.bio}
+                                            onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, bio: e.target.value }))}
+                                        />
+                                        <p className="text-xs text-muted-foreground text-right">{organizerProfileForm.bio.length}/2000</p>
+                                    </div>
+
+                                    {/* Website */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="org-website" className="text-muted-foreground flex items-center gap-2">
+                                            <Globe className="h-4 w-4" />
+                                            Website
+                                        </Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="org-website"
+                                                type="url"
+                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
+                                                placeholder="https://your-website.com"
+                                                value={organizerProfileForm.website}
+                                                onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, website: e.target.value }))}
+                                            />
+                                            {organizerProfileForm.website && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOrganizerProfileForm(prev => ({ ...prev, website: '' }))}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
+                                                    aria-label="Clear website"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Social Links Section */}
+                                    <div className="pt-4 border-t border-border/50">
+                                        <h3 className="text-sm font-medium mb-4">Social Links</h3>
+                                        <div className="space-y-4">
+                                            {/* Instagram */}
+                                            <div className="space-y-2">
+                                                <Label htmlFor="org-instagram" className="text-muted-foreground flex items-center gap-2">
+                                                    <Instagram className="h-4 w-4" />
+                                                    Instagram
+                                                </Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="org-instagram"
+                                                        type="url"
+                                                        className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
+                                                        placeholder="https://instagram.com/yourprofile"
+                                                        value={organizerProfileForm.instagram}
+                                                        onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, instagram: e.target.value }))}
+                                                    />
+                                                    {organizerProfileForm.instagram && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setOrganizerProfileForm(prev => ({ ...prev, instagram: '' }))}
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
+                                                            aria-label="Clear Instagram"
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* TikTok */}
+                                            <div className="space-y-2">
+                                                <Label htmlFor="org-tiktok" className="text-muted-foreground flex items-center gap-2">
+                                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                                        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                                                    </svg>
+                                                    TikTok
+                                                </Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="org-tiktok"
+                                                        type="url"
+                                                        className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
+                                                        placeholder="https://tiktok.com/@yourprofile"
+                                                        value={organizerProfileForm.tiktok}
+                                                        onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, tiktok: e.target.value }))}
+                                                    />
+                                                    {organizerProfileForm.tiktok && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setOrganizerProfileForm(prev => ({ ...prev, tiktok: '' }))}
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
+                                                            aria-label="Clear TikTok"
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* LinkedIn */}
+                                            <div className="space-y-2">
+                                                <Label htmlFor="org-linkedin" className="text-muted-foreground flex items-center gap-2">
+                                                    <Linkedin className="h-4 w-4" />
+                                                    LinkedIn
+                                                </Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="org-linkedin"
+                                                        type="url"
+                                                        className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
+                                                        placeholder="https://linkedin.com/in/yourprofile"
+                                                        value={organizerProfileForm.linkedin}
+                                                        onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, linkedin: e.target.value }))}
+                                                    />
+                                                    {organizerProfileForm.linkedin && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setOrganizerProfileForm(prev => ({ ...prev, linkedin: '' }))}
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
+                                                            aria-label="Clear LinkedIn"
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* YouTube */}
+                                            <div className="space-y-2">
+                                                <Label htmlFor="org-youtube" className="text-muted-foreground flex items-center gap-2">
+                                                    <Youtube className="h-4 w-4" />
+                                                    YouTube
+                                                </Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="org-youtube"
+                                                        type="url"
+                                                        className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
+                                                        placeholder="https://youtube.com/@yourchannel"
+                                                        value={organizerProfileForm.youtube}
+                                                        onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, youtube: e.target.value }))}
+                                                    />
+                                                    {organizerProfileForm.youtube && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setOrganizerProfileForm(prev => ({ ...prev, youtube: '' }))}
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
+                                                            aria-label="Clear YouTube"
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Status messages */}
+                                    {organizerProfileSaveStatus === 'success' && (
+                                        <p className="text-sm text-green-600 flex items-center gap-1">
+                                            <Check className="h-4 w-4" />
+                                            Organizer profile updated successfully.
+                                        </p>
+                                    )}
+                                    {organizerProfileSaveStatus === 'error' && (
+                                        <p className="text-sm text-destructive flex items-center gap-1">
+                                            <AlertCircle className="h-4 w-4" />
+                                            {organizerProfileError || 'Unable to save organizer profile.'}
+                                        </p>
+                                    )}
+
+                                    {/* Save Button */}
+                                    <div className="pt-2">
+                                        <Button
+                                            onClick={handleSaveOrganizerProfile}
+                                            disabled={isSavingOrganizerProfile || !organizerProfileHasChanges}
+                                            className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                        >
+                                            {isSavingOrganizerProfile ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Saving...
+                                                </>
+                                            ) : organizerProfileSaveStatus === 'success' ? (
                                                 <>
                                                     <Check className="mr-2 h-4 w-4" />
                                                     Updated

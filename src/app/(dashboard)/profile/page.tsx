@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, type ChangeEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'motion/react';
@@ -13,6 +13,7 @@ import {
     Camera,
     Loader2,
     Check,
+    Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,8 @@ import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 import { useOrganizerEvents, type DashboardEvent } from '@/hooks/useOrganizerEvents';
 import { uploadAvatar, fileToDataUrl } from '@/lib/upload-api';
+import { getFavoriteEvents, type FavoriteEvent } from '@/lib/favorites-api';
+import { getFollowedOrganizers, type FollowedOrganizer } from '@/lib/follows-api';
 
 type ProfileEventCard = {
     id: string;
@@ -45,10 +48,52 @@ export default function ProfilePage() {
     const [avatarUploadSuccess, setAvatarUploadSuccess] = useState(false);
     const avatarInputRef = useRef<HTMLInputElement>(null);
 
+    // Saved events and followed organizers state
+    const [savedEvents, setSavedEvents] = useState<FavoriteEvent[]>([]);
+    const [followedOrganizers, setFollowedOrganizers] = useState<FollowedOrganizer[]>([]);
+    const [isLoadingSaved, setIsLoadingSaved] = useState(false);
+    const [isLoadingFollowing, setIsLoadingFollowing] = useState(false);
+
     const displayName = user?.name || user?.email?.split('@')[0] || 'Guest User';
     const displayEmail = user?.email ?? 'Sign in';
     const avatarImage = avatarPreview || user?.avatarUrl || '';
     const avatarFallback = displayName.charAt(0).toUpperCase();
+
+    // Fetch saved events
+    const fetchSavedEvents = useCallback(async () => {
+        if (!user) return;
+        setIsLoadingSaved(true);
+        try {
+            const response = await getFavoriteEvents();
+            setSavedEvents(response.events);
+        } catch {
+            // Silently fail
+        } finally {
+            setIsLoadingSaved(false);
+        }
+    }, [user]);
+
+    // Fetch followed organizers
+    const fetchFollowedOrganizers = useCallback(async () => {
+        if (!user) return;
+        setIsLoadingFollowing(true);
+        try {
+            const response = await getFollowedOrganizers();
+            setFollowedOrganizers(response.organizers);
+        } catch {
+            // Silently fail
+        } finally {
+            setIsLoadingFollowing(false);
+        }
+    }, [user]);
+
+    // Load saved and following data when user is available
+    useEffect(() => {
+        if (user) {
+            fetchSavedEvents();
+            fetchFollowedOrganizers();
+        }
+    }, [user, fetchSavedEvents, fetchFollowedOrganizers]);
 
     const handleAvatarSelect = async (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -94,8 +139,22 @@ export default function ProfilePage() {
         image: event.bannerImageUrl
     });
 
+    // Format saved events
+    const formatSavedEvent = (event: FavoriteEvent): ProfileEventCard => ({
+        id: event.id,
+        slug: event.slug ?? undefined,
+        title: event.title ?? 'Untitled Event',
+        date: event.startDatetime ? new Date(event.startDatetime).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        }) : 'TBD',
+        image: event.bannerImageUrl
+    });
+
     const upcomingEvents = getByStatus('active').map(formatEvent);
     const pastEvents = getByStatus('past').map(formatEvent);
+    const savedEventCards = savedEvents.map(formatSavedEvent);
 
     return (
         <div className="relative min-h-screen bg-background -mt-[var(--nav-safe-offset)] overflow-hidden">
@@ -221,7 +280,7 @@ export default function ProfilePage() {
                 <div className="container max-w-4xl py-8">
                     <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <TabsList className="w-full justify-start bg-transparent border-b border-border/40 rounded-none h-auto p-0 mb-8 space-x-8">
-                            {['Upcoming', 'Past Events', 'Saved'].map((tab) => {
+                            {['Upcoming', 'Past Events', 'Saved', 'Following'].map((tab) => {
                                 const actualValue = tab === 'Past Events' ? 'past' : tab.toLowerCase();
                                 const isActive = activeTab === actualValue;
 
@@ -276,14 +335,44 @@ export default function ProfilePage() {
                                 )}
                             </TabsContent>
 
-                            <TabsContent value="saved" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <EmptyState
-                                    icon={Heart}
-                                    title="No saved events"
-                                    description="Events you save will appear here for quick access."
-                                    actionLabel="Discover Events"
-                                    actionHref="/events"
-                                />
+                            <TabsContent value="saved" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                {isLoadingSaved ? (
+                                    <div className="flex items-center justify-center py-16">
+                                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : savedEventCards.length > 0 ? (
+                                    savedEventCards.map((event) => (
+                                        <EventCard key={event.id} event={event} />
+                                    ))
+                                ) : (
+                                    <EmptyState
+                                        icon={Heart}
+                                        title="No saved events"
+                                        description="Events you save will appear here for quick access."
+                                        actionLabel="Discover Events"
+                                        actionHref="/events"
+                                    />
+                                )}
+                            </TabsContent>
+
+                            <TabsContent value="following" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                {isLoadingFollowing ? (
+                                    <div className="flex items-center justify-center py-16">
+                                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : followedOrganizers.length > 0 ? (
+                                    followedOrganizers.map((organizer) => (
+                                        <OrganizerCard key={organizer.id} organizer={organizer} />
+                                    ))
+                                ) : (
+                                    <EmptyState
+                                        icon={Users}
+                                        title="Not following anyone"
+                                        description="Organizers you follow will appear here."
+                                        actionLabel="Discover Events"
+                                        actionHref="/events"
+                                    />
+                                )}
                             </TabsContent>
                         </div>
                     </Tabs>
@@ -363,5 +452,40 @@ function EmptyState({
                 </Button>
             )}
         </div>
+    );
+}
+
+function OrganizerCard({ organizer }: { organizer: FollowedOrganizer }) {
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -2 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        >
+            <Link href={`/organizers/${organizer.id}`} className="block h-full">
+                <Card className="group overflow-hidden border-border/50 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20">
+                    <CardContent className="flex items-center gap-5 p-4">
+                        <Avatar className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 border-2 border-background shadow-md">
+                            <AvatarImage src={organizer.avatarUrl || ''} alt={organizer.name} className="object-cover" />
+                            <AvatarFallback className="text-lg font-bold">{organizer.name.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 py-1">
+                            <h3 className="font-display font-semibold text-lg truncate mb-1 group-hover:text-primary transition-colors">
+                                {organizer.name}
+                            </h3>
+                            {organizer.bio && (
+                                <p className="text-sm text-muted-foreground truncate">
+                                    {organizer.bio}
+                                </p>
+                            )}
+                        </div>
+                        <div className="h-8 w-8 rounded-full border border-border/50 flex items-center justify-center bg-background/50 group-hover:border-primary/30 group-hover:bg-primary/10 transition-colors">
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </Link>
+        </motion.div>
     );
 }

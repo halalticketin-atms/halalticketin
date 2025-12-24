@@ -12,12 +12,14 @@ import {
     ExternalLink,
     Globe,
     Instagram,
+    Linkedin,
     Loader2,
     MapPin,
     Twitter,
     Users,
     UserPlus,
-    UserCheck
+    UserCheck,
+    Youtube
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -59,11 +61,25 @@ function getLocationString(event: PublicOrganizerEvent): string {
 }
 
 /**
+ * TikTok icon component (not available in lucide-react)
+ */
+function TikTokIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+        </svg>
+    );
+}
+
+/**
  * Social icon mapping
  */
 function SocialIcon({ platform }: { platform: string }) {
     const lower = platform.toLowerCase();
     if (lower.includes('instagram')) return <Instagram className="h-4 w-4" />;
+    if (lower.includes('tiktok')) return <TikTokIcon className="h-4 w-4" />;
+    if (lower.includes('linkedin')) return <Linkedin className="h-4 w-4" />;
+    if (lower.includes('youtube')) return <Youtube className="h-4 w-4" />;
     if (lower.includes('twitter') || lower.includes('x')) return <Twitter className="h-4 w-4" />;
     return <Globe className="h-4 w-4" />;
 }
@@ -138,8 +154,8 @@ function EmptyEvents({ message }: { message: string }) {
 export default function OrganizerProfilePage() {
     const params = useParams();
     const organizerId = params.id as string;
-    const { user } = useAuth();
-    const isAuthenticated = !!user;
+    const { user, isLoading: authLoading } = useAuth();
+    const isAuthenticated = !authLoading && !!user;
 
     const [organizer, setOrganizer] = useState<PublicOrganizerProfile | null>(null);
     const [upcomingEvents, setUpcomingEvents] = useState<PublicOrganizerEvent[]>([]);
@@ -262,12 +278,12 @@ export default function OrganizerProfilePage() {
             {/* Hero Section */}
             <div className="relative">
                 {/* Gradient Background */}
-                <div className="absolute inset-0 h-72 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent" />
-                <div className="absolute inset-0 h-72 bg-gradient-to-r from-[#00CDAC]/10 to-[#02AAB0]/10" />
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#00CDAC]/10 to-[#02AAB0]/10" />
 
-                <div className="container relative pt-8 pb-20">
+                <div className="container relative pt-6 sm:pt-8 pb-12 sm:pb-20 px-4 sm:px-6">
                     {/* Back Button */}
-                    <Button variant="ghost" size="sm" asChild className="mb-8">
+                    <Button variant="ghost" size="sm" asChild className="mb-6 sm:mb-8">
                         <Link href="/events">
                             <ArrowLeft className="h-4 w-4 mr-2" />
                             Back to Events
@@ -279,11 +295,11 @@ export default function OrganizerProfilePage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
-                        className="flex flex-col sm:flex-row items-start gap-6"
+                        className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6"
                     >
                         {/* Avatar */}
-                        <div className="relative">
-                            <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl overflow-hidden ring-4 ring-background shadow-xl bg-gradient-to-br from-primary/20 to-primary/5">
+                        <div className="relative shrink-0">
+                            <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-2xl overflow-hidden ring-4 ring-background shadow-xl bg-gradient-to-br from-primary/20 to-primary/5">
                                 {organizer.avatarUrl ? (
                                     <Image
                                         src={organizer.avatarUrl}
@@ -293,7 +309,7 @@ export default function OrganizerProfilePage() {
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center">
-                                        <span className="text-4xl font-display font-bold text-primary/40">
+                                        <span className="text-3xl sm:text-4xl font-display font-bold text-primary/40">
                                             {organizer.name.charAt(0).toUpperCase()}
                                         </span>
                                     </div>
@@ -302,21 +318,21 @@ export default function OrganizerProfilePage() {
                         </div>
 
                         {/* Info */}
-                        <div className="flex-1">
-                            <h1 className="font-display text-3xl sm:text-4xl font-bold">
+                        <div className="flex-1 min-w-0 w-full">
+                            <h1 className="font-display text-2xl sm:text-4xl font-bold break-words">
                                 {organizer.name}
                             </h1>
 
                             {(organizer.city || organizer.country) && (
-                                <p className="mt-1 text-muted-foreground flex items-center gap-1.5">
-                                    <MapPin className="h-4 w-4" />
-                                    {[organizer.city, organizer.country].filter(Boolean).join(', ')}
+                                <p className="mt-1 text-muted-foreground text-sm sm:text-base flex items-center gap-1.5">
+                                    <MapPin className="h-4 w-4 shrink-0" />
+                                    <span className="truncate">{[organizer.city, organizer.country].filter(Boolean).join(', ')}</span>
                                 </p>
                             )}
 
                             {/* Stats & Actions */}
-                            <div className="flex flex-wrap items-center gap-4 mt-4">
-                                <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3 sm:mt-4">
+                                <div className="flex items-center gap-1.5 text-muted-foreground text-sm sm:text-base">
                                     <Users className="h-4 w-4" />
                                     <span className="font-medium text-foreground">{followerCount}</span>
                                     <span>followers</span>
@@ -328,7 +344,7 @@ export default function OrganizerProfilePage() {
                                     variant={isFollowing ? "default" : "outline"}
                                     onClick={handleFollow}
                                     disabled={isFollowLoading}
-                                    className="min-w-[100px] transition-all"
+                                    className="min-w-[90px] sm:min-w-[100px] transition-all"
                                 >
                                     {isFollowLoading ? (
                                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -346,7 +362,7 @@ export default function OrganizerProfilePage() {
                                 </Button>
 
                                 {organizer.website && (
-                                    <Button size="sm" variant="ghost" asChild>
+                                    <Button size="sm" variant="ghost" asChild className="hidden sm:inline-flex">
                                         <a href={organizer.website} target="_blank" rel="noopener noreferrer">
                                             <ExternalLink className="h-4 w-4 mr-1.5" />
                                             Website
@@ -357,7 +373,7 @@ export default function OrganizerProfilePage() {
 
                             {/* Social Links */}
                             {socialLinks.length > 0 && (
-                                <div className="flex items-center gap-2 mt-4">
+                                <div className="flex items-center gap-2 mt-3 sm:mt-4">
                                     {socialLinks.map(([platform, url]) => (
                                         <a
                                             key={platform}
@@ -369,24 +385,28 @@ export default function OrganizerProfilePage() {
                                             <SocialIcon platform={platform} />
                                         </a>
                                     ))}
+                                    {/* Mobile website link */}
+                                    {organizer.website && (
+                                        <a
+                                            href={organizer.website}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2 rounded-full bg-muted hover:bg-muted/80 transition-colors sm:hidden"
+                                        >
+                                            <Globe className="h-4 w-4" />
+                                        </a>
+                                    )}
                                 </div>
+                            )}
+
+                            {/* Bio */}
+                            {organizer.bio && (
+                                <p className="mt-3 sm:mt-4 text-muted-foreground text-sm sm:text-base leading-relaxed break-words">
+                                    {organizer.bio}
+                                </p>
                             )}
                         </div>
                     </motion.div>
-
-                    {/* Bio */}
-                    {organizer.bio && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: 0.1 }}
-                            className="mt-8 max-w-3xl"
-                        >
-                            <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                {organizer.bio}
-                            </p>
-                        </motion.div>
-                    )}
                 </div>
             </div>
 

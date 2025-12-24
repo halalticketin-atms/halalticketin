@@ -8,9 +8,6 @@ import { motion } from 'motion/react';
 import {
     Search,
     Calendar,
-    Filter,
-    Heart,
-    ChevronDown,
     Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,6 +16,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
 import { PublicEventRecord } from '@/lib/events-api';
+import { FavoriteButton } from '@/components/ui/FavoriteButton';
 
 const categories = ['All', 'Conference', 'Workshop', 'Iftar', 'Sisters', 'Youth', 'Charity', 'Education', 'Other'];
 
@@ -69,11 +67,9 @@ function BrowseEventsContent() {
     const searchParams = useSearchParams();
     const { events: publicEvents, isLoading, isLoadingMore, error, hasMore, loadMore } = usePublicEvents();
 
-    // Initialize search state from URL params
     const [searchQuery, setSearchQuery] = useState('');
     const [locationFilter, setLocationFilter] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
-    const [likedEvents, setLikedEvents] = useState<Set<string>>(new Set());
 
     const syncFiltersFromParams = useEffectEvent((query: string, location: string) => {
         setSearchQuery(query);
@@ -106,18 +102,6 @@ function BrowseEventsContent() {
             return matchesSearch && matchesLocation && matchesCategory;
         });
     }, [events, searchQuery, locationFilter, selectedCategory]);
-
-    const toggleLike = (eventId: string) => {
-        setLikedEvents((prev) => {
-            const newSet = new Set(prev);
-            if (newSet.has(eventId)) {
-                newSet.delete(eventId);
-            } else {
-                newSet.add(eventId);
-            }
-            return newSet;
-        });
-    };
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -267,20 +251,9 @@ function BrowseEventsContent() {
                                                         </div>
                                                     )}
                                                     {/* Like Button */}
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            toggleLike(event.id);
-                                                        }}
-                                                        className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition-all hover:bg-white hover:text-red-500 hover:scale-110"
-                                                    >
-                                                        <Heart
-                                                            className={`h-4 w-4 ${likedEvents.has(event.id)
-                                                                ? 'fill-red-500 text-red-500'
-                                                                : 'text-muted-foreground'
-                                                                }`}
-                                                        />
-                                                    </button>
+                                                    <div className="absolute right-3 top-3">
+                                                        <FavoriteButton eventId={event.id} size="sm" />
+                                                    </div>
                                                 </div>
 
                                                 {/* Info Section */}

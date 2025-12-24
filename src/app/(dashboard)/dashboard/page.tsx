@@ -31,7 +31,6 @@ export default function DashboardLandingPage() {
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [redirecting, setRedirecting] = useState(false);
-    const [showOrganizerDialog, setShowOrganizerDialog] = useState(false);
 
     useEffect(() => {
         if (!organizersLoading && activeOrganizerId) {

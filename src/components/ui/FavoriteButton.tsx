@@ -17,9 +17,8 @@ interface FavoriteButtonProps {
 /**
  * Sparkle particle component for the burst effect
  */
-function Sparkle({ index, delay }: { index: number; delay: number }) {
+function Sparkle({ index, delay, distance }: { index: number; delay: number; distance: number }) {
     const angle = (index / 8) * 360;
-    const distance = 20 + Math.random() * 15;
 
     return (
         <motion.div
@@ -61,13 +60,16 @@ export function FavoriteButton({
     size = 'md',
     showBackground = true
 }: FavoriteButtonProps) {
-    const { user } = useAuth();
-    const isAuthenticated = !!user;
+    const { user, isLoading: authLoading } = useAuth();
+    const isAuthenticated = !authLoading && !!user;
 
     const [isFavorited, setIsFavorited] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [showSparkles, setShowSparkles] = useState(false);
     const [hasChecked, setHasChecked] = useState(false);
+    const [sparkleDistances, setSparkleDistances] = useState<number[]>(
+        () => Array.from({ length: 8 }, () => 20)
+    );
 
     // Check favorite status on mount
     useEffect(() => {
@@ -107,6 +109,9 @@ export function FavoriteButton({
                 await favoriteEvent(eventId);
                 setIsFavorited(true);
                 // Trigger sparkle animation
+                setSparkleDistances(
+                    Array.from({ length: 8 }, () => 20 + Math.random() * 15)
+                );
                 setShowSparkles(true);
                 setTimeout(() => setShowSparkles(false), 600);
             }
@@ -149,7 +154,12 @@ export function FavoriteButton({
                 {showSparkles && (
                     <>
                         {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-                            <Sparkle key={i} index={i} delay={i * 0.02} />
+                            <Sparkle
+                                key={i}
+                                index={i}
+                                delay={i * 0.02}
+                                distance={sparkleDistances[i] ?? 20}
+                            />
                         ))}
                     </>
                 )}

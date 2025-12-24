@@ -152,6 +152,7 @@ export default function AboutPage() {
     const prefersReducedMotion = useReducedMotion();
     const [activePillarId, setActivePillarId] = useState<Pillar['id']>('sovereignty');
     const [activeMilestoneId, setActiveMilestoneId] = useState<Milestone['id']>('realised');
+    const motionEase: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
     const fadeUpClass = (baseClassName: string) =>
         cn(baseClassName, !prefersReducedMotion && 'animate-fade-up');
     const fadeUpStyle = (delay: string): CSSProperties | undefined =>
@@ -167,7 +168,7 @@ export default function AboutPage() {
             initial: { opacity: 0, y: 12 },
             animate: { opacity: 1, y: 0 },
             exit: { opacity: 0, y: -12 },
-            transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+            transition: { duration: 0.35, ease: motionEase },
         };
     const cardMotion = (idx: number) => ({
         initial: prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 },
@@ -175,7 +176,7 @@ export default function AboutPage() {
         viewport: { once: true, margin: '-100px' },
         transition: prefersReducedMotion
             ? { duration: 0 }
-            : { duration: 0.45, delay: idx * 0.05, ease: [0.25, 0.46, 0.45, 0.94] },
+            : { duration: 0.45, delay: idx * 0.05, ease: motionEase },
     });
 
     const activePillar = useMemo(
