@@ -65,6 +65,7 @@ export function FavoriteButton({
 }: FavoriteButtonProps) {
     const { user, isLoading: authLoading } = useAuth();
     const isAuthenticated = !authLoading && !!user;
+    const userId = user?.id;
 
     const [isFavorited, setIsFavorited] = useState(initialFavorited ?? false);
     const [isLoading, setIsLoading] = useState(false);
@@ -76,6 +77,17 @@ export function FavoriteButton({
     const [sparkleDistances, setSparkleDistances] = useState<number[]>(
         () => Array.from({ length: 8 }, () => 20)
     );
+    // Track which user's favorite status we have cached
+    const [checkedForUserId, setCheckedForUserId] = useState<string | null>(userId ?? null);
+
+    // Reset state when user changes (logout → login as different user)
+    useEffect(() => {
+        if (userId !== checkedForUserId) {
+            setHasChecked(false);
+            setIsFavorited(false);
+            setCheckedForUserId(userId ?? null);
+        }
+    }, [userId, checkedForUserId]);
 
     // Check favorite status on mount (only if not provided via initialFavorited)
     useEffect(() => {
