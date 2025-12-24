@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from 'react';
+import Link from 'next/link';
 import { Check, Ticket, Zap, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -164,9 +165,11 @@ export default function PricingPage() {
                             </div>
 
                             <div className="relative z-10 mt-12">
-                                <Button size="lg" className="w-full bg-white text-teal-700 hover:bg-white/90 font-bold rounded-xl h-14 text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all">
-                                    Contact Sales
-                                </Button>
+                                <Link href="/contact">
+                                    <Button size="lg" className="w-full bg-white text-teal-700 hover:bg-white/90 font-bold rounded-xl h-14 text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all">
+                                        Contact Sales
+                                    </Button>
+                                </Link>
                             </div>
                         </div>
                     </div>

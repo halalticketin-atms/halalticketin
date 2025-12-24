@@ -4,6 +4,13 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { StripeConnectStatus } from '@/components/stripe-connect-status';
 import { useOrganizers } from '@/context/organizer-context';
 import { useAuth } from '@/context/auth-context';
@@ -15,9 +22,12 @@ import {
     Coins,
     Target,
     CreditCard,
-    ExternalLink
+    ExternalLink,
+    Calendar,
+    MapPin
 } from 'lucide-react';
 import { SUPPORTED_CURRENCIES } from '@/lib/fees';
+import { COUNTRIES } from '@/lib/organizer-options';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -37,8 +47,16 @@ const TABS: TabItem[] = [
     { id: 'payments', label: 'Payments', icon: CreditCard, organizerOnly: true },
 ];
 
+interface ProfileFormData {
+    name: string;
+    gender: 'male' | 'female' | '';
+    dateOfBirth: string;
+    homeCountry: string;
+    homeCity: string;
+}
+
 export default function SettingsPage() {
-    const { user, isLoading: authLoading } = useAuth();
+    const { user, isLoading: authLoading, refresh: refreshAuth } = useAuth();
     const { activeOrganizerId, organizers, isLoading: organizersLoading, refresh } = useOrganizers();
 
     const isLoading = authLoading || organizersLoading;
@@ -56,8 +74,33 @@ export default function SettingsPage() {
     const [metaPixelStatus, setMetaPixelStatus] = useState<'success' | 'error' | null>(null);
     const [metaPixelError, setMetaPixelError] = useState<string | null>(null);
 
+    // Profile form state
+    const [profileForm, setProfileForm] = useState<ProfileFormData>({
+        name: '',
+        gender: '',
+        dateOfBirth: '',
+        homeCountry: '',
+        homeCity: '',
+    });
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [profileSaveStatus, setProfileSaveStatus] = useState<'success' | 'error' | null>(null);
+    const [profileError, setProfileError] = useState<string | null>(null);
+
     // Filter tabs based on organizer status
     const visibleTabs = TABS.filter(tab => !tab.organizerOnly || hasOrganizer);
+
+    // Initialize profile form from user data
+    useEffect(() => {
+        if (user) {
+            setProfileForm({
+                name: user.name || '',
+                gender: user.gender || '',
+                dateOfBirth: user.dateOfBirth || '',
+                homeCountry: user.homeCountry || '',
+                homeCity: user.homeCity || '',
+            });
+        }
+    }, [user]);
 
     useEffect(() => {
         if (currentOrganizer?.defaultCurrency) {
@@ -68,6 +111,31 @@ export default function SettingsPage() {
     useEffect(() => {
         setMetaPixelInput(currentOrganizer?.metaPixelId || '');
     }, [currentOrganizer?.metaPixelId]);
+
+    const handleSaveProfile = async () => {
+        setIsSavingProfile(true);
+        setProfileSaveStatus(null);
+        setProfileError(null);
+
+        try {
+            await api.patch('/api/v1/auth/me', {
+                name: profileForm.name || null,
+                gender: profileForm.gender || null,
+                dateOfBirth: profileForm.dateOfBirth || null,
+                homeCountry: profileForm.homeCountry || null,
+                homeCity: profileForm.homeCity || null,
+            });
+            setProfileSaveStatus('success');
+            await refreshAuth();
+            setTimeout(() => setProfileSaveStatus(null), 2000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to update profile. Please try again.';
+            setProfileSaveStatus('error');
+            setProfileError(message);
+        } finally {
+            setIsSavingProfile(false);
+        }
+    };
 
     const handleSaveCurrency = async () => {
         if (!activeOrganizerId) return;
@@ -117,6 +185,15 @@ export default function SettingsPage() {
     const normalizedPixelInput = metaPixelInput.trim();
     const normalizedCurrentPixel = currentOrganizer?.metaPixelId || '';
     const metaPixelChanged = normalizedPixelInput !== normalizedCurrentPixel;
+
+    // Check if profile has changed
+    const profileHasChanges = user && (
+        (profileForm.name || '') !== (user.name || '') ||
+        (profileForm.gender || '') !== (user.gender || '') ||
+        (profileForm.dateOfBirth || '') !== (user.dateOfBirth || '') ||
+        (profileForm.homeCountry || '') !== (user.homeCountry || '') ||
+        (profileForm.homeCity || '') !== (user.homeCity || '')
+    );
 
     const currencyOptions = Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => ({
         value: code,
@@ -178,15 +255,22 @@ export default function SettingsPage() {
                                 </div>
 
                                 <div className="space-y-5 max-w-xl">
+                                    {/* Display Name */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="name" className="text-muted-foreground">Display Name</Label>
+                                        <Label htmlFor="name" className="text-muted-foreground flex items-center gap-2">
+                                            <User className="h-4 w-4" />
+                                            Display Name
+                                        </Label>
                                         <Input
                                             id="name"
                                             className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                             placeholder="Your display name"
-                                            defaultValue={user?.name || ''}
+                                            value={profileForm.name}
+                                            onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
                                         />
                                     </div>
+
+                                    {/* Email (read-only) */}
                                     <div className="space-y-2">
                                         <Label htmlFor="email" className="text-muted-foreground">Email</Label>
                                         <Input
@@ -199,17 +283,108 @@ export default function SettingsPage() {
                                         />
                                         <p className="text-xs text-muted-foreground">Email cannot be changed</p>
                                     </div>
+
+                                    {/* Gender */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="bio" className="text-muted-foreground">Bio</Label>
+                                        <Label className="text-muted-foreground">Gender</Label>
+                                        <Select
+                                            value={profileForm.gender}
+                                            onValueChange={(value) => setProfileForm(prev => ({ ...prev, gender: value as 'male' | 'female' | '' }))}
+                                        >
+                                            <SelectTrigger className="glass-surface backdrop-blur-sm rounded-xl">
+                                                <SelectValue placeholder="Select gender" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="male">Male</SelectItem>
+                                                <SelectItem value="female">Female</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* Date of Birth */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="dateOfBirth" className="text-muted-foreground flex items-center gap-2">
+                                            <Calendar className="h-4 w-4" />
+                                            Date of Birth
+                                        </Label>
                                         <Input
-                                            id="bio"
-                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                            placeholder="Tell us about yourself"
+                                            id="dateOfBirth"
+                                            type="date"
+                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all"
+                                            value={profileForm.dateOfBirth}
+                                            onChange={(e) => setProfileForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
                                         />
                                     </div>
+
+                                    {/* Country */}
+                                    <div className="space-y-2">
+                                        <Label className="text-muted-foreground flex items-center gap-2">
+                                            <MapPin className="h-4 w-4" />
+                                            Country
+                                        </Label>
+                                        <Select
+                                            value={profileForm.homeCountry}
+                                            onValueChange={(value) => setProfileForm(prev => ({ ...prev, homeCountry: value }))}
+                                        >
+                                            <SelectTrigger className="glass-surface backdrop-blur-sm rounded-xl">
+                                                <SelectValue placeholder="Select country" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {COUNTRIES.map((country) => (
+                                                    <SelectItem key={country.code} value={country.code}>
+                                                        {country.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* City */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="homeCity" className="text-muted-foreground">City</Label>
+                                        <Input
+                                            id="homeCity"
+                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                            placeholder="Your city"
+                                            value={profileForm.homeCity}
+                                            onChange={(e) => setProfileForm(prev => ({ ...prev, homeCity: e.target.value }))}
+                                        />
+                                    </div>
+
+                                    {/* Status messages */}
+                                    {profileSaveStatus === 'success' && (
+                                        <p className="text-sm text-green-600 flex items-center gap-1">
+                                            <Check className="h-4 w-4" />
+                                            Profile updated successfully.
+                                        </p>
+                                    )}
+                                    {profileSaveStatus === 'error' && (
+                                        <p className="text-sm text-destructive flex items-center gap-1">
+                                            <AlertCircle className="h-4 w-4" />
+                                            {profileError || 'Unable to save profile.'}
+                                        </p>
+                                    )}
+
+                                    {/* Save Button */}
                                     <div className="pt-2">
-                                        <Button className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl">
-                                            Save Changes
+                                        <Button
+                                            onClick={handleSaveProfile}
+                                            disabled={isSavingProfile || !profileHasChanges}
+                                            className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                        >
+                                            {isSavingProfile ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Saving...
+                                                </>
+                                            ) : profileSaveStatus === 'success' ? (
+                                                <>
+                                                    <Check className="mr-2 h-4 w-4" />
+                                                    Updated
+                                                </>
+                                            ) : (
+                                                'Save Changes'
+                                            )}
                                         </Button>
                                     </div>
                                 </div>

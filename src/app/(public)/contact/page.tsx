@@ -4,10 +4,30 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { useState } from 'react';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
+
+const SUBJECT_OPTIONS = [
+    { value: 'general', label: 'General Inquiry' },
+    { value: 'sales', label: 'Sales & Pricing' },
+    { value: 'partnerships', label: 'Partnerships & Collaborations' },
+    { value: 'organizer', label: 'Become an Organizer' },
+    { value: 'support', label: 'Technical Support' },
+    { value: 'billing', label: 'Billing & Payments' },
+    { value: 'refunds', label: 'Refunds & Cancellations' },
+    { value: 'feature', label: 'Feature Request' },
+    { value: 'feedback', label: 'Feedback & Suggestions' },
+    { value: 'other', label: 'Other' },
+];
 
 export default function ContactPage() {
     const [formData, setFormData] = useState({
@@ -15,6 +35,7 @@ export default function ContactPage() {
         lastName: '',
         email: '',
         subject: '',
+        customSubject: '',
         message: '',
         agreed: false,
     });
@@ -80,16 +101,38 @@ export default function ContactPage() {
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="subject" className="text-muted-foreground">Subject</Label>
-                                <Input
-                                    id="subject"
-                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                    placeholder="Subject"
+                                <Select
                                     value={formData.subject}
-                                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                                    onValueChange={(value) => setFormData({ ...formData, subject: value, customSubject: value !== 'other' ? '' : formData.customSubject })}
+                                    required
+                                >
+                                    <SelectTrigger id="subject" className="glass-surface md:backdrop-blur-sm rounded-xl transition-all text-slate-700">
+                                        <SelectValue placeholder="Select a subject" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {SUBJECT_OPTIONS.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {formData.subject === 'other' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="customSubject" className="text-muted-foreground">Please specify your subject</Label>
+                                <Input
+                                    id="customSubject"
+                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                    placeholder="Enter your subject"
+                                    value={formData.customSubject}
+                                    onChange={(e) => setFormData({ ...formData, customSubject: e.target.value })}
                                     required
                                 />
                             </div>
-                        </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label htmlFor="message" className="text-muted-foreground">Message</Label>

@@ -18,6 +18,10 @@ interface UserProfile {
     email: string;
     name: string | null;
     avatarUrl: string | null;
+    gender: 'male' | 'female' | null;
+    dateOfBirth: string | null;
+    homeCountry: string | null;
+    homeCity: string | null;
 }
 
 export interface ProfileResponse {
