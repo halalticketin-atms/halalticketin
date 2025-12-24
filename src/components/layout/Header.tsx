@@ -411,6 +411,16 @@ export function Header() {
                                         >
                                             <Link href="/settings">Settings</Link>
                                         </Button>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full h-12 rounded-xl text-md border-red-200 bg-red-50/50 hover:bg-red-100 text-red-600 font-semibold"
+                                            onClick={() => {
+                                                setMobileMenuOpen(false);
+                                                handleSignOut();
+                                            }}
+                                        >
+                                            Sign Out
+                                        </Button>
                                     </>
                                 ) : (
                                     <>

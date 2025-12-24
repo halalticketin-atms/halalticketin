@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -51,10 +51,16 @@ const moreMenuItems = (organizerId?: string): NavItem[] => {
 
 export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
     const pathname = usePathname();
+    const router = useRouter();
     const [moreOpen, setMoreOpen] = useState(false);
     const { signOut } = useAuth();
     const mainNavItems = buildNavItems(organizerId);
     const moreItems = moreMenuItems(organizerId);
+
+    const handleSignOut = () => {
+        signOut();
+        router.push('/login');
+    };
 
     const isActive = (href: string) => {
         const overviewHref = organizerId ? buildDashboardPath(organizerId) : '/dashboard';
@@ -192,7 +198,7 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
                                 <button
                                     onClick={() => {
                                         setMoreOpen(false);
-                                        signOut();
+                                        handleSignOut();
                                     }}
                                     className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-red-600 hover:bg-red-50 transition-all"
                                 >
