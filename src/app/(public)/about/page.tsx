@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
     ArrowRight,
@@ -113,12 +113,22 @@ function SpotlightCard({
     className,
     style,
     children,
+    enableSpotlight = true,
 }: {
     className?: string;
     style?: CSSProperties;
     children: React.ReactNode;
+    enableSpotlight?: boolean;
 }) {
     const [spotlight, setSpotlight] = useState({ x: 0, y: 0, active: false });
+    const isSpotlightActive = enableSpotlight && spotlight.active;
+    const mergedStyle = enableSpotlight
+        ? ({
+            '--x': `${spotlight.x}px`,
+            '--y': `${spotlight.y}px`,
+            ...style,
+        } as CSSProperties)
+        : style;
 
     return (
         <div
@@ -126,22 +136,24 @@ function SpotlightCard({
                 'relative overflow-hidden rounded-[2rem] glass-surface md:backdrop-blur-2xl shadow-xl ring-1 ring-white/60',
                 'before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-300',
                 'before:bg-[radial-gradient(600px_circle_at_var(--x)_var(--y),rgba(6,182,212,0.18),transparent_42%)]',
-                spotlight.active ? 'before:opacity-100' : 'before:opacity-0',
+                isSpotlightActive ? 'before:opacity-100' : 'before:opacity-0',
                 className
             )}
-            style={
-                {
-                    '--x': `${spotlight.x}px`,
-                    '--y': `${spotlight.y}px`,
-                    ...style,
-                } as CSSProperties
+            style={mergedStyle}
+            onPointerEnter={
+                enableSpotlight ? () => setSpotlight((s) => ({ ...s, active: true })) : undefined
             }
-            onPointerEnter={() => setSpotlight((s) => ({ ...s, active: true }))}
-            onPointerLeave={() => setSpotlight((s) => ({ ...s, active: false }))}
-            onPointerMove={(e) => {
-                const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                setSpotlight({ x: e.clientX - rect.left, y: e.clientY - rect.top, active: true });
-            }}
+            onPointerLeave={
+                enableSpotlight ? () => setSpotlight((s) => ({ ...s, active: false })) : undefined
+            }
+            onPointerMove={
+                enableSpotlight
+                    ? (e) => {
+                        const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                        setSpotlight({ x: e.clientX - rect.left, y: e.clientY - rect.top, active: true });
+                    }
+                    : undefined
+            }
         >
             <div className="relative">{children}</div>
         </div>
@@ -150,14 +162,18 @@ function SpotlightCard({
 
 export default function AboutPage() {
     const prefersReducedMotion = useReducedMotion();
+    const [isMobile, setIsMobile] = useState(false);
+    const [hasFinePointer, setHasFinePointer] = useState(false);
     const [activePillarId, setActivePillarId] = useState<Pillar['id']>('sovereignty');
     const [activeMilestoneId, setActiveMilestoneId] = useState<Milestone['id']>('realised');
     const motionEase: [number, number, number, number] = [0.25, 0.46, 0.45, 0.94];
+    const reduceMotion = prefersReducedMotion || isMobile;
+    const enableSpotlight = hasFinePointer && !reduceMotion;
     const fadeUpClass = (baseClassName: string) =>
-        cn(baseClassName, !prefersReducedMotion && 'animate-fade-up');
+        cn(baseClassName, !reduceMotion && 'animate-fade-up');
     const fadeUpStyle = (delay: string): CSSProperties | undefined =>
-        prefersReducedMotion ? undefined : fadeStyle(delay);
-    const panelMotion = prefersReducedMotion
+        reduceMotion ? undefined : fadeStyle(delay);
+    const panelMotion = reduceMotion
         ? {
             initial: { opacity: 1, y: 0 },
             animate: { opacity: 1, y: 0 },
@@ -171,13 +187,41 @@ export default function AboutPage() {
             transition: { duration: 0.35, ease: motionEase },
         };
     const cardMotion = (idx: number) => ({
-        initial: prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 },
+        initial: reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 },
         whileInView: { opacity: 1, y: 0 },
         viewport: { once: true, margin: '-100px' },
-        transition: prefersReducedMotion
+        transition: reduceMotion
             ? { duration: 0 }
             : { duration: 0.45, delay: idx * 0.05, ease: motionEase },
     });
+    const belowFoldStyle = {
+        contentVisibility: 'auto',
+        containIntrinsicSize: '1000px',
+    } as CSSProperties;
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(max-width: 767px)');
+        const updateMobile = () => setIsMobile(mediaQuery.matches);
+        updateMobile();
+        if (mediaQuery.addEventListener) {
+            mediaQuery.addEventListener('change', updateMobile);
+            return () => mediaQuery.removeEventListener('change', updateMobile);
+        }
+        mediaQuery.addListener(updateMobile);
+        return () => mediaQuery.removeListener(updateMobile);
+    }, []);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+        const updatePointer = () => setHasFinePointer(mediaQuery.matches);
+        updatePointer();
+        if (mediaQuery.addEventListener) {
+            mediaQuery.addEventListener('change', updatePointer);
+            return () => mediaQuery.removeEventListener('change', updatePointer);
+        }
+        mediaQuery.addListener(updatePointer);
+        return () => mediaQuery.removeListener(updatePointer);
+    }, []);
 
     const activePillar = useMemo(
         () => PILLARS.find((p) => p.id === activePillarId) ?? PILLARS[0],
@@ -191,7 +235,9 @@ export default function AboutPage() {
 
     return (
         <div className="min-h-screen w-full relative overflow-hidden gradient-mesh -mt-[var(--nav-safe-offset)] pt-[calc(var(--nav-safe-offset)+4rem)] pb-16 md:pb-24">
-            <AmbientBackground />
+            <div className="hidden md:block">
+                <AmbientBackground />
+            </div>
 
             {/* Decorative grid + aura */}
             <div
@@ -203,7 +249,7 @@ export default function AboutPage() {
             >
                 <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(15,23,42,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.07)_1px,transparent_1px)] bg-[size:56px_56px]" />
                 <motion.div
-                    className="absolute -inset-24 blur-3xl mix-blend-multiply"
+                    className="absolute -inset-24 blur-3xl mix-blend-multiply hidden md:block"
                     style={{
                         background:
                             'conic-gradient(from 160deg at 50% 50%, rgba(34,197,94,0.12), rgba(6,182,212,0.14), rgba(20,184,166,0.12), rgba(34,197,94,0.12))',
@@ -291,7 +337,11 @@ export default function AboutPage() {
                     </div>
 
                     <div className="lg:col-span-5">
-                        <SpotlightCard className={fadeUpClass('p-6 md:p-8')} style={fadeUpStyle('0.3s')}>
+                        <SpotlightCard
+                            className={fadeUpClass('p-6 md:p-8')}
+                            style={fadeUpStyle('0.3s')}
+                            enableSpotlight={enableSpotlight}
+                        >
                             <div className="flex items-start justify-between gap-4">
                                 <div>
                                     <div className="text-xs font-bold uppercase tracking-[0.22em] text-slate-600">
@@ -331,7 +381,7 @@ export default function AboutPage() {
                 </header>
 
                 {/* Pillars */}
-                <section className="mt-16 md:mt-24">
+                <section className="mt-16 md:mt-24" style={belowFoldStyle}>
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
                         <div className="max-w-2xl">
                             <h2 className="font-display text-3xl md:text-4xl font-bold text-slate-900 relative inline-block">
@@ -446,7 +496,7 @@ export default function AboutPage() {
                 </section>
 
                 {/* Story */}
-                <section className="mt-16 md:mt-24">
+                <section className="mt-16 md:mt-24" style={belowFoldStyle}>
                     <div className="grid gap-8 lg:grid-cols-12 lg:gap-10 items-start">
                         <div className="lg:col-span-5">
                             <h2 className="font-display text-3xl md:text-4xl font-bold text-slate-900 relative inline-block">
@@ -531,7 +581,7 @@ export default function AboutPage() {
                 </section>
 
                 {/* FAQ + CTA */}
-                <section className="mt-16 md:mt-24 grid gap-8 lg:grid-cols-12 lg:gap-10 items-start">
+                <section className="mt-16 md:mt-24 grid gap-8 lg:grid-cols-12 lg:gap-10 items-start" style={belowFoldStyle}>
                     <div className="lg:col-span-5">
                         <h2 className="font-display text-3xl md:text-4xl font-bold text-slate-900 relative inline-block">
                             Questions
@@ -574,7 +624,7 @@ export default function AboutPage() {
                     </div>
 
                     <div className="lg:col-span-7">
-                        <SpotlightCard className="p-7 md:p-10">
+                        <SpotlightCard className="p-7 md:p-10" enableSpotlight={enableSpotlight}>
                             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
                                 <div className="max-w-xl">
                                     <div className="text-xs font-bold uppercase tracking-[0.22em] text-slate-600">

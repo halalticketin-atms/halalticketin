@@ -44,6 +44,21 @@ function LoginContent() {
     const nextParam = searchParams.get('next');
     const redirectPath = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard';
     const prefersReducedMotion = useReducedMotion();
+    const shouldAnimateEntry = !isMobile && !prefersReducedMotion;
+    const entryMotionProps = shouldAnimateEntry
+        ? {
+            initial: { opacity: 0, y: 30 },
+            animate: { opacity: 1, y: 0 },
+            transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as const },
+        }
+        : {};
+    const staggerContainerProps = shouldAnimateEntry
+        ? { variants: staggerContainer, initial: 'hidden', animate: 'show' }
+        : {};
+    const staggerItemProps = shouldAnimateEntry ? { variants: staggerItem } : {};
+    const footerMotionProps = shouldAnimateEntry
+        ? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { delay: 0.8 } }
+        : {};
 
     // Detect mobile for animation optimization
     useEffect(() => {
@@ -129,22 +144,20 @@ function LoginContent() {
     return (
         <div className="min-h-screen flex items-center justify-center p-4 md:p-6 relative overflow-hidden bg-gradient-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
             {/* Ambient background glows */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none hidden md:block">
                 <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-gradient-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-3xl" />
                 <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-gradient-to-tr from-teal-400/15 to-emerald-400/15 rounded-full blur-3xl" />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-cyan-300/10 via-transparent to-teal-300/10 rounded-full blur-3xl" />
             </div>
 
             <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+                {...entryMotionProps}
                 className="w-full max-w-md relative z-10"
             >
                 {/* Premium Glass Card */}
                 <div className="relative">
                     {/* Glow effect behind card */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 via-teal-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-70" />
+                    <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 via-teal-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-70 hidden md:block" />
 
                     <div className="relative bg-white/95 md:bg-white/80 dark:bg-slate-900/80 md:backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/50 dark:border-slate-700/50 overflow-hidden">
                         {/* Top gradient accent */}
@@ -152,13 +165,11 @@ function LoginContent() {
 
                         <div className="p-8 sm:p-10">
                             <motion.div
-                                variants={staggerContainer}
-                                initial="hidden"
-                                animate="show"
+                                {...staggerContainerProps}
                                 className="space-y-8"
                             >
                                 {/* Header */}
-                                <motion.div variants={staggerItem} className="text-center space-y-2">
+                                <motion.div {...staggerItemProps} className="text-center space-y-2">
                                     <h1 className="text-3xl font-display font-bold">
                                         <span className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">Salaam </span>
                                         {shouldAnimateWave ? (
@@ -180,7 +191,7 @@ function LoginContent() {
 
                                 {/* Form */}
                                 <motion.form
-                                    variants={staggerItem}
+                                    {...staggerItemProps}
                                     onSubmit={handleEmailLogin}
                                     className="space-y-5"
                                 >
@@ -248,7 +259,7 @@ function LoginContent() {
                                 </motion.form>
 
                                 {/* Divider */}
-                                <motion.div variants={staggerItem} className="flex items-center gap-4">
+                                <motion.div {...staggerItemProps} className="flex items-center gap-4">
                                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
                                     <span className="text-xs uppercase font-bold tracking-widest text-slate-400">
                                         or
@@ -257,7 +268,7 @@ function LoginContent() {
                                 </motion.div>
 
                                 {/* Google Login */}
-                                <motion.div variants={staggerItem}>
+                                <motion.div {...staggerItemProps}>
                                     <Button
                                         variant="outline"
                                         onClick={handleGoogleLogin}
@@ -287,7 +298,7 @@ function LoginContent() {
                                 </motion.div>
 
                                 {/* Sign up link */}
-                                <motion.div variants={staggerItem} className="text-center">
+                                <motion.div {...staggerItemProps} className="text-center">
                                     <p className="text-slate-600 dark:text-slate-400">
                                         Don&apos;t have an account?{' '}
                                         <Link
@@ -305,9 +316,7 @@ function LoginContent() {
 
                 {/* Footer */}
                 <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.8 }}
+                    {...footerMotionProps}
                     className="mt-8 text-center text-sm text-slate-500"
                 >
                     By continuing, you agree to our{' '}
