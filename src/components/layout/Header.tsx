@@ -370,6 +370,24 @@ export function Header() {
                             <div className="flex flex-col gap-3">
                                 {isAuthenticated ? (
                                     <>
+                                        {/* User Info Section */}
+                                        <Link
+                                            href="/profile"
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-[var(--brand-mint)]/50 to-white/50 border border-[var(--brand-teal)]/10 hover:border-[var(--brand-teal)]/30 transition-all"
+                                        >
+                                            <Avatar className="h-12 w-12 ring-2 ring-white shadow-md">
+                                                <AvatarImage src={user?.avatarUrl ?? undefined} alt={displayName} className="object-cover" />
+                                                <AvatarFallback className="bg-[var(--brand-mint)] text-[var(--brand-teal)] font-bold text-lg">
+                                                    {avatarInitial}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-semibold text-slate-800">{displayName}</span>
+                                                <span className="text-xs text-muted-foreground">View Profile & Saved Events</span>
+                                            </div>
+                                        </Link>
+
                                         <Button
                                             className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white w-full h-12 rounded-xl text-md font-bold shadow-lg shadow-teal-500/20"
                                             asChild
@@ -384,6 +402,14 @@ export function Header() {
                                             onClick={() => setMobileMenuOpen(false)}
                                         >
                                             <Link href="/dashboard">Dashboard</Link>
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full h-12 rounded-xl text-md border-slate-200 bg-white/50 hover:bg-white"
+                                            asChild
+                                            onClick={() => setMobileMenuOpen(false)}
+                                        >
+                                            <Link href="/settings">Settings</Link>
                                         </Button>
                                     </>
                                 ) : (
