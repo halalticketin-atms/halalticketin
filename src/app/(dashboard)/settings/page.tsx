@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { StripeConnectStatus } from '@/components/stripe-connect-status';
 import { useOrganizers } from '@/context/organizer-context';
 import { useAuth } from '@/context/auth-context';
@@ -24,10 +25,12 @@ import {
     CreditCard,
     ExternalLink,
     Calendar,
-    MapPin
+    MapPin,
+    Camera
 } from 'lucide-react';
 import { SUPPORTED_CURRENCIES } from '@/lib/fees';
 import { COUNTRIES } from '@/lib/organizer-options';
+import { uploadAvatar, fileToDataUrl } from '@/lib/upload-api';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -86,6 +89,14 @@ export default function SettingsPage() {
     const [profileSaveStatus, setProfileSaveStatus] = useState<'success' | 'error' | null>(null);
     const [profileError, setProfileError] = useState<string | null>(null);
 
+    // Avatar upload state
+    const [avatarPreview, setAvatarPreview] = useState<string>('');
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [avatarUploadStatus, setAvatarUploadStatus] = useState<'success' | 'error' | null>(null);
+    const [avatarError, setAvatarError] = useState<string | null>(null);
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+
     // Filter tabs based on organizer status
     const visibleTabs = TABS.filter(tab => !tab.organizerOnly || hasOrganizer);
 
@@ -111,6 +122,70 @@ export default function SettingsPage() {
     useEffect(() => {
         setMetaPixelInput(currentOrganizer?.metaPixelId || '');
     }, [currentOrganizer?.metaPixelId]);
+
+    const handleAvatarSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            setAvatarError('Please select an image file');
+            setAvatarUploadStatus('error');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            setAvatarError('Image must be less than 5MB');
+            setAvatarUploadStatus('error');
+            return;
+        }
+
+        setAvatarFile(file);
+        setAvatarError(null);
+        setAvatarUploadStatus(null);
+
+        // Create preview
+        try {
+            const preview = await fileToDataUrl(file);
+            setAvatarPreview(preview);
+        } catch {
+            setAvatarError('Failed to preview image');
+        }
+    };
+
+    const handleAvatarUpload = async () => {
+        if (!avatarFile) return;
+
+        setIsUploadingAvatar(true);
+        setAvatarUploadStatus(null);
+        setAvatarError(null);
+
+        try {
+            await uploadAvatar(avatarFile);
+            setAvatarUploadStatus('success');
+            setAvatarFile(null);
+            setAvatarPreview('');
+            await refreshAuth();
+            setTimeout(() => setAvatarUploadStatus(null), 2000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to upload avatar';
+            setAvatarError(message);
+            setAvatarUploadStatus('error');
+        } finally {
+            setIsUploadingAvatar(false);
+        }
+    };
+
+    const cancelAvatarUpload = () => {
+        setAvatarFile(null);
+        setAvatarPreview('');
+        setAvatarError(null);
+        setAvatarUploadStatus(null);
+        if (avatarInputRef.current) {
+            avatarInputRef.current.value = '';
+        }
+    };
 
     const handleSaveProfile = async () => {
         setIsSavingProfile(true);
@@ -252,6 +327,82 @@ export default function SettingsPage() {
                                 <div>
                                     <h2 className="text-xl font-semibold mb-1">Profile</h2>
                                     <p className="text-muted-foreground text-sm">Update your personal information</p>
+                                </div>
+
+                                {/* Avatar Upload Section */}
+                                <div className="flex items-start gap-6 p-4 rounded-2xl bg-muted/30 border border-border/50">
+                                    <div className="relative group">
+                                        <Avatar className="h-24 w-24 border-4 border-background shadow-lg text-2xl">
+                                            <AvatarImage
+                                                src={avatarPreview || user?.avatarUrl || ''}
+                                                alt={user?.name || 'User'}
+                                                className="object-cover"
+                                            />
+                                            <AvatarFallback className="bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white">
+                                                {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <button
+                                            type="button"
+                                            onClick={() => avatarInputRef.current?.click()}
+                                            className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-background border shadow-sm hover:bg-muted transition-colors cursor-pointer group-hover:scale-110 duration-200"
+                                        >
+                                            <Camera className="h-4 w-4 text-muted-foreground" />
+                                        </button>
+                                        <input
+                                            ref={avatarInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/gif,image/webp"
+                                            onChange={handleAvatarSelect}
+                                            className="hidden"
+                                        />
+                                    </div>
+                                    <div className="flex-1 space-y-2">
+                                        <div>
+                                            <h3 className="font-medium">Profile Picture</h3>
+                                            <p className="text-sm text-muted-foreground">Click the camera icon to upload a new photo</p>
+                                            <p className="text-xs text-muted-foreground mt-1">Max 5MB • JPEG, PNG, GIF, or WebP • 400×400px recommended</p>
+                                        </div>
+                                        {avatarFile && (
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    onClick={handleAvatarUpload}
+                                                    disabled={isUploadingAvatar}
+                                                    className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white"
+                                                >
+                                                    {isUploadingAvatar ? (
+                                                        <>
+                                                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                                            Uploading...
+                                                        </>
+                                                    ) : (
+                                                        'Upload'
+                                                    )}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={cancelAvatarUpload}
+                                                    disabled={isUploadingAvatar}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        )}
+                                        {avatarUploadStatus === 'success' && (
+                                            <p className="text-sm text-green-600 flex items-center gap-1">
+                                                <Check className="h-4 w-4" />
+                                                Avatar updated successfully
+                                            </p>
+                                        )}
+                                        {avatarUploadStatus === 'error' && (
+                                            <p className="text-sm text-destructive flex items-center gap-1">
+                                                <AlertCircle className="h-4 w-4" />
+                                                {avatarError || 'Failed to upload avatar'}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="space-y-5 max-w-xl">

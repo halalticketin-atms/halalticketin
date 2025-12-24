@@ -105,6 +105,15 @@ export function Header() {
             iconColor: 'text-cyan-600',
         },
         {
+            id: 'about',
+            href: '/about',
+            label: 'About',
+            // Emerald - Stronger
+            gradient:
+                'radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.1) 50%, rgba(16, 185, 129, 0) 100%)',
+            iconColor: 'text-emerald-600',
+        },
+        {
             id: 'contact',
             href: '/contact',
             label: 'Contact',
@@ -247,7 +256,7 @@ export function Header() {
                                         className="relative h-9 w-9 rounded-full ring-2 ring-white hover:ring-[var(--brand-cyan)] transition-all p-0"
                                     >
                                         <Avatar className="h-9 w-9">
-                                            <AvatarImage src={user?.avatarUrl ?? undefined} alt={displayName} />
+                                            <AvatarImage src={user?.avatarUrl ?? undefined} alt={displayName} className="object-cover" />
                                             <AvatarFallback className="bg-[var(--brand-mint)] text-[var(--brand-teal)] font-bold">
                                                 {avatarInitial}
                                             </AvatarFallback>

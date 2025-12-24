@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, type ChangeEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'motion/react';
@@ -10,7 +10,9 @@ import {
     Heart,
     MapPin,
     ChevronRight,
-    Edit3,
+    Camera,
+    Loader2,
+    Check,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 import { useOrganizerEvents, type DashboardEvent } from '@/hooks/useOrganizerEvents';
+import { uploadAvatar, fileToDataUrl } from '@/lib/upload-api';
 
 type ProfileEventCard = {
     id: string;
@@ -31,15 +34,52 @@ type ProfileEventCard = {
 };
 
 export default function ProfilePage() {
-    const { user, memberships } = useAuth();
+    const { user, memberships, refresh: refreshAuth } = useAuth();
     const { activeOrganizerId } = useOrganizers();
     const { getByStatus, counts } = useOrganizerEvents(activeOrganizerId);
     const [activeTab, setActiveTab] = useState('upcoming');
 
+    // Avatar upload state
+    const [avatarPreview, setAvatarPreview] = useState<string>('');
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [avatarUploadSuccess, setAvatarUploadSuccess] = useState(false);
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+
     const displayName = user?.name || user?.email?.split('@')[0] || 'Guest User';
     const displayEmail = user?.email ?? 'Sign in';
-    const avatarImage = user?.avatarUrl ?? '';
+    const avatarImage = avatarPreview || user?.avatarUrl || '';
     const avatarFallback = displayName.charAt(0).toUpperCase();
+
+    const handleAvatarSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file
+        if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+            return;
+        }
+
+        setIsUploadingAvatar(true);
+        try {
+            // Show preview immediately
+            const preview = await fileToDataUrl(file);
+            setAvatarPreview(preview);
+
+            // Upload
+            await uploadAvatar(file);
+            await refreshAuth();
+            setAvatarUploadSuccess(true);
+            setTimeout(() => setAvatarUploadSuccess(false), 2000);
+        } catch {
+            // Reset on error
+            setAvatarPreview('');
+        } finally {
+            setIsUploadingAvatar(false);
+            if (avatarInputRef.current) {
+                avatarInputRef.current.value = '';
+            }
+        }
+    };
 
     // Map events for display
     const formatEvent = (event: DashboardEvent): ProfileEventCard => ({
@@ -96,12 +136,29 @@ export default function ProfilePage() {
                                     <AvatarFallback>{avatarFallback}</AvatarFallback>
                                 </Avatar>
                                 {user && (
-                                    <Link
-                                        href="/settings"
-                                        className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-background border shadow-sm hover:bg-muted transition-colors text-muted-foreground hover:scale-110 active:scale-95 duration-200"
-                                    >
-                                        <Edit3 className="h-4 w-4" />
-                                    </Link>
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => avatarInputRef.current?.click()}
+                                            disabled={isUploadingAvatar}
+                                            className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-background border shadow-sm hover:bg-muted transition-colors text-muted-foreground hover:scale-110 active:scale-95 duration-200 disabled:opacity-50"
+                                        >
+                                            {isUploadingAvatar ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : avatarUploadSuccess ? (
+                                                <Check className="h-4 w-4 text-green-600" />
+                                            ) : (
+                                                <Camera className="h-4 w-4" />
+                                            )}
+                                        </button>
+                                        <input
+                                            ref={avatarInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/gif,image/webp"
+                                            onChange={handleAvatarSelect}
+                                            className="hidden"
+                                        />
+                                    </>
                                 )}
                             </motion.div>
 
