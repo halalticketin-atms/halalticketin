@@ -25,6 +25,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { FavoriteButton } from '@/components/ui/FavoriteButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -559,9 +560,7 @@ export default function EventDetailsPage() {
 
                     {/* Action Buttons */}
                     <div className="absolute top-4 right-4 flex gap-2 z-10">
-                        <Button variant="secondary" size="icon" className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50">
-                            <Heart className="h-4 w-4" />
-                        </Button>
+                        <FavoriteButton eventId={event.id} size="sm" />
                         <Button variant="secondary" size="icon" className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50">
                             <Share2 className="h-4 w-4" />
                         </Button>
@@ -585,7 +584,13 @@ export default function EventDetailsPage() {
                             </h1>
                             {event.organizerName && (
                                 <p className="mt-2 text-muted-foreground">
-                                    Hosted by <span className="font-medium text-foreground">{event.organizerName}</span>
+                                    Hosted by{' '}
+                                    <Link
+                                        href={`/organizers/${event.organizerId}`}
+                                        className="font-medium text-foreground hover:text-primary transition-colors hover:underline"
+                                    >
+                                        {event.organizerName}
+                                    </Link>
                                 </p>
                             )}
                         </motion.div>

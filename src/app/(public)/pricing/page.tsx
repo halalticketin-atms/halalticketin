@@ -165,11 +165,13 @@ export default function PricingPage() {
                             </div>
 
                             <div className="relative z-10 mt-12">
-                                <Link href="/contact">
-                                    <Button size="lg" className="w-full bg-white text-teal-700 hover:bg-white/90 font-bold rounded-xl h-14 text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all">
-                                        Contact Sales
-                                    </Button>
-                                </Link>
+                                <Button
+                                    asChild
+                                    size="lg"
+                                    className="w-full bg-white text-teal-700 hover:bg-white/90 font-bold rounded-xl h-14 text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all"
+                                >
+                                    <Link href="/contact">Contact Sales</Link>
+                                </Button>
                             </div>
                         </div>
                     </div>

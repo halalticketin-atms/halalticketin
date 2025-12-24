@@ -152,6 +152,31 @@ export default function AboutPage() {
     const prefersReducedMotion = useReducedMotion();
     const [activePillarId, setActivePillarId] = useState<Pillar['id']>('sovereignty');
     const [activeMilestoneId, setActiveMilestoneId] = useState<Milestone['id']>('realised');
+    const fadeUpClass = (baseClassName: string) =>
+        cn(baseClassName, !prefersReducedMotion && 'animate-fade-up');
+    const fadeUpStyle = (delay: string): CSSProperties | undefined =>
+        prefersReducedMotion ? undefined : fadeStyle(delay);
+    const panelMotion = prefersReducedMotion
+        ? {
+            initial: { opacity: 1, y: 0 },
+            animate: { opacity: 1, y: 0 },
+            exit: { opacity: 1, y: 0 },
+            transition: { duration: 0 },
+        }
+        : {
+            initial: { opacity: 0, y: 12 },
+            animate: { opacity: 1, y: 0 },
+            exit: { opacity: 0, y: -12 },
+            transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] },
+        };
+    const cardMotion = (idx: number) => ({
+        initial: prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12 },
+        whileInView: { opacity: 1, y: 0 },
+        viewport: { once: true, margin: '-100px' },
+        transition: prefersReducedMotion
+            ? { duration: 0 }
+            : { duration: 0.45, delay: idx * 0.05, ease: [0.25, 0.46, 0.45, 0.94] },
+    });
 
     const activePillar = useMemo(
         () => PILLARS.find((p) => p.id === activePillarId) ?? PILLARS[0],
@@ -200,16 +225,16 @@ export default function AboutPage() {
                     <div className="lg:col-span-7">
                         <Badge
                             variant="secondary"
-                            className="mb-6 px-4 py-2 text-sm font-medium border border-border/50 animate-fade-up"
-                            style={fadeStyle('0s')}
+                            className={fadeUpClass('mb-6 px-4 py-2 text-sm font-medium border border-border/50')}
+                            style={fadeUpStyle('0s')}
                         >
                             <Sparkles className="mr-2 h-4 w-4 text-[oklch(0.8_0.16_85)]" />
                             Built by Muslims, for halal-friendly gatherings
                         </Badge>
 
                         <h1
-                            className="font-display text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 animate-fade-up"
-                            style={fadeStyle('0.05s')}
+                            className={fadeUpClass('font-display text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900')}
+                            style={fadeUpStyle('0.05s')}
                         >
                             A home for events that{' '}
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)]">
@@ -219,8 +244,8 @@ export default function AboutPage() {
                         </h1>
 
                         <p
-                            className="mt-5 max-w-2xl text-base md:text-lg leading-relaxed text-slate-700/90 animate-fade-up"
-                            style={fadeStyle('0.12s')}
+                            className={fadeUpClass('mt-5 max-w-2xl text-base md:text-lg leading-relaxed text-slate-700/90')}
+                            style={fadeUpStyle('0.12s')}
                         >
                             Halal Ticketin started as a simple realisation: even our community events are
                             dependent on platforms that don’t share our values. If they decide to de‑platform
@@ -229,8 +254,8 @@ export default function AboutPage() {
                         </p>
 
                         <div
-                            className="mt-8 flex flex-col sm:flex-row gap-3 animate-fade-up"
-                            style={fadeStyle('0.18s')}
+                            className={fadeUpClass('mt-8 flex flex-col sm:flex-row gap-3')}
+                            style={fadeUpStyle('0.18s')}
                         >
                             <Button asChild size="lg" className="rounded-xl font-bold">
                                 <Link href="/events/new">
@@ -243,8 +268,8 @@ export default function AboutPage() {
                         </div>
 
                         <ul
-                            className="mt-8 grid gap-3 sm:grid-cols-3 animate-fade-up"
-                            style={fadeStyle('0.24s')}
+                            className={fadeUpClass('mt-8 grid gap-3 sm:grid-cols-3')}
+                            style={fadeUpStyle('0.24s')}
                         >
                             {[
                                 { label: 'Alcohol‑free focus', icon: ShieldCheck },
@@ -265,7 +290,7 @@ export default function AboutPage() {
                     </div>
 
                     <div className="lg:col-span-5">
-                        <SpotlightCard className="p-6 md:p-8 animate-fade-up" style={fadeStyle('0.3s')}>
+                        <SpotlightCard className={fadeUpClass('p-6 md:p-8')} style={fadeUpStyle('0.3s')}>
                             <div className="flex items-start justify-between gap-4">
                                 <div>
                                     <div className="text-xs font-bold uppercase tracking-[0.22em] text-slate-600">
@@ -379,10 +404,10 @@ export default function AboutPage() {
                                 <AnimatePresence mode="wait">
                                     <motion.div
                                         key={activePillar.id}
-                                        initial={{ opacity: 0, y: 12 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -12 }}
-                                        transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+                                        initial={panelMotion.initial}
+                                        animate={panelMotion.animate}
+                                        exit={panelMotion.exit}
+                                        transition={panelMotion.transition}
                                     >
                                         <div className="flex items-center justify-between gap-4">
                                             <div>
@@ -467,10 +492,10 @@ export default function AboutPage() {
                                     <AnimatePresence mode="wait">
                                         <motion.div
                                             key={activeMilestone.id}
-                                            initial={{ opacity: 0, y: 12 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -12 }}
-                                            transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+                                            initial={panelMotion.initial}
+                                            animate={panelMotion.animate}
+                                            exit={panelMotion.exit}
+                                            transition={panelMotion.transition}
                                         >
                                             <div className="font-display text-2xl font-bold text-slate-900">
                                                 {activeMilestone.title}
@@ -484,7 +509,7 @@ export default function AboutPage() {
                                                     In practice
                                                 </div>
                                                 <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                                                    {[
+                                    {[
                                                         'Clear event guidelines and expectations.',
                                                         'A discovery experience that prioritises trust.',
                                                         'Tools to help organisers run events smoothly.',
@@ -592,19 +617,15 @@ export default function AboutPage() {
                                         title: 'Community discovery',
                                         body: 'A place where halal-friendly events can actually get found.',
                                     },
-                                ].map((card, idx) => (
-                                    <motion.div
-                                        key={card.title}
-                                        className="rounded-2xl border border-white/50 bg-white/60 p-4 shadow-sm"
-                                        initial={{ opacity: 0, y: 12 }}
-                                        whileInView={{ opacity: 1, y: 0 }}
-                                        viewport={{ once: true, margin: '-100px' }}
-                                        transition={{
-                                            duration: 0.45,
-                                            delay: prefersReducedMotion ? 0 : idx * 0.05,
-                                            ease: [0.25, 0.46, 0.45, 0.94],
-                                        }}
-                                    >
+                                    ].map((card, idx) => (
+                                        <motion.div
+                                            key={card.title}
+                                            className="rounded-2xl border border-white/50 bg-white/60 p-4 shadow-sm"
+                                            initial={cardMotion(idx).initial}
+                                            whileInView={cardMotion(idx).whileInView}
+                                            viewport={cardMotion(idx).viewport}
+                                            transition={cardMotion(idx).transition}
+                                        >
                                         <div className="font-display text-lg font-bold text-slate-900">
                                             {card.title}
                                         </div>

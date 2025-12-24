@@ -3,12 +3,12 @@ import type { EventScope, OrganizerRole, TeamInvitation, TeamMember } from '@/ty
 
 export type EventScopeInput =
     | {
-          mode: 'all';
-      }
+        mode: 'all';
+    }
     | {
-          mode: 'limited';
-          eventIds: string[];
-      };
+        mode: 'limited';
+        eventIds: string[];
+    };
 
 export interface CreateOrganizerPayload {
     name: string;
@@ -101,8 +101,8 @@ export const eventScopeToInput = (scope: EventScope): EventScopeInput =>
     scope.mode === 'limited'
         ? { mode: 'limited', eventIds: scope.eventIds }
         : {
-              mode: 'all',
-          };
+            mode: 'all',
+        };
 
 export const fetchOrganizerEventOptions = async (organizerId: string) => {
     const response = await api.get<{ filters: { events: OrganizerEventOption[] } }>(
@@ -110,4 +110,46 @@ export const fetchOrganizerEventOptions = async (organizerId: string) => {
         { params: { organizerId } }
     );
     return response.filters.events;
+};
+
+// ============================================================================
+// Public Organizer Profile API (no authentication required)
+// ============================================================================
+
+export interface PublicOrganizerProfile {
+    id: string;
+    name: string;
+    bio: string | null;
+    avatarUrl: string | null;
+    website: string | null;
+    socialLinks: Record<string, string> | null;
+    city: string | null;
+    country: string | null;
+    followerCount: number;
+}
+
+export interface PublicOrganizerEvent {
+    id: string;
+    slug: string | null;
+    title: string | null;
+    description: string | null;
+    bannerImageUrl: string | null;
+    startDatetime: string | null;
+    endDatetime: string | null;
+    timezone: string;
+    locationType: 'in_person' | 'online' | 'hybrid';
+    venue: string | null;
+    city: string | null;
+    country: string | null;
+    category: string | null;
+}
+
+export interface PublicOrganizerProfileResponse {
+    organizer: PublicOrganizerProfile;
+    upcomingEvents: PublicOrganizerEvent[];
+    pastEvents: PublicOrganizerEvent[];
+}
+
+export const fetchPublicOrganizerProfile = async (organizerId: string) => {
+    return api.get<PublicOrganizerProfileResponse>(`/api/v1/public/organizers/${organizerId}`);
 };

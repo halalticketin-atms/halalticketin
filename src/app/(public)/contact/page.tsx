@@ -39,11 +39,33 @@ export default function ContactPage() {
         message: '',
         agreed: false,
     });
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        setSubmitError(null);
+
+        if (!formData.subject) {
+            setSubmitError('Please select a subject.');
+            return;
+        }
+
+        if (formData.subject === 'other' && !formData.customSubject.trim()) {
+            setSubmitError('Please enter a subject.');
+            return;
+        }
+
+        if (!formData.agreed) {
+            setSubmitError('Please agree to the Terms of Use and Privacy Policy.');
+            return;
+        }
+
+        const subjectValue = formData.subject === 'other'
+            ? formData.customSubject.trim()
+            : formData.subject;
+
         // Handle form submission logic here
-        console.log('Form submitted:', formData);
+        console.log('Form submitted:', { ...formData, subject: subjectValue });
         alert('Thank you for your message! We will get back to you soon.');
     };
 
@@ -180,6 +202,9 @@ export default function ContactPage() {
                         >
                             Submit
                         </Button>
+                        {submitError && (
+                            <p className="text-sm text-destructive">{submitError}</p>
+                        )}
                     </form>
                 </div>
             </div>

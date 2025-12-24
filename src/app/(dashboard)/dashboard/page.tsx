@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
+import { CreateOrganizerDialog } from '@/components/auth/CreateOrganizerDialog';
 import api from '@/lib/api';
 import { buildDashboardPath } from '@/lib/organizer-path';
 
@@ -30,6 +31,7 @@ export default function DashboardLandingPage() {
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [redirecting, setRedirecting] = useState(false);
+    const [showOrganizerDialog, setShowOrganizerDialog] = useState(false);
 
     useEffect(() => {
         if (!organizersLoading && activeOrganizerId) {
@@ -117,29 +119,26 @@ export default function DashboardLandingPage() {
         );
     }
 
-    // If user is not an organizer, redirect them to browse events
+    // If user is not an organizer, show upgrade dialog immediately
     if (!isOrganizer) {
         return (
-            <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-                <Card className="max-w-md w-full mx-4">
-                    <CardHeader>
-                        <CardTitle className="text-2xl font-bold">Browse Events</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <p className="text-muted-foreground">
-                            The organizer dashboard is for event creators. You can browse and purchase tickets for amazing halal-friendly events!
-                        </p>
-                        <div className="space-y-2">
-                            <Button asChild className="w-full">
-                                <Link href="/events">Browse Events</Link>
-                            </Button>
-                            <Button asChild variant="outline" className="w-full">
-                                <Link href="/profile">View My Profile</Link>
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            <>
+                <div className="min-h-screen bg-muted/30" />
+                <CreateOrganizerDialog
+                    open={true}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            // If user closes dialog, redirect to events
+                            router.replace('/events');
+                        }
+                    }}
+                    onSuccess={async (organizerId: string) => {
+                        setActiveOrganizerId(organizerId);
+                        await refresh();
+                        router.replace(buildDashboardPath(organizerId));
+                    }}
+                />
+            </>
         );
     }
 

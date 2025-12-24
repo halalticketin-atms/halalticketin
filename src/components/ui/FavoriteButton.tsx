@@ -1,0 +1,194 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Heart } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/auth-context';
+import { favoriteEvent, unfavoriteEvent, checkIsFavorite } from '@/lib/favorites-api';
+
+interface FavoriteButtonProps {
+    eventId: string;
+    className?: string;
+    size?: 'sm' | 'md' | 'lg';
+    showBackground?: boolean;
+}
+
+/**
+ * Sparkle particle component for the burst effect
+ */
+function Sparkle({ index, delay }: { index: number; delay: number }) {
+    const angle = (index / 8) * 360;
+    const distance = 20 + Math.random() * 15;
+
+    return (
+        <motion.div
+            initial={{
+                opacity: 1,
+                scale: 0,
+                x: 0,
+                y: 0
+            }}
+            animate={{
+                opacity: 0,
+                scale: 1,
+                x: Math.cos(angle * Math.PI / 180) * distance,
+                y: Math.sin(angle * Math.PI / 180) * distance
+            }}
+            transition={{
+                duration: 0.5,
+                delay,
+                ease: "easeOut"
+            }}
+            className="absolute w-1.5 h-1.5 rounded-full"
+            style={{
+                background: `linear-gradient(135deg, #ff6b9d ${index % 2 === 0 ? '0%' : '50%'}, #ff4b8d 100%)`,
+                left: '50%',
+                top: '50%',
+                marginLeft: '-3px',
+                marginTop: '-3px',
+            }}
+        />
+    );
+}
+
+/**
+ * Animated heart favorite button with sparkle effect
+ */
+export function FavoriteButton({
+    eventId,
+    className,
+    size = 'md',
+    showBackground = true
+}: FavoriteButtonProps) {
+    const { user } = useAuth();
+    const isAuthenticated = !!user;
+
+    const [isFavorited, setIsFavorited] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [showSparkles, setShowSparkles] = useState(false);
+    const [hasChecked, setHasChecked] = useState(false);
+
+    // Check favorite status on mount
+    useEffect(() => {
+        const checkStatus = async () => {
+            if (!isAuthenticated || hasChecked) return;
+
+            try {
+                const result = await checkIsFavorite(eventId);
+                setIsFavorited(result.favorited);
+                setHasChecked(true);
+            } catch {
+                // Ignore errors
+            }
+        };
+
+        checkStatus();
+    }, [isAuthenticated, eventId, hasChecked]);
+
+    const handleClick = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!isAuthenticated) {
+            window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+            return;
+        }
+
+        if (isLoading) return;
+
+        setIsLoading(true);
+
+        try {
+            if (isFavorited) {
+                await unfavoriteEvent(eventId);
+                setIsFavorited(false);
+            } else {
+                await favoriteEvent(eventId);
+                setIsFavorited(true);
+                // Trigger sparkle animation
+                setShowSparkles(true);
+                setTimeout(() => setShowSparkles(false), 600);
+            }
+        } catch (err) {
+            console.error('Failed to update favorite status:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const sizeClasses = {
+        sm: 'h-8 w-8',
+        md: 'h-10 w-10',
+        lg: 'h-12 w-12'
+    };
+
+    const iconSizes = {
+        sm: 'h-4 w-4',
+        md: 'h-5 w-5',
+        lg: 'h-6 w-6'
+    };
+
+    return (
+        <motion.button
+            onClick={handleClick}
+            disabled={isLoading}
+            className={cn(
+                'relative flex items-center justify-center transition-all duration-200',
+                sizeClasses[size],
+                showBackground && 'rounded-full backdrop-blur-sm bg-black/30 border border-white/10 hover:bg-black/50',
+                !showBackground && 'hover:scale-110',
+                isLoading && 'opacity-50 cursor-wait',
+                className
+            )}
+            whileTap={{ scale: 0.9 }}
+            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+        >
+            {/* Sparkle particles */}
+            <AnimatePresence>
+                {showSparkles && (
+                    <>
+                        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                            <Sparkle key={i} index={i} delay={i * 0.02} />
+                        ))}
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* Heart icon with fill animation */}
+            <motion.div
+                animate={{
+                    scale: isFavorited ? [1, 1.3, 1] : 1,
+                }}
+                transition={{ duration: 0.3 }}
+            >
+                <Heart
+                    className={cn(
+                        iconSizes[size],
+                        'transition-all duration-300',
+                        isFavorited
+                            ? 'fill-[#ff4b8d] text-[#ff4b8d] drop-shadow-[0_0_8px_rgba(255,75,141,0.5)]'
+                            : showBackground
+                                ? 'text-white'
+                                : 'text-muted-foreground hover:text-[#ff6b9d]'
+                    )}
+                />
+            </motion.div>
+
+            {/* Ring glow effect on favorite */}
+            <AnimatePresence>
+                {isFavorited && showSparkles && (
+                    <motion.div
+                        initial={{ opacity: 0.5, scale: 0.8 }}
+                        animate={{ opacity: 0, scale: 1.5 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="absolute inset-0 rounded-full border-2 border-[#ff4b8d]"
+                    />
+                )}
+            </AnimatePresence>
+        </motion.button>
+    );
+}
+
+export default FavoriteButton;

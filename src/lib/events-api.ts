@@ -185,6 +185,7 @@ export const deletePromoCode = async (eventId: string, promoId: string) => {
 
 export interface PublicEventRecord {
     id: string;
+    organizerId: string;
     slug: string | null;
     title: string | null;
     description: string | null;
