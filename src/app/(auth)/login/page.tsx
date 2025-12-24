@@ -51,14 +51,16 @@ function LoginContent() {
             animate: { opacity: 1, y: 0 },
             transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as const },
         }
-        : {};
+        : { initial: { opacity: 1, y: 0 } }; // Visible immediately on mobile
     const staggerContainerProps = shouldAnimateEntry
         ? { variants: staggerContainer, initial: 'hidden', animate: 'show' }
-        : {};
-    const staggerItemProps = shouldAnimateEntry ? { variants: staggerItem } : {};
+        : { initial: { opacity: 1 }, animate: { opacity: 1 } }; // Skip stagger on mobile
+    const staggerItemProps = shouldAnimateEntry
+        ? { variants: staggerItem }
+        : { initial: { opacity: 1, y: 0 } }; // Visible immediately on mobile
     const footerMotionProps = shouldAnimateEntry
         ? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { delay: 0.8 } }
-        : {};
+        : { initial: { opacity: 1 } }; // Visible immediately on mobile
 
     // Detect mobile for animation optimization
     useEffect(() => {
@@ -181,7 +183,7 @@ function LoginContent() {
                                                 👋
                                             </motion.span>
                                         ) : (
-                                            <span className="inline-block">👋</span>
+                                            <span className="inline-block bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] bg-clip-text text-transparent">👋</span>
                                         )}
                                     </h1>
                                     <p className="text-slate-600 dark:text-slate-400">
