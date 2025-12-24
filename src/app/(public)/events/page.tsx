@@ -60,6 +60,8 @@ function formatEventForDisplay(event: PublicEventRecord) {
         category: event.category ?? 'Other',
         imageUrl: event.bannerImageUrl,
         attendees: 0, // Placeholder
+        // Pass through favorite status from API (null if unauthenticated)
+        isFavorited: event.isFavorited,
     };
 }
 
@@ -253,7 +255,11 @@ function BrowseEventsContent() {
                                                     )}
                                                     {/* Like Button */}
                                                     <div className="absolute right-3 top-3">
-                                                        <FavoriteButton eventId={event.id} size="sm" />
+                                                        <FavoriteButton
+                                                            eventId={event.id}
+                                                            size="sm"
+                                                            initialFavorited={event.isFavorited}
+                                                        />
                                                     </div>
                                                 </div>
 

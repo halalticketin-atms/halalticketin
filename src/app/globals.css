@@ -212,6 +212,20 @@
     background-color: color-mix(in oklch, var(--card), transparent 20%);
   }
 
+  /* Mobile-optimized glass effect - solid bg on mobile, blur on desktop */
+  .glass-mobile-safe {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid color-mix(in oklch, var(--border), transparent 30%);
+  }
+
+  @media (min-width: 768px) {
+    .glass-mobile-safe {
+      background-color: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+  }
+
   @keyframes fade-up {
     from {
       opacity: 0;
@@ -255,15 +269,23 @@
 
 }
 
-/* Gradient mesh background */
+/* Gradient mesh background - simplified on mobile for performance */
 .gradient-mesh {
   background-color: var(--background);
-  background-image:
-    radial-gradient(at 40% 20%, var(--brand-mint) / 0.12 0px, transparent 50%),
-    radial-gradient(at 80% 0%, var(--brand-cyan) / 0.1 0px, transparent 50%),
-    radial-gradient(at 0% 50%, var(--brand-teal) / 0.08 0px, transparent 50%),
-    radial-gradient(at 80% 50%, var(--brand-mint) / 0.08 0px, transparent 50%),
-    radial-gradient(at 0% 100%, var(--brand-cyan) / 0.06 0px, transparent 50%);
+  /* Simple single gradient on mobile */
+  background-image: linear-gradient(135deg, var(--brand-mint) / 0.06 0%, var(--brand-cyan) / 0.04 100%);
+}
+
+/* Full gradient mesh on tablet+ only */
+@media (min-width: 768px) {
+  .gradient-mesh {
+    background-image:
+      radial-gradient(at 40% 20%, var(--brand-mint) / 0.12 0px, transparent 50%),
+      radial-gradient(at 80% 0%, var(--brand-cyan) / 0.1 0px, transparent 50%),
+      radial-gradient(at 0% 50%, var(--brand-teal) / 0.08 0px, transparent 50%),
+      radial-gradient(at 80% 50%, var(--brand-mint) / 0.08 0px, transparent 50%),
+      radial-gradient(at 0% 100%, var(--brand-cyan) / 0.06 0px, transparent 50%);
+  }
 }
 
 .dark .gradient-mesh {

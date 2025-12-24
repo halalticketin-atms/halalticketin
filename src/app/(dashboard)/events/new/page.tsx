@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { motion } from 'motion/react';
 import {
   ArrowRight,
@@ -27,7 +28,12 @@ import { useAuth } from '@/context/auth-context';
 import { fetchEventDetails, listOrganizerEvents, type EventRecord } from '@/lib/events-api';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
 import { getUserFriendlyMessage } from '@/lib/errors';
-import { CreateOrganizerDialog } from '@/components/auth/CreateOrganizerDialog';
+
+// Lazy load the dialog to reduce initial bundle size
+const CreateOrganizerDialog = dynamic(
+  () => import('@/components/auth/CreateOrganizerDialog').then(m => ({ default: m.CreateOrganizerDialog })),
+  { ssr: false }
+);
 
 type DraftSource = 'ai' | 'clone' | 'draft';
 

@@ -69,7 +69,7 @@ export function CookieBanner() {
     return (
         <>
             {!isDialogOpen && !showDetailedPreferences && (
-                <div className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-2xl border bg-background/95 p-5 shadow-2xl backdrop-blur">
+                <div className="fixed bottom-4 right-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-2xl border bg-background/98 md:bg-background/95 p-5 shadow-2xl md:backdrop-blur">
                     <div className="flex flex-col gap-4">
                         <div>
                             <h3 className="text-base font-semibold">This website uses cookies</h3>

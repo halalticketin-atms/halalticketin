@@ -2,10 +2,16 @@
 
 import { useState, useEffect, useRef, useEffectEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { SignupOnboardingDialog } from '@/components/auth/SignupOnboardingDialog';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/context/auth-context';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
 import { Loader2 } from 'lucide-react';
+
+// Lazy load the dialog to reduce initial bundle size
+const SignupOnboardingDialog = dynamic(
+    () => import('@/components/auth/SignupOnboardingDialog').then(m => ({ default: m.SignupOnboardingDialog })),
+    { ssr: false }
+);
 
 export default function RegisterPage() {
     const [dialogOpen, setDialogOpen] = useState(true);

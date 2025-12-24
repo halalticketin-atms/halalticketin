@@ -209,6 +209,8 @@ export interface PublicEventRecord {
     metaPixelId: string | null;
     attendeeInfoMode: 'per_ticket' | 'buyer_choice' | null;
     customQuestions: CustomQuestionPayload[] | null;
+    // Favorite status (only present when authenticated)
+    isFavorited?: boolean | null;
 }
 
 export interface PublicTicketRecord {
@@ -230,7 +232,8 @@ export const fetchPublicEvents = async (options?: { limit?: number; offset?: num
     if (options?.offset) params.offset = String(options.offset);
     if (options?.organizerId) params.organizerId = options.organizerId;
 
-    return api.get<{ events: PublicEventRecord[]; total: number; hasMore: boolean }>('/api/v1/public/events', {
+    // Note: total is no longer returned (limit+1 pagination optimization)
+    return api.get<{ events: PublicEventRecord[]; total?: number; hasMore: boolean }>('/api/v1/public/events', {
         params: Object.keys(params).length > 0 ? params : undefined,
     });
 };

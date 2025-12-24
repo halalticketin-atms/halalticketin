@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { motion } from 'motion/react';
 import { Building2, Users } from 'lucide-react';
 
@@ -11,9 +12,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
-import { CreateOrganizerDialog } from '@/components/auth/CreateOrganizerDialog';
 import api from '@/lib/api';
 import { buildDashboardPath } from '@/lib/organizer-path';
+
+// Lazy load the dialog to reduce initial bundle size
+const CreateOrganizerDialog = dynamic(
+    () => import('@/components/auth/CreateOrganizerDialog').then(m => ({ default: m.CreateOrganizerDialog })),
+    { ssr: false }
+);
 
 export default function DashboardLandingPage() {
     const router = useRouter();

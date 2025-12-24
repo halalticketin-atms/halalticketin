@@ -99,6 +99,7 @@ function EventCard({ event }: { event: PublicOrganizerEvent }) {
                             src={event.bannerImageUrl}
                             alt={event.title || 'Event'}
                             fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                             className="object-cover transition-transform duration-500 group-hover:scale-105"
                         />
                     ) : (
@@ -212,7 +213,7 @@ export default function OrganizerProfilePage() {
     const handleFollow = async () => {
         if (!isAuthenticated) {
             // Redirect to login
-            window.location.href = `/login?redirect=/organizers/${organizerId}`;
+            window.location.href = `/login?next=/organizers/${organizerId}`;
             return;
         }
 

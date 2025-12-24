@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Loader2, Mail, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,11 +37,24 @@ function LoginContent() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isMobile, setIsMobile] = useState(false);
     const searchParams = useSearchParams();
     const router = useRouter();
     const { user, isLoading: authLoading, refresh } = useAuth();
     const nextParam = searchParams.get('next');
     const redirectPath = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard';
+    const prefersReducedMotion = useReducedMotion();
+
+    // Detect mobile for animation optimization
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    // Disable wave animation on mobile or when user prefers reduced motion
+    const shouldAnimateWave = !isMobile && !prefersReducedMotion;
 
     // If already logged in, redirect to intended destination
     useEffect(() => {
@@ -133,7 +146,7 @@ function LoginContent() {
                     {/* Glow effect behind card */}
                     <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 via-teal-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-70" />
 
-                    <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/50 dark:border-slate-700/50 overflow-hidden">
+                    <div className="relative bg-white/95 md:bg-white/80 dark:bg-slate-900/80 md:backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/50 dark:border-slate-700/50 overflow-hidden">
                         {/* Top gradient accent */}
                         <div className="h-1.5 bg-gradient-to-r from-[var(--brand-cyan)] via-[var(--brand-teal)] to-emerald-500" />
 
@@ -148,13 +161,17 @@ function LoginContent() {
                                 <motion.div variants={staggerItem} className="text-center space-y-2">
                                     <h1 className="text-3xl font-display font-bold">
                                         <span className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">Salaam </span>
-                                        <motion.span
-                                            className="inline-block bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] bg-clip-text text-transparent"
-                                            animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
-                                            transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
-                                        >
-                                            👋
-                                        </motion.span>
+                                        {shouldAnimateWave ? (
+                                            <motion.span
+                                                className="inline-block bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] bg-clip-text text-transparent"
+                                                animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
+                                                transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
+                                            >
+                                                👋
+                                            </motion.span>
+                                        ) : (
+                                            <span className="inline-block">👋</span>
+                                        )}
                                     </h1>
                                     <p className="text-slate-600 dark:text-slate-400">
                                         Sign in to continue to your account

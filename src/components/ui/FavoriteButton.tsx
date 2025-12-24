@@ -12,6 +12,8 @@ interface FavoriteButtonProps {
     className?: string;
     size?: 'sm' | 'md' | 'lg';
     showBackground?: boolean;
+    /** If provided from batched API, skip individual favorite check */
+    initialFavorited?: boolean | null;
 }
 
 /**
@@ -58,20 +60,24 @@ export function FavoriteButton({
     eventId,
     className,
     size = 'md',
-    showBackground = true
+    showBackground = true,
+    initialFavorited
 }: FavoriteButtonProps) {
     const { user, isLoading: authLoading } = useAuth();
     const isAuthenticated = !authLoading && !!user;
 
-    const [isFavorited, setIsFavorited] = useState(false);
+    const [isFavorited, setIsFavorited] = useState(initialFavorited ?? false);
     const [isLoading, setIsLoading] = useState(false);
     const [showSparkles, setShowSparkles] = useState(false);
-    const [hasChecked, setHasChecked] = useState(false);
+    // Skip API call only if authenticated AND initialFavorited was provided
+    const [hasChecked, setHasChecked] = useState(
+        isAuthenticated && initialFavorited !== undefined && initialFavorited !== null
+    );
     const [sparkleDistances, setSparkleDistances] = useState<number[]>(
         () => Array.from({ length: 8 }, () => 20)
     );
 
-    // Check favorite status on mount
+    // Check favorite status on mount (only if not provided via initialFavorited)
     useEffect(() => {
         const checkStatus = async () => {
             if (!isAuthenticated || hasChecked) return;
@@ -93,7 +99,7 @@ export function FavoriteButton({
         e.stopPropagation();
 
         if (!isAuthenticated) {
-            window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+            window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
             return;
         }
 
