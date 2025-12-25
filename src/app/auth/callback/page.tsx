@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
@@ -11,7 +11,8 @@ import { useAuth } from '@/context/auth-context';
 function CallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { refresh } = useAuth();
+    const { refresh, isOrganizer, isLoading: authLoading, user } = useAuth();
+    const [redirectPending, setRedirectPending] = useState(false);
 
     useEffect(() => {
         const handleCallback = async () => {
@@ -29,10 +30,8 @@ function CallbackContent() {
                     // Store the access token
                     setAuthToken(session.access_token);
 
-                    // Get the redirect path
-                    const next = searchParams.get('next') || '/dashboard';
                     await refresh();
-                    router.push(next);
+                    setRedirectPending(true);
                 } else {
                     // No session, redirect to login
                     router.push('/login');
@@ -45,6 +44,22 @@ function CallbackContent() {
 
         handleCallback();
     }, [refresh, router, searchParams]);
+
+    useEffect(() => {
+        if (!redirectPending || authLoading) {
+            return;
+        }
+
+        if (!user) {
+            router.push('/login');
+            return;
+        }
+
+        const nextParam = searchParams.get('next');
+        const fallbackRedirect = isOrganizer ? '/dashboard' : '/events';
+        const redirectPath = nextParam && nextParam.startsWith('/') ? nextParam : fallbackRedirect;
+        router.push(redirectPath);
+    }, [authLoading, isOrganizer, redirectPending, router, searchParams, user]);
 
     return (
         <div className="min-h-screen flex items-center justify-center gradient-mesh">

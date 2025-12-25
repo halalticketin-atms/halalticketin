@@ -41,9 +41,11 @@ function LoginContent() {
     const [isMobile, setIsMobile] = useState(false);
     const searchParams = useSearchParams();
     const router = useRouter();
-    const { user, isLoading: authLoading, refresh } = useAuth();
+    const { user, isLoading: authLoading, refresh, isOrganizer } = useAuth();
     const nextParam = searchParams.get('next');
-    const redirectPath = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard';
+    const fallbackRedirect = isOrganizer ? '/dashboard' : '/events';
+    const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
+    const redirectPath = safeNextParam ?? fallbackRedirect;
     const prefersReducedMotion = useReducedMotion();
     const shouldAnimateEntry = !isMobile && !prefersReducedMotion;
     const entryMotionProps = shouldAnimateEntry
@@ -78,6 +80,7 @@ function LoginContent() {
     useEffect(() => {
         if (!authLoading && user) {
             router.push(redirectPath);
+            router.refresh();
         }
     }, [user, authLoading, router, redirectPath]);
 
@@ -113,11 +116,10 @@ function LoginContent() {
 
             setAuthToken(response.accessToken);
             await refresh();
-            router.push(redirectPath);
-            router.refresh();
         } catch (err) {
             console.error(err);
             setError(err instanceof Error ? err.message : 'Unable to sign in.');
+        } finally {
             setIsLoading(false);
         }
     };
@@ -130,7 +132,7 @@ function LoginContent() {
             const { error } = await getSupabase().auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectPath)}`,
+                    redirectTo: `${window.location.origin}/auth/callback${safeNextParam ? `?next=${encodeURIComponent(safeNextParam)}` : ''}`,
                 },
             });
 

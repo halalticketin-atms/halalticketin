@@ -40,7 +40,7 @@ type ProfileEventCard = {
 
 export default function ProfilePage() {
     const { user, memberships, refresh: refreshAuth } = useAuth();
-    const { activeOrganizerId } = useOrganizers();
+    const { activeOrganizerId, setActiveOrganizerId } = useOrganizers();
     const { getByStatus, counts } = useOrganizerEvents(activeOrganizerId);
     const [activeTab, setActiveTab] = useState('upcoming');
 
@@ -397,6 +397,15 @@ export default function ProfilePage() {
                     </Tabs>
                 </div>
             </motion.div>
+
+            <CreateOrganizerDialog
+                open={isUpgradeDialogOpen}
+                onOpenChange={setIsUpgradeDialogOpen}
+                onSuccess={async (organizerId: string) => {
+                    setActiveOrganizerId(organizerId);
+                    await refreshAuth();
+                }}
+            />
         </div>
     );
 }
