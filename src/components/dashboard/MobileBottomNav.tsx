@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import { useAuth } from '@/context/auth-context';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface NavItem {
     title: string;
@@ -56,6 +57,9 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
     const { signOut } = useAuth();
     const mainNavItems = buildNavItems(organizerId);
     const moreItems = moreMenuItems(organizerId);
+
+    // Lock body scroll when more menu is open
+    useBodyScrollLock(moreOpen);
 
     const handleSignOut = () => {
         signOut();
@@ -140,7 +144,7 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{ duration: 0.2 }}
-                            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 lg:hidden"
+                            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 lg:hidden overscroll-contain touch-none"
                             onClick={() => setMoreOpen(false)}
                         />
 

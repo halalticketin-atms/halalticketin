@@ -426,7 +426,7 @@ export default function OrdersPage() {
 
             {/* Order Details Dialog with Tabs */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto top-[15%] translate-y-0">
+                <DialogContent className="sm:max-w-lg max-h-[100dvh] sm:max-h-[85dvh] overflow-y-auto top-[15%] translate-y-0">
                     {selectedOrder && (
                         <>
                             <DialogHeader>

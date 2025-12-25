@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 import { useOptionalAuth } from '@/context/auth-context';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 // Animation variants from v0 design
 const itemVariants = {
@@ -65,6 +66,9 @@ export function Header() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const { scrollY } = useScroll();
+
+    // Lock body scroll when mobile menu is open
+    useBodyScrollLock(mobileMenuOpen);
 
     useMotionValueEvent(scrollY, 'change', (latest) => {
         setIsScrolled(latest > 50);
@@ -333,7 +337,7 @@ export function Header() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-40 bg-black/5" // Subtle dim
+                            className="fixed inset-0 z-40 bg-black/5 overscroll-contain touch-none" // Subtle dim
                             onClick={() => setMobileMenuOpen(false)}
                         />
 
