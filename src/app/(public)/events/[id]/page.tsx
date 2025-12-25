@@ -47,6 +47,8 @@ import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, type 
 import { showError } from '@/lib/errors';
 import { calculatePlatformFee, getCurrencySymbol, type FeeTier } from '@/lib/fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { useOptionalAuth } from '@/context/auth-context';
+import { differenceInYears } from 'date-fns';
 
 // Per-ticket attendee info structure
 interface TicketAttendee {
@@ -129,6 +131,9 @@ export default function EventDetailsPage() {
     const { track } = useMetaPixel();
     const eventPixelId = event?.metaPixelId ?? null;
 
+    const auth = useOptionalAuth();
+    const user = auth?.user;
+
     // Checkout state
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
@@ -139,6 +144,25 @@ export default function EventDetailsPage() {
     const [promoCode, setPromoCode] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+    // Autofill user details
+    useEffect(() => {
+        if (user) {
+            if (!attendeeName && user.name) {
+                setAttendeeName(user.name);
+            }
+            if (!attendeeEmail && user.email) {
+                setAttendeeEmail(user.email);
+            }
+            if (!attendeeGender && user.gender) {
+                setAttendeeGender(user.gender);
+            }
+            if (!attendeeAge && user.dateOfBirth) {
+                const age = differenceInYears(new Date(), new Date(user.dateOfBirth));
+                setAttendeeAge(age.toString());
+            }
+        }
+    }, [user, attendeeName, attendeeEmail, attendeeGender, attendeeAge]);
 
     // Attendee info mode states
     const [useSharedInfo, setUseSharedInfo] = useState(true);
@@ -326,8 +350,9 @@ export default function EventDetailsPage() {
 
             for (let i = 0; i < ticketAttendees.length; i += 1) {
                 const attendee = ticketAttendees[i];
-                if (!attendee.name.trim() || !attendee.email.trim() || !attendee.gender || !attendee.age.trim()) {
-                    return `Ticket ${i + 1}: attendee name, email, gender, and age are required.`;
+                // Email is optional for attendees (will fallback to buyer email)
+                if (!attendee.name.trim() || !attendee.gender || !attendee.age.trim()) {
+                    return `Ticket ${i + 1}: attendee name, gender, and age are required.`;
                 }
 
                 const ageNumber = Number(attendee.age);
@@ -392,7 +417,7 @@ export default function EventDetailsPage() {
 
                 return {
                     name: attendee.name.trim(),
-                    email: attendee.email.trim(),
+                    email: attendee.email.trim() || attendeeEmail.trim(), // Fallback to buyer email
                     gender: attendee.gender as 'male' | 'female',
                     age: attendee.age ? Number(attendee.age) : undefined,
                     customAnswers: hasAnswers ? normalizedAnswers : undefined,

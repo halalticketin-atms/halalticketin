@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
-import { motion } from 'motion/react';
 import { Camera, CameraOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -101,7 +100,7 @@ export function QRScanner({ onScan, onError, isActive = true }: QRScannerProps) 
     };
 
     return (
-        <div className="relative w-full aspect-square bg-black rounded-xl overflow-hidden">
+        <div className="relative w-full h-[60vh] md:h-[500px] bg-black rounded-xl overflow-hidden">
             {/* Scanner container */}
             <div
                 id="qr-reader"
@@ -113,37 +112,9 @@ export function QRScanner({ onScan, onError, isActive = true }: QRScannerProps) 
             {/* Scanning overlay */}
             {isScanning && (
                 <div className="absolute inset-0 pointer-events-none">
-                    {/* Scan frame */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="w-64 h-64 relative"
-                        >
-                            {/* Corner brackets */}
-                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg" />
-                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-lg" />
-                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-lg" />
-                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-lg" />
-
-                            {/* Scanning line animation */}
-                            <motion.div
-                                animate={{
-                                    y: [0, 240, 0],
-                                }}
-                                transition={{
-                                    duration: 2,
-                                    repeat: Infinity,
-                                    ease: 'easeInOut',
-                                }}
-                                className="absolute top-2 left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-green-500 to-transparent"
-                            />
-                        </motion.div>
-                    </div>
-
                     {/* Instructions */}
-                    <div className="absolute bottom-4 left-0 right-0 text-center">
-                        <p className="text-white text-sm bg-black/50 px-4 py-2 rounded-full inline-block">
+                    <div className="absolute bottom-6 left-0 right-0 text-center">
+                        <p className="text-white text-sm font-medium bg-black/60 px-6 py-2 rounded-full inline-block backdrop-blur-sm">
                             Point camera at ticket QR code
                         </p>
                     </div>

@@ -361,49 +361,12 @@ function CheckInContent() {
 
         {/* Scanner Mode */}
         {mode === 'scan' && (
-          <Card className="overflow-hidden">
-            <CardContent className="p-4 space-y-4">
+          <Card className="overflow-hidden border-0 shadow-none sm:border sm:shadow-sm">
+            <CardContent className="p-0">
               <QRScanner
                 onScan={handleScan}
                 isActive={!isLoading && !!selectedEvent}
               />
-
-              {/* Demo buttons for testing */}
-              <div className="space-y-2 text-center">
-                <p className="text-xs opacity-50">Demo Actions:</p>
-                <div className="flex justify-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={isLoading || !!updatingTicketId}
-                    aria-label="Simulate scanning a valid ticket"
-                    onClick={() => {
-                      const unchecked = tickets.find(
-                        (t) => t.checkInStatus === 'not_checked_in',
-                      );
-                      if (unchecked) handleScan(unchecked.ticketCode);
-                    }}
-                  >
-                    Simulate Valid Scan
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={isLoading || !!updatingTicketId}
-                    aria-label="Simulate scanning an already checked-in ticket"
-                    onClick={() => {
-                      const checked = tickets.find(
-                        (t) => t.checkInStatus === 'checked_in',
-                      );
-                      if (checked) {
-                        handleScan(checked.ticketCode);
-                      }
-                    }}
-                  >
-                    Simulate Already In
-                  </Button>
-                </div>
-              </div>
             </CardContent>
           </Card>
         )}

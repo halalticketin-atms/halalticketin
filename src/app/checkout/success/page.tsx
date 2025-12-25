@@ -3,9 +3,10 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle, Calendar, MapPin, Ticket, Loader2 } from 'lucide-react';
+import { CheckCircle, Calendar, MapPin, Ticket, Loader2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
+import { QRCodeCanvas } from 'qrcode.react';
 
 interface TicketInfo {
     id: string;
@@ -125,6 +126,19 @@ function CheckoutSuccessContent() {
         }
     }, [canTrack, orderStatus, track]);
 
+    const downloadQRCode = (ticketId: string, ticketCode: string) => {
+        const canvas = document.getElementById(`qr-code-${ticketId}`) as HTMLCanvasElement;
+        if (canvas) {
+            const pngUrl = canvas.toDataURL('image/png');
+            const downloadLink = document.createElement('a');
+            downloadLink.href = pngUrl;
+            downloadLink.download = `ticket-${ticketCode}.png`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -179,12 +193,35 @@ function CheckoutSuccessContent() {
                                     {orderStatus.tickets.map((ticket) => (
                                         <div
                                             key={ticket.id}
-                                            className="p-4 bg-gray-50 rounded-xl"
+                                            className="p-4 bg-gray-50 rounded-xl flex items-center justify-between group"
                                         >
-                                            <p className="font-medium text-gray-900">{ticket.ticketType}</p>
-                                            <p className="text-sm text-gray-500 font-mono break-all">
-                                                {ticket.ticketCode}
-                                            </p>
+                                            <div>
+                                                <p className="font-medium text-gray-900">{ticket.ticketType}</p>
+                                                <p className="text-sm text-gray-500 font-mono break-all">
+                                                    {ticket.ticketCode}
+                                                </p>
+                                            </div>
+
+                                            {/* Hidden QR Code Canvas for generation */}
+                                            <div style={{ display: 'none' }}>
+                                                <QRCodeCanvas
+                                                    id={`qr-code-${ticket.id}`}
+                                                    value={ticket.ticketCode}
+                                                    size={300}
+                                                    level="H"
+                                                    includeMargin
+                                                />
+                                            </div>
+
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-gray-500 hover:text-primary hover:bg-green-50"
+                                                onClick={() => downloadQRCode(ticket.id, ticket.ticketCode)}
+                                            >
+                                                <Download className="w-4 h-4 mr-2" />
+                                                <span className="hidden sm:inline">QR Code</span>
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>
