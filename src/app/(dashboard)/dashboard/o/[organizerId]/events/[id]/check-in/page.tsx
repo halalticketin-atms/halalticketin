@@ -260,8 +260,8 @@ export default function CheckInPage() {
                                         <div className="flex items-center gap-4">
                                             {/* Avatar / Status */}
                                             <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 ${attendee.checkedIn
-                                                    ? 'bg-green-100 dark:bg-green-900/40'
-                                                    : 'bg-muted'
+                                                ? 'bg-green-100 dark:bg-green-900/40'
+                                                : 'bg-muted'
                                                 }`}>
                                                 {attendee.checkedIn ? (
                                                     <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -329,7 +329,7 @@ export default function CheckInPage() {
 
             {/* Confirm Check-in Dialog */}
             <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-                <DialogContent className="max-w-sm">
+                <DialogContent className="max-w-sm max-h-[100dvh] sm:max-h-[90dvh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Confirm Check-in</DialogTitle>
                         <DialogDescription>
