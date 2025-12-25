@@ -169,19 +169,19 @@ export default function ContactPage() {
                             />
                         </div>
 
-                        <div className="flex items-center gap-3 p-4 glass-surface md:backdrop-blur-sm rounded-xl border border-white/30">
+                        <div className="flex items-start gap-3 p-4 glass-surface md:backdrop-blur-sm rounded-xl border border-white/30 overflow-hidden">
                             <Checkbox
                                 id="terms"
                                 checked={formData.agreed}
                                 onCheckedChange={(checked) =>
                                     setFormData({ ...formData, agreed: checked as boolean })
                                 }
-                                className="border-slate-400"
+                                className="border-slate-400 mt-0.5 flex-shrink-0"
                                 required
                             />
                             <Label
                                 htmlFor="terms"
-                                className="text-sm font-medium leading-none cursor-pointer text-muted-foreground whitespace-nowrap"
+                                className="text-sm font-medium leading-relaxed cursor-pointer text-muted-foreground flex-1 min-w-0"
                             >
                                 I agree to the{' '}
                                 <Link href="/terms" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">

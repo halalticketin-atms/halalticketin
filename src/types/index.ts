@@ -89,7 +89,7 @@ export interface Attendee {
     customFields?: Record<string, string>;
 }
 
-export type OrderStatus = 'pending' | 'completed' | 'refunded' | 'cancelled';
+export type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
 
 // Dashboard types
 export interface DashboardStats {

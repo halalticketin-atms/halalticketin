@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
     Search,
     Filter,
@@ -49,11 +49,20 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 
-type OrderStatus = 'pending' | 'completed' | 'cancelled' | 'refunded';
+type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
 
 interface OrderItem {
     id: string;
@@ -91,16 +100,14 @@ interface OrdersResponse {
 
 const statusBadges: Record<OrderStatus, string> = {
     completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     refunded: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-    cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    partially_refunded: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
 };
 
 const statusLabels: Record<OrderStatus, string> = {
     completed: 'Paid',
-    pending: 'Pending',
     refunded: 'Refunded',
-    cancelled: 'Cancelled',
+    partially_refunded: 'Partial Refund',
 };
 
 const formatCurrency = (amount: number, currency: string) => {
@@ -117,9 +124,17 @@ export default function OrdersPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
-    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Dialog state
+    const [activeTab, setActiveTab] = useState<'details' | 'refund'>('details');
+    const [refundType, setRefundType] = useState<'full' | 'partial' | 'tickets'>('full');
+    const [partialAmount, setPartialAmount] = useState('');
+    const [selectedTicketIds, setSelectedTicketIds] = useState<Set<string>>(new Set());
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [refundError, setRefundError] = useState<string | null>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -169,7 +184,12 @@ export default function OrdersPage() {
 
     const openOrderDetails = (order: OrderResponse) => {
         setSelectedOrder(order);
-        setIsDrawerOpen(true);
+        setActiveTab('details');
+        setRefundType('full');
+        setPartialAmount('');
+        setSelectedTicketIds(new Set());
+        setRefundError(null);
+        setIsDialogOpen(true);
     };
 
     const { totalOrders, paidOrders, revenueTotal } = useMemo(() => {
@@ -267,9 +287,8 @@ export default function OrdersPage() {
                                     <SelectContent>
                                         <SelectItem value="all">All Status</SelectItem>
                                         <SelectItem value="completed">Paid</SelectItem>
-                                        <SelectItem value="pending">Pending</SelectItem>
                                         <SelectItem value="refunded">Refunded</SelectItem>
-                                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                                        <SelectItem value="partially_refunded">Partial Refund</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <Button variant="outline" className="h-10">
@@ -340,9 +359,9 @@ export default function OrdersPage() {
                                                 <span className="text-sm">{order.event.name}</span>
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell">
-                                                    <span className="text-sm text-muted-foreground">
-                                                        {new Date(order.createdAt).toLocaleDateString('en-GB', {
-                                                            day: 'numeric',
+                                                <span className="text-sm text-muted-foreground">
+                                                    {new Date(order.createdAt).toLocaleDateString('en-GB', {
+                                                        day: 'numeric',
                                                         month: 'short',
                                                         year: 'numeric',
                                                     })}
@@ -375,8 +394,20 @@ export default function OrdersPage() {
                                                             Resend Confirmation
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
-                                                        {order.status === 'completed' && (
-                                                            <DropdownMenuItem className="text-destructive">
+                                                        {(order.status === 'completed' || order.status === 'partially_refunded') && (
+                                                            <DropdownMenuItem
+                                                                className="text-destructive"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedOrder(order);
+                                                                    setActiveTab('refund');
+                                                                    setRefundType('full');
+                                                                    setPartialAmount('');
+                                                                    setSelectedTicketIds(new Set());
+                                                                    setRefundError(null);
+                                                                    setIsDialogOpen(true);
+                                                                }}
+                                                            >
                                                                 <RefreshCw className="mr-2 h-4 w-4" />
                                                                 Issue Refund
                                                             </DropdownMenuItem>
@@ -393,128 +424,284 @@ export default function OrdersPage() {
                 </Card>
             </div>
 
-            {/* Order Details Drawer */}
-            <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-                <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+            {/* Order Details Dialog with Tabs */}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto top-[15%] translate-y-0">
                     {selectedOrder && (
                         <>
-                            <SheetHeader>
-                                <SheetTitle className="flex items-center gap-3">
-                                    <span className="font-mono">{selectedOrder.orderNumber}</span>
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-3">
+                                    <span className="font-mono text-sm">{selectedOrder.orderNumber.slice(0, 8)}...</span>
                                     <Badge className={`${statusBadges[selectedOrder.status]} capitalize`}>
                                         {statusLabels[selectedOrder.status]}
                                     </Badge>
-                                </SheetTitle>
-                            </SheetHeader>
+                                </DialogTitle>
+                            </DialogHeader>
 
-                            <div className="mt-6 space-y-6">
-                                {/* Customer Info */}
-                                <div>
-                                    <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                                        <User className="h-4 w-4" />
-                                        Customer
-                                    </h4>
-                                    <div className="bg-muted/50 rounded-xl p-4">
-                                        <p className="font-semibold">{selectedOrder.attendee.name ?? 'Unnamed attendee'}</p>
-                                        <p className="text-sm text-muted-foreground">{selectedOrder.attendee.email}</p>
-                                        {selectedOrder.attendee.phone && (
-                                            <p className="text-sm text-muted-foreground">{selectedOrder.attendee.phone}</p>
-                                        )}
-                                    </div>
-                                </div>
+                            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'details' | 'refund')} className="mt-4">
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="details">Details</TabsTrigger>
+                                    <TabsTrigger
+                                        value="refund"
+                                        disabled={selectedOrder.status === 'refunded'}
+                                    >
+                                        Refund
+                                    </TabsTrigger>
+                                </TabsList>
 
-                                {/* Event */}
-                                <div>
-                                    <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                                        <Calendar className="h-4 w-4" />
-                                        Event
-                                    </h4>
-                                    <div className="bg-muted/50 rounded-xl p-4">
-                                        <p className="font-semibold">{selectedOrder.event.name ?? 'Unpublished event'}</p>
-                                    </div>
-                                </div>
-
-                                {/* Tickets */}
-                                <div>
-                                    <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                                        <Ticket className="h-4 w-4" />
-                                        Tickets
-                                    </h4>
-                                    <div className="bg-muted/50 rounded-xl p-4 space-y-3">
-                                        {selectedOrder.items.length === 0 ? (
-                                            <p className="text-sm text-muted-foreground">No tickets associated yet.</p>
-                                        ) : (
-                                            selectedOrder.items.map((ticket) => (
-                                                <div key={ticket.id} className="flex justify-between">
-                                                    <span>
-                                                        {ticket.quantity}x {ticket.name ?? 'Ticket'}
-                                                    </span>
-                                                    <span className="font-medium">
-                                                        {formatCurrency(ticket.unitPrice * ticket.quantity, selectedOrder.totals.currency)}
-                                                    </span>
+                                <motion.div
+                                    layout
+                                    className="overflow-hidden mt-4"
+                                    transition={{ duration: 0.2, type: "tween", ease: "easeInOut" }}
+                                >
+                                    {activeTab === 'details' ? (
+                                        <motion.div
+                                            layout
+                                            key="details"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            transition={{ duration: 0.2 }}
+                                        >
+                                            <TabsContent value="details" forceMount className="mt-0 space-y-4 p-1">
+                                                {/* Customer */}
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                                                        <User className="h-4 w-4" /> Customer
+                                                    </h4>
+                                                    <div className="bg-muted/50 rounded-lg p-3">
+                                                        <p className="font-semibold">{selectedOrder.attendee.name ?? 'Unnamed'}</p>
+                                                        <p className="text-sm text-muted-foreground">{selectedOrder.attendee.email}</p>
+                                                    </div>
                                                 </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
 
-                                <Separator />
+                                                {/* Event */}
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                                                        <Calendar className="h-4 w-4" /> Event
+                                                    </h4>
+                                                    <div className="bg-muted/50 rounded-lg p-3">
+                                                        <p className="font-semibold">{selectedOrder.event.name ?? 'Unpublished'}</p>
+                                                    </div>
+                                                </div>
 
-                                {/* Payment Summary */}
-                                <div className="space-y-3">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Subtotal</span>
-                                        <span>{formatCurrency(selectedOrder.totals.subtotal, selectedOrder.totals.currency)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Fees</span>
-                                        <span>
-                                            {formatCurrency(
-                                                Math.max(selectedOrder.totals.total - selectedOrder.totals.subtotal, 0),
-                                                selectedOrder.totals.currency
-                                            )}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between font-semibold text-lg pt-2 border-t">
-                                        <span>Total</span>
-                                        <span>{formatCurrency(selectedOrder.totals.total, selectedOrder.totals.currency)}</span>
-                                    </div>
-                                </div>
+                                                {/* Tickets */}
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                                                        <Ticket className="h-4 w-4" /> Tickets
+                                                    </h4>
+                                                    <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                                                        {selectedOrder.items.map((item) => (
+                                                            <div key={item.id} className="flex justify-between text-sm">
+                                                                <span>{item.quantity}x {item.name ?? 'Ticket'}</span>
+                                                                <span className="font-medium">
+                                                                    {formatCurrency(item.unitPrice * item.quantity, selectedOrder.totals.currency)}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
 
-                                {/* Payment Method */}
-                                <div>
-                                    <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                                        <CreditCard className="h-4 w-4" />
-                                        Payment
-                                    </h4>
-                                    <div className="bg-muted/50 rounded-xl p-4">
-                                        <p className="font-medium">
-                                            {selectedOrder.paymentMethod ?? 'Payment details unavailable'}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            {new Date(selectedOrder.createdAt).toLocaleString('en-GB')}
-                                        </p>
-                                    </div>
-                                </div>
+                                                <Separator />
 
-                                {/* Actions */}
-                                <div className="flex gap-3 pt-4">
-                                    <Button variant="outline" className="flex-1">
-                                        <Mail className="h-4 w-4 mr-2" />
-                                        Resend Email
-                                    </Button>
-                                    {selectedOrder.status === 'completed' && (
-                                        <Button variant="destructive" className="flex-1">
-                                            <RefreshCw className="h-4 w-4 mr-2" />
-                                            Refund
-                                        </Button>
+                                                {/* Total */}
+                                                <div className="flex justify-between font-semibold text-lg">
+                                                    <span>Total</span>
+                                                    <span>{formatCurrency(selectedOrder.totals.total, selectedOrder.totals.currency)}</span>
+                                                </div>
+
+                                                {/* Payment */}
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                                                        <CreditCard className="h-4 w-4" /> Payment
+                                                    </h4>
+                                                    <div className="bg-muted/50 rounded-lg p-3">
+                                                        <p className="font-medium">{selectedOrder.paymentMethod ?? 'Payment details unavailable'}</p>
+                                                        <p className="text-xs text-muted-foreground">{new Date(selectedOrder.createdAt).toLocaleString('en-GB')}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Actions */}
+                                                <div className="flex gap-3 pt-2">
+                                                    <Button variant="outline" className="flex-1">
+                                                        <Mail className="h-4 w-4 mr-2" /> Resend Email
+                                                    </Button>
+                                                    {(selectedOrder.status === 'completed' || selectedOrder.status === 'partially_refunded') && (
+                                                        <Button
+                                                            variant="destructive"
+                                                            className="flex-1"
+                                                            onClick={() => setActiveTab('refund')}
+                                                        >
+                                                            <RefreshCw className="h-4 w-4 mr-2" /> Refund
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </TabsContent>
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div
+                                            layout
+                                            key="refund"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            transition={{ duration: 0.2 }}
+                                        >
+                                            <TabsContent value="refund" forceMount className="mt-0 space-y-4 p-1">
+                                                {/* Refund Type Selection */}
+                                                <div className="space-y-3">
+                                                    <Label>Refund Type</Label>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        {(['full', 'partial', 'tickets'] as const).map((type) => (
+                                                            <Button
+                                                                key={type}
+                                                                variant={refundType === type ? 'default' : 'outline'}
+                                                                size="sm"
+                                                                onClick={() => setRefundType(type)}
+                                                                className="capitalize"
+                                                            >
+                                                                {type === 'tickets' ? 'By Ticket' : type}
+                                                            </Button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Full Refund */}
+                                                {refundType === 'full' && (
+                                                    <div className="bg-muted/50 rounded-lg p-4 text-center">
+                                                        <p className="text-sm text-muted-foreground">Full refund amount</p>
+                                                        <p className="text-2xl font-bold">{formatCurrency(selectedOrder.totals.total, selectedOrder.totals.currency)}</p>
+                                                        <p className="text-xs text-muted-foreground mt-1">All tickets will be revoked</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Partial Amount */}
+                                                {refundType === 'partial' && (
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="amount">Refund Amount</Label>
+                                                        <div className="relative">
+                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                                                {selectedOrder.totals.currency === 'GBP' ? '£' : selectedOrder.totals.currency === 'EUR' ? '€' : '$'}
+                                                            </span>
+                                                            <Input
+                                                                id="amount"
+                                                                type="number"
+                                                                step="0.01"
+                                                                min="0.01"
+                                                                max={selectedOrder.totals.total}
+                                                                value={partialAmount}
+                                                                onChange={(e) => setPartialAmount(e.target.value)}
+                                                                className="pl-8"
+                                                                placeholder={`Max: ${selectedOrder.totals.total.toFixed(2)}`}
+                                                            />
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground">Tickets remain valid after partial refund</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Ticket Selection */}
+                                                {refundType === 'tickets' && (
+                                                    <div className="space-y-3">
+                                                        <Label>Select Tickets to Refund</Label>
+                                                        <div className="max-h-40 overflow-y-auto space-y-2 border rounded-lg p-2">
+                                                            {selectedOrder.items.flatMap((item) =>
+                                                                Array.from({ length: item.quantity }, (_, i) => {
+                                                                    const ticketId = `${item.id}-${i}`;
+                                                                    return (
+                                                                        <div
+                                                                            key={ticketId}
+                                                                            className="flex items-center justify-between p-2 rounded hover:bg-muted/50 cursor-pointer"
+                                                                            onClick={() => {
+                                                                                setSelectedTicketIds((prev) => {
+                                                                                    const next = new Set(prev);
+                                                                                    if (next.has(ticketId)) next.delete(ticketId);
+                                                                                    else next.add(ticketId);
+                                                                                    return next;
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            <div className="flex items-center gap-3">
+                                                                                <Checkbox checked={selectedTicketIds.has(ticketId)} />
+                                                                                <span className="text-sm">{item.name || 'Ticket'}</span>
+                                                                            </div>
+                                                                            <span className="text-sm font-medium">
+                                                                                {formatCurrency(item.unitPrice, selectedOrder.totals.currency)}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })
+                                                            )}
+                                                        </div>
+                                                        {selectedTicketIds.size > 0 && (
+                                                            <div className="flex justify-between text-sm font-medium">
+                                                                <span>{selectedTicketIds.size} ticket(s)</span>
+                                                                <span>
+                                                                    {formatCurrency(
+                                                                        selectedOrder.items.reduce((sum, item) => {
+                                                                            const count = Array.from({ length: item.quantity }).filter((_, i) =>
+                                                                                selectedTicketIds.has(`${item.id}-${i}`)
+                                                                            ).length;
+                                                                            return sum + count * item.unitPrice;
+                                                                        }, 0),
+                                                                        selectedOrder.totals.currency
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {refundError && (
+                                                    <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">
+                                                        {refundError}
+                                                    </div>
+                                                )}
+
+                                                {/* Refund Button */}
+                                                <Button
+                                                    variant="destructive"
+                                                    className="w-full"
+                                                    disabled={isProcessing || (refundType === 'partial' && (!partialAmount || parseFloat(partialAmount) <= 0))}
+                                                    onClick={async () => {
+                                                        setIsProcessing(true);
+                                                        setRefundError(null);
+                                                        try {
+                                                            const body: { amount?: number } = {};
+                                                            if (refundType === 'partial') {
+                                                                body.amount = parseFloat(partialAmount);
+                                                            } else if (refundType === 'tickets') {
+                                                                body.amount = selectedOrder.items.reduce((sum, item) => {
+                                                                    const count = Array.from({ length: item.quantity }).filter((_, i) =>
+                                                                        selectedTicketIds.has(`${item.id}-${i}`)
+                                                                    ).length;
+                                                                    return sum + count * item.unitPrice;
+                                                                }, 0);
+                                                            }
+                                                            await api.post(`/orders/${selectedOrder.id}/refund`, body);
+                                                            setOrders((prev) =>
+                                                                prev.map((o) =>
+                                                                    o.id === selectedOrder.id
+                                                                        ? { ...o, status: (refundType === 'full' ? 'refunded' : 'partially_refunded') as OrderStatus }
+                                                                        : o
+                                                                )
+                                                            );
+                                                            setIsDialogOpen(false);
+                                                        } catch (err) {
+                                                            setRefundError(err instanceof Error ? err.message : 'Failed to process refund');
+                                                        } finally {
+                                                            setIsProcessing(false);
+                                                        }
+                                                    }}
+                                                >
+                                                    {isProcessing ? 'Processing...' : `Process ${refundType === 'full' ? 'Full' : 'Partial'} Refund`}
+                                                </Button>
+                                            </TabsContent>
+                                        </motion.div>
                                     )}
-                                </div>
-                            </div>
+                                </motion.div>
+                            </Tabs>
                         </>
                     )}
-                </SheetContent>
-            </Sheet>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
