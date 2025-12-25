@@ -22,6 +22,8 @@ import {
     Sparkles,
     Camera,
     X,
+    Eye,
+    EyeOff,
 } from 'lucide-react';
 import {
     Dialog,
@@ -157,6 +159,7 @@ export function SignupOnboardingDialog({
     const [error, setError] = useState<string | null>(null);
     const [organizerId, setOrganizerId] = useState<string | null>(null);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     // Avatar upload state
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -679,15 +682,25 @@ export function SignupOnboardingDialog({
                                                 <Lock className="h-4 w-4 text-slate-400" />
                                                 Password <span className="text-rose-500">*</span>
                                             </Label>
-                                            <Input
-                                                id="password"
-                                                type="password"
-                                                placeholder="At least 8 characters"
-                                                value={formData.password}
-                                                onChange={(e) => updateField('password', e.target.value)}
-                                                className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all"
-                                                required
-                                            />
+                                            <div className="relative">
+                                                <Input
+                                                    id="password"
+                                                    type={showPassword ? 'text' : 'password'}
+                                                    placeholder="At least 8 characters"
+                                                    value={formData.password}
+                                                    onChange={(e) => updateField('password', e.target.value)}
+                                                    className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all pr-12"
+                                                    required
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                                >
+                                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                                </button>
+                                            </div>
                                         </motion.div>
                                     </motion.div>
 
