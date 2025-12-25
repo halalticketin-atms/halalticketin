@@ -14,6 +14,7 @@ import {
     Loader2,
     Check,
     Users,
+    ArrowUpCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ import { useOrganizerEvents, type DashboardEvent } from '@/hooks/useOrganizerEve
 import { uploadAvatar, fileToDataUrl } from '@/lib/upload-api';
 import { getFavoriteEvents, type FavoriteEvent } from '@/lib/favorites-api';
 import { getFollowedOrganizers, type FollowedOrganizer } from '@/lib/follows-api';
+import { CreateOrganizerDialog } from '@/components/auth/CreateOrganizerDialog';
 
 type ProfileEventCard = {
     id: string;
@@ -53,6 +55,9 @@ export default function ProfilePage() {
     const [followedOrganizers, setFollowedOrganizers] = useState<FollowedOrganizer[]>([]);
     const [isLoadingSaved, setIsLoadingSaved] = useState(false);
     const [isLoadingFollowing, setIsLoadingFollowing] = useState(false);
+
+    // Upgrade to organizer dialog state
+    const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
 
     const displayName = user?.name || user?.email?.split('@')[0] || 'Guest User';
     const displayEmail = user?.email ?? 'Sign in';
