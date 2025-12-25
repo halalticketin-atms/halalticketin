@@ -78,6 +78,7 @@ export function Header() {
     const pathname = usePathname();
     const auth = useOptionalAuth();
     const user = auth?.user ?? null;
+    const isOrganizer = auth?.isOrganizer ?? false;
 
     // Navigation Items with Icons and Brand Gradients
     const navLinks = [
@@ -282,9 +283,11 @@ export function Header() {
                                     <DropdownMenuItem asChild>
                                         <Link href="/profile">Profile</Link>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/dashboard">Dashboard</Link>
-                                    </DropdownMenuItem>
+                                    {isOrganizer && (
+                                        <DropdownMenuItem asChild>
+                                            <Link href="/dashboard">Dashboard</Link>
+                                        </DropdownMenuItem>
+                                    )}
                                     <DropdownMenuItem asChild>
                                         <Link href="/settings">Settings</Link>
                                     </DropdownMenuItem>
@@ -396,14 +399,16 @@ export function Header() {
                                         >
                                             <Link href="/events/new">Create Event</Link>
                                         </Button>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full h-12 rounded-xl text-md border-slate-200 bg-white/50 hover:bg-white"
-                                            asChild
-                                            onClick={() => setMobileMenuOpen(false)}
-                                        >
-                                            <Link href="/dashboard">Dashboard</Link>
-                                        </Button>
+                                        {isOrganizer && (
+                                            <Button
+                                                variant="outline"
+                                                className="w-full h-12 rounded-xl text-md border-slate-200 bg-white/50 hover:bg-white"
+                                                asChild
+                                                onClick={() => setMobileMenuOpen(false)}
+                                            >
+                                                <Link href="/dashboard">Dashboard</Link>
+                                            </Button>
+                                        )}
                                         <Button
                                             variant="outline"
                                             className="w-full h-12 rounded-xl text-md border-red-200 bg-red-50/50 hover:bg-red-100 text-red-600 font-semibold"
