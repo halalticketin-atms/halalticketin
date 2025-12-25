@@ -313,8 +313,15 @@ export default function PricingPage() {
                                                 <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">{symbol}</span>
                                                 <Input
                                                     type="number"
+                                                    min="0"
                                                     value={ticketPrice}
-                                                    onChange={(e) => setTicketPrice(Number(e.target.value))}
+                                                    onChange={(e) => {
+                                                        const value = Number(e.target.value);
+                                                        // Prevent negative values
+                                                        if (value >= 0 || e.target.value === '') {
+                                                            setTicketPrice(value >= 0 ? value : 0);
+                                                        }
+                                                    }}
                                                     className="pl-10 h-16 text-2xl font-bold bg-white/50 border-slate-200 rounded-2xl focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 shadow-sm"
                                                 />
                                             </div>

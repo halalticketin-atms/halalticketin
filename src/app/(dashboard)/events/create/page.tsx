@@ -1377,8 +1377,15 @@ export function EventWizard({
                                                                     <Input
                                                                         type="number"
                                                                         placeholder="0.00"
+                                                                        min="0"
                                                                         value={ticket.price}
-                                                                        onChange={(e) => updateTicket(ticket.id, 'price', e.target.value)}
+                                                                        onChange={(e) => {
+                                                                            const value = e.target.value;
+                                                                            // Prevent negative values
+                                                                            if (value === '' || Number(value) >= 0) {
+                                                                                updateTicket(ticket.id, 'price', value);
+                                                                            }
+                                                                        }}
                                                                         className="h-11"
                                                                         disabled={ticket.isFree}
                                                                     />
@@ -1449,8 +1456,15 @@ export function EventWizard({
                                                                             <Input
                                                                                 type="number"
                                                                                 placeholder="Discounted price"
+                                                                                min="0"
                                                                                 value={ticket.earlyBirdPrice}
-                                                                                onChange={(e) => updateTicket(ticket.id, 'earlyBirdPrice', e.target.value)}
+                                                                                onChange={(e) => {
+                                                                                    const value = e.target.value;
+                                                                                    // Prevent negative values
+                                                                                    if (value === '' || Number(value) >= 0) {
+                                                                                        updateTicket(ticket.id, 'earlyBirdPrice', value);
+                                                                                    }
+                                                                                }}
                                                                                 className="h-9"
                                                                             />
                                                                         </div>
@@ -1568,8 +1582,15 @@ export function EventWizard({
                                                                             <Input
                                                                                 type="number"
                                                                                 placeholder="10"
+                                                                                min="0"
                                                                                 value={promo.discountValue}
-                                                                                onChange={(e) => updatePromoCode(promo.id, 'discountValue', e.target.value)}
+                                                                                onChange={(e) => {
+                                                                                    const value = e.target.value;
+                                                                                    // Prevent negative values
+                                                                                    if (value === '' || Number(value) >= 0) {
+                                                                                        updatePromoCode(promo.id, 'discountValue', value);
+                                                                                    }
+                                                                                }}
                                                                                 className="h-10 pr-8"
                                                                             />
                                                                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
