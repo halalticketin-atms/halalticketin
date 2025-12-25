@@ -859,8 +859,8 @@ export default function EventDetailsPage() {
 
             {/* Checkout Dialog */}
             <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-                <DialogContent className="sm:max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none text-white">
-                    <div className="bg-gradient-to-br from-[#02AAB0] to-[#00CDAC] p-8 rounded-[1.5rem] shadow-2xl border border-white/20 min-h-[400px] flex flex-col justify-between relative overflow-hidden">
+                <DialogContent className="sm:max-w-3xl max-h-[100dvh] sm:max-h-[90dvh] p-0 overflow-hidden bg-transparent border-none shadow-none text-white">
+                    <div className="bg-gradient-to-br from-[#3a9b97] to-[#4db5a9] p-6 sm:p-8 rounded-[1.5rem] shadow-2xl border border-white/20 flex flex-col justify-between relative overflow-y-auto overscroll-contain max-h-[calc(100dvh-2rem)] sm:max-h-none sm:min-h-[400px]">
                         {/* Decorative subtle patterns - Matte effect with reduced opacity */}
                         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none opacity-30" />
                         <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none opacity-30" />
@@ -962,7 +962,7 @@ export default function EventDetailsPage() {
 
                                     {/* Per-ticket attendee forms */}
                                     {ticketAttendees.length > 0 && (
-                                        <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                                        <div className="space-y-4">
                                             <p className="text-xs text-white/70 font-medium uppercase tracking-wider">Attendee Details</p>
                                             {ticketAttendees.map((attendee, index) => (
                                                 <div key={index} className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-2">
