@@ -719,7 +719,7 @@ export default function EventDetailsPage() {
                             className="sticky top-8"
                         >
                             <Card className="overflow-hidden">
-                                <CardHeader className="bg-primary/5">
+                                <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <Ticket className="h-5 w-5" />
                                         Tickets
