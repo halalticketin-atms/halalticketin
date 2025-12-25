@@ -231,10 +231,24 @@ export default function ProfilePage() {
                                 <div>
                                     <div className="flex flex-wrap items-center gap-3 mb-1">
                                         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{displayName}</h1>
-                                        {memberships.length > 0 && (
+                                        {memberships.length > 0 ? (
                                             <Badge variant="secondary" className="font-normal border-primary/20 bg-primary/5 text-primary">
                                                 Organizer
                                             </Badge>
+                                        ) : user && (
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="secondary" className="font-normal border-muted-foreground/20 bg-muted/50 text-muted-foreground">
+                                                    User
+                                                </Badge>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsUpgradeDialogOpen(true)}
+                                                    className="flex items-center gap-1.5 px-3 py-1 text-sm font-medium text-primary hover:text-primary/80 bg-primary/5 hover:bg-primary/10 border border-primary/20 rounded-full transition-all duration-200 hover:scale-105 active:scale-95"
+                                                >
+                                                    <ArrowUpCircle className="h-3.5 w-3.5" />
+                                                    Upgrade
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                     <p className="text-muted-foreground">{displayEmail}</p>

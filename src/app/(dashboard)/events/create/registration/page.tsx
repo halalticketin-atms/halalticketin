@@ -426,7 +426,7 @@ export default function RegistrationFormBuilderPage() {
 
             {/* Preview Dialog */}
             <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-                <DialogContent className="max-w-md max-h-[100dvh] sm:max-h-[80dvh] overflow-y-auto">
+                <DialogContent className="max-w-md max-h-[calc(100dvh-2rem)] sm:max-h-[80dvh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Form Preview</DialogTitle>
                         <DialogDescription>

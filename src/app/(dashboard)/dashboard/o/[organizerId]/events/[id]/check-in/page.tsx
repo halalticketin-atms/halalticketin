@@ -329,7 +329,7 @@ export default function CheckInPage() {
 
             {/* Confirm Check-in Dialog */}
             <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-                <DialogContent className="max-w-sm max-h-[100dvh] sm:max-h-[90dvh] overflow-y-auto">
+                <DialogContent className="max-w-sm max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Confirm Check-in</DialogTitle>
                         <DialogDescription>

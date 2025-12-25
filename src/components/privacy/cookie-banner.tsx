@@ -95,7 +95,7 @@ export function CookieBanner() {
                 </div>
             )}
             <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-                <DialogContent className="sm:max-w-lg max-h-[100dvh] sm:max-h-[90dvh] overflow-y-auto">
+                <DialogContent className="sm:max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Cookie preferences</DialogTitle>
                         <DialogDescription>

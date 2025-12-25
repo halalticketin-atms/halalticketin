@@ -1901,7 +1901,7 @@ export function EventWizard({
 
             {/* Event Preview Dialog */}
             <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-                <DialogContent className="max-w-2xl max-h-[100dvh] sm:max-h-[85dvh] overflow-y-auto p-0">
+                <DialogContent className="max-w-2xl max-h-[calc(100dvh-2rem)] sm:max-h-[85dvh] overflow-y-auto p-0">
                     <DialogHeader className="p-6 pb-0">
                         <DialogTitle>Event Preview</DialogTitle>
                     </DialogHeader>

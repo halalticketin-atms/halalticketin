@@ -381,7 +381,7 @@ export function SignupOnboardingDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-3xl lg:max-w-4xl p-0 gap-0 max-h-[100dvh] sm:max-h-[90dvh] border-0 shadow-2xl bg-gradient-to-br from-white via-slate-50/80 to-cyan-50/30 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 [&>[data-slot=dialog-close]]:z-50 [&>[data-slot=dialog-close]]:bg-white/80 [&>[data-slot=dialog-close]]:dark:bg-slate-800/80 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:backdrop-blur-sm [&>[data-slot=dialog-close]]:shadow-md">
+            <DialogContent className="sm:max-w-3xl lg:max-w-4xl p-0 gap-0 max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] border-0 shadow-2xl bg-gradient-to-br from-white via-slate-50/80 to-cyan-50/30 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 [&>[data-slot=dialog-close]]:z-50 [&>[data-slot=dialog-close]]:bg-white/80 [&>[data-slot=dialog-close]]:dark:bg-slate-800/80 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:backdrop-blur-sm [&>[data-slot=dialog-close]]:shadow-md">
                 <VisuallyHidden>
                     <DialogTitle>Create your account</DialogTitle>
                     <DialogDescription>Multi-step signup form</DialogDescription>

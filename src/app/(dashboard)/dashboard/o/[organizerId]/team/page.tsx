@@ -615,7 +615,7 @@ export default function OrganizerTeamPage() {
 
             <Dialog open={Boolean(editingMember)} onOpenChange={(open) => !open && closeEditDialog()}>
                 {editingMember && editForm && (
-                    <DialogContent className="max-w-lg max-h-[100dvh] sm:max-h-[90dvh] overflow-y-auto">
+                    <DialogContent className="max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] overflow-y-auto">
                         <DialogHeader>
                             <DialogTitle>Manage access for {editingMember.user.name ?? editingMember.user.email}</DialogTitle>
                             <DialogDescription>

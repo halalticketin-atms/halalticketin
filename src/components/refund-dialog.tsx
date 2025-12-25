@@ -150,7 +150,7 @@ export function RefundDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="sm:max-w-md max-h-[100dvh] sm:max-h-[90dvh] overflow-y-auto">
+            <DialogContent className="sm:max-w-md max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <AlertTriangle className="h-5 w-5 text-destructive" />
