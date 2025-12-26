@@ -570,7 +570,7 @@ export default function EventDetailsPage() {
                     name: attendee.name.trim(),
                     email: attendee.email.trim() || attendeeEmail.trim(), // Fallback to buyer email
                     gender: attendee.gender as 'male' | 'female',
-                    age: attendee.age ? Number(attendee.age) : undefined,
+                    age: attendee.age ? Math.floor(Number(attendee.age)) : undefined,
                     customAnswers: hasAnswers ? normalizedAnswers : undefined,
                 };
             })
@@ -580,7 +580,7 @@ export default function EventDetailsPage() {
             items,
             attendeeName: attendeeName.trim(),
             attendeeEmail: attendeeEmail.trim(),
-            attendeeAge: buyerAgeNumber,
+            attendeeAge: Math.floor(buyerAgeNumber),
             attendeeGender: attendeeGender as 'male' | 'female',
             useSharedInfo: !requiresPerTicket && useSharedInfo,
             ticketAttendees: ticketAttendeePayload,
