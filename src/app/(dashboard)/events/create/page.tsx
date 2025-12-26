@@ -1034,6 +1034,34 @@ export function EventWizard({
                                                             : 'Private events stay hidden and require direct links.'}
                                                     </p>
                                                 </div>
+
+                                                {/* Currency Selector */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-sm font-medium">Event Currency</Label>
+                                                    <Select
+                                                        value={formData.currency}
+                                                        onValueChange={(value) =>
+                                                            setFormData((prev) => ({
+                                                                ...prev,
+                                                                currency: value,
+                                                            }))
+                                                        }
+                                                    >
+                                                        <SelectTrigger className="h-11">
+                                                            <SelectValue placeholder="Select currency" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="GBP">🇬🇧 GBP (£) - British Pound</SelectItem>
+                                                            <SelectItem value="USD">🇺🇸 USD ($) - US Dollar</SelectItem>
+                                                            <SelectItem value="EUR">🇪🇺 EUR (€) - Euro</SelectItem>
+                                                            <SelectItem value="AED">🇦🇪 AED (د.إ) - UAE Dirham</SelectItem>
+                                                            <SelectItem value="SAR">🇸🇦 SAR (﷼) - Saudi Riyal</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        Default: {currentOrganizer?.defaultCurrency || 'GBP'}. Ticket prices will be in {formData.currency}.
+                                                    </p>
+                                                </div>
                                             </CardContent>
                                         </Card>
                                     </motion.div>
