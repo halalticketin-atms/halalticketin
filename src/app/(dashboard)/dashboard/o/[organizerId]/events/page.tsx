@@ -12,6 +12,8 @@ import {
     MoreHorizontal,
     Eye,
     Edit,
+    MoreVertical, // Changed from MoreHorizontal
+    Pencil, // Changed from Edit
     Trash2,
     Clock,
     CheckCircle,
@@ -28,7 +30,9 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+}
+    from '@/components/ui/dropdown-menu';
+import { SUPPORTED_CURRENCIES } from '@/lib/fees'; // Added import
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents, DashboardEvent, DashboardEventStatus } from '@/hooks/useOrganizerEvents';
 import { DeleteEventDialog } from '@/components/dashboard/DeleteEventDialog';
@@ -119,16 +123,31 @@ function EventCard({ event, index, onDelete }: { event: DashboardEvent; index: n
                         />
                     ) : (
                         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
-                            <Calendar className="h-12 w-12 text-muted-foreground/40" />
+                            <Calendar className="h-16 w-16 text-muted-foreground/30" /> {/* Changed size and opacity */}
                         </div>
                     )}
 
-                    {/* Status Badge - Overlay on Image */}
+                    {/* Currency Badge - Top Right */}
+                    <div className="absolute top-2 right-2">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/95 backdrop-blur-sm px-2.5 py-1 text-xs font-bold text-slate-700 shadow-sm border border-slate-200/50">
+                            {SUPPORTED_CURRENCIES[event.currency as keyof typeof SUPPORTED_CURRENCIES]?.symbol || event.currency}
+                            <span className="text-[10px] font-semibold text-slate-500">{event.currency}</span>
+                        </span>
+                    </div>
+
+                    {/* Status Badge - Top Left */}
                     <div className="absolute top-2 left-2">
-                        <Badge className={`${config.color} backdrop-blur-sm border text-[10px] px-1.5 py-0.5 shadow-sm`} variant="secondary">
-                            <StatusIcon className="h-2.5 w-2.5 mr-1" />
-                            {config.label}
-                        </Badge>
+                        <span // Changed from Badge component to span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${event.displayStatus === 'active' // Changed from 'published' to 'active'
+                                    ? 'bg-emerald-500/90 text-white'
+                                    : event.displayStatus === 'draft'
+                                        ? 'bg-slate-500/90 text-white'
+                                        : 'bg-amber-500/90 text-white' // This will be for 'past'
+                                }`}
+                        >
+                            {/* Removed StatusIcon */}
+                            {config.label} {/* Kept label from config */}
+                        </span>
                     </div>
 
                     {/* Three-Dot Menu - Top Right */}

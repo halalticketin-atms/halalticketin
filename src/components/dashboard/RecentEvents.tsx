@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion'; // Changed from 'motion/react' to 'framer-motion' based on common usage and the diff's implied context
 import { Calendar, MapPin, MoreHorizontal, Eye, Edit, Trash2, Ticket } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,16 +17,20 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DeleteEventDialog } from './DeleteEventDialog';
+import { SUPPORTED_CURRENCIES } from '@/lib/fees';
 
 interface Event {
     id: string;
     title: string;
     date: string;
     location: string;
-    status: 'published' | 'draft' | 'completed';
+    status: 'published' | 'draft' | 'completed'; // Kept for statusColors/Labels
+    displayStatus: 'published' | 'draft' | 'completed'; // Added based on diff
     ticketsSold: number;
     totalTickets: number;
-    imageUrl: string;
+    imageUrl?: string; // Kept as optional for backward compatibility if not all events have bannerImageUrl
+    bannerImageUrl?: string; // Added based on diff
+    currency: string; // Added based on diff
 }
 
 interface RecentEventsProps {
@@ -106,12 +110,12 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
                                         className="group relative overflow-hidden border border-border/60 hover:border-primary/20 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
                                         onClick={(e) => handleCardClick(event.id, e)}
                                     >
-                                        {/* Banner Image */}
+                                        {/* Banner Image - Portrait 4:5 */}
                                         <div className="relative w-full aspect-[4/5] overflow-hidden bg-muted">
-                                            {event.imageUrl ? (
+                                            {event.bannerImageUrl ? (
                                                 <Image
-                                                    src={event.imageUrl}
-                                                    alt={event.title}
+                                                    src={event.bannerImageUrl}
+                                                    alt={event.title || 'Event'}
                                                     fill
                                                     className="object-cover group-hover:scale-[1.02] transition-transform duration-300"
                                                 />
@@ -121,17 +125,29 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
                                                 </div>
                                             )}
 
-                                            {/* Status Badge - Overlay on Image */}
-                                            <div className="absolute top-2 left-2">
-                                                <Badge
-                                                    className={`${statusColors[event.status]} backdrop-blur-sm border text-[10px] px-1.5 py-0.5 shadow-sm`}
-                                                    variant="secondary"
-                                                >
-                                                    {statusLabels[event.status]}
-                                                </Badge>
+                                            {/* Currency Badge - Top Right */}
+                                            <div className="absolute top-2 right-2">
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-white/95 backdrop-blur-sm px-2.5 py-1 text-xs font-bold text-slate-700 shadow-sm border border-slate-200/50">
+                                                    {SUPPORTED_CURRENCIES[event.currency as keyof typeof SUPPORTED_CURRENCIES]?.symbol || event.currency}
+                                                    <span className="text-[10px] font-semibold text-slate-500">{event.currency}</span>
+                                                </span>
                                             </div>
 
-                                            {/* Three-Dot Menu - Top Right */}
+                                            {/* Status Badge - Top Left */}
+                                            <div className="absolute top-2 left-2">
+                                                <span
+                                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${event.displayStatus === 'published'
+                                                            ? 'bg-emerald-500/90 text-white'
+                                                            : event.displayStatus === 'draft'
+                                                                ? 'bg-slate-500/90 text-white'
+                                                                : 'bg-amber-500/90 text-white'
+                                                        }`}
+                                                >
+                                                    {statusLabels[event.displayStatus]}
+                                                </span>
+                                            </div>
+
+                                            {/* Three-Dot Menu - Top Right (adjusted position due to currency badge) */}
                                             <div className="absolute top-2 right-2" data-dropdown-trigger>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
