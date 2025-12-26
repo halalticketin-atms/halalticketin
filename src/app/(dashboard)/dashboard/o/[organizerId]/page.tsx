@@ -97,8 +97,8 @@ export default function DashboardPage() {
                 date: dateStr,
                 location,
                 status,
-                ticketsSold: (event as any).ticketsSold || 0, // Real data from backend when available
-                totalTickets: (event as any).totalTickets || 100, // Real data from backend when available
+                ticketsSold: event.ticketsSold || 0,
+                totalTickets: event.totalTickets || 100,
                 imageUrl: event.bannerImageUrl || '/images/placeholder-event.jpg',
             };
         });

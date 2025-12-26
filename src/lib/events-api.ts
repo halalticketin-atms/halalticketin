@@ -31,6 +31,8 @@ export interface EventRecord {
     absorbFee: boolean;
     attendeeInfoMode: 'per_ticket' | 'buyer_choice';
     customQuestions: CustomQuestionPayload[] | null;
+    ticketsSold?: number; // Aggregate from ticket_types
+    totalTickets?: number; // Aggregate from ticket_types (sum of maxQuantity)
     createdAt: string;
     updatedAt: string;
 }
