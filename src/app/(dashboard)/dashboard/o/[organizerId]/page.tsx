@@ -81,14 +81,14 @@ export default function DashboardPage() {
                 location = event.city;
             }
 
-            // Map displayStatus to the component's expected status
-            let status: 'published' | 'draft' | 'completed' = 'draft';
+            // Map displayStatus to the component's expected labels
+            let displayStatus: 'published' | 'draft' | 'completed' = 'draft';
             if (event.displayStatus === 'draft') {
-                status = 'draft';
+                displayStatus = 'draft';
             } else if (event.displayStatus === 'past') {
-                status = 'completed';
+                displayStatus = 'completed';
             } else {
-                status = 'published';
+                displayStatus = 'published';
             }
 
             return {
@@ -96,10 +96,12 @@ export default function DashboardPage() {
                 title: event.title || 'Untitled Event',
                 date: dateStr,
                 location,
-                status,
+                status: displayStatus,
+                displayStatus,
                 ticketsSold: event.ticketsSold || 0,
                 totalTickets: event.totalTickets || 100,
-                imageUrl: event.bannerImageUrl || '/images/placeholder-event.jpg',
+                bannerImageUrl: event.bannerImageUrl || undefined,
+                currency: event.currency,
             };
         });
     }, [events]);

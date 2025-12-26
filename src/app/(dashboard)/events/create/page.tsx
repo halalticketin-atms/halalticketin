@@ -286,6 +286,16 @@ export function EventWizard({
         }
     }, [currentOrganizer?.defaultCurrency, initialDraft?.formData?.currency, setFormData]);
 
+    // FIX: Populate poster preview from existing event's bannerImageUrl when editing
+    useEffect(() => {
+        if (initialDraft?.formData?.bannerImageUrl && !formData.bannerImageDataUrl) {
+            setFormData(prev => ({
+                ...prev,
+                bannerImageDataUrl: initialDraft.formData.bannerImageUrl
+            }));
+        }
+    }, [initialDraft?.formData?.bannerImageUrl, formData.bannerImageDataUrl, setFormData]);
+
     const router = useRouter();
     const pathname = usePathname();
     const authSearchParams = useSearchParams();
