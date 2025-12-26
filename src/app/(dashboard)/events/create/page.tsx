@@ -192,6 +192,7 @@ const buildTicketPayloads = (tickets: DraftTicketType[], currency: string): Tick
             visibility: ticket.visibility,
             salesStart: ticket.salesStart ? toIsoString(ticket.salesStart, '00:00') : null,
             salesEnd: ticket.salesEnd ? toIsoString(ticket.salesEnd, '23:59') : null,
+            absorbFee: ticket.absorbFee, // null = use event default
         };
     });
 
@@ -1313,6 +1314,44 @@ export function EventWizard({
                                             ) : null}
                                         </div>
 
+                                        {/* Global Fee Default */}
+                                        <Card className="border-border/50 bg-gradient-to-br from-primary/5 to-primary/10">
+                                            <CardContent className="p-3 sm:p-4">
+                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                                    <div className="space-y-0.5">
+                                                        <Label className="text-sm font-medium">Default fee handling</Label>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {formData.absorbFee
+                                                                ? `You absorb ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}/ticket by default`
+                                                                : `Customers pay ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}/ticket by default`
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                                {formData.absorbFee ? 'Absorb fees' : 'Customer pays'}
+                                                            </span>
+                                                            <Switch
+                                                                checked={formData.absorbFee}
+                                                                onCheckedChange={(value) => setFormData(prev => ({ ...prev, absorbFee: value }))}
+                                                            />
+                                                        </div>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="text-xs whitespace-nowrap"
+                                                            onClick={() => {
+                                                                setTickets(prev => prev.map(t => ({ ...t, absorbFee: null })));
+                                                            }}
+                                                        >
+                                                            Reset All to Default
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
                                         {/* Ticket Cards */}
                                         <div className="space-y-3">
                                             {tickets.map((ticket, index) => (
@@ -1484,23 +1523,42 @@ export function EventWizard({
                                                             {/* Platform Fee Toggle - only for paid tickets */}
                                                             {!ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
                                                                 <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <div className="space-y-0.5">
-                                                                            <Label htmlFor={`absorb-fee-${ticket.id}`} className="text-sm font-medium cursor-pointer">
-                                                                                Absorb platform fee
+                                                                    <div className="flex items-center justify-between gap-3">
+                                                                        <div className="space-y-0.5 flex-1 min-w-0">
+                                                                            <Label className="text-sm font-medium">
+                                                                                Platform fee handling
                                                                             </Label>
                                                                             <p className="text-[11px] text-muted-foreground">
-                                                                                {formData.absorbFee
-                                                                                    ? `You pay the ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}/ticket fee – customers see ticket price only`
-                                                                                    : `Customers pay ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}/ticket fee on top`
-                                                                                }
+                                                                                {(() => {
+                                                                                    const effectiveAbsorb = ticket.absorbFee ?? formData.absorbFee;
+                                                                                    const feeAmount = `${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}`;
+                                                                                    if (ticket.absorbFee === null) {
+                                                                                        return effectiveAbsorb
+                                                                                            ? `Using default: You absorb ${feeAmount}/ticket`
+                                                                                            : `Using default: Customer pays ${feeAmount}/ticket`;
+                                                                                    }
+                                                                                    return effectiveAbsorb
+                                                                                        ? `You absorb ${feeAmount}/ticket`
+                                                                                        : `Customer pays ${feeAmount}/ticket`;
+                                                                                })()}
                                                                             </p>
                                                                         </div>
-                                                                        <Switch
-                                                                            id={`absorb-fee-${ticket.id}`}
-                                                                            checked={formData.absorbFee}
-                                                                            onCheckedChange={(value) => setFormData(prev => ({ ...prev, absorbFee: value }))}
-                                                                        />
+                                                                        <Select
+                                                                            value={ticket.absorbFee === null ? 'default' : ticket.absorbFee ? 'absorb' : 'customer'}
+                                                                            onValueChange={(value) => {
+                                                                                const newValue = value === 'default' ? null : value === 'absorb';
+                                                                                updateTicket(ticket.id, 'absorbFee', newValue);
+                                                                            }}
+                                                                        >
+                                                                            <SelectTrigger className="w-[140px] h-9 text-xs">
+                                                                                <SelectValue />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="default">Use Default</SelectItem>
+                                                                                <SelectItem value="absorb">Absorb Fee</SelectItem>
+                                                                                <SelectItem value="customer">Customer Pays</SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
                                                                     </div>
                                                                 </div>
                                                             )}

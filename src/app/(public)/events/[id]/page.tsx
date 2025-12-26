@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, startTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
     Calendar,
     Clock,
@@ -19,6 +19,9 @@ import {
     Minus,
     ShoppingCart,
     Tag,
+    ArrowRight,
+    ChevronLeft,
+    Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +52,7 @@ import { calculatePlatformFee, getCurrencySymbol, type FeeTier } from '@/lib/fee
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useOptionalAuth } from '@/context/auth-context';
 import { differenceInYears } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 // Per-ticket attendee info structure
 interface TicketAttendee {
@@ -144,6 +148,7 @@ export default function EventDetailsPage() {
     const [promoCode, setPromoCode] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
+    const [checkoutStep, setCheckoutStep] = useState(0);
 
     // Autofill user details
     useEffect(() => {
@@ -410,6 +415,67 @@ export default function EventDetailsPage() {
     }, [event, totalTickets, currencyCode, rates, finalTotal]);
 
     const grandTotal = finalTotal + platformFeeAmount;
+
+    // Step-based checkout: Step 0 = Buyer, Step 1..N = Tickets (if per-ticket), Final = Confirm
+    const totalCheckoutSteps = requiresPerTicket ? 1 + totalTickets + 1 : 2;
+    const stepType: 'buyer' | 'ticket' | 'confirm' =
+        checkoutStep === 0 ? 'buyer'
+            : checkoutStep <= totalTickets && requiresPerTicket ? 'ticket'
+                : 'confirm';
+    const currentTicketIndex = stepType === 'ticket' ? checkoutStep - 1 : -1;
+
+    // Reset step when modal closes
+    useEffect(() => {
+        if (!isCheckoutOpen) {
+            setCheckoutStep(0);
+        }
+    }, [isCheckoutOpen]);
+
+    // Validate current step before advancing
+    const validateCurrentStep = (): string | null => {
+        if (stepType === 'buyer') {
+            if (!attendeeName.trim()) return 'Please enter your name.';
+            if (!attendeeEmail.trim()) return 'Please enter your email.';
+            if (!attendeeAge.trim()) return 'Please enter your age.';
+            if (!attendeeGender) return 'Please select your gender.';
+            const ageNum = Number(attendeeAge);
+            if (Number.isNaN(ageNum) || ageNum <= 0) return 'Please enter a valid age.';
+        } else if (stepType === 'ticket' && currentTicketIndex >= 0) {
+            const attendee = ticketAttendees[currentTicketIndex];
+            if (!attendee?.name?.trim()) return `Please enter name for Ticket ${currentTicketIndex + 1}.`;
+            if (!attendee?.age?.trim()) return `Please enter age for Ticket ${currentTicketIndex + 1}.`;
+            if (!attendee?.gender) return `Please select gender for Ticket ${currentTicketIndex + 1}.`;
+            const ageNum = Number(attendee.age);
+            if (Number.isNaN(ageNum) || ageNum <= 0) return `Please enter a valid age for Ticket ${currentTicketIndex + 1}.`;
+            // Check custom questions
+            if (event?.customQuestions?.length) {
+                for (const q of event.customQuestions) {
+                    if (q.required) {
+                        const answer = attendee.customAnswers[q.id];
+                        if (!answer || answer === '') {
+                            return `Please answer "${q.label}" for Ticket ${currentTicketIndex + 1}.`;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    };
+
+    const handleNextStep = () => {
+        const error = validateCurrentStep();
+        if (error) {
+            setCheckoutError(error);
+            return;
+        }
+        setCheckoutError(null);
+        setCheckoutStep(s => Math.min(s + 1, totalCheckoutSteps - 1));
+    };
+
+    const handlePrevStep = () => {
+        setCheckoutError(null);
+        setCheckoutStep(s => Math.max(s - 1, 0));
+    };
 
     const validateCheckout = (): string | null => {
         if (!attendeeName.trim() || !attendeeEmail.trim() || !attendeeGender || !attendeeAge.trim()) {
@@ -943,165 +1009,188 @@ export default function EventDetailsPage() {
                 </div>
             </div>
 
-            {/* Checkout Dialog */}
+            {/* Checkout Dialog - Multi-step wizard with softer styling */}
             <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-                <DialogContent className="sm:max-w-3xl max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] p-0 overflow-hidden bg-transparent border-none shadow-none text-white max-w-[100vw]">
-                    <div className="bg-gradient-to-br from-[#02AAB0] to-[#00CDAC] p-6 sm:p-8 rounded-[1.5rem] shadow-2xl border border-white/20 flex flex-col justify-between relative overflow-y-auto overflow-x-hidden overscroll-contain max-h-[calc(100dvh-2rem)] sm:max-h-[85dvh] sm:min-h-[400px] w-full">
-                        {/* Decorative subtle patterns - Matte effect with reduced opacity */}
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none opacity-30" />
-                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none opacity-30" />
+                <DialogContent className="sm:max-w-[850px] w-[95vw] p-0 overflow-hidden border-0 bg-transparent shadow-2xl gap-0">
+                    <div className="bg-card flex flex-col md:flex-row h-auto md:h-[540px] rounded-3xl overflow-hidden max-h-[calc(100dvh-2rem)] shadow-2xl border border-primary/10">
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 h-full">
-                            {/* Left Column - Details */}
-                            <div className="flex flex-col justify-between space-y-6">
-                                <div>
-                                    <DialogHeader className="mb-4 text-left p-0">
-                                        <DialogTitle className="flex items-center gap-3 text-3xl font-bold text-white tracking-wide">
-                                            <ShoppingCart className="h-8 w-8 text-white/90" />
-                                            Checkout
-                                        </DialogTitle>
-                                        <DialogDescription className="text-white/80 text-lg">
-                                            Complete your order securely.
-                                        </DialogDescription>
-                                    </DialogHeader>
+                        {/* LEFT PANEL: Brand & Order Summary */}
+                        <div className="w-full md:w-[340px] bg-primary/5 border-r border-border/50 p-6 flex flex-col relative overflow-hidden group">
+                            {/* Decorative background accent */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none transition-opacity duration-700 group-hover:opacity-70" />
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -ml-24 -mb-24 pointer-events-none" />
 
-                                    {/* Order Summary Compact */}
-                                    <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md border border-white/20 mt-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="font-medium opacity-90 text-sm uppercase tracking-wider">Total</span>
-                                            <span className="text-2xl font-bold">{currencySymbol}{grandTotal.toFixed(2)}</span>
-                                        </div>
-                                        <div className="space-y-1">
-                                            {cartItems.map(item => (
-                                                <div key={item.ticket.id} className="flex justify-between text-white/80 text-sm">
-                                                    <span>{item.quantity}x {item.ticket.name}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="hidden md:block mt-8">
-                                    <div className="relative h-12 w-32 transition-all filter brightness-[1.1] contrast-[1.1] drop-shadow-sm">
-                                        <Image
-                                            src="/images/HTlogocr.png"
-                                            alt="Halal Ticketin"
-                                            fill
-                                            className="object-contain object-left-bottom"
-                                        />
-                                    </div>
-                                </div>
+                            {/* Header */}
+                            <div className="mb-6 relative z-10">
+                                <Link href="/" className="inline-block relative h-8 w-24 mb-4 opacity-90 hover:opacity-100 transition-opacity">
+                                    <Image
+                                        src="/images/HTlogocr.png"
+                                        alt="Halal Ticketin"
+                                        fill
+                                        className="object-contain object-left"
+                                    />
+                                </Link>
+                                <h3 className="text-xl font-display font-bold text-foreground leading-tight">
+                                    Order Summary
+                                </h3>
+                                {(event?.title) && (
+                                    <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{event.title}</p>
+                                )}
                             </div>
 
-                            {/* Right Column - Form */}
-                            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/10 flex flex-col justify-center">
-                                <div className="space-y-4">
-                                    {/* Name */}
-                                    <div className="space-y-1">
-                                        <Label htmlFor="name" className="text-white/90 text-xs uppercase tracking-wider pl-1">Name on Ticket</Label>
-                                        <Input
-                                            id="name"
-                                            placeholder="J. Appleseed"
-                                            value={attendeeName}
-                                            onChange={(e) => setAttendeeName(e.target.value)}
-                                            disabled={isProcessing}
-                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 focus:bg-black/20 focus:border-white/50 h-10 transition-all"
-                                        />
-                                    </div>
-
-                                    {/* Email */}
-                                    <div className="space-y-1">
-                                        <Label htmlFor="email" className="text-white/90 text-xs uppercase tracking-wider pl-1">Email Address</Label>
-                                        <Input
-                                            id="email"
-                                            type="email"
-                                            placeholder="john@example.com"
-                                            value={attendeeEmail}
-                                            onChange={(e) => setAttendeeEmail(e.target.value)}
-                                            disabled={isProcessing}
-                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 focus:bg-black/20 focus:border-white/50 h-10 transition-all"
-                                        />
-                                    </div>
-
-                                    {/* Use shared info toggle - hidden when custom questions force per-ticket */}
-                                    {event?.attendeeInfoMode === 'buyer_choice' && totalTickets > 1 && !forcePerTicket && (
-                                        <div className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
-                                            <input
-                                                type="checkbox"
-                                                id="useSharedInfo"
-                                                checked={useSharedInfo}
-                                                onChange={(e) => setUseSharedInfo(e.target.checked)}
-                                                className="h-4 w-4 rounded border-white/30 bg-white/10 text-teal-500 focus:ring-teal-500"
-                                                disabled={isProcessing}
-                                            />
-                                            <label htmlFor="useSharedInfo" className="text-sm text-white/90 cursor-pointer">
-                                                Use my info for all {totalTickets} tickets
-                                            </label>
+                            {/* Items List */}
+                            <div className="flex-1 overflow-y-auto pr-2 space-y-3 relative z-10 custom-scrollbar">
+                                {cartItems.map(item => (
+                                    <div key={item.ticket.id} className="flex justify-between items-start text-sm group/item">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-foreground">{item.ticket.name}</span>
+                                            <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
                                         </div>
-                                    )}
+                                        <span className="font-semibold text-foreground">{currencySymbol}{item.subtotal.toFixed(2)}</span>
+                                    </div>
+                                ))}
 
-                                    {forcePerTicket && customQuestionCount > 0 && (
-                                        <div className="p-3 rounded-lg bg-white/5 border border-white/10 text-sm text-white/80">
-                                            Custom questions are enabled for this event, so attendee details are required for each ticket.
+                                {/* Fees & Discounts */}
+                                <Separator className="my-3 bg-primary/10" />
+
+                                {platformFeeAmount > 0 && (
+                                    <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                        <span>Fees</span>
+                                        <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
+                                    </div>
+                                )}
+
+                                {appliedPromo && discountAmount > 0 && (
+                                    <div className="flex justify-between items-center text-sm text-emerald-600 font-medium my-1">
+                                        <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> {appliedPromo.code}</span>
+                                        <span>−{currencySymbol}{discountAmount.toFixed(2)}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Total Footer */}
+                            <div className="mt-6 pt-4 border-t border-primary/10 relative z-10">
+                                <div className="flex justify-between items-end">
+                                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">Total</span>
+                                    <span className="text-3xl font-bold text-primary">{currencySymbol}{grandTotal.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT PANEL: Wizard Form */}
+                        <div className="flex-1 flex flex-col bg-card relative">
+                            {/* Wizard Header */}
+                            <div className="px-8 pt-6 pb-2">
+                                {/* Step Indicators */}
+                                <div className="flex items-center justify-between mb-6">
+                                    {['Information', 'Payment', 'Complete'].map((label, idx) => {
+                                        // Logic to map current detailed step to these 3 high level buckets
+                                        // Information: Buyer & Ticket steps
+                                        // Payment: Confirm step (simulated for visual)
+                                        // Complete: (Future)
+
+                                        const isActive =
+                                            idx === 0 ? stepType !== 'confirm'
+                                                : idx === 1 ? stepType === 'confirm'
+                                                    : false;
+
+                                        const isCompleted =
+                                            idx === 0 ? stepType === 'confirm'
+                                                : false;
+
+                                        return (
+                                            <div key={label} className="flex flex-col items-center gap-2 relative z-10 flex-1">
+                                                <div className={cn(
+                                                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2",
+                                                    (isActive || isCompleted)
+                                                        ? "bg-primary border-primary text-primary-foreground"
+                                                        : "bg-transparent border-muted-foreground/30 text-muted-foreground"
+                                                )}>
+                                                    {isCompleted ? <Check className="w-4 h-4" /> : idx + 1}
+                                                </div>
+                                                <span className={cn(
+                                                    "text-xs font-medium transition-colors duration-300",
+                                                    (isActive || isCompleted) ? "text-primary" : "text-muted-foreground"
+                                                )}>{label}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <DialogTitle className="sr-only">Checkout</DialogTitle>
+                            </div>
+
+                            {/* Scrollable Form Area */}
+                            <div className="flex-1 overflow-y-auto px-8 py-2 custom-scrollbar">
+                                <AnimatePresence mode="wait">
+                                    <motion.div
+                                        key={checkoutStep}
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="space-y-5"
+                                    >
+                                        {/* Step Title */}
+                                        <div className="mb-4">
+                                            <h4 className="text-lg font-bold text-foreground">
+                                                {stepType === 'buyer' && 'Contact Information'}
+                                                {stepType === 'ticket' && `Ticket ${currentTicketIndex + 1} Details`}
+                                                {stepType === 'confirm' && 'Payment Details'}
+                                            </h4>
+                                            <p className="text-xs text-muted-foreground">
+                                                {stepType === 'buyer' && 'Where should we send your tickets?'}
+                                                {stepType === 'ticket' && `Information for ${ticketAttendees[currentTicketIndex]?.name || 'attendee'}`}
+                                                {stepType === 'confirm' && 'Select your preferred payment method'}
+                                            </p>
                                         </div>
-                                    )}
 
-                                    {/* Per-ticket attendee forms */}
-                                    {ticketAttendees.length > 0 && (
-                                        <div className="space-y-4">
-                                            <p className="text-xs text-white/70 font-medium uppercase tracking-wider">Attendee Details</p>
-                                            {ticketAttendees.map((attendee, index) => (
-                                                <div key={index} className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-2">
-                                                    <p className="text-xs font-medium text-white/80">Ticket {index + 1}</p>
-                                                    <div className="grid grid-cols-2 gap-2">
+                                        {/* Buyer Details Step */}
+                                        {stepType === 'buyer' && (
+                                            <>
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="buyerName" className="text-xs font-medium text-muted-foreground">Full Name</Label>
+                                                    <Input
+                                                        id="buyerName"
+                                                        placeholder="Salahuddin Al-Ayyubi"
+                                                        value={attendeeName}
+                                                        onChange={(e) => setAttendeeName(e.target.value)}
+                                                        disabled={isProcessing}
+                                                        className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="buyerEmail" className="text-xs font-medium text-muted-foreground">Email Address</Label>
+                                                    <Input
+                                                        id="buyerEmail"
+                                                        type="email"
+                                                        placeholder="salahuddin@example.com"
+                                                        value={attendeeEmail}
+                                                        onChange={(e) => setAttendeeEmail(e.target.value)}
+                                                        disabled={isProcessing}
+                                                        className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors"
+                                                    />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="buyerAge" className="text-xs font-medium text-muted-foreground">Age</Label>
                                                         <Input
-                                                            placeholder="Name"
-                                                            value={attendee.name}
-                                                            onChange={(e) => {
-                                                                const updated = [...ticketAttendees];
-                                                                updated[index] = { ...updated[index], name: e.target.value };
-                                                                setTicketAttendees(updated);
-                                                            }}
-                                                            disabled={isProcessing}
-                                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 h-8 text-sm"
-                                                        />
-                                                        <Input
-                                                            placeholder="Email"
-                                                            type="email"
-                                                            value={attendee.email}
-                                                            onChange={(e) => {
-                                                                const updated = [...ticketAttendees];
-                                                                updated[index] = { ...updated[index], email: e.target.value };
-                                                                setTicketAttendees(updated);
-                                                            }}
-                                                            disabled={isProcessing}
-                                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 h-8 text-sm"
-                                                        />
-                                                        <Input
-                                                            placeholder="Age"
+                                                            id="buyerAge"
                                                             type="number"
-                                                            min="0"
+                                                            placeholder="25"
+                                                            min="1"
                                                             max="120"
-                                                            value={attendee.age}
-                                                            onChange={(e) => {
-                                                                const updated = [...ticketAttendees];
-                                                                updated[index] = { ...updated[index], age: e.target.value };
-                                                                setTicketAttendees(updated);
-                                                            }}
+                                                            value={attendeeAge}
+                                                            onChange={(e) => setAttendeeAge(e.target.value)}
                                                             disabled={isProcessing}
-                                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 h-8 text-sm"
+                                                            className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors"
                                                         />
-                                                        <Select
-                                                            value={attendee.gender}
-                                                            onValueChange={(value) => {
-                                                                const updated = [...ticketAttendees];
-                                                                updated[index] = { ...updated[index], gender: value as 'male' | 'female' };
-                                                                setTicketAttendees(updated);
-                                                            }}
-                                                            disabled={isProcessing}
-                                                        >
-                                                            <SelectTrigger className="bg-black/10 border-white/20 text-white h-8 text-sm">
-                                                                <SelectValue placeholder="Gender" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-medium text-muted-foreground">Gender</Label>
+                                                        <Select value={attendeeGender} onValueChange={setAttendeeGender} disabled={isProcessing}>
+                                                            <SelectTrigger className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors">
+                                                                <SelectValue placeholder="Select" />
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value="male">Male</SelectItem>
@@ -1109,134 +1198,249 @@ export default function EventDetailsPage() {
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
-                                                    {/* Custom questions for this attendee */}
-                                                    {event?.customQuestions && event.customQuestions.length > 0 && (
-                                                        <div className="space-y-2 pt-2 border-t border-white/10">
-                                                            {event.customQuestions.map((q) => (
-                                                                <div key={q.id} className="space-y-1">
-                                                                    <label className="text-xs text-white/70">
-                                                                        {q.label}{q.required && <span className="text-red-400">*</span>}
-                                                                    </label>
-                                                                    {q.type === 'text' && (
-                                                                        <Input
-                                                                            placeholder={q.label}
-                                                                            value={attendee.customAnswers[q.id] || ''}
+                                                </div>
+
+                                                {/* Shared Info Toggle */}
+                                                {event?.attendeeInfoMode === 'buyer_choice' && totalTickets > 1 && !forcePerTicket && (
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            id="useSharedInfo"
+                                                            checked={useSharedInfo}
+                                                            onChange={(e) => setUseSharedInfo(e.target.checked)}
+                                                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                                            disabled={isProcessing}
+                                                        />
+                                                        <label htmlFor="useSharedInfo" className="text-xs text-muted-foreground cursor-pointer select-none">
+                                                            Save time: use this info for all tickets
+                                                        </label>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {/* Ticket Step (Same as before but styled) */}
+                                        {stepType === 'ticket' && currentTicketIndex >= 0 && ticketAttendees[currentTicketIndex] && (
+                                            <>
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs font-medium text-muted-foreground">Attendee Name</Label>
+                                                    <Input
+                                                        placeholder="Name"
+                                                        value={ticketAttendees[currentTicketIndex].name}
+                                                        onChange={(e) => {
+                                                            const updated = [...ticketAttendees];
+                                                            updated[currentTicketIndex] = { ...updated[currentTicketIndex], name: e.target.value };
+                                                            setTicketAttendees(updated);
+                                                        }}
+                                                        disabled={isProcessing}
+                                                        className="h-10 bg-muted/30"
+                                                    />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-medium text-muted-foreground">Age</Label>
+                                                        <Input
+                                                            type="number"
+                                                            placeholder="25"
+                                                            value={ticketAttendees[currentTicketIndex].age}
+                                                            onChange={(e) => {
+                                                                const updated = [...ticketAttendees];
+                                                                updated[currentTicketIndex] = { ...updated[currentTicketIndex], age: e.target.value };
+                                                                setTicketAttendees(updated);
+                                                            }}
+                                                            disabled={isProcessing}
+                                                            className="h-10 bg-muted/30"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-medium text-muted-foreground">Gender</Label>
+                                                        <Select
+                                                            value={ticketAttendees[currentTicketIndex].gender}
+                                                            onValueChange={(value) => {
+                                                                const updated = [...ticketAttendees];
+                                                                updated[currentTicketIndex] = { ...updated[currentTicketIndex], gender: value as 'male' | 'female' };
+                                                                setTicketAttendees(updated);
+                                                            }}
+                                                            disabled={isProcessing}
+                                                        >
+                                                            <SelectTrigger className="h-10 bg-muted/30">
+                                                                <SelectValue placeholder="Select" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="male">Male</SelectItem>
+                                                                <SelectItem value="female">Female</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                                {/* Customer questions */}
+                                                {event?.customQuestions && event.customQuestions.length > 0 && (
+                                                    <div className="space-y-3 pt-2 border-t border-border/50 mt-2">
+                                                        {event.customQuestions.map((q) => (
+                                                            <div key={q.id} className="space-y-1.5">
+                                                                <Label className="text-xs font-medium text-muted-foreground">
+                                                                    {q.label}{q.required && <span className="text-destructive ml-0.5">*</span>}
+                                                                </Label>
+                                                                {q.type === 'text' && (
+                                                                    <Input
+                                                                        placeholder={q.label}
+                                                                        value={ticketAttendees[currentTicketIndex].customAnswers[q.id] || ''}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...ticketAttendees];
+                                                                            updated[currentTicketIndex] = {
+                                                                                ...updated[currentTicketIndex],
+                                                                                customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.value }
+                                                                            };
+                                                                            setTicketAttendees(updated);
+                                                                        }}
+                                                                        disabled={isProcessing}
+                                                                        className="h-10 bg-muted/30"
+                                                                    />
+                                                                )}
+                                                                {q.type === 'checkbox' && (
+                                                                    <label className="flex items-center gap-2 text-sm text-foreground">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={ticketAttendees[currentTicketIndex].customAnswers[q.id] === 'true'}
                                                                             onChange={(e) => {
                                                                                 const updated = [...ticketAttendees];
-                                                                                updated[index] = {
-                                                                                    ...updated[index],
-                                                                                    customAnswers: { ...updated[index].customAnswers, [q.id]: e.target.value }
+                                                                                updated[currentTicketIndex] = {
+                                                                                    ...updated[currentTicketIndex],
+                                                                                    customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.checked ? 'true' : 'false' }
                                                                                 };
                                                                                 setTicketAttendees(updated);
                                                                             }}
                                                                             disabled={isProcessing}
-                                                                            className="bg-black/10 border-white/20 text-white placeholder:text-white/40 h-8 text-sm"
+                                                                            className="h-4 w-4 rounded border-border"
                                                                         />
-                                                                    )}
-                                                                    {q.type === 'checkbox' && (
-                                                                        <label className="flex items-center gap-2 text-sm text-white/90">
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={attendee.customAnswers[q.id] === 'true'}
-                                                                                onChange={(e) => {
-                                                                                    const updated = [...ticketAttendees];
-                                                                                    updated[index] = {
-                                                                                        ...updated[index],
-                                                                                        customAnswers: { ...updated[index].customAnswers, [q.id]: e.target.checked ? 'true' : 'false' }
-                                                                                    };
-                                                                                    setTicketAttendees(updated);
-                                                                                }}
-                                                                                disabled={isProcessing}
-                                                                                className="h-4 w-4 rounded border-white/30"
-                                                                            />
-                                                                            Yes
-                                                                        </label>
-                                                                    )}
-                                                                    {q.type === 'select' && q.options && (
-                                                                        <Select
-                                                                            value={attendee.customAnswers[q.id] || ''}
-                                                                            onValueChange={(value) => {
-                                                                                const updated = [...ticketAttendees];
-                                                                                updated[index] = {
-                                                                                    ...updated[index],
-                                                                                    customAnswers: { ...updated[index].customAnswers, [q.id]: value }
-                                                                                };
-                                                                                setTicketAttendees(updated);
-                                                                            }}
-                                                                            disabled={isProcessing}
-                                                                        >
-                                                                            <SelectTrigger className="bg-black/10 border-white/20 text-white h-8 text-sm">
-                                                                                <SelectValue placeholder="Select..." />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                {q.options.map((opt) => (
-                                                                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                                                                ))}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    )}
-                                                                </div>
-                                                            ))}
+                                                                        Yes
+                                                                    </label>
+                                                                )}
+                                                                {q.type === 'select' && q.options && (
+                                                                    <Select
+                                                                        value={ticketAttendees[currentTicketIndex].customAnswers[q.id] || ''}
+                                                                        onValueChange={(value) => {
+                                                                            const updated = [...ticketAttendees];
+                                                                            updated[currentTicketIndex] = {
+                                                                                ...updated[currentTicketIndex],
+                                                                                customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: value }
+                                                                            };
+                                                                            setTicketAttendees(updated);
+                                                                        }}
+                                                                        disabled={isProcessing}
+                                                                    >
+                                                                        <SelectTrigger className="h-10 bg-muted/30">
+                                                                            <SelectValue placeholder="Select..." />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {q.options.map((opt) => (
+                                                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {/* Confirm/Payment Simulation Step */}
+                                        {stepType === 'confirm' && (
+                                            <div className="space-y-4">
+                                                {/* Payment Method Tabs (Simulated visual) */}
+                                                <div className="grid grid-cols-2 gap-3 mb-4">
+                                                    <div className="border-2 border-primary bg-primary/5 rounded-lg p-3 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all">
+                                                        <div className="w-5 h-5 rounded border border-current flex items-center justify-center">
+                                                            <div className="w-3 h-2 bg-current rounded-[1px]" />
                                                         </div>
-                                                    )}
+                                                        <span className="text-xs font-bold text-primary">Card</span>
+                                                    </div>
+                                                    <div className="border border-border bg-muted/10 rounded-lg p-3 flex flex-col items-center justify-center gap-2 cursor-pointer opacity-60 hover:opacity-100 transition-opacity">
+                                                        <span className="text-xs font-medium">Apple Pay</span>
+                                                    </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
 
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {/* Age */}
-                                        <div className="space-y-1">
-                                            <Label htmlFor="age" className="text-white/90 text-xs uppercase tracking-wider pl-1">Age</Label>
-                                            <Input
-                                                id="age"
-                                                type="number"
-                                                placeholder="25"
-                                                min="0"
-                                                max="120"
-                                                value={attendeeAge}
-                                                onChange={(e) => setAttendeeAge(e.target.value)}
-                                                disabled={isProcessing}
-                                                className="bg-black/10 border-white/20 text-white placeholder:text-white/40 focus:bg-black/20 focus:border-white/50 h-10 transition-all"
-                                            />
-                                        </div>
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs font-medium text-muted-foreground">Cardholder's Name</Label>
+                                                    <Input readOnly value={attendeeName.toUpperCase()} className="h-10 bg-muted/30 font-mono text-xs uppercase" />
+                                                </div>
 
-                                        {/* Gender */}
-                                        <div className="space-y-1">
-                                            <Label className="text-white/90 text-xs uppercase tracking-wider pl-1">Gender</Label>
-                                            <Select value={attendeeGender} onValueChange={setAttendeeGender} disabled={isProcessing}>
-                                                <SelectTrigger className="bg-black/10 border-white/20 text-white focus:ring-white/50 h-10">
-                                                    <SelectValue placeholder="Select" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="male">Male</SelectItem>
-                                                    <SelectItem value="female">Female</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs font-medium text-muted-foreground">Card Number</Label>
+                                                    <div className="relative">
+                                                        <Input readOnly placeholder="•••• •••• •••• ••••" className="h-10 bg-muted/30 pl-10" />
+                                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-3 bg-muted-foreground/20 rounded-sm" />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-medium text-muted-foreground">Expiry</Label>
+                                                        <Input readOnly placeholder="MM/YY" className="h-10 bg-muted/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-medium text-muted-foreground">CVV</Label>
+                                                        <Input readOnly placeholder="123" className="h-10 bg-muted/30" />
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <div className="h-4 w-4 rounded border border-primary bg-primary text-primary-foreground flex items-center justify-center">
+                                                        <Check className="w-3 h-3" />
+                                                    </div>
+                                                    <span className="text-xs text-muted-foreground">Secure payment encrypted by Stripe</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                </AnimatePresence>
+
+                                {checkoutError && (
+                                    <div className="mt-4 text-xs text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">
+                                        {checkoutError}
                                     </div>
+                                )}
+                            </div>
 
-                                    {checkoutError && (
-                                        <div className="text-xs text-red-200 bg-red-900/40 p-2 rounded border border-red-500/30">
-                                            {checkoutError}
-                                        </div>
-                                    )}
-
+                            {/* Footer Navigation */}
+                            <div className="p-8 pt-4 pb-6 mt-auto">
+                                {stepType !== 'confirm' ? (
                                     <Button
-                                        className="w-full bg-white text-teal-600 hover:bg-white/90 font-bold text-lg h-12 rounded-lg shadow-lg mt-2"
+                                        className="w-full h-11 text-base shadow-lg shadow-primary/20"
+                                        onClick={handleNextStep}
+                                        disabled={isProcessing}
+                                    >
+                                        Continue
+                                        <ArrowRight className="h-4 w-4 ml-2" />
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        className="w-full h-11 text-base font-bold shadow-lg shadow-primary/20"
                                         onClick={handleProceedToCheckout}
-                                        disabled={!attendeeEmail || !attendeeName || !attendeeAge || !attendeeGender || isProcessing}
+                                        disabled={isProcessing}
                                     >
                                         {isProcessing ? (
                                             <>
-                                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                                 Processing...
                                             </>
                                         ) : (
-                                            `Pay ${currencySymbol}${grandTotal.toFixed(2)}`
+                                            `Pay ${currencySymbol}${grandTotal.toFixed(2)} Now`
                                         )}
                                     </Button>
-                                </div>
+                                )}
+
+                                {checkoutStep > 0 && (
+                                    <button
+                                        onClick={handlePrevStep}
+                                        disabled={isProcessing}
+                                        className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-4 transition-colors"
+                                    >
+                                        Go Back
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

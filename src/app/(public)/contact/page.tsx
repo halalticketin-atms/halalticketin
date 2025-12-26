@@ -40,8 +40,10 @@ export default function ContactPage() {
         agreed: false,
     });
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitError(null);
 
@@ -60,13 +62,48 @@ export default function ContactPage() {
             return;
         }
 
+        const subjectLabel = SUBJECT_OPTIONS.find(opt => opt.value === formData.subject)?.label || formData.subject;
         const subjectValue = formData.subject === 'other'
             ? formData.customSubject.trim()
-            : formData.subject;
+            : subjectLabel;
 
-        // Handle form submission logic here
-        console.log('Form submitted:', { ...formData, subject: subjectValue });
-        alert('Thank you for your message! We will get back to you soon.');
+        setIsSubmitting(true);
+
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/contact`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    email: formData.email,
+                    subject: subjectValue,
+                    message: formData.message,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData?.error?.message || 'Failed to send message');
+            }
+
+            setIsSuccess(true);
+            setFormData({
+                firstName: '',
+                lastName: '',
+                email: '',
+                subject: '',
+                customSubject: '',
+                message: '',
+                agreed: false,
+            });
+        } catch (error) {
+            setSubmitError(error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -197,13 +234,21 @@ export default function ContactPage() {
 
                         <Button
                             type="submit"
-                            className="w-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl md:w-auto px-12 text-lg font-bold rounded-xl"
+                            className="w-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl md:w-auto px-12 text-lg font-bold rounded-xl disabled:opacity-50"
                             size="lg"
+                            disabled={isSubmitting}
                         >
-                            Submit
+                            {isSubmitting ? 'Sending...' : 'Submit'}
                         </Button>
                         {submitError && (
                             <p className="text-sm text-destructive">{submitError}</p>
+                        )}
+                        {isSuccess && (
+                            <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                                <p className="text-sm text-green-800 font-medium">
+                                    ✓ Thank you for your message! We will get back to you soon.
+                                </p>
+                            </div>
                         )}
                     </form>
                 </div>

@@ -33,6 +33,7 @@ export const mapTicketRecordsToDraft = (rows: TicketRecord[]): DraftTicketType[]
             earlyBirdPrice: '',
             earlyBirdEndDate: '',
             visibility: ticket.visibility ?? 'public',
+            absorbFee: ticket.absorbFee ?? null, // null = use event default
         };
     });
 

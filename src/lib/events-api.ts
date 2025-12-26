@@ -48,6 +48,7 @@ export interface TicketRecord {
     visibility: 'public' | 'hidden';
     salesStart: string | null;
     salesEnd: string | null;
+    absorbFee: boolean | null; // null = inherit from event
 }
 
 export interface CustomQuestionPayload {
@@ -93,6 +94,7 @@ export interface TicketInputPayload {
     visibility?: 'public' | 'hidden';
     salesStart?: string | null;
     salesEnd?: string | null;
+    absorbFee?: boolean | null; // null = inherit from event
 }
 
 export const createEventDraft = async (organizerId: string, payload: UpsertEventPayload) => {

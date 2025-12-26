@@ -51,6 +51,7 @@ export interface DraftTicketType {
   earlyBirdPrice: string;
   earlyBirdEndDate: string;
   visibility: 'public' | 'hidden';
+  absorbFee?: boolean | null; // null = use event default, true/false = explicit override
 }
 
 export interface DraftPromoCode {
@@ -113,6 +114,7 @@ const createDefaultTicket = (): DraftTicketType => ({
   earlyBirdPrice: '',
   earlyBirdEndDate: '',
   visibility: 'public',
+  absorbFee: null, // inherit from event by default
 });
 
 export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = stepsCountDefault) {
