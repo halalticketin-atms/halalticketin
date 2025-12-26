@@ -21,6 +21,8 @@ export interface EventRecord {
     city: string | null;
     country: string | null;
     onlineUrl: string | null;
+    latitude: number | null;
+    longitude: number | null;
     currency: string;
     refundPolicy: string | null;
     isListedPublicly: boolean;
@@ -75,6 +77,8 @@ export interface UpsertEventPayload {
     city?: string | null;
     country?: string | null;
     onlineUrl?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     currency?: string;
     refundPolicy?: string | null;
     isListedPublicly?: boolean;
@@ -204,6 +208,8 @@ export interface PublicEventRecord {
     city: string | null;
     country: string | null;
     onlineUrl: string | null;
+    latitude: number | null;
+    longitude: number | null;
     currency: string;
     organizerName: string | null;
     category: string | null;

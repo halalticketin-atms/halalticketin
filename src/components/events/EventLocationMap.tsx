@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/card';
 import L from 'leaflet';
 
 // Delete the default icon to avoid conflicts
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as L.Icon & { _getIconUrl?: () => string })._getIconUrl;
 
 // Set up the default icon with CDN URLs
 L.Icon.Default.mergeOptions({

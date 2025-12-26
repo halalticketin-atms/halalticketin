@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Calendar, Ticket, DollarSign, Users } from 'lucide-react';
 
 import { StatCard, RecentEvents } from '@/components/dashboard';
@@ -58,8 +58,29 @@ export default function DashboardPage() {
         void fetchAnalytics(organizerId ?? null);
     }, [organizerId]);
 
-    const greetingName = user?.name || user?.email?.split('@')[0] || 'there';
-    const welcomeTitle = user ? `Welcome back, ${greetingName}! 👋` : 'Welcome to your dashboard';
+    const greetingName = user?.name || user?.email?.split('@')[0] || '';
+    const prefersReducedMotion = useReducedMotion();
+    const shouldAnimateWave = !prefersReducedMotion;
+    const welcomeTitle = (
+        <span className="inline-flex flex-wrap items-center gap-2">
+            <span className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                Salaam{greetingName ? `, ${greetingName}` : ''}
+            </span>
+            {shouldAnimateWave ? (
+                <motion.span
+                    className="inline-block bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] bg-clip-text text-transparent"
+                    animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
+                    transition={{ duration: 1.2, ease: 'easeInOut' }}
+                >
+                    👋
+                </motion.span>
+            ) : (
+                <span className="inline-block bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] bg-clip-text text-transparent">
+                    👋
+                </span>
+            )}
+        </span>
+    );
     const welcomeSubtitle = user
         ? "Here's what's happening with your events"
         : 'Sign in to start creating and managing your halal events.';
