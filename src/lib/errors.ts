@@ -6,16 +6,7 @@
 
 import { toast } from 'sonner';
 import { ApiError } from './api';
-
-// Backend error codes map to user-friendly messages
-const ERROR_MESSAGES: Record<string, string> = {
-    VALIDATION_ERROR: 'Please check your input and try again',
-    NOT_FOUND: "We couldn't find what you're looking for",
-    UNAUTHORIZED: 'Please sign in to continue',
-    FORBIDDEN: "You don't have permission to do this",
-    CONFLICT: 'This action conflicts with existing data',
-    INTERNAL_ERROR: 'Something went wrong. Please try again later',
-};
+import { getBackendErrorMessage } from './api-errors';
 
 // Status code fallbacks when no error code is provided
 const STATUS_MESSAGES: Record<number, string> = {
@@ -30,32 +21,15 @@ const STATUS_MESSAGES: Record<number, string> = {
     503: 'Service is temporarily unavailable',
 };
 
-interface BackendError {
-    error?: {
-        code?: string;
-        message?: string;
-        details?: unknown;
-    };
-    message?: string;
-}
-
 /**
  * Get a user-friendly message from an error
  */
 export function getUserFriendlyMessage(error: unknown): string {
     // Handle ApiError from api.ts
     if (error instanceof ApiError) {
-        const payload = error.payload as BackendError;
-
-        // Try to get message from backend error structure
-        if (payload?.error?.code) {
-            // Use our friendly message for known codes
-            const friendlyMessage = ERROR_MESSAGES[payload.error.code];
-            if (friendlyMessage) {
-                return friendlyMessage;
-            }
-            // Fall back to backend message
-            return payload.error.message || error.message;
+        const backendMessage = getBackendErrorMessage(error.payload, '');
+        if (backendMessage) {
+            return backendMessage;
         }
 
         // Fall back to status code message

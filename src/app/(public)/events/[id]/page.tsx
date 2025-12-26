@@ -590,7 +590,7 @@ export default function EventDetailsPage() {
         if (!result.success) {
             const errorMessage = result.error || 'Checkout failed. Please try again.';
             setCheckoutError(errorMessage);
-            showError(new Error(errorMessage));
+            showError(errorMessage);
             setIsProcessing(false);
             return;
         }
@@ -1401,7 +1401,8 @@ export default function EventDetailsPage() {
 
                                 {checkoutError && (
                                     <div className="mt-4 text-xs text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">
-                                        {checkoutError}
+                                        <p className="font-semibold">Checkout error</p>
+                                        <p>{checkoutError}</p>
                                     </div>
                                 )}
                             </div>

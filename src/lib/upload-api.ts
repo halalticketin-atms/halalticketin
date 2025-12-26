@@ -1,4 +1,5 @@
 import { getAuthToken } from './api';
+import { getBackendErrorMessage } from './api-errors';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -31,8 +32,8 @@ export async function uploadAvatar(file: File): Promise<UploadResponse> {
     });
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Upload failed' })) as UploadError;
-        throw new Error(errorData.error || 'Failed to upload avatar');
+        const errorData = await response.json().catch(() => null) as UploadError | null;
+        throw new Error(getBackendErrorMessage(errorData, 'Failed to upload avatar'));
     }
 
     return response.json() as Promise<UploadResponse>;
@@ -59,8 +60,8 @@ export async function uploadOrganizerAvatar(organizerId: string, file: File): Pr
     });
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Upload failed' })) as UploadError;
-        throw new Error(errorData.error || 'Failed to upload avatar');
+        const errorData = await response.json().catch(() => null) as UploadError | null;
+        throw new Error(getBackendErrorMessage(errorData, 'Failed to upload avatar'));
     }
 
     return response.json() as Promise<UploadResponse>;
@@ -87,8 +88,8 @@ export async function uploadEventBanner(eventId: string, file: File): Promise<Up
     });
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Upload failed' })) as UploadError;
-        throw new Error(errorData.error || 'Failed to upload banner');
+        const errorData = await response.json().catch(() => null) as UploadError | null;
+        throw new Error(getBackendErrorMessage(errorData, 'Failed to upload banner'));
     }
 
     return response.json() as Promise<UploadResponse>;

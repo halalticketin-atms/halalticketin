@@ -1,3 +1,5 @@
+import { getBackendErrorDetails, getBackendErrorMessage, parseBackendError } from './api-errors';
+
 /**
  * Checkout API client for frontend
  */
@@ -51,6 +53,7 @@ export interface CheckoutErrorResponse {
     error?: unknown;
     unavailableTypes?: string[];
     issues?: string[];
+    code?: string;
 }
 
 export type CheckoutResponse = CheckoutSuccessResponse | CheckoutErrorResponse;
@@ -81,15 +84,18 @@ export async function createCheckoutSession(
             }
         );
 
-        const data = await response.json();
+        const data = await response.json().catch(() => null);
 
         if (!response.ok) {
+            const parsed = parseBackendError(data);
+            const details = getBackendErrorDetails<Record<string, unknown>>(data) ?? {};
             return {
                 success: false,
-                message: data.message || 'Checkout failed',
-                error: data.error,
-                unavailableTypes: data.unavailableTypes,
-                issues: data.issues
+                message: getBackendErrorMessage(data, 'Checkout failed'),
+                error: data,
+                unavailableTypes: Array.isArray(details.unavailableTypes) ? details.unavailableTypes : undefined,
+                issues: Array.isArray(details.issues) ? details.issues : undefined,
+                code: parsed?.code
             };
         }
 
@@ -153,9 +159,12 @@ export async function handleCheckout(
     const result = await createCheckoutSession(eventId, request);
 
     if (!result.success) {
+        const issuesSuffix = result.issues && result.issues.length > 0
+            ? ` ${result.issues.join(' ')}`
+            : '';
         return {
             success: false,
-            error: result.message
+            error: `${result.message}${issuesSuffix}`.trim()
         };
     }
 
@@ -211,8 +220,14 @@ export async function validatePromoCode(
                 body: JSON.stringify({ promoCode, subtotal })
             }
         );
-
-        return await response.json();
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+            return {
+                valid: false,
+                message: getBackendErrorMessage(data, 'Failed to validate promo code')
+            };
+        }
+        return data as ValidatePromoResult;
     } catch {
         return { valid: false, message: 'Failed to validate promo code' };
     }

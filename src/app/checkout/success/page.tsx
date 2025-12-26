@@ -7,6 +7,7 @@ import { CheckCircle, Calendar, MapPin, Ticket, Loader2, Download } from 'lucide
 import { Button } from '@/components/ui/button';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { QRCodeCanvas } from 'qrcode.react';
+import { getBackendErrorMessage } from '@/lib/api-errors';
 
 interface TicketInfo {
     id: string;
@@ -59,6 +60,9 @@ function CheckoutSuccessContent() {
                     if (response.ok) {
                         const data = await response.json();
                         setOrderStatus(data);
+                    } else {
+                        const errorData = await response.json().catch(() => null);
+                        setError(getBackendErrorMessage(errorData, 'Failed to load order details'));
                     }
                 }
                 // If only sessionId, the webhook will have processed it

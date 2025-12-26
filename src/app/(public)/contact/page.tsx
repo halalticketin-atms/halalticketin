@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { useState } from 'react';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
+import { getBackendErrorMessage } from '@/lib/api-errors';
 
 const SUBJECT_OPTIONS = [
     { value: 'general', label: 'General Inquiry' },
@@ -85,8 +86,8 @@ export default function ContactPage() {
             });
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData?.error?.message || 'Failed to send message');
+                const errorData = await response.json().catch(() => null);
+                throw new Error(getBackendErrorMessage(errorData, 'Failed to send message'));
             }
 
             setIsSuccess(true);
