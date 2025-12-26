@@ -675,7 +675,7 @@ export default function OrdersPage() {
                                                                     return sum + count * item.unitPrice;
                                                                 }, 0);
                                                             }
-                                                            await api.post(`/orders/${selectedOrder.id}/refund`, body);
+                                                            await api.post(`/api/v1/orders/${selectedOrder.id}/refund`, body);
                                                             setOrders((prev) =>
                                                                 prev.map((o) =>
                                                                     o.id === selectedOrder.id
