@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, startTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     Calendar,
@@ -21,6 +22,7 @@ import {
     ArrowRight,
     ChevronLeft,
     Check,
+    Navigation,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,6 +53,12 @@ import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useOptionalAuth } from '@/context/auth-context';
 import { differenceInYears } from 'date-fns';
 import { cn } from '@/lib/utils';
+
+// Dynamic import to avoid SSR issues with Leaflet
+const EventLocationMap = dynamic(
+    () => import('@/components/events/EventLocationMap').then(mod => ({ default: mod.EventLocationMap })),
+    { ssr: false, loading: () => <div className="h-[300px] rounded-lg bg-muted/40 flex items-center justify-center text-sm text-muted-foreground">Loading map...</div> }
+);
 
 type EventLike = EventRecord | PublicEventRecord;
 type TicketLike = PublicTicketRecord | TicketRecord;
@@ -874,10 +882,10 @@ export function PublicEventPageContent({
                             >
                                 <h2 className="text-xl font-semibold mb-4">Location</h2>
                                 <Card>
-                                    <CardContent className="pt-6">
+                                    <CardContent className="pt-6 space-y-4">
                                         <div className="flex items-start gap-4">
                                             <MapPin className="h-6 w-6 text-primary shrink-0 mt-1" />
-                                            <div>
+                                            <div className="flex-1">
                                                 {event.venue && (
                                                     <p className="font-medium">{event.venue}</p>
                                                 )}
@@ -891,6 +899,38 @@ export function PublicEventPageContent({
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* Interactive Map (if coordinates available) */}
+                                        {event.latitude && event.longitude ? (
+                                            <div className="space-y-2">
+                                                <EventLocationMap
+                                                    lat={event.latitude}
+                                                    lon={event.longitude}
+                                                    venueName={event.venue || undefined}
+                                                    address={event.address || undefined}
+                                                />
+                                            </div>
+                                        ) : null}
+
+                                        {/* Get Directions Button */}
+                                        <Button
+                                            variant="outline"
+                                            className="w-full"
+                                            asChild
+                                        >
+                                            <a
+                                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                                    [event.venue, event.address, event.city, event.country]
+                                                        .filter(Boolean)
+                                                        .join(', ')
+                                                )}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <Navigation className="h-4 w-4 mr-2" />
+                                                Get Directions
+                                            </a>
+                                        </Button>
                                     </CardContent>
                                 </Card>
                             </motion.div>

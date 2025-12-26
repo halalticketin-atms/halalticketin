@@ -1308,6 +1308,8 @@ export function EventWizard({
                                                                     venue: location.venue || location.displayName,
                                                                     address: location.address,
                                                                     city: location.city,
+                                                                    latitude: location.lat,
+                                                                    longitude: location.lon,
                                                                 }));
                                                                 setLocationCoords({ lat: location.lat, lon: location.lon });
                                                                 clearFieldErrors('venue');

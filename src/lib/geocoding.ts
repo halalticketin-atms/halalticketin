@@ -59,19 +59,26 @@ export async function searchLocations(query: string): Promise<LocationSearchResu
 
         const data: NominatimResult[] = await response.json();
 
-        return data.map((result) => ({
-            id: result.place_id,
-            displayName: result.display_name,
-            venue: result.address.name || result.address.road || '',
-            address: [
-                result.address.house_number,
-                result.address.road,
-            ].filter(Boolean).join(' ') || '',
-            city: result.address.city || result.address.town || result.address.village || '',
-            country: result.address.country || '',
-            lat: parseFloat(result.lat),
-            lon: parseFloat(result.lon),
-        }));
+        return data.map((result) => {
+            // Extract venue name: prioritize first part of display_name (before first comma)
+            // This gets "Convention Centre Dublin" from "Convention Centre Dublin, North Wall Quay..."
+            const displayParts = result.display_name.split(',').map(s => s.trim());
+            const venueName = result.address.name || displayParts[0] || result.address.road || '';
+
+            return {
+                id: result.place_id,
+                displayName: result.display_name,
+                venue: venueName,
+                address: [
+                    result.address.house_number,
+                    result.address.road,
+                ].filter(Boolean).join(' ') || '',
+                city: result.address.city || result.address.town || result.address.village || '',
+                country: result.address.country || '',
+                lat: parseFloat(result.lat),
+                lon: parseFloat(result.lon),
+            };
+        });
     } catch (error) {
         console.error('Location search error:', error);
         throw error;
