@@ -1035,7 +1035,6 @@ export function EventWizard({
                                                     </p>
                                                 </div>
 
-                                                {/* Currency Selector */}
                                                 <div className="space-y-1.5">
                                                     <Label className="text-sm font-medium">Event Currency</Label>
                                                     <Select
@@ -1054,8 +1053,20 @@ export function EventWizard({
                                                             <SelectItem value="GBP">🇬🇧 GBP (£) - British Pound</SelectItem>
                                                             <SelectItem value="USD">🇺🇸 USD ($) - US Dollar</SelectItem>
                                                             <SelectItem value="EUR">🇪🇺 EUR (€) - Euro</SelectItem>
+                                                            <SelectItem value="CAD">🇨🇦 CAD (C$) - Canadian Dollar</SelectItem>
+                                                            <SelectItem value="AUD">🇦🇺 AUD (A$) - Australian Dollar</SelectItem>
                                                             <SelectItem value="AED">🇦🇪 AED (د.إ) - UAE Dirham</SelectItem>
                                                             <SelectItem value="SAR">🇸🇦 SAR (﷼) - Saudi Riyal</SelectItem>
+                                                            <SelectItem value="MYR">🇲🇾 MYR (RM) - Malaysian Ringgit</SelectItem>
+                                                            <SelectItem value="SGD">🇸🇬 SGD (S$) - Singapore Dollar</SelectItem>
+                                                            <SelectItem value="INR">🇮🇳 INR (₹) - Indian Rupee</SelectItem>
+                                                            <SelectItem value="PKR">🇵🇰 PKR (₨) - Pakistani Rupee</SelectItem>
+                                                            <SelectItem value="TRY">🇹🇷 TRY (₺) - Turkish Lira</SelectItem>
+                                                            <SelectItem value="NGN">🇳🇬 NGN (₦) - Nigerian Naira</SelectItem>
+                                                            <SelectItem value="ZAR">🇿🇦 ZAR (R) - South African Rand</SelectItem>
+                                                            <SelectItem value="EGP">🇪🇬 EGP (E£) - Egyptian Pound</SelectItem>
+                                                            <SelectItem value="IDR">🇮🇩 IDR (Rp) - Indonesian Rupiah</SelectItem>
+                                                            <SelectItem value="BDT">🇧🇩 BDT (৳) - Bangladeshi Taka</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     <p className="text-[11px] text-muted-foreground">
