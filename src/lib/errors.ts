@@ -85,7 +85,7 @@ export function showInfo(message: string) {
  * Show a warning toast
  */
 export function showWarning(message: string) {
-    toast.warning(message);
+    toast.warning(message, { closeButton: true });
 }
 
 /**

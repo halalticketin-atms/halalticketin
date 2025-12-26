@@ -74,7 +74,7 @@ import {
 } from '@/lib/events-api';
 import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
 import { ApiError } from '@/lib/api';
-import { getUserFriendlyMessage } from '@/lib/errors';
+import { getUserFriendlyMessage, showWarning } from '@/lib/errors';
 import { PAYG_FEE_GBP, getCurrencySymbol, convertFromGBP } from '@/lib/fees';
 import { uploadEventBanner } from '@/lib/upload-api';
 
@@ -149,7 +149,6 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
     return {
         title: formData.title.trim(),
         description: formData.description.trim() || null,
-        bannerImageUrl: null,
         startDatetime: start,
         endDatetime: end,
         timezone: formData.timezone || 'UTC',
@@ -271,8 +270,6 @@ export function EventWizard({
         nextStep,
         prevStep,
         progressPercentage,
-        isPreviewOpen,
-        setIsPreviewOpen,
     } = useEventDraft(initialDraft, steps.length);
 
     const { user, isLoading: authLoading } = useAuth();
@@ -323,6 +320,7 @@ export function EventWizard({
 
     // Banner file upload state
     const [bannerFile, setBannerFile] = useState<File | null>(null);
+    const [bannerWasRemoved, setBannerWasRemoved] = useState(false);
     const bannerInputRef = useRef<HTMLInputElement>(null);
 
     const handleBannerSelect = useCallback((e: ChangeEvent<HTMLInputElement>) => {
@@ -342,6 +340,7 @@ export function EventWizard({
         }
 
         setBannerFile(file);
+        setBannerWasRemoved(false);
         setActionError(null);
 
         // Create preview
@@ -356,6 +355,7 @@ export function EventWizard({
 
     const removeBanner = useCallback(() => {
         setBannerFile(null);
+        setBannerWasRemoved(true);
         setFormData(prev => ({ ...prev, bannerImageDataUrl: '' }));
         if (bannerInputRef.current) {
             bannerInputRef.current.value = '';
@@ -485,6 +485,9 @@ export function EventWizard({
 
             try {
                 const payload = buildEventPayload({ ...formData, title: trimmedTitle });
+                if (bannerWasRemoved) {
+                    payload.bannerImageUrl = null;
+                }
                 let nextEventId = eventId;
 
                 if (!nextEventId) {
@@ -571,7 +574,7 @@ export function EventWizard({
                 setIsSaving(false);
             }
         },
-        [activeOrganizerId, bannerFile, eventId, formData, isSaving, markSnapshotAsSaved, promoCodes, setPromoCodes, setTickets, tickets],
+        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, isSaving, markSnapshotAsSaved, promoCodes, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
@@ -636,6 +639,21 @@ export function EventWizard({
             setIsPublishing(false);
         }
     }, [activeOrganizerId, formData.visibility, isPublishing, markSnapshotAsSaved, router, saveDraft]);
+
+    const handlePreviewClick = useCallback(async () => {
+        // Save draft before previewing (silent save)
+        const savedEventId = await saveDraft({ silent: true });
+        if (savedEventId) {
+            const previewUrl = `/events/${savedEventId}/preview?mode=draft`;
+            const opened = window.open(previewUrl, '_blank');
+            if (!opened) {
+                showWarning('Popup blocked. Allow popups to open the preview.');
+            }
+        } else {
+            // If save failed, show error (saveDraft already sets actionError)
+            setActionError('Please save the event before previewing.');
+        }
+    }, [router, saveDraft]);
 
     const isBusy = isSaving || isPublishing;
     const statusLabel = !activeOrganizerId
@@ -839,7 +857,8 @@ export function EventWizard({
                                 <Button
                                     variant="outline"
                                     className="w-full h-12 justify-center gap-2 text-base font-medium border-2"
-                                    onClick={() => setIsPreviewOpen(true)}
+                                    onClick={handlePreviewClick}
+                                    disabled={disableSaveButtons}
                                 >
                                     <Eye className="h-5 w-5" />
                                     Preview Event
@@ -2007,172 +2026,6 @@ export function EventWizard({
                 </div>
             </div>
 
-            {/* Event Preview Dialog */}
-            <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-                <DialogContent className="max-w-2xl max-h-[calc(100dvh-2rem)] sm:max-h-[85dvh] overflow-y-auto p-0">
-                    <DialogHeader className="p-6 pb-0">
-                        <DialogTitle>Event Preview</DialogTitle>
-                    </DialogHeader>
-
-                    <div className="p-6 pt-4">
-                        {/* Event Banner */}
-                        <div className="aspect-[4/5] rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-6 border overflow-hidden relative">
-                            {formData.bannerImageDataUrl ? (
-                                <Image
-                                    src={formData.bannerImageDataUrl}
-                                    alt={formData.title || 'Event banner'}
-                                    fill
-                                    sizes="(max-width: 768px) 100vw, 500px"
-                                    className="object-cover"
-                                    unoptimized
-                                />
-                            ) : formData.title ? (
-                                <div className="text-center p-8">
-                                    <h1 className="font-display text-2xl sm:text-3xl font-bold mb-2">
-                                        {formData.title}
-                                    </h1>
-                                    {formData.categories.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 justify-center mb-2">
-                                            {formData.categories.map((cat) => (
-                                                <Badge key={cat}>{cat}</Badge>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="text-center text-muted-foreground">
-                                    <Upload className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                                    <p className="text-sm">Event banner will appear here</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Event Details */}
-                        <div className="space-y-6">
-                            {/* Title & Description */}
-                            <div>
-                                <h2 className="font-display text-xl font-bold mb-2">
-                                    {formData.title || 'Event Title'}
-                                </h2>
-                                <p className="text-muted-foreground">
-                                    {formData.description || 'Event description will appear here...'}
-                                </p>
-                            </div>
-
-                            <Separator />
-
-                            {/* Date & Time */}
-                            <div className="flex items-start gap-3">
-                                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                                    <Calendar className="h-5 w-5 text-primary" />
-                                </div>
-                                <div>
-                                    <p className="font-semibold">
-                                        {formData.date
-                                            ? new Date(formData.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-                                            : 'Date not set'
-                                        }
-                                        {formData.isMultiDay && formData.endDate && (
-                                            <> - {new Date(formData.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</>
-                                        )}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        {formData.startTime || '--:--'} - {formData.endTime || '--:--'}
-                                        {formData.timezone && ` (${formData.timezone.split('/')[1]})`}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Location */}
-                            {(formData.locationType === 'physical' || formData.locationType === 'hybrid') && (
-                                <div className="flex items-start gap-3">
-                                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                                        <MapPin className="h-5 w-5 text-primary" />
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold">{formData.venue || 'Venue name'}</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            {formData.address && `${formData.address}, `}
-                                            {formData.city || 'City'}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {(formData.locationType === 'online' || formData.locationType === 'hybrid') && (
-                                <div className="flex items-start gap-3">
-                                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                                        <Globe className="h-5 w-5 text-primary" />
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold">Online Event</p>
-                                        <p className="text-sm text-muted-foreground">
-                                            {formData.onlineUrl || 'Link will be shared after registration'}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            <Separator />
-
-                            {/* Tickets Preview */}
-                            <div>
-                                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                                    <Ticket className="h-4 w-4" />
-                                    Available Tickets
-                                </h3>
-                                <div className="space-y-2">
-                                    {tickets.filter(t => t.visibility === 'public').map(ticket => (
-                                        <div key={ticket.id} className="flex items-center justify-between p-3 rounded-xl border bg-muted/30">
-                                            <div>
-                                                <p className="font-medium">{ticket.name || 'Ticket Name'}</p>
-                                                <p className="text-xs text-muted-foreground">{ticket.quantity} available</p>
-                                            </div>
-                                            <div className="text-right">
-                                                {ticket.isFree ? (
-                                                    <Badge variant="secondary">Free</Badge>
-                                                ) : (
-                                                    <p className="font-bold">£{ticket.price || '0'}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {tickets.filter(t => t.visibility === 'public').length === 0 && (
-                                        <p className="text-sm text-muted-foreground text-center py-4">
-                                            No public tickets to display
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Organizer */}
-                            {formData.organizerName && (
-                                <>
-                                    <Separator />
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                            <span className="font-bold text-primary">
-                                                {formData.organizerName.charAt(0)}
-                                            </span>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">Organized by</p>
-                                            <p className="font-medium">{formData.organizerName}</p>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Close Button */}
-                        <div className="mt-6 pt-4 border-t flex justify-end">
-                            <Button onClick={() => setIsPreviewOpen(false)}>
-                                Close Preview
-                            </Button>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog >
         </div >
     );
 }

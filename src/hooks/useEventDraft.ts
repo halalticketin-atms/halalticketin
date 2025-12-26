@@ -127,7 +127,6 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
     initial?.tickets && initial.tickets.length > 0 ? initial.tickets : [createDefaultTicket()],
   );
   const [promoCodes, setPromoCodes] = useState<DraftPromoCode[]>(initial?.promoCodes ?? []);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -216,7 +215,5 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
     nextStep,
     prevStep,
     progressPercentage,
-    isPreviewOpen,
-    setIsPreviewOpen,
   };
 }

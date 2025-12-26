@@ -74,11 +74,19 @@ export function Header() {
         setIsScrolled(latest > 50);
     });
 
-    const router = useRouter();
     const pathname = usePathname();
+    const router = useRouter();
     const auth = useOptionalAuth();
     const user = auth?.user ?? null;
     const isOrganizer = auth?.isOrganizer ?? false;
+    const isPreviewRoute = Boolean(
+        pathname &&
+        (/^\/events\/preview(\/|$)/.test(pathname) || /^\/events\/[^/]+\/preview$/.test(pathname))
+    );
+
+    if (isPreviewRoute) {
+        return null;
+    }
 
     // Navigation Items with Icons and Brand Gradients
     const navLinks = [
