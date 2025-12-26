@@ -1349,49 +1349,51 @@ export default function EventDetailsPage() {
                                         {/* Confirm/Payment Simulation Step */}
                                         {stepType === 'confirm' && (
                                             <div className="space-y-4">
-                                                {/* Payment Method Tabs (Simulated visual) */}
-                                                <div className="grid grid-cols-2 gap-3 mb-4">
-                                                    <div className="border-2 border-primary bg-primary/5 rounded-lg p-3 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all">
-                                                        <div className="w-5 h-5 rounded border border-current flex items-center justify-center">
-                                                            <div className="w-3 h-2 bg-current rounded-[1px]" />
+                                                <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Order Total</span>
+                                                        <span className="text-2xl font-bold text-foreground">{currencySymbol}{grandTotal.toFixed(2)}</span>
+                                                    </div>
+                                                    <div className="space-y-1.5 text-sm">
+                                                        {cartItems.map(item => (
+                                                            <div key={item.ticket.id} className="flex justify-between text-muted-foreground">
+                                                                <span>{item.quantity}× {item.ticket.name}</span>
+                                                                <span>{currencySymbol}{item.subtotal.toFixed(2)}</span>
+                                                            </div>
+                                                        ))}
+                                                        {appliedPromo && discountAmount > 0 && (
+                                                            <div className="flex justify-between text-green-600">
+                                                                <span>Discount ({appliedPromo.code})</span>
+                                                                <span>−{currencySymbol}{discountAmount.toFixed(2)}</span>
+                                                            </div>
+                                                        )}
+                                                        {platformFeeAmount > 0 && (
+                                                            <div className="flex justify-between text-muted-foreground">
+                                                                <span>Service fee</span>
+                                                                <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+                                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Buyer</p>
+                                                    <p className="font-medium text-foreground">{attendeeName}</p>
+                                                    <p className="text-sm text-muted-foreground">{attendeeEmail}</p>
+                                                </div>
+
+                                                {requiresPerTicket && ticketAttendees.length > 0 && (
+                                                    <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+                                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Attendees</p>
+                                                        <div className="space-y-1.5">
+                                                            {ticketAttendees.map((att, i) => (
+                                                                <p key={i} className="text-sm text-foreground">
+                                                                    <span className="text-muted-foreground">Ticket {i + 1}:</span> {att.name}
+                                                                </p>
+                                                            ))}
                                                         </div>
-                                                        <span className="text-xs font-bold text-primary">Card</span>
                                                     </div>
-                                                    <div className="border border-border bg-muted/10 rounded-lg p-3 flex flex-col items-center justify-center gap-2 cursor-pointer opacity-60 hover:opacity-100 transition-opacity">
-                                                        <span className="text-xs font-medium">Apple Pay</span>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-xs font-medium text-muted-foreground">Cardholder's Name</Label>
-                                                    <Input readOnly value={attendeeName.toUpperCase()} className="h-10 bg-muted/30 font-mono text-xs uppercase" />
-                                                </div>
-
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-xs font-medium text-muted-foreground">Card Number</Label>
-                                                    <div className="relative">
-                                                        <Input readOnly placeholder="•••• •••• •••• ••••" className="h-10 bg-muted/30 pl-10" />
-                                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-3 bg-muted-foreground/20 rounded-sm" />
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs font-medium text-muted-foreground">Expiry</Label>
-                                                        <Input readOnly placeholder="MM/YY" className="h-10 bg-muted/30" />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs font-medium text-muted-foreground">CVV</Label>
-                                                        <Input readOnly placeholder="123" className="h-10 bg-muted/30" />
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <div className="h-4 w-4 rounded border border-primary bg-primary text-primary-foreground flex items-center justify-center">
-                                                        <Check className="w-3 h-3" />
-                                                    </div>
-                                                    <span className="text-xs text-muted-foreground">Secure payment encrypted by Stripe</span>
-                                                </div>
+                                                )}
                                             </div>
                                         )}
                                     </motion.div>
