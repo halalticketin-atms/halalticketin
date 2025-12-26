@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -47,6 +48,13 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { LocationAutocomplete } from '@/components/events/LocationAutocomplete';
+
+// Dynamic import to avoid SSR issues with Leaflet
+const EventLocationMap = dynamic(
+    () => import('@/components/events/EventLocationMap').then(mod => ({ default: mod.EventLocationMap })),
+    { ssr: false, loading: () => <div className="h-[300px] flex items-center justify-center text-sm text-muted-foreground">Loading map...</div> }
+);
 import {
     useEventDraft,
     type DraftEventInitial,
@@ -293,6 +301,9 @@ export function EventWizard({
             }));
         }
     }, [initialDraft?.formData?.bannerImageDataUrl, formData.bannerImageDataUrl, setFormData]);
+
+    // Location coordinates for map display
+    const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
 
     const router = useRouter();
     const pathname = usePathname();
@@ -1288,26 +1299,31 @@ export function EventWizard({
                                                 {/* Physical Location Fields */}
                                                 {(formData.locationType === 'physical' || formData.locationType === 'hybrid') && (
                                                     <div className="space-y-3 pt-1.5">
-                                                        <div className="space-y-1.5">
-                                                            <Label htmlFor="venue">Venue Name *</Label>
-                                                            <Input
-                                                                id="venue"
-                                                                name="venue"
-                                                                placeholder="e.g., London Central Mosque"
-                                                                value={formData.venue}
-                                                                onChange={handleFieldChange}
-                                                                className={cn(
-                                                                    'h-11',
-                                                                    fieldErrors.venue ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                )}
-                                                            />
-                                                            {fieldErrors.venue ? (
-                                                                <p className="text-xs text-destructive">{fieldErrors.venue}</p>
-                                                            ) : null}
-                                                        </div>
+                                                        {/* Location Autocomplete */}
+                                                        <LocationAutocomplete
+                                                            value={formData.venue || ''}
+                                                            onSelect={(location) => {
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    venue: location.venue || location.displayName,
+                                                                    address: location.address,
+                                                                    city: location.city,
+                                                                }));
+                                                                setLocationCoords({ lat: location.lat, lon: location.lon });
+                                                                clearFieldErrors('venue');
+                                                            }}
+                                                            label="Venue Location *"
+                                                            placeholder="Search for Royal Dublin Society, etc..."
+                                                            className=""
+                                                        />
+                                                        {fieldErrors.venue && (
+                                                            <p className="text-xs text-destructive -mt-1">{fieldErrors.venue}</p>
+                                                        )}
+
+                                                        {/* Optional manual override fields */}
                                                         <div className="grid gap-3 sm:grid-cols-2">
                                                             <div className="space-y-1.5">
-                                                                <Label htmlFor="address">Address</Label>
+                                                                <Label htmlFor="address">Address (optional override)</Label>
                                                                 <Input
                                                                     id="address"
                                                                     name="address"
@@ -1330,13 +1346,25 @@ export function EventWizard({
                                                             </div>
                                                         </div>
 
-                                                        {/* Map Placeholder */}
-                                                        <div className="h-24 sm:h-28 rounded-lg bg-muted/40 flex items-center justify-center border border-border/50">
-                                                            <div className="text-center text-muted-foreground">
-                                                                <MapPin className="h-6 w-6 mx-auto mb-1" />
-                                                                <p className="text-xs sm:text-sm">Map preview</p>
+                                                        {/* Map Preview */}
+                                                        {locationCoords ? (
+                                                            <div className="space-y-1.5">
+                                                                <Label>Location Preview</Label>
+                                                                <EventLocationMap
+                                                                    lat={locationCoords.lat}
+                                                                    lon={locationCoords.lon}
+                                                                    venueName={formData.venue || undefined}
+                                                                    address={formData.address || undefined}
+                                                                />
                                                             </div>
-                                                        </div>
+                                                        ) : (
+                                                            <div className="h-24 sm:h-28 rounded-lg bg-muted/40 flex items-center justify-center border border-border/50">
+                                                                <div className="text-center text-muted-foreground">
+                                                                    <MapPin className="h-6 w-6 mx-auto mb-1" />
+                                                                    <p className="text-xs sm:text-sm">Select a location to see map preview</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
 

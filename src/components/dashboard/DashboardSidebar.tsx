@@ -11,6 +11,7 @@ import {
     Receipt,
     ScanLine,
     Users,
+    Mail,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OrganizerSwitcher } from './OrganizerSwitcher';
@@ -33,6 +34,7 @@ const buildNavItems = (organizerId?: string): NavItem[] => {
         { title: 'Overview', href: base, icon: LayoutDashboard },
         { title: 'My Events', href: `${base}/events`, icon: Calendar },
         { title: 'Orders', href: `${base}/orders`, icon: Receipt },
+        { title: 'Email Attendees', href: `${base}/email-attendees`, icon: Mail },
         { title: 'Team', href: `${base}/team`, icon: Users },
         { title: 'Check-in', href: `${base}/check-in`, icon: ScanLine },
         { title: 'Analytics', href: `${base}/analytics`, icon: BarChart3 },
@@ -111,4 +113,3 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
         </>
     );
 }
-

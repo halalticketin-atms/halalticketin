@@ -15,6 +15,7 @@ import {
     ScanLine,
     LogOut,
     X,
+    Mail,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { buildDashboardPath } from '@/lib/organizer-path';
@@ -46,6 +47,7 @@ const moreMenuItems = (organizerId?: string): NavItem[] => {
     return [
         { title: 'Team', href: `${base}/team`, icon: Users },
         { title: 'Check-in', href: `${base}/check-in`, icon: ScanLine },
+        { title: 'Email Attendees', href: `${base}/email-attendees`, icon: Mail },
         { title: 'Settings', href: '/settings', icon: Settings },
     ];
 };
