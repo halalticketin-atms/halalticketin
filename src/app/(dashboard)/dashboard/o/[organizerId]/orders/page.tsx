@@ -60,6 +60,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
+import { toast } from 'sonner';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 
 type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
@@ -135,6 +136,50 @@ export default function OrdersPage() {
     const [selectedTicketIds, setSelectedTicketIds] = useState<Set<string>>(new Set());
     const [isProcessing, setIsProcessing] = useState(false);
     const [refundError, setRefundError] = useState<string | null>(null);
+    const [isResending, setIsResending] = useState(false);
+    const [emailCooldowns, setEmailCooldowns] = useState<Map<string, number>>(new Map());
+
+    const EMAIL_COOLDOWN_SECONDS = 60;
+
+    const canResendEmail = (orderId: string) => {
+        const lastSent = emailCooldowns.get(orderId);
+        if (!lastSent) return true;
+        return Date.now() - lastSent > EMAIL_COOLDOWN_SECONDS * 1000;
+    };
+
+    const getCooldownRemaining = (orderId: string) => {
+        const lastSent = emailCooldowns.get(orderId);
+        if (!lastSent) return 0;
+        const elapsed = Date.now() - lastSent;
+        const remaining = Math.ceil((EMAIL_COOLDOWN_SECONDS * 1000 - elapsed) / 1000);
+        return remaining > 0 ? remaining : 0;
+    };
+
+    const handleResendEmail = async (orderId: string) => {
+        if (!canResendEmail(orderId)) {
+            toast.warning('Please wait', {
+                description: `You can resend in ${getCooldownRemaining(orderId)} seconds.`
+            });
+            return;
+        }
+
+        setIsResending(true);
+        try {
+            await api.post(`/api/v1/orders/${orderId}/resend-confirmation`);
+            // Record cooldown
+            setEmailCooldowns(prev => new Map(prev).set(orderId, Date.now()));
+            toast.success('Confirmation email sent', {
+                description: 'The attendee will receive their tickets shortly.'
+            });
+        } catch (err) {
+            console.error('Failed to resend email:', err);
+            toast.error('Failed to send email', {
+                description: err instanceof Error ? err.message : 'Please try again later.'
+            });
+        } finally {
+            setIsResending(false);
+        }
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -389,9 +434,15 @@ export default function OrdersPage() {
                                                             <Eye className="mr-2 h-4 w-4" />
                                                             View Details
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleResendEmail(order.id);
+                                                            }}
+                                                            disabled={isResending}
+                                                        >
                                                             <Mail className="mr-2 h-4 w-4" />
-                                                            Resend Confirmation
+                                                            {isResending ? 'Sending...' : 'Resend Confirmation'}
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         {(order.status === 'completed' || order.status === 'partially_refunded') && (
@@ -522,8 +573,14 @@ export default function OrdersPage() {
 
                                                 {/* Actions */}
                                                 <div className="flex gap-3 pt-2">
-                                                    <Button variant="outline" className="flex-1">
-                                                        <Mail className="h-4 w-4 mr-2" /> Resend Email
+                                                    <Button
+                                                        variant="outline"
+                                                        className="flex-1"
+                                                        onClick={() => selectedOrder && handleResendEmail(selectedOrder.id)}
+                                                        disabled={isResending}
+                                                    >
+                                                        <Mail className="h-4 w-4 mr-2" />
+                                                        {isResending ? 'Sending...' : 'Resend Email'}
                                                     </Button>
                                                     {(selectedOrder.status === 'completed' || selectedOrder.status === 'partially_refunded') && (
                                                         <Button

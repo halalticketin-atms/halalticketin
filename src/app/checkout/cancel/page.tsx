@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 function CheckoutCancelContent() {
     const searchParams = useSearchParams();
     const orderId = searchParams.get('order_id');
+    const eventId = searchParams.get('event_id');
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-red-50 to-white">
@@ -50,9 +51,16 @@ function CheckoutCancelContent() {
                             Browse Events
                         </Link>
                     </Button>
-                    {orderId && (
+                    {eventId ? (
                         <Button asChild size="lg">
-                            <Link href={`/events`}>
+                            <Link href={`/events/${eventId}`}>
+                                <RefreshCw className="w-5 h-5 mr-2" />
+                                Try Again
+                            </Link>
+                        </Button>
+                    ) : orderId && (
+                        <Button asChild size="lg">
+                            <Link href="/events">
                                 <RefreshCw className="w-5 h-5 mr-2" />
                                 Try Again
                             </Link>

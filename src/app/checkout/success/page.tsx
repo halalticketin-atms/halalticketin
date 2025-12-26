@@ -117,6 +117,15 @@ function CheckoutSuccessContent() {
         track(orderStatus.metaPixelId, 'Purchase', purchasePayload, eventOptions);
         purchaseTrackedRef.current = true;
 
+        // Clear checkout draft for this event (form data no longer needed)
+        if (orderStatus.eventId && typeof sessionStorage !== 'undefined') {
+            try {
+                sessionStorage.removeItem(`checkout_draft_${orderStatus.eventId}`);
+            } catch {
+                // Ignore storage errors
+            }
+        }
+
         if (typeof window !== 'undefined' && storageKey) {
             try {
                 window.localStorage.setItem(storageKey, '1');

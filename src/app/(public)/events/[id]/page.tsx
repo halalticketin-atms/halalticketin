@@ -173,6 +173,88 @@ export default function EventDetailsPage() {
     const [appliedPromo, setAppliedPromo] = useState<ValidatePromoResult | null>(null);
     const [promoError, setPromoError] = useState<string | null>(null);
 
+    // --- Checkout Draft Persistence ---
+    const DRAFT_KEY = event?.id ? `checkout_draft_${event.id}` : null;
+    const DRAFT_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
+
+    // Restore draft from sessionStorage on mount
+    useEffect(() => {
+        if (!DRAFT_KEY || !event) return;
+
+        try {
+            const stored = sessionStorage.getItem(DRAFT_KEY);
+            if (!stored) return;
+
+            const draft = JSON.parse(stored);
+            const savedAt = draft.savedAt || 0;
+
+            // Check if draft is still valid (< 30 min old)
+            if (Date.now() - savedAt > DRAFT_EXPIRY_MS) {
+                sessionStorage.removeItem(DRAFT_KEY);
+                return;
+            }
+
+            // Restore form state (only if fields are empty to not overwrite user input)
+            if (draft.ticketQuantities && Object.keys(ticketQuantities).length === 0) {
+                setTicketQuantities(draft.ticketQuantities);
+            }
+            if (draft.attendeeName && !attendeeName) {
+                setAttendeeName(draft.attendeeName);
+            }
+            if (draft.attendeeEmail && !attendeeEmail) {
+                setAttendeeEmail(draft.attendeeEmail);
+            }
+            if (draft.attendeeGender && !attendeeGender) {
+                setAttendeeGender(draft.attendeeGender);
+            }
+            if (draft.attendeeAge && !attendeeAge) {
+                setAttendeeAge(draft.attendeeAge);
+            }
+            if (draft.ticketAttendees && ticketAttendees.length === 0) {
+                setTicketAttendees(draft.ticketAttendees);
+            }
+            if (draft.promoCode && !promoCode) {
+                setPromoCode(draft.promoCode);
+            }
+            if (draft.useSharedInfo !== undefined) {
+                setUseSharedInfo(draft.useSharedInfo);
+            }
+        } catch {
+            // Ignore parse errors
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [DRAFT_KEY, event?.id]);
+
+    // Save draft to sessionStorage
+    const saveDraft = () => {
+        if (!DRAFT_KEY) return;
+
+        const draft = {
+            ticketQuantities,
+            attendeeName,
+            attendeeEmail,
+            attendeeGender,
+            attendeeAge,
+            ticketAttendees,
+            promoCode,
+            useSharedInfo,
+            savedAt: Date.now()
+        };
+
+        try {
+            sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        } catch {
+            // Ignore storage errors
+        }
+    };
+
+    // Clear draft (call after successful order)
+    const clearDraft = () => {
+        if (DRAFT_KEY) {
+            sessionStorage.removeItem(DRAFT_KEY);
+        }
+    };
+
     // Calculate totals
     const cartItems = useMemo(() => {
         return tickets
@@ -388,6 +470,9 @@ export default function EventDetailsPage() {
             return;
         }
 
+        // Save form draft before redirecting to Stripe
+        saveDraft();
+
         const items: CartItem[] = cartItems.map(item => ({
             ticketTypeId: item.ticket.id,
             quantity: item.quantity
@@ -446,9 +531,10 @@ export default function EventDetailsPage() {
 
         // If free order, redirect to success
         if (result.isFreeOrder && result.orderId) {
+            clearDraft(); // Clear saved form draft
             window.location.href = `/checkout/success?order_id=${result.orderId}`;
         }
-        // Paid orders will redirect via the handleCheckout function
+        // Paid orders: clearDraft is handled by success page (draft auto-expires anyway)
     };
 
     const startDatetime = event?.startDatetime ?? null;
