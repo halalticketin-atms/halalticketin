@@ -37,11 +37,11 @@ export function parseBackendError(payload: unknown): ParsedBackendError | null {
         return { message: maybeError };
     }
     if (maybeError && typeof maybeError === 'object') {
-        const { code, message, details } = maybeError as BackendErrorPayload['error'];
+        const errorObject = maybeError as Record<string, unknown>;
         return {
-            code: typeof code === 'string' ? code : undefined,
-            message: typeof message === 'string' ? message : undefined,
-            details,
+            code: typeof errorObject.code === 'string' ? errorObject.code : undefined,
+            message: typeof errorObject.message === 'string' ? errorObject.message : undefined,
+            details: errorObject.details,
         };
     }
 
