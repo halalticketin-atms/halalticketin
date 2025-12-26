@@ -97,8 +97,8 @@ export default function DashboardPage() {
                 date: dateStr,
                 location,
                 status,
-                ticketsSold: 0, // Will be populated when orders are implemented
-                totalTickets: 100, // Placeholder
+                ticketsSold: (event as any).ticketsSold || 0, // Real data from backend when available
+                totalTickets: (event as any).totalTickets || 100, // Real data from backend when available
                 imageUrl: event.bannerImageUrl || '/images/placeholder-event.jpg',
             };
         });
@@ -140,7 +140,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Recent Events - Full Width */}
-                <RecentEvents events={recentEventsData} />
+                <RecentEvents events={recentEventsData} organizerId={organizerId} />
             </div>
         </div>
     );

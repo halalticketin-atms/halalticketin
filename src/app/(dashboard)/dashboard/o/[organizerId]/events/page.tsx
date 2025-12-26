@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
     Calendar,
@@ -30,6 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents, DashboardEvent, DashboardEventStatus } from '@/hooks/useOrganizerEvents';
+import { DeleteEventDialog } from '@/components/dashboard/DeleteEventDialog';
 
 const statusConfig: Record<DashboardEventStatus, { label: string; color: string; icon: typeof Clock }> = {
     active: { label: 'Active', color: 'bg-green-100 text-green-700', icon: Calendar },
@@ -76,7 +78,8 @@ function getLocationDisplay(event: DashboardEvent): string {
     return 'Location TBD';
 }
 
-function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
+function EventCard({ event, index, onDelete }: { event: DashboardEvent; index: number; onDelete: (id: string, title: string) => void }) {
+    const router = useRouter();
     const config = statusConfig[event.displayStatus];
     const StatusIcon = config.icon;
     const { date, time } = formatEventDateTime(event);
@@ -86,121 +89,157 @@ function EventCard({ event, index }: { event: DashboardEvent; index: number }) {
     const ticketsSold = 0;
     const totalTickets = 100;
 
+    const handleCardClick = (e: React.MouseEvent) => {
+        // Don't navigate if clicking on the dropdown menu
+        const target = e.target as HTMLElement;
+        if (target.closest('[data-dropdown-trigger]') || target.closest('[data-dropdown-content]')) {
+            return;
+        }
+        router.push(`/events/${event.id}/edit`);
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
+            transition={{ duration: 0.4, delay: index * 0.1 }}
         >
-            <Card className="overflow-hidden border-border/50 hover:shadow-lg transition-shadow group">
-                <div className="flex flex-col sm:flex-row">
-                    {/* Poster Image */}
-                    <div className="relative w-full sm:w-40 md:w-48 aspect-[4/5] sm:aspect-auto shrink-0 bg-muted overflow-hidden">
-                        {event.bannerImageUrl ? (
-                            <Image
-                                src={event.bannerImageUrl}
-                                alt={event.title || 'Event'}
-                                fill
-                                className="object-cover"
-                            />
-                        ) : (
-                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-                                <Calendar className="h-8 w-8 text-muted-foreground" />
-                            </div>
-                        )}
-                        <Badge className={`absolute top-3 left-3 ${config.color}`}>
-                            <StatusIcon className="h-3 w-3 mr-1" />
+            <Card
+                className="group relative overflow-hidden border border-border/60 hover:border-primary/20 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
+                onClick={handleCardClick}
+            >
+                {/* Banner Image - Portrait 4:5 */}
+                <div className="relative w-full aspect-[4/5] overflow-hidden bg-muted">
+                    {event.bannerImageUrl ? (
+                        <Image
+                            src={event.bannerImageUrl}
+                            alt={event.title || 'Event'}
+                            fill
+                            className="object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                        />
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
+                            <Calendar className="h-12 w-12 text-muted-foreground/40" />
+                        </div>
+                    )}
+
+                    {/* Status Badge - Overlay on Image */}
+                    <div className="absolute top-2 left-2">
+                        <Badge className={`${config.color} backdrop-blur-sm border text-[10px] px-1.5 py-0.5 shadow-sm`} variant="secondary">
+                            <StatusIcon className="h-2.5 w-2.5 mr-1" />
                             {config.label}
                         </Badge>
                     </div>
 
-                    {/* Content */}
-                    <CardContent className="flex-1 p-4 sm:p-5">
-                        <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
-                                    {event.title || 'Untitled Event'}
-                                </h3>
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-                                    <span className="flex items-center gap-1">
-                                        <Calendar className="h-4 w-4" />
-                                        {date}{time && ` at ${time}`}
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                        <MapPin className="h-4 w-4" />
-                                        {location}
-                                    </span>
-                                </div>
-
-                                {/* Stats - placeholder until orders are implemented */}
-                                <div className="flex items-center gap-6 mt-4">
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Tickets Sold</p>
-                                        <p className="font-semibold">
-                                            {ticketsSold}/{totalTickets}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Revenue</p>
-                                        <p className="font-semibold text-primary">£0</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Capacity</p>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-primary rounded-full"
-                                                    style={{ width: `${(ticketsSold / totalTickets) * 100}%` }}
-                                                />
-                                            </div>
-                                            <span className="text-xs font-medium">
-                                                {Math.round((ticketsSold / totalTickets) * 100)}%
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="shrink-0">
-                                        <MoreHorizontal className="h-5 w-5" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    {event.slug && event.displayStatus !== 'draft' && (
-                                        <DropdownMenuItem asChild>
-                                            <Link href={`/events/${event.slug}`}>
-                                                <Eye className="h-4 w-4 mr-2" />
-                                                View Public Page
-                                            </Link>
-                                        </DropdownMenuItem>
-                                    )}
+                    {/* Three-Dot Menu - Top Right */}
+                    <div className="absolute top-2 right-2" data-dropdown-trigger>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="secondary"
+                                    size="icon"
+                                    className="h-8 w-8 bg-background/80 hover:bg-background backdrop-blur-sm shadow-sm"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" data-dropdown-content>
+                                {event.slug && event.displayStatus !== 'draft' && (
                                     <DropdownMenuItem asChild>
-                                        <Link href={`/events/${event.id}/edit`}>
-                                            <Edit className="h-4 w-4 mr-2" />
-                                            Edit
+                                        <Link href={`/events/${event.slug}`}>
+                                            <Eye className="h-4 w-4 mr-2" />
+                                            View Public Page
                                         </Link>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem className="text-red-600">
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Delete
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </CardContent>
+                                )}
+                                <DropdownMenuItem asChild>
+                                    <Link href={`/events/${event.id}/edit`}>
+                                        <Edit className="h-4 w-4 mr-2" />
+                                        Edit
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDelete(event.id, event.title || 'Untitled Event');
+                                    }}
+                                >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
+
+                {/* Card Content */}
+                <CardContent className="p-3 space-y-2 bg-gradient-to-b from-background to-muted/20">
+                    {/* Title */}
+                    <h3 className="font-bold text-sm line-clamp-2 min-h-[2.5rem] leading-tight">
+                        {event.title || 'Untitled Event'}
+                    </h3>
+
+                    {/* Event Details */}
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                            <Calendar className="h-3 w-3 shrink-0 text-primary/70" />
+                            <span className="truncate">{date}{time && ` at ${time}`}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <MapPin className="h-3 w-3 shrink-0 text-primary/70" />
+                            <span className="truncate">{location}</span>
+                        </div>
+                    </div>
+
+                    {/* Stats Section - Enhanced */}
+                    <div className="-mx-3 px-3 py-2 mt-2 border-t bg-primary/5">
+                        <div className="grid grid-cols-2 gap-2 text-xs mb-1.5">
+                            <div>
+                                <p className="text-xs text-muted-foreground">Tickets Sold</p>
+                                <p className="font-bold text-primary">{ticketsSold}/{totalTickets}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Revenue</p>
+                                <p className="font-semibold text-primary">£0</p>
+                            </div>
+                        </div>
+                        {/* Progress Bar - Enhanced */}
+                        <div className="h-1 bg-background rounded-full overflow-hidden shadow-inner">
+                            <div
+                                className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-300"
+                                style={{
+                                    width: `${Math.min((ticketsSold / totalTickets) * 100, 100)}%`,
+                                }}
+                            />
+                        </div>
+                    </div>
+                </CardContent>
             </Card>
         </motion.div>
     );
 }
 
 export default function MyEventsPage() {
+    const router = useRouter();
     const organizerId = useOrganizerFromParams();
     const { events, isLoading, error, counts } = useOrganizerEvents(organizerId);
     const [activeTab, setActiveTab] = useState('all');
+    const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string }>({
+        open: false,
+        eventId: '',
+        eventTitle: '',
+    });
+
+    const handleDeleteSuccess = () => {
+        router.refresh();
+    };
+
+    // Scroll to top when page loads
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
 
     const getFilteredEvents = (status: string) => {
         if (status === 'all') return events;
@@ -269,7 +308,7 @@ export default function MyEventsPage() {
                     </TabsList>
 
                     {['all', 'active', 'past', 'draft'].map(tab => (
-                        <TabsContent key={tab} value={tab} className="space-y-4">
+                        <TabsContent key={tab} value={tab}>
                             {getFilteredEvents(tab).length === 0 ? (
                                 <Card className="p-12 text-center">
                                     <Calendar className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
@@ -290,14 +329,30 @@ export default function MyEventsPage() {
                                     </Button>
                                 </Card>
                             ) : (
-                                getFilteredEvents(tab).map((event, i) => (
-                                    <EventCard key={event.id} event={event} index={i} />
-                                ))
+                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {getFilteredEvents(tab).map((event, i) => (
+                                        <EventCard
+                                            key={event.id}
+                                            event={event}
+                                            index={i}
+                                            onDelete={(id, title) => setDeleteDialog({ open: true, eventId: id, eventTitle: title })}
+                                        />
+                                    ))}
+                                </div>
                             )}
                         </TabsContent>
                     ))}
                 </Tabs>
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <DeleteEventDialog
+                eventId={deleteDialog.eventId}
+                eventTitle={deleteDialog.eventTitle}
+                open={deleteDialog.open}
+                onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+                onSuccess={handleDeleteSuccess}
+            />
         </div>
     );
 }

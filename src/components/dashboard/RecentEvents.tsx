@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Calendar, MapPin, MoreHorizontal, Eye, Edit } from 'lucide-react';
+import { Calendar, MapPin, MoreHorizontal, Eye, Edit, Trash2, Ticket } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,8 +13,10 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { DeleteEventDialog } from './DeleteEventDialog';
 
 interface Event {
     id: string;
@@ -27,103 +31,206 @@ interface Event {
 
 interface RecentEventsProps {
     events: Event[];
+    organizerId?: string | null;
 }
 
 const statusColors = {
-    published: 'bg-green-100 text-green-700',
-    draft: 'bg-yellow-100 text-yellow-700',
-    completed: 'bg-gray-100 text-gray-700',
+    published: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
+    draft: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
+    completed: 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20',
 };
 
-export function RecentEvents({ events }: RecentEventsProps) {
+const statusLabels = {
+    published: 'Published',
+    draft: 'Draft',
+    completed: 'Past',
+};
+
+export function RecentEvents({ events, organizerId }: RecentEventsProps) {
+    const router = useRouter();
+    const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string }>({
+        open: false,
+        eventId: '',
+        eventTitle: '',
+    });
+
+    const handleCardClick = (eventId: string, e: React.MouseEvent) => {
+        // Don't navigate if clicking on the dropdown menu
+        const target = e.target as HTMLElement;
+        if (target.closest('[data-dropdown-trigger]') || target.closest('[data-dropdown-content]')) {
+            return;
+        }
+        router.push(`/events/${eventId}/edit`);
+    };
+
+    const handleDeleteSuccess = () => {
+        // Refresh the page to show updated events list
+        router.refresh();
+    };
+
     return (
-        <Card className="border-border/50 overflow-hidden">
-            <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-lg">Recent Events</CardTitle>
-                <Button variant="ghost" size="sm" asChild>
-                    <Link href="/events">View all</Link>
-                </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-                {events.length === 0 ? (
-                    <div className="p-6 text-center text-sm text-muted-foreground">
-                        You haven&apos;t created any events yet.{' '}
-                        <Link href="/events/new" className="text-primary hover:underline font-medium">
-                            Create your first event
-                        </Link>{' '}
-                        to see them here.
-                    </div>
-                ) : (
-                    <div className="divide-y">
-                        {events.map((event, index) => (
-                            <motion.div
-                                key={event.id}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ duration: 0.3, delay: index * 0.1 }}
-                                className="flex items-start gap-3 p-3 sm:p-4 hover:bg-muted/50 transition-colors"
-                            >
-                                <div className="relative w-12 sm:w-16 aspect-[4/5] shrink-0 overflow-hidden rounded-lg bg-muted">
-                                    {event.imageUrl ? (
-                                        <Image
-                                            src={event.imageUrl}
-                                            alt={event.title}
-                                            fill
-                                            className="object-cover"
-                                        />
-                                    ) : (
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <Calendar className="h-4 w-4 text-muted-foreground" />
+        <>
+            <Card className="border-border/50 overflow-hidden">
+                <CardHeader className="flex-row items-center justify-between pb-4">
+                    <CardTitle className="text-xl font-semibold">Recent Events</CardTitle>
+                    <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary/80">
+                        <Link href={organizerId ? `/dashboard/o/${organizerId}/events` : '/events'}>
+                            View all
+                        </Link>
+                    </Button>
+                </CardHeader>
+                <CardContent className="p-6 pt-0">
+                    {events.length === 0 ? (
+                        <div className="py-16 text-center">
+                            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+                                <Calendar className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                            <h3 className="font-semibold text-lg mb-2">No events yet</h3>
+                            <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+                                Get started by creating your first event. It only takes a few minutes.
+                            </p>
+                            <Button asChild>
+                                <Link href="/events/new">Create your first event</Link>
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {events.map((event, index) => (
+                                <motion.div
+                                    key={event.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                                >
+                                    <Card
+                                        className="group relative overflow-hidden border border-border/60 hover:border-primary/20 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
+                                        onClick={(e) => handleCardClick(event.id, e)}
+                                    >
+                                        {/* Banner Image */}
+                                        <div className="relative w-full aspect-[4/5] overflow-hidden bg-muted">
+                                            {event.imageUrl ? (
+                                                <Image
+                                                    src={event.imageUrl}
+                                                    alt={event.title}
+                                                    fill
+                                                    className="object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                                                />
+                                            ) : (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
+                                                    <Calendar className="h-12 w-12 text-muted-foreground/40" />
+                                                </div>
+                                            )}
+
+                                            {/* Status Badge - Overlay on Image */}
+                                            <div className="absolute top-2 left-2">
+                                                <Badge
+                                                    className={`${statusColors[event.status]} backdrop-blur-sm border text-[10px] px-1.5 py-0.5 shadow-sm`}
+                                                    variant="secondary"
+                                                >
+                                                    {statusLabels[event.status]}
+                                                </Badge>
+                                            </div>
+
+                                            {/* Three-Dot Menu - Top Right */}
+                                            <div className="absolute top-2 right-2" data-dropdown-trigger>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="icon"
+                                                            className="h-8 w-8 bg-background/80 hover:bg-background backdrop-blur-sm shadow-sm"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" data-dropdown-content>
+                                                        <DropdownMenuItem asChild>
+                                                            <Link href={`/events/${event.id}`}>
+                                                                <Eye className="h-4 w-4 mr-2" />
+                                                                View
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem asChild>
+                                                            <Link href={`/events/${event.id}/edit`}>
+                                                                <Edit className="h-4 w-4 mr-2" />
+                                                                Edit
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            className="text-destructive focus:text-destructive"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setDeleteDialog({
+                                                                    open: true,
+                                                                    eventId: event.id,
+                                                                    eventTitle: event.title,
+                                                                });
+                                                            }}
+                                                        >
+                                                            <Trash2 className="h-4 w-4 mr-2" />
+                                                            Delete
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex flex-wrap items-center gap-1 sm:gap-2">
-                                        <h3 className="font-medium text-sm sm:text-base truncate max-w-[150px] sm:max-w-none">{event.title}</h3>
-                                        <Badge className={`${statusColors[event.status]} text-xs`} variant="secondary">
-                                            {event.status}
-                                        </Badge>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs sm:text-sm text-muted-foreground">
-                                        <span className="flex items-center gap-1">
-                                            <Calendar className="h-3 w-3" />
-                                            {event.date}
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            <MapPin className="h-3 w-3" />
-                                            {event.location}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                                        {event.ticketsSold}/{event.totalTickets} tickets sold
-                                    </p>
-                                </div>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem asChild>
-                                            <Link href={`/events/${event.id}`}>
-                                                <Eye className="h-4 w-4 mr-2" />
-                                                View
-                                            </Link>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem asChild>
-                                            <Link href={`/events/${event.id}/edit`}>
-                                                <Edit className="h-4 w-4 mr-2" />
-                                                Edit
-                                            </Link>
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </motion.div>
-                        ))}
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+
+                                        {/* Card Content */}
+                                        <CardContent className="p-3 space-y-2 bg-gradient-to-b from-background to-muted/20">
+                                            {/* Title */}
+                                            <h3 className="font-bold text-sm line-clamp-2 min-h-[2.5rem] leading-tight">
+                                                {event.title}
+                                            </h3>
+
+                                            {/* Event Details */}
+                                            <div className="space-y-1 text-xs text-muted-foreground">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Calendar className="h-3 w-3 shrink-0 text-primary/70" />
+                                                    <span className="truncate">{event.date}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <MapPin className="h-3 w-3 shrink-0 text-primary/70" />
+                                                    <span className="truncate">{event.location}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Tickets Sold - Enhanced */}
+                                            <div className="-mx-3 px-3 py-2 mt-2 border-t bg-primary/5">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-muted-foreground">Sold</span>
+                                                    <span className="font-bold text-primary">
+                                                        {event.ticketsSold}/{event.totalTickets}
+                                                    </span>
+                                                </div>
+                                                {/* Progress Bar - Enhanced */}
+                                                <div className="mt-1.5 h-1 bg-background rounded-full overflow-hidden shadow-inner">
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-300"
+                                                        style={{
+                                                            width: `${Math.min((event.ticketsSold / event.totalTickets) * 100, 100)}%`,
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Delete Confirmation Dialog */}
+            <DeleteEventDialog
+                eventId={deleteDialog.eventId}
+                eventTitle={deleteDialog.eventTitle}
+                open={deleteDialog.open}
+                onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+                onSuccess={handleDeleteSuccess}
+            />
+        </>
     );
 }
