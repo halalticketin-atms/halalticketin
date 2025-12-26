@@ -946,7 +946,7 @@ export default function EventDetailsPage() {
             {/* Checkout Dialog */}
             <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
                 <DialogContent className="sm:max-w-3xl max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] p-0 overflow-hidden bg-transparent border-none shadow-none text-white max-w-[100vw]">
-                    <div className="bg-gradient-to-br from-[#02AAB0] to-[#00CDAC] p-6 sm:p-8 rounded-[1.5rem] shadow-2xl border border-white/20 flex flex-col justify-between relative overflow-y-auto overflow-x-hidden overscroll-contain max-h-[calc(100dvh-2rem)] sm:max-h-none sm:min-h-[400px] w-full">
+                    <div className="bg-gradient-to-br from-[#02AAB0] to-[#00CDAC] p-6 sm:p-8 rounded-[1.5rem] shadow-2xl border border-white/20 flex flex-col justify-between relative overflow-y-auto overflow-x-hidden overscroll-contain max-h-[calc(100dvh-2rem)] sm:max-h-[85dvh] sm:min-h-[400px] w-full">
                         {/* Decorative subtle patterns - Matte effect with reduced opacity */}
                         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none opacity-30" />
                         <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none opacity-30" />
