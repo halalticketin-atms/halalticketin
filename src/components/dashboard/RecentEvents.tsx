@@ -125,29 +125,21 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
                                                 </div>
                                             )}
 
-                                            {/* Currency Badge - Top Right */}
-                                            <div className="absolute top-2 right-2">
-                                                <span className="inline-flex items-center gap-1 rounded-full bg-white/95 backdrop-blur-sm px-2.5 py-1 text-xs font-bold text-slate-700 shadow-sm border border-slate-200/50">
-                                                    {SUPPORTED_CURRENCIES[event.currency as keyof typeof SUPPORTED_CURRENCIES]?.symbol || event.currency}
-                                                    <span className="text-[10px] font-semibold text-slate-500">{event.currency}</span>
-                                                </span>
-                                            </div>
-
                                             {/* Status Badge - Top Left */}
                                             <div className="absolute top-2 left-2">
                                                 <span
                                                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${event.displayStatus === 'published'
-                                                            ? 'bg-emerald-500/90 text-white'
-                                                            : event.displayStatus === 'draft'
-                                                                ? 'bg-slate-500/90 text-white'
-                                                                : 'bg-amber-500/90 text-white'
+                                                        ? 'bg-emerald-500/90 text-white'
+                                                        : event.displayStatus === 'draft'
+                                                            ? 'bg-slate-500/90 text-white'
+                                                            : 'bg-amber-500/90 text-white'
                                                         }`}
                                                 >
                                                     {statusLabels[event.displayStatus]}
                                                 </span>
                                             </div>
 
-                                            {/* Three-Dot Menu - Top Right (adjusted position due to currency badge) */}
+                                            {/* Three-Dot Menu - Top Right */}
                                             <div className="absolute top-2 right-2" data-dropdown-trigger>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>

@@ -66,7 +66,7 @@ export const buildDraftFromEventRecord = (
     formData: {
         title: event.title ?? '',
         description: event.description ?? '',
-        bannerImageDataUrl: '',
+        bannerImageDataUrl: event.bannerImageUrl ?? '', // FIX: Populate from backend's bannerImageUrl
         categories: event.category ? event.category.split(',').map((c) => c.trim()) : [],
         organizerName: '',
         visibility: event.isListedPublicly ? 'public' : 'private',
