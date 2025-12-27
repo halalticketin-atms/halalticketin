@@ -38,6 +38,24 @@ import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents, type DashboardEvent, type DashboardEventStatus } from '@/hooks/useOrganizerEvents';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+
+type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
+
+interface OrderResponse {
+    id: string;
+    orderNumber: string;
+    createdAt: string;
+    attendee: {
+        name: string | null;
+        email: string;
+    };
+    event: {
+        id: string;
+        name: string | null;
+    };
+    status: OrderStatus;
+}
 
 const statusStyles: Record<DashboardEventStatus, { label: string; className: string }> = {
     active: {
@@ -286,18 +304,15 @@ export default function EmailAttendeesPage() {
         audience: false,
         compose: false,
     });
-    const [audience, setAudience] = useState({
-        all: true,
-        checkedIn: false,
-        recent: false,
-    });
+    const [audience, setAudience] = useState<'all' | 'individual' | 'recent'>('all');
     const [showMobilePreview, setShowMobilePreview] = useState(false);
 
     // Enhanced audience filters
-    const [audienceFilterMode, setAudienceFilterMode] = useState<'quick' | 'individual' | 'dateRange'>('quick');
     const [selectedAttendeeIds, setSelectedAttendeeIds] = useState<Set<string>>(new Set());
     const [attendeeSearchQuery, setAttendeeSearchQuery] = useState('');
     const [dateRangeFilter, setDateRangeFilter] = useState({ start: '', end: '' });
+    const [orders, setOrders] = useState<OrderResponse[]>([]);
+    const [isLoadingOrders, setIsLoadingOrders] = useState(false);
 
     const selectedEvent = useMemo(
         () => events.find((event) => event.id === selectedEventId) ?? null,
@@ -316,29 +331,42 @@ export default function EmailAttendeesPage() {
         setSubject(buildSubject(selectedEvent));
     }, [selectedEvent]);
 
+    // Fetch orders for selected event
+    useEffect(() => {
+        const fetchOrders = async () => {
+            if (!organizerId || !selectedEventId) {
+                setOrders([]);
+                return;
+            }
+
+            setIsLoadingOrders(true);
+            try {
+                const response = await api.get<{ orders: OrderResponse[] }>('/api/v1/orders', {
+                    params: { organizerId, eventId: selectedEventId },
+                });
+                setOrders(response.orders || []);
+            } catch (err) {
+                console.error('Failed to fetch orders:', err);
+                setOrders([]);
+            } finally {
+                setIsLoadingOrders(false);
+            }
+        };
+
+        void fetchOrders();
+    }, [organizerId, selectedEventId]);
+
     const selectedAudience = useMemo(() => {
         const filters = [];
 
-        if (audienceFilterMode === 'quick') {
-            if (audience.all) filters.push('All ticket holders');
-            if (audience.checkedIn) filters.push('Checked-in attendees');
-            if (audience.recent) filters.push('Recent buyers');
-        } else if (audienceFilterMode === 'individual') {
-            if (selectedAttendeeIds.size > 0) {
-                filters.push(`${selectedAttendeeIds.size} selected attendee${selectedAttendeeIds.size > 1 ? 's' : ''}`);
-            }
-        } else if (audienceFilterMode === 'dateRange') {
-            if (dateRangeFilter.start && dateRangeFilter.end) {
-                filters.push(`Orders from ${new Date(dateRangeFilter.start).toLocaleDateString()} to ${new Date(dateRangeFilter.end).toLocaleDateString()}`);
-            } else if (dateRangeFilter.start) {
-                filters.push(`Orders from ${new Date(dateRangeFilter.start).toLocaleDateString()}`);
-            } else if (dateRangeFilter.end) {
-                filters.push(`Orders to ${new Date(dateRangeFilter.end).toLocaleDateString()}`);
-            }
+        if (audience === 'all') filters.push('All ticket holders');
+        if (audience === 'recent') filters.push('Recent buyers');
+        if (audience === 'individual' && selectedAttendeeIds.size > 0) {
+            filters.push(`${selectedAttendeeIds.size} selected attendee${selectedAttendeeIds.size > 1 ? 's' : ''}`);
         }
 
         return filters;
-    }, [audience, audienceFilterMode, selectedAttendeeIds, dateRangeFilter]);
+    }, [audience, selectedAttendeeIds]);
 
     const formattedDate = selectedEvent ? formatEventDate(selectedEvent) : null;
     const formattedLocation = selectedEvent ? formatEventLocation(selectedEvent) : null;
@@ -450,30 +478,32 @@ export default function EmailAttendeesPage() {
                                             />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {events.map((event) => (
-                                                <SelectItem key={event.id} value={event.id}>
-                                                    <div className="flex items-center gap-3">
-                                                        {event.bannerImageUrl ? (
-                                                            <div className="relative h-6 w-6 rounded overflow-hidden">
-                                                                <Image
-                                                                    src={event.bannerImageUrl}
-                                                                    alt=""
-                                                                    fill
-                                                                    sizes="24px"
-                                                                    className="object-cover"
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="h-6 w-6 rounded bg-muted/70 flex items-center justify-center text-[10px] text-muted-foreground">
-                                                                {(event.title || 'E')
-                                                                    .charAt(0)
-                                                                    .toUpperCase()}
-                                                            </div>
-                                                        )}
-                                                        <span>{event.title || 'Untitled event'}</span>
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
+                                            {events
+                                                .filter(event => event.displayStatus === 'active')
+                                                .map((event) => (
+                                                    <SelectItem key={event.id} value={event.id}>
+                                                        <div className="flex items-center gap-3">
+                                                            {event.bannerImageUrl ? (
+                                                                <div className="relative h-6 w-6 rounded overflow-hidden">
+                                                                    <Image
+                                                                        src={event.bannerImageUrl}
+                                                                        alt=""
+                                                                        fill
+                                                                        sizes="24px"
+                                                                        className="object-cover"
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="h-6 w-6 rounded bg-muted/70 flex items-center justify-center text-[10px] text-muted-foreground">
+                                                                    {(event.title || 'E')
+                                                                        .charAt(0)
+                                                                        .toUpperCase()}
+                                                                </div>
+                                                            )}
+                                                            <span>{event.title || 'Untitled event'}</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
                                         </SelectContent>
                                     </Select>
                                     {isLoading && (
@@ -551,10 +581,10 @@ export default function EmailAttendeesPage() {
                                 <div className="space-y-3">
                                     <label className="flex items-start gap-3 rounded-xl border border-border/60 p-4 cursor-pointer hover:bg-muted/30 transition">
                                         <Checkbox
-                                            checked={audience.all}
-                                            onCheckedChange={(checked) =>
-                                                setAudience((prev) => ({ ...prev, all: Boolean(checked) }))
-                                            }
+                                            checked={audience === 'all'}
+                                            onCheckedChange={(checked) => {
+                                                if (checked) setAudience('all');
+                                            }}
                                         />
                                         <div className="flex-1">
                                             <p className="text-sm font-medium">All ticket holders</p>
@@ -563,26 +593,112 @@ export default function EmailAttendeesPage() {
                                             </p>
                                         </div>
                                     </label>
+
+                                    {/* Individual Attendee Selection - Checkbox with expandable list */}
+                                    <div className="rounded-xl border border-border/60 overflow-hidden">
+                                        <label className="flex items-start gap-3 p-4 cursor-pointer hover:bg-muted/30 transition">
+                                            <Checkbox
+                                                checked={audience === 'individual'}
+                                                onCheckedChange={(checked) => {
+                                                    if (checked) {
+                                                        setAudience('individual');
+                                                    } else {
+                                                        setAudience('all');
+                                                        setSelectedAttendeeIds(new Set());
+                                                        setAttendeeSearchQuery('');
+                                                    }
+                                                }}
+                                            />
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-sm font-medium">Select Individual Attendees</p>
+                                                    {selectedAttendeeIds.size > 0 && (
+                                                        <Badge variant="secondary" className="ml-2">
+                                                            {selectedAttendeeIds.size}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Choose specific attendees from the list
+                                                </p>
+                                            </div>
+                                        </label>
+
+                                        {/* Expandable attendee list - only shows when checkbox checked */}
+                                        {audience === 'individual' && (
+                                            <div className="px-4 pb-4 pt-2 space-y-3 border-t border-border/60">
+                                                {/* Search */}
+                                                <div className="relative">
+                                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                    <Input
+                                                        placeholder="Search attendees by name or email..."
+                                                        value={attendeeSearchQuery}
+                                                        onChange={(e) => setAttendeeSearchQuery(e.target.value)}
+                                                        className="pl-9 h-9"
+                                                    />
+                                                </div>
+
+                                                {/* Attendee List */}
+                                                <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                                                    {isLoadingOrders ? (
+                                                        <div className="flex items-center justify-center py-8 text-muted-foreground">
+                                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                                        </div>
+                                                    ) : orders.length === 0 ? (
+                                                        <p className="text-sm text-center py-8 text-muted-foreground">
+                                                            No attendees found for this event
+                                                        </p>
+                                                    ) : (
+                                                        orders
+                                                            .filter(order => {
+                                                                const query = attendeeSearchQuery.toLowerCase();
+                                                                return (
+                                                                    (order.attendee.name?.toLowerCase() || '').includes(query) ||
+                                                                    order.attendee.email.toLowerCase().includes(query)
+                                                                );
+                                                            })
+                                                            .map((order) => {
+                                                                const isSelected = selectedAttendeeIds.has(order.id);
+                                                                return (
+                                                                    <label
+                                                                        key={order.id}
+                                                                        className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition"
+                                                                    >
+                                                                        <Checkbox
+                                                                            checked={isSelected}
+                                                                            onCheckedChange={(checked) => {
+                                                                                const newSet = new Set(selectedAttendeeIds);
+                                                                                if (checked) {
+                                                                                    newSet.add(order.id);
+                                                                                } else {
+                                                                                    newSet.delete(order.id);
+                                                                                }
+                                                                                setSelectedAttendeeIds(newSet);
+                                                                            }}
+                                                                        />
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-sm font-medium truncate">
+                                                                                {order.attendee.name || 'Unnamed'}
+                                                                            </p>
+                                                                            <p className="text-xs text-muted-foreground truncate">
+                                                                                {order.attendee.email}
+                                                                            </p>
+                                                                        </div>
+                                                                    </label>
+                                                                );
+                                                            })
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <label className="flex items-start gap-3 rounded-xl border border-border/60 p-4 cursor-pointer hover:bg-muted/30 transition">
                                         <Checkbox
-                                            checked={audience.checkedIn}
-                                            onCheckedChange={(checked) =>
-                                                setAudience((prev) => ({ ...prev, checkedIn: Boolean(checked) }))
-                                            }
-                                        />
-                                        <div className="flex-1">
-                                            <p className="text-sm font-medium">Checked-in attendees</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                People who have already arrived
-                                            </p>
-                                        </div>
-                                    </label>
-                                    <label className="flex items-start gap-3 rounded-xl border border-border/60 p-4 cursor-pointer hover:bg-muted/30 transition">
-                                        <Checkbox
-                                            checked={audience.recent}
-                                            onCheckedChange={(checked) =>
-                                                setAudience((prev) => ({ ...prev, recent: Boolean(checked) }))
-                                            }
+                                            checked={audience === 'recent'}
+                                            onCheckedChange={(checked) => {
+                                                if (checked) setAudience('recent');
+                                            }}
                                         />
                                         <div className="flex-1">
                                             <p className="text-sm font-medium">Recent buyers</p>
