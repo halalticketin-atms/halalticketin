@@ -201,9 +201,7 @@ function handleCheckInSuccess() {
 
 // Invalid QR code
 function handleInvalidQRCode() {
-    toast.error('Invalid ticket', {
-        description: 'QR code not recognized',
-    });
+    toast.error(new Error('QR code not recognized'), 'Invalid ticket');
 }
 
 /* ========================================
@@ -226,7 +224,7 @@ async function updateProfile(profileData: Record<string, unknown>) {
 async function uploadAvatar(file: File) {
     try {
         if (file.size > 2 * 1024 * 1024) {
-            toast.error('Image too large. Max 2MB');
+            toast.error(new Error('File size exceeds 2MB'), 'Image too large. Max 2MB');
             return;
         }
 
@@ -272,15 +270,15 @@ async function changePassword(oldPassword: string, newPassword: string) {
 
 // Form validation errors
 function handleValidationErrors(errors: Array<{ field: string; message: string }>) {
-    toast.error('Please complete all required fields', {
-        description: errors.map(e => e.message).join(', '),
+    const errorMsg = errors.map(e => e.message).join(', ');
+    toast.error(new Error(errorMsg), 'Please complete all required fields', {
         duration: 6000,
     });
 }
 
 // Generic validation error
 function handleInvalidInput(message: string) {
-    toast.error(message, {
+    toast.error(new Error(message), message, {
         duration: 4000,
     });
 }
@@ -291,18 +289,20 @@ function handleInvalidInput(message: string) {
 
 // Network error (offline)
 function handleNetworkError() {
-    toast.error('Network error', {
-        description: 'Please check your internet connection',
-        duration: 5000,
-    });
+    toast.error(
+        new Error('Please check your internet connection'),
+        'Network error',
+        { duration: 5000 }
+    );
 }
 
 // Server error
 function handleServerError() {
-    toast.error('Server error', {
-        description: 'Our team has been notified. Please try again later',
-        duration: 6000,
-    });
+    toast.error(
+        new Error('Our team has been notified. Please try again later'),
+        'Server error',
+        { duration: 6000 }
+    );
 }
 
 /* ========================================
@@ -312,7 +312,7 @@ function handleServerError() {
 // Export data
 async function exportData(onDownload: (file: Blob) => void) {
     return toast.promise(
-        api.get('/api/v1/export', { responseType: 'blob' }),
+        api.get('/api/v1/export').then(response => response as unknown as Blob),
         {
             loading: 'Preparing export...',
             success: (file) => {
