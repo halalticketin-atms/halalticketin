@@ -53,6 +53,7 @@ import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useOptionalAuth } from '@/context/auth-context';
 import { differenceInYears } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { ShareDialog } from '@/components/share/ShareDialog';
 
 // Dynamic import to avoid SSR issues with Leaflet
 const EventLocationMap = dynamic(
@@ -165,6 +166,7 @@ export function PublicEventPageContent({
 
     // Checkout state
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+    const [isShareOpen, setIsShareOpen] = useState(false);
     const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
     const [attendeeName, setAttendeeName] = useState('');
     const [attendeeEmail, setAttendeeEmail] = useState('');
@@ -718,6 +720,12 @@ export function PublicEventPageContent({
 
     return (
         <div className="min-h-screen bg-muted/30">
+            <ShareDialog
+                open={isShareOpen}
+                onOpenChange={setIsShareOpen}
+                title={event.title || 'Event'}
+                text={organizerName ? `Hosted by ${organizerName}` : undefined}
+            />
             {/* Hero Section - Poster with Blurred Background */}
             <div className="relative">
                 {/* Blurred Background Layer */}
@@ -779,7 +787,13 @@ export function PublicEventPageContent({
                     {/* Action Buttons */}
                     <div className="absolute top-4 right-4 flex gap-2 z-10">
                         <FavoriteButton eventId={event.id} size="sm" />
-                        <Button variant="secondary" size="icon" className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50">
+                        <Button
+                            variant="secondary"
+                            size="icon"
+                            className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50"
+                            onClick={() => setIsShareOpen(true)}
+                            aria-label="Share event"
+                        >
                             <Share2 className="h-4 w-4" />
                         </Button>
                     </div>

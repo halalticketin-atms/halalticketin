@@ -15,6 +15,7 @@ import {
     Linkedin,
     Loader2,
     MapPin,
+    Share2,
     Twitter,
     Users,
     UserPlus,
@@ -36,6 +37,7 @@ import {
     unfollowOrganizer,
     checkIsFollowing
 } from '@/lib/follows-api';
+import { ShareDialog } from '@/components/share/ShareDialog';
 
 /**
  * Format date for event cards
@@ -239,6 +241,7 @@ export default function OrganizerProfilePage() {
         if (!organizer?.socialLinks) return [];
         return Object.entries(organizer.socialLinks).filter(([, url]) => url);
     }, [organizer?.socialLinks]);
+    const [isShareOpen, setIsShareOpen] = useState(false);
 
     // Loading state
     if (isLoading) {
@@ -276,6 +279,12 @@ export default function OrganizerProfilePage() {
 
     return (
         <div className="min-h-screen bg-muted/30">
+            <ShareDialog
+                open={isShareOpen}
+                onOpenChange={setIsShareOpen}
+                title={organizer.name || 'Organizer profile'}
+                text="Organizer profile"
+            />
             {/* Hero Section */}
             <div className="relative">
                 {/* Gradient Background */}
@@ -360,6 +369,11 @@ export default function OrganizerProfilePage() {
                                             Follow
                                         </>
                                     )}
+                                </Button>
+
+                                <Button size="sm" variant="outline" onClick={() => setIsShareOpen(true)}>
+                                    <Share2 className="h-4 w-4 mr-1.5" />
+                                    Share
                                 </Button>
 
                                 {organizer.website && (

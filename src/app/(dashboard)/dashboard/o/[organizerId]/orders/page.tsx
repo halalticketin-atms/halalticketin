@@ -15,6 +15,8 @@ import {
     X,
     Mail,
     RefreshCw,
+    ChevronDown,
+    Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +35,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -103,6 +111,7 @@ export default function OrdersPage() {
     const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [eventFilter, setEventFilter] = useState<string[]>([]); // Multi-select event filter
     const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -117,6 +126,14 @@ export default function OrdersPage() {
     const [refundError, setRefundError] = useState<string | null>(null);
     const [isResending, setIsResending] = useState(false);
     const [emailCooldowns, setEmailCooldowns] = useState<Map<string, number>>(new Map());
+
+    // Export state
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [exportType, setExportType] = useState<'attendees' | 'emails'>('attendees');
+    const [isExporting, setIsExporting] = useState(false);
+    const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
+    const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
+    const [includeAllEvents, setIncludeAllEvents] = useState(true);
 
     const EMAIL_COOLDOWN_SECONDS = 60;
 
@@ -155,6 +172,106 @@ export default function OrdersPage() {
             toast.error(err, 'Failed to send email');
         } finally {
             setIsResending(false);
+        }
+    };
+
+    const handleOpenExportModal = (type: 'attendees' | 'emails') => {
+        setExportType(type);
+        setExportModalOpen(true);
+        // Reset filters
+        setSelectedEvents([]);
+        setDateRange({ start: '', end: '' });
+        setIncludeAllEvents(true);
+    };
+
+    const handleExport = async () => {
+        if (!organizerId) return;
+
+        setIsExporting(true);
+        try {
+            const params = new URLSearchParams({
+                organizerId,
+            });
+
+            // Add event filter if not all events selected
+            if (!includeAllEvents && selectedEvents.length > 0) {
+                params.append('eventId', selectedEvents[0]);
+            }
+
+            // Add status filter (from current view)
+            if (statusFilter !== 'all') {
+                params.append('status', statusFilter);
+            }
+
+            // Add date range if specified
+            if (dateRange.start) {
+                params.append('startDate', dateRange.start);
+            }
+            if (dateRange.end) {
+                params.append('endDate', dateRange.end);
+            }
+
+            // Add includeRefunded for email export
+            if (exportType === 'emails') {
+                params.append('includeRefunded', 'false');
+            }
+
+            const endpoint = exportType === 'attendees'
+                ? '/api/v1/orders/export/attendees'
+                : '/api/v1/orders/export/emails';
+
+            // Use fetch instead of axios to avoid JSON parsing
+            const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+            // Get auth token from localStorage
+            const token = typeof window !== 'undefined'
+                ? window.localStorage.getItem('halal-ticketin-access-token')
+                : null;
+
+            const headers: HeadersInit = {
+                'Accept': 'text/csv',
+            };
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const response = await fetch(`${baseURL}${endpoint}?${params}`, {
+                method: 'GET',
+                credentials: 'include',
+                headers,
+            });
+
+            if (!response.ok) {
+                throw new Error('Export failed');
+            }
+
+            // Get the CSV text
+            const csvText = await response.text();
+
+            // Create download link
+            const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const filename = exportType === 'attendees'
+                ? `attendees-${Date.now()}.csv`
+                : `emails-${Date.now()}.csv`;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Export complete', {
+                description: `${exportType === 'attendees' ? 'Attendee list' : 'Email list'} downloaded successfully`,
+            });
+        } catch (err) {
+            console.error('Export failed:', err);
+            toast.error('Export failed', `Unable to generate ${exportType === 'attendees' ? 'attendee list' : 'email list'}`);
+        } finally {
+            setIsExporting(false);
+            setExportModalOpen(false);
         }
     };
 
@@ -201,7 +318,8 @@ export default function OrdersPage() {
             (order.attendee.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             order.attendee.email.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-        return matchesSearch && matchesStatus;
+        const matchesEvent = eventFilter.length === 0 || eventFilter.includes(order.event.id);
+        return matchesSearch && matchesStatus && matchesEvent;
     });
 
     const openOrderDetails = (order: OrderResponse) => {
@@ -346,10 +464,25 @@ export default function OrdersPage() {
                                         <SelectItem value="partially_refunded">Partial Refund</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <Button variant="outline" className="h-10 hidden sm:flex bg-background/80 backdrop-blur">
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Export
-                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="h-10 hidden sm:flex bg-background/80 backdrop-blur">
+                                            <Download className="h-4 w-4 mr-2" />
+                                            Export
+                                            <ChevronDown className="h-4 w-4 ml-2" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => handleOpenExportModal('attendees')}>
+                                            <Users className="mr-2 h-4 w-4" />
+                                            Attendee List
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleOpenExportModal('emails')}>
+                                            <Mail className="mr-2 h-4 w-4" />
+                                            Email List
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                         </div>
                     </CardContent>
@@ -698,6 +831,140 @@ export default function OrdersPage() {
                             </Tabs>
                         </>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Export Modal */}
+            <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>
+                            Export {exportType === 'attendees' ? 'Attendee List' : 'Email List'}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-6 py-4">
+                        {/* Event Selection */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-base font-medium">Events</Label>
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="all-events"
+                                        checked={includeAllEvents}
+                                        onCheckedChange={(checked) => {
+                                            setIncludeAllEvents(!!checked);
+                                            if (checked) {
+                                                setSelectedEvents([]);
+                                            }
+                                        }}
+                                    />
+                                    <Label htmlFor="all-events" className="font-normal cursor-pointer">
+                                        All Events
+                                    </Label>
+                                </div>
+                            </div>
+
+                            {!includeAllEvents && (
+                                <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                                    {/* Get unique events from orders */}
+                                    {Array.from(new Set(orders.map(o => o.event.id)))
+                                        .map(eventId => {
+                                            const order = orders.find(o => o.event.id === eventId);
+                                            if (!order) return null;
+
+                                            return (
+                                                <div key={eventId} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`event-${eventId}`}
+                                                        checked={selectedEvents.includes(eventId)}
+                                                        onCheckedChange={(checked) => {
+                                                            if (checked) {
+                                                                setSelectedEvents([...selectedEvents, eventId]);
+                                                            } else {
+                                                                setSelectedEvents(selectedEvents.filter(id => id !== eventId));
+                                                            }
+                                                        }}
+                                                    />
+                                                    <Label
+                                                        htmlFor={`event-${eventId}`}
+                                                        className="font-normal cursor-pointer flex-1"
+                                                    >
+                                                        {order.event.name || 'Unnamed Event'}
+                                                    </Label>
+                                                </div>
+                                            );
+                                        })
+                                        .filter(Boolean)
+                                    }
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Date Range */}
+                        <div className="space-y-3">
+                            <Label className="text-base font-medium">Date Range (Optional)</Label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <Label htmlFor="start-date" className="text-sm text-muted-foreground">From</Label>
+                                    <Input
+                                        id="start-date"
+                                        type="date"
+                                        value={dateRange.start}
+                                        onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                                        className="mt-1"
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="end-date" className="text-sm text-muted-foreground">To</Label>
+                                    <Input
+                                        id="end-date"
+                                        type="date"
+                                        value={dateRange.end}
+                                        onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                                        className="mt-1"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Current Filters Info */}
+                        <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                            <p className="font-medium mb-1">Current Filters Applied:</p>
+                            <ul className="space-y-0.5 text-muted-foreground">
+                                <li>• Status: {statusFilter === 'all' ? 'All' : statusLabels[statusFilter as OrderStatus]}</li>
+                                {searchQuery && <li>• Search: "{searchQuery}"</li>}
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => setExportModalOpen(false)}
+                            disabled={isExporting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            className="flex-1"
+                            onClick={handleExport}
+                            disabled={isExporting || (!includeAllEvents && selectedEvents.length === 0)}
+                        >
+                            {isExporting ? (
+                                <>
+                                    <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2"></div>
+                                    Exporting...
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export CSV
+                                </>
+                            )}
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
