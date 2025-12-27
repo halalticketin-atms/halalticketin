@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { getSupabase } from '@/lib/supabase';
 import api, { setAuthToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
+import { toast } from '@/lib/notifications';
 
 interface LoginResponse {
     accessToken: string;
@@ -116,8 +117,15 @@ function LoginContent() {
 
             setAuthToken(response.accessToken);
             await refresh();
+
+            // Show success toast
+            toast.success('Salaam 👋', {
+                description: `Signed in as ${email}`,
+                duration: 3000,
+            });
         } catch (err) {
             console.error(err);
+            toast.error(err, 'Unable to sign in');
             setError(err instanceof Error ? err.message : 'Unable to sign in.');
         } finally {
             setIsLoading(false);
@@ -139,8 +147,11 @@ function LoginContent() {
             if (error) {
                 throw error;
             }
+
+            toast.info('Redirecting to Google...');
         } catch (err) {
             console.error(err);
+            toast.error(err, 'Unable to sign in with Google');
             setError(err instanceof Error ? err.message : 'Unable to sign in with Google.');
             setIsLoading(false);
         }
