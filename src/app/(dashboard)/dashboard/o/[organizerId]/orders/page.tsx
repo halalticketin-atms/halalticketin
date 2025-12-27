@@ -6,36 +6,20 @@ import {
     Search,
     Filter,
     Download,
-    MoreHorizontal,
-    Mail,
-    RefreshCw,
-    Eye,
     Receipt,
     CreditCard,
     Calendar,
     User,
     Ticket,
     Check,
+    X,
+    Mail,
+    RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
     Select,
     SelectContent,
@@ -43,12 +27,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-} from '@/components/ui/sheet';
 import {
     Dialog,
     DialogContent,
@@ -62,6 +40,7 @@ import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
 import { toast } from '@/lib/notifications';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
+import { OrderCard } from '@/components/orders/OrderCard';
 
 type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
 
@@ -101,8 +80,8 @@ interface OrdersResponse {
 
 const statusBadges: Record<OrderStatus, string> = {
     completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    refunded: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-    partially_refunded: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    refunded: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    partially_refunded: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
 };
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -263,53 +242,76 @@ export default function OrdersPage() {
                     <p className="text-muted-foreground mt-1">Manage purchases and process refunds</p>
                 </motion.div>
 
-                {/* Stats Cards */}
-                <div className="grid gap-4 sm:grid-cols-3 mb-8">
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                                    <Receipt className="h-6 w-6 text-primary" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Total Orders</p>
-                                    <p className="text-2xl font-bold">{totalOrders}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                                    <Check className="h-6 w-6 text-green-600 dark:text-green-400" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Paid Orders</p>
-                                    <p className="text-2xl font-bold">{paidOrders}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                                    <CreditCard className="h-6 w-6 text-primary" />
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Total Revenue</p>
-                                    <p className="text-2xl font-bold">
-                                        {formatCurrency(revenueTotal, orders[0]?.totals.currency ?? 'GBP')}
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                {/* Stats Cards - Horizontal scroll on mobile */}
+                <div className="mb-8 -mx-4 px-4 md:mx-0 md:px-0">
+                    <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 md:grid md:grid-cols-3 md:overflow-visible md:pb-0">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="min-w-[280px] snap-start md:min-w-0"
+                        >
+                            <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900">
+                                <CardContent className="pt-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
+                                            <Receipt className="h-6 w-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
+                                            <p className="text-2xl font-bold">{totalOrders}</p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="min-w-[280px] snap-start md:min-w-0"
+                        >
+                            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
+                                <CardContent className="pt-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
+                                            <Check className="h-6 w-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-muted-foreground">Paid Orders</p>
+                                            <p className="text-2xl font-bold">{paidOrders}</p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                            className="min-w-[280px] snap-start md:min-w-0"
+                        >
+                            <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
+                                <CardContent className="pt-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                                            <CreditCard className="h-6 w-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                                            <p className="text-2xl font-bold">
+                                                {formatCurrency(revenueTotal, orders[0]?.totals.currency ?? 'GBP')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+                    </div>
                 </div>
 
-                {/* Filters & Search */}
-                <Card className="mb-6">
+                {/* Filters & Search with gradient background */}
+                <Card className="mb-6 bg-gradient-to-br from-indigo-50/50 via-purple-50/30 to-pink-50/50 dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-pink-950/20 border-indigo-100/50 dark:border-indigo-900/50">
                     <CardContent className="py-4">
                         <div className="flex flex-col sm:flex-row gap-4">
                             <div className="relative flex-1">
@@ -318,12 +320,22 @@ export default function OrdersPage() {
                                     placeholder="Search by order ID, name, or email..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-9 h-10"
+                                    className="pl-9 h-10 bg-background/80 backdrop-blur"
                                 />
+                                {searchQuery && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                                        onClick={() => setSearchQuery('')}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                )}
                             </div>
                             <div className="flex gap-2">
                                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="w-[140px] h-10">
+                                    <SelectTrigger className="w-[140px] h-10 bg-background/80 backdrop-blur">
                                         <Filter className="h-4 w-4 mr-2" />
                                         <SelectValue placeholder="Status" />
                                     </SelectTrigger>
@@ -334,7 +346,7 @@ export default function OrdersPage() {
                                         <SelectItem value="partially_refunded">Partial Refund</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <Button variant="outline" className="h-10">
+                                <Button variant="outline" className="h-10 hidden sm:flex bg-background/80 backdrop-blur">
                                     <Download className="h-4 w-4 mr-2" />
                                     Export
                                 </Button>
@@ -343,134 +355,65 @@ export default function OrdersPage() {
                     </CardContent>
                 </Card>
 
-                {/* Orders Table */}
-                <Card>
-                    <CardContent className="p-0">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Order</TableHead>
-                                    <TableHead>Customer</TableHead>
-                                    <TableHead className="hidden md:table-cell">Event</TableHead>
-                                    <TableHead className="hidden sm:table-cell">Date</TableHead>
-                                    <TableHead>Total</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="w-[50px]"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {isLoading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                                            Loading orders...
-                                        </TableCell>
-                                    </TableRow>
-                                ) : error ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                                            {error}
-                                        </TableCell>
-                                    </TableRow>
-                                ) : filteredOrders.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="h-32 text-center">
-                                            <div className="text-muted-foreground">
-                                                <Receipt className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                                <p>No orders found</p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    filteredOrders.map((order) => (
-                                        <TableRow
-                                            key={order.id}
-                                            className="cursor-pointer hover:bg-muted/50"
-                                            onClick={() => openOrderDetails(order)}
-                                        >
-                                            <TableCell>
-                                                <span className="font-mono text-sm font-medium">
-                                                    {order.orderNumber}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div>
-                                                    <p className="font-medium">{order.attendee.name ?? 'Unnamed attendee'}</p>
-                                                    <p className="text-xs text-muted-foreground">{order.attendee.email}</p>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="hidden md:table-cell">
-                                                <span className="text-sm">{order.event.name}</span>
-                                            </TableCell>
-                                            <TableCell className="hidden sm:table-cell">
-                                                <span className="text-sm text-muted-foreground">
-                                                    {new Date(order.createdAt).toLocaleDateString('en-GB', {
-                                                        day: 'numeric',
-                                                        month: 'short',
-                                                        year: 'numeric',
-                                                    })}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className="font-semibold">
-                                                    {formatCurrency(order.totals.total, order.totals.currency)}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge className={`${statusBadges[order.status]} capitalize`}>
-                                                    {statusLabels[order.status]}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openOrderDetails(order); }}>
-                                                            <Eye className="mr-2 h-4 w-4" />
-                                                            View Details
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleResendEmail(order.id);
-                                                            }}
-                                                            disabled={isResending}
-                                                        >
-                                                            <Mail className="mr-2 h-4 w-4" />
-                                                            {isResending ? 'Sending...' : 'Resend Confirmation'}
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        {(order.status === 'completed' || order.status === 'partially_refunded') && (
-                                                            <DropdownMenuItem
-                                                                className="text-destructive"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setSelectedOrder(order);
-                                                                    setActiveTab('refund');
-                                                                    setRefundType('full');
-                                                                    setPartialAmount('');
-                                                                    setSelectedTicketIds(new Set());
-                                                                    setRefundError(null);
-                                                                    setIsDialogOpen(true);
-                                                                }}
-                                                            >
-                                                                <RefreshCw className="mr-2 h-4 w-4" />
-                                                                Issue Refund
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+                {/* Orders Grid */}
+                {isLoading ? (
+                    <div className="flex items-center justify-center py-32">
+                        <div className="text-center">
+                            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent mb-4"></div>
+                            <p className="text-muted-foreground">Loading orders...</p>
+                        </div>
+                    </div>
+                ) : error ? (
+                    <Card className="p-12 text-center">
+                        <Receipt className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                        <p className="text-muted-foreground">{error}</p>
+                    </Card>
+                ) : filteredOrders.length === 0 ? (
+                    <Card className="p-12 text-center">
+                        <Receipt className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                        <p className="text-lg font-medium mb-1">No orders found</p>
+                        <p className="text-sm text-muted-foreground">
+                            {searchQuery || statusFilter !== 'all'
+                                ? 'Try adjusting your filters'
+                                : 'Orders will appear here once customers make purchases'}
+                        </p>
+                    </Card>
+                ) : (
+                    <motion.div
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <AnimatePresence mode="popLayout">
+                            {filteredOrders.map((order, index) => (
+                                <motion.div
+                                    key={order.id}
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    transition={{ delay: index * 0.05, duration: 0.2 }}
+                                >
+                                    <OrderCard
+                                        order={order}
+                                        onViewDetails={openOrderDetails}
+                                        onResendEmail={handleResendEmail}
+                                        onRefund={(order) => {
+                                            setSelectedOrder(order);
+                                            setActiveTab('refund');
+                                            setRefundType('full');
+                                            setPartialAmount('');
+                                            setSelectedTicketIds(new Set());
+                                            setRefundError(null);
+                                            setIsDialogOpen(true);
+                                        }}
+                                        isResending={isResending}
+                                    />
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    </motion.div>
+                )}
             </div>
 
             {/* Order Details Dialog with Tabs */}
