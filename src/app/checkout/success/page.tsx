@@ -280,10 +280,11 @@ function CheckoutSuccessContent() {
 
                 {/* Help text */}
                 <p className="text-center text-sm text-gray-500 mt-8">
-                    Need help? Contact us at{' '}
-                    <a href="mailto:support@halalticketing.com" className="text-primary hover:underline">
-                        support@halalticketing.com
-                    </a>
+                    Need help?{' '}
+                    <Link href="/contact" className="text-primary hover:underline">
+                        Contact us
+                    </Link>
+                    .
                 </p>
             </div>
         </div>

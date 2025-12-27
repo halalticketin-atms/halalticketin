@@ -23,6 +23,8 @@ export interface OrganizerSummary {
     bio: string | null;
     website: string | null;
     socialLinks: Record<string, string> | null;
+    city: string | null;
+    country: string | null;
     defaultTimezone?: string;
     defaultCurrency?: string;
     metaPixelId: string | null;

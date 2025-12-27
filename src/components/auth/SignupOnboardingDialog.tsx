@@ -276,23 +276,28 @@ export function SignupOnboardingDialog({
         setError(null);
 
         try {
+            const isOrganizer = formData.role === 'organizer';
+            const organizerName = formData.organizerName.trim();
+            const resolvedHomeCountry = formData.homeCountry || (isOrganizer ? formData.organizerCountry : '');
+            const resolvedHomeCity = formData.homeCity || (isOrganizer ? formData.organizerCity : '');
+
             const payload: Record<string, unknown> = {
                 email: formData.email,
                 password: formData.password,
                 name: formData.name || undefined,
-                isOrganizer: formData.role === 'organizer',
+                isOrganizer,
                 termsAccepted: acceptedTerms,
                 termsVersion: TERMS_VERSION,
             };
 
             if (formData.gender) payload.gender = formData.gender;
             if (formData.dateOfBirth) payload.dateOfBirth = formData.dateOfBirth;
-            if (formData.homeCountry) payload.homeCountry = formData.homeCountry;
-            if (formData.homeCity) payload.homeCity = formData.homeCity;
+            if (resolvedHomeCountry) payload.homeCountry = resolvedHomeCountry;
+            if (resolvedHomeCity) payload.homeCity = resolvedHomeCity;
 
-            if (formData.role === 'organizer' && formData.organizerName) {
+            if (isOrganizer) {
                 payload.organizer = {
-                    name: formData.organizerName,
+                    name: organizerName || undefined,
                     type: formData.organizerType,
                     country: formData.organizerCountry || undefined,
                     city: formData.organizerCity || undefined,

@@ -2,9 +2,12 @@
  * User-friendly error messages and utilities.
  *
  * Translates backend error codes into actionable messages for users.
+ * 
+ * @deprecated This file is maintained for backward compatibility.
+ * New code should use @/lib/notifications instead.
  */
 
-import { toast } from 'sonner';
+import { toast } from '@/lib/notifications';
 import { ApiError } from './api';
 import { getBackendErrorMessage } from './api-errors';
 
@@ -23,6 +26,9 @@ const STATUS_MESSAGES: Record<number, string> = {
 
 /**
  * Get a user-friendly message from an error
+ * 
+ * @deprecated Use the toast.error() function from @/lib/notifications instead.
+ * It handles error transformation automatically.
  */
 export function getUserFriendlyMessage(error: unknown): string {
     // Handle ApiError from api.ts
@@ -56,19 +62,18 @@ export function getUserFriendlyMessage(error: unknown): string {
 
 /**
  * Show an error toast with user-friendly message
+ * 
+ * @deprecated Use toast.error() from @/lib/notifications instead.
+ * Example: toast.error(error, 'Custom message')
  */
 export function showError(error: unknown, customMessage?: string) {
-    const message = customMessage || getUserFriendlyMessage(error);
-    toast.error(message);
-
-    // Log original error for debugging (only in development)
-    if (process.env.NODE_ENV === 'development') {
-        console.error('Error:', error);
-    }
+    toast.error(error, customMessage);
 }
 
 /**
  * Show a success toast
+ * 
+ * @deprecated Use toast.success() from @/lib/notifications instead.
  */
 export function showSuccess(message: string) {
     toast.success(message);
@@ -76,6 +81,8 @@ export function showSuccess(message: string) {
 
 /**
  * Show an info toast
+ * 
+ * @deprecated Use toast.info() from @/lib/notifications instead.
  */
 export function showInfo(message: string) {
     toast.info(message);
@@ -83,13 +90,18 @@ export function showInfo(message: string) {
 
 /**
  * Show a warning toast
+ * 
+ * @deprecated Use toast.warning() from @/lib/notifications instead.
  */
 export function showWarning(message: string) {
-    toast.warning(message, { closeButton: true });
+    toast.warning(message);
 }
 
 /**
  * Wrap an async function with automatic error toast handling
+ * 
+ * @deprecated Use toast.promise() from @/lib/notifications instead for better UX.
+ * It provides loading states and automatic success/error handling.
  */
 export function withErrorHandling<T extends unknown[], R>(
     fn: (...args: T) => Promise<R>,
@@ -99,7 +111,7 @@ export function withErrorHandling<T extends unknown[], R>(
         try {
             return await fn(...args);
         } catch (error) {
-            showError(error, errorMessage);
+            toast.error(error, errorMessage);
             return undefined;
         }
     };

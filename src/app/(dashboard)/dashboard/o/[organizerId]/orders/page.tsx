@@ -60,7 +60,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
-import { toast } from 'sonner';
+import { toast } from '@/lib/notifications';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 
 type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
@@ -173,9 +173,7 @@ export default function OrdersPage() {
             });
         } catch (err) {
             console.error('Failed to resend email:', err);
-            toast.error('Failed to send email', {
-                description: err instanceof Error ? err.message : 'Please try again later.'
-            });
+            toast.error(err, 'Failed to send email');
         } finally {
             setIsResending(false);
         }

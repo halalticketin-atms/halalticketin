@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { DM_Sans, Geist, Geist_Mono, Sora } from 'next/font/google';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 import { Header, ConditionalFooter } from '@/components/layout';
 import { CookieConsentProvider } from '@/context/cookie-consent-context';
@@ -69,7 +69,7 @@ export default function RootLayout({
                 <main className="flex-1 pt-[var(--nav-safe-offset)]">{children}</main>
                 <ConditionalFooter />
               </div>
-              <Toaster richColors position="top-center" />
+              <Toaster />
               <CookieBanner />
             </ExchangeRatesProvider>
           </AuthProvider>

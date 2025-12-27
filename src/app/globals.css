@@ -304,3 +304,150 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* ========================================
+   Toast Notification Styling
+   Refined & Subtle - Halal Ticketin'
+   ======================================== */
+
+.halal-toast {
+  @apply flex items-start gap-3 p-3.5 rounded-lg shadow-md border;
+  @apply font-sans text-sm min-w-[300px] max-w-[420px];
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  /* Required for absolute positioning of close button */
+  overflow: hidden;
+  padding-right: 3rem;
+  /* Add padding for close button space */
+}
+
+/* Subtle geometric accent - refined left border */
+.halal-toast::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background: currentColor;
+  opacity: 0.4;
+}
+
+/* Refined variant styles - softer, cleaner colors */
+.halal-toast-success {
+  @apply bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400;
+  @apply border-emerald-200 dark:border-emerald-900/40;
+}
+
+.halal-toast-success::before {
+  @apply bg-emerald-500;
+}
+
+.halal-toast-error {
+  @apply bg-white dark:bg-gray-800 text-red-700 dark:text-red-400;
+  @apply border-red-200 dark:border-red-900/40;
+}
+
+.halal-toast-error::before {
+  @apply bg-red-500;
+}
+
+.halal-toast-warning {
+  @apply bg-white dark:bg-gray-800 text-amber-700 dark:text-amber-400;
+  @apply border-amber-200 dark:border-amber-900/40;
+}
+
+.halal-toast-warning::before {
+  @apply bg-amber-500;
+}
+
+.halal-toast-info {
+  @apply bg-white dark:bg-gray-800 text-sky-700 dark:text-sky-400;
+  @apply border-sky-200 dark:border-sky-900/40;
+}
+
+.halal-toast-info::before {
+  @apply bg-sky-500;
+}
+
+.halal-toast-loading {
+  @apply bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-400;
+  @apply border-purple-200 dark:border-purple-900/40;
+}
+
+.halal-toast-loading::before {
+  @apply bg-purple-500;
+}
+
+/* Typography - clean hierarchy */
+.halal-toast-title {
+  @apply font-semibold text-sm leading-tight;
+}
+
+.halal-toast-description {
+  @apply text-xs opacity-75 mt-0.5 leading-relaxed;
+}
+
+/* Action button - subtle and refined */
+.halal-toast-action {
+  @apply px-2.5 py-1 rounded-md text-xs font-medium;
+  @apply bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600;
+  @apply text-gray-700 dark:text-gray-300;
+  @apply border border-gray-200 dark:border-gray-600;
+  @apply transition-colors duration-150;
+}
+
+/* Close button - subtle yet visible, positioned top-right */
+.halal-toast-close {
+  @apply rounded-full p-1.5;
+  @apply opacity-60 hover:opacity-100;
+  @apply hover:bg-black/5 dark:hover:bg-white/5;
+  @apply transition-all duration-200;
+  @apply cursor-pointer;
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 10;
+  /* Ensure it's above toast content */
+}
+
+.halal-toast-close svg {
+  @apply w-4 h-4;
+  color: inherit;
+  stroke-width: 2;
+  opacity: 1;
+}
+
+/* Mobile responsive - optimized touch targets */
+@media (max-width: 640px) {
+  .halal-toast {
+    @apply min-w-[260px] max-w-[calc(100vw-2rem)];
+    padding-right: 2.5rem;
+    /* Adjust padding for mobile */
+  }
+
+  /* Larger touch target on mobile */
+  .halal-toast-close {
+    padding: 0.5rem;
+    top: 0.5rem;
+    right: 0.5rem;
+    min-width: 44px;
+    /* iOS recommended minimum touch target */
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .halal-toast-close svg {
+    @apply w-5 h-5;
+    /* Slightly larger on mobile */
+  }
+}
+
+/* Dark mode refinements */
+@media (prefers-color-scheme: dark) {
+  .halal-toast {
+    @apply shadow-lg;
+  }
+}

@@ -29,6 +29,7 @@ import { uploadAvatar, fileToDataUrl } from '@/lib/upload-api';
 import { getFavoriteEvents, type FavoriteEvent } from '@/lib/favorites-api';
 import { getFollowedOrganizers, type FollowedOrganizer } from '@/lib/follows-api';
 import { CreateOrganizerDialog } from '@/components/auth/CreateOrganizerDialog';
+import { COUNTRIES } from '@/lib/organizer-options';
 
 type ProfileEventCard = {
     id: string;
@@ -40,7 +41,7 @@ type ProfileEventCard = {
 
 export default function ProfilePage() {
     const { user, memberships, refresh: refreshAuth } = useAuth();
-    const { activeOrganizerId, setActiveOrganizerId } = useOrganizers();
+    const { activeOrganizerId, setActiveOrganizerId, organizers } = useOrganizers();
     const { getByStatus, counts } = useOrganizerEvents(activeOrganizerId);
     const [activeTab, setActiveTab] = useState('upcoming');
 
@@ -63,6 +64,16 @@ export default function ProfilePage() {
     const displayEmail = user?.email ?? 'Sign in';
     const avatarImage = avatarPreview || user?.avatarUrl || '';
     const avatarFallback = displayName.charAt(0).toUpperCase();
+    const activeOrganizer = organizers.find((organizer) => organizer.id === activeOrganizerId) ?? null;
+    const resolveCountryName = (code?: string | null) => {
+        if (!code) return '';
+        return COUNTRIES.find((country) => country.code === code)?.name ?? code;
+    };
+    const locationCity = user?.homeCity?.trim() || activeOrganizer?.city?.trim() || '';
+    const locationCountry = resolveCountryName(user?.homeCountry) || resolveCountryName(activeOrganizer?.country);
+    const locationLabel = user
+        ? [locationCity, locationCountry].filter(Boolean).join(', ') || 'Location not set'
+        : 'Unknown location';
 
     // Fetch saved events
     const fetchSavedEvents = useCallback(async () => {
@@ -265,7 +276,7 @@ export default function ProfilePage() {
                                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
                                     <div className="flex items-center gap-1.5">
                                         <MapPin className="h-4 w-4 text-primary/60" />
-                                        <span>{user ? 'Location not set' : 'Unknown location'}</span>
+                                        <span>{locationLabel}</span>
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         <Calendar className="h-4 w-4 text-primary/60" />
