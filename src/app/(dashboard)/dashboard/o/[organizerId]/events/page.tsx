@@ -89,9 +89,10 @@ function EventCard({ event, index, onDelete }: { event: DashboardEvent; index: n
     const { date, time } = formatEventDateTime(event);
     const location = getLocationDisplay(event);
 
-    // For now, we don't have ticket sales data - will be added when orders are implemented
-    const ticketsSold = 0;
-    const totalTickets = 100;
+    // Use actual data from backend
+    const ticketsSold = event.ticketsSold || 0;
+    const totalTickets = event.totalTickets || 0;
+    const revenue = event.revenue || 0;
 
     const handleCardClick = (e: React.MouseEvent) => {
         // Don't navigate if clicking on the dropdown menu
@@ -209,11 +210,11 @@ function EventCard({ event, index, onDelete }: { event: DashboardEvent; index: n
                         <div className="grid grid-cols-2 gap-2 text-xs mb-1.5">
                             <div>
                                 <p className="text-xs text-muted-foreground">Tickets Sold</p>
-                                <p className="font-bold text-primary">{ticketsSold}/{totalTickets}</p>
+                                <p className="font-bold text-primary">{ticketsSold}/{totalTickets || '∞'}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground">Revenue</p>
-                                <p className="font-semibold text-primary">{SUPPORTED_CURRENCIES[event.currency as keyof typeof SUPPORTED_CURRENCIES]?.symbol || event.currency}0</p>
+                                <p className="font-semibold text-primary">{SUPPORTED_CURRENCIES[event.currency as keyof typeof SUPPORTED_CURRENCIES]?.symbol || event.currency}{revenue.toFixed(2)}</p>
                             </div>
                         </div>
                         {/* Progress Bar - Enhanced */}
@@ -221,7 +222,7 @@ function EventCard({ event, index, onDelete }: { event: DashboardEvent; index: n
                             <div
                                 className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-300"
                                 style={{
-                                    width: `${Math.min((ticketsSold / totalTickets) * 100, 100)}%`,
+                                    width: totalTickets > 0 ? `${Math.min((ticketsSold / totalTickets) * 100, 100)}%` : '0%',
                                 }}
                             />
                         </div>

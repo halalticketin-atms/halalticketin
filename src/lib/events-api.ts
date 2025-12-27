@@ -35,6 +35,7 @@ export interface EventRecord {
     customQuestions: CustomQuestionPayload[] | null;
     ticketsSold?: number; // Aggregate from ticket_types
     totalTickets?: number; // Aggregate from ticket_types (sum of maxQuantity)
+    revenue?: number; // Total revenue from completed orders
     createdAt: string;
     updatedAt: string;
 }
