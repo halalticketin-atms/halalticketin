@@ -362,12 +362,12 @@ export default function OrdersPage() {
 
                 {/* Stats Cards - Horizontal scroll on mobile */}
                 <div className="mb-8 -mx-4 px-4 md:mx-0 md:px-0">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 md:grid md:grid-cols-3 md:overflow-visible md:pb-0">
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
-                            className=""
+                            className="min-w-[280px] snap-start md:min-w-0"
                         >
                             <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900">
                                 <CardContent className="pt-6">
@@ -387,7 +387,7 @@ export default function OrdersPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 }}
-                            className=""
+                            className="min-w-[280px] snap-start md:min-w-0"
                         >
                             <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
                                 <CardContent className="pt-6">
@@ -407,7 +407,7 @@ export default function OrdersPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
-                            className=""
+                            className="min-w-[280px] snap-start md:min-w-0"
                         >
                             <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
                                 <CardContent className="pt-6">
@@ -431,7 +431,7 @@ export default function OrdersPage() {
                 {/* Filters & Search with gradient background */}
                 <Card className="mb-6 bg-gradient-to-br from-indigo-50/50 via-purple-50/30 to-pink-50/50 dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-pink-950/20 border-indigo-100/50 dark:border-indigo-900/50">
                     <CardContent className="py-4">
-                        <div className="flex flex-col gap-4">
+                        <div className="flex flex-col sm:flex-row gap-4">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
@@ -530,7 +530,7 @@ export default function OrdersPage() {
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="h-10 bg-background/80 backdrop-blur">
+                                        <Button variant="outline" className="h-10 hidden sm:flex bg-background/80 backdrop-blur">
                                             <Download className="h-4 w-4 mr-2" />
                                             Export
                                             <ChevronDown className="h-4 w-4 ml-2" />

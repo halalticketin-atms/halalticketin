@@ -367,7 +367,7 @@ export default function OrdersPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
-                            className=""
+                            className="min-w-[280px] snap-start md:min-w-0"
                         >
                             <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900">
                                 <CardContent className="pt-6">
@@ -387,7 +387,7 @@ export default function OrdersPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 }}
-                            className=""
+                            className="min-w-[280px] snap-start md:min-w-0"
                         >
                             <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
                                 <CardContent className="pt-6">
@@ -407,7 +407,7 @@ export default function OrdersPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
-                            className=""
+                            className="min-w-[280px] snap-start md:min-w-0"
                         >
                             <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
                                 <CardContent className="pt-6">
