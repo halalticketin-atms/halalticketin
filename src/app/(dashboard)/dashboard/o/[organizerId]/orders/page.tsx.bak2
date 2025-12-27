@@ -464,52 +464,6 @@ export default function OrdersPage() {
                                         <SelectItem value="partially_refunded">Partial Refund</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                
-                                {/* Event Filter Dropdown */}
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="h-10 bg-background/80 backdrop-blur">
-                                            <Ticket className="h-4 w-4 mr-2" />
-                                            Events {eventFilter.length > 0 && `(${eventFilter.length})`}
-                                            <ChevronDown className="h-4 w-4 ml-2" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start" className="w-56">
-                                        <div className="p-2 space-y-2 max-h-64 overflow-y-auto">
-                                            {Array.from(new Set(orders.map(o => ({ id: o.event.id, name: o.event.name }))))
-                                                .filter((event, index, self) => 
-                                                    index === self.findIndex(e => e.id === event.id)
-                                                )
-                                                .map((event) => (
-                                                    <div 
-                                                        key={event.id} 
-                                                        className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer"
-                                                        onClick={() => {
-                                                            if (eventFilter.includes(event.id)) {
-                                                                setEventFilter(eventFilter.filter(id => id !== event.id));
-                                                            } else {
-                                                                setEventFilter([...eventFilter, event.id]);
-                                                            }
-                                                        }}
-                                                    >
-                                                        <Checkbox
-                                                            id={`filter-event-${event.id}`}
-                                                            checked={eventFilter.includes(event.id)}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        />
-                                                        <Label
-                                                            htmlFor={`filter-event-${event.id}`}
-                                                            className="flex-1 cursor-pointer font-normal text-sm"
-                                                        >
-                                                            {event.name || "Unnamed Event"}
-                                                        </Label>
-                                                    </div>
-                                                ))
-                                            }
-                                        </div>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="outline" className="h-10 hidden sm:flex bg-background/80 backdrop-blur">
@@ -533,37 +487,6 @@ export default function OrdersPage() {
                         </div>
                     </CardContent>
                 </Card>
-
-                  {/* Event Filter Chips */}
-                  {eventFilter.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-4">
-                          {eventFilter.map(eventId => {
-                              const event = orders.find(o => o.event.id === eventId)?.event;
-                              return (
-                                  <Badge
-                                      key={eventId}
-                                      variant="secondary"
-                                      className="px-3 py-1.5 cursor-pointer hover:bg-secondary/80"
-                                      onClick={() => setEventFilter(eventFilter.filter(id => id !== eventId))}
-                                  >
-                                      {event?.name || "Event"}
-                                      <X className="h-3 w-3 ml-1.5" />
-                                  </Badge>
-                              );
-                          })}
-                          {eventFilter.length > 1 && (
-                              <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs"
-                                  onClick={() => setEventFilter([])}
-                              >
-                                  Clear all
-                              </Button>
-                          )}
-                      </div>
-                  )}
-
 
                 {/* Orders Grid */}
                 {isLoading ? (
