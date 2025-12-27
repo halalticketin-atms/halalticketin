@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, startTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
@@ -54,6 +54,7 @@ import { useOptionalAuth } from '@/context/auth-context';
 import { differenceInYears } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ShareDialog } from '@/components/share/ShareDialog';
+import { toast } from '@/lib/notifications';
 
 // Dynamic import to avoid SSR issues with Leaflet
 const EventLocationMap = dynamic(
@@ -650,6 +651,21 @@ export function PublicEventPageContent({
 
     const startDatetime = event?.startDatetime ?? null;
     const endDatetime = event?.endDatetime ?? null;
+    const eventEndTimestamp = endDatetime
+        ? new Date(endDatetime).getTime()
+        : startDatetime
+            ? new Date(startDatetime).getTime()
+            : null;
+    const isPastEvent = !isPreview && eventEndTimestamp !== null && Date.now() > eventEndTimestamp;
+    const hasShownPastToast = useRef(false);
+
+    useEffect(() => {
+        if (!isPastEvent || hasShownPastToast.current) return;
+        hasShownPastToast.current = true;
+        toast.info('Event has ended', {
+            description: 'This event is no longer available. It has already happened.',
+        });
+    }, [isPastEvent]);
 
     // Format event date/time
     const eventDateTime = useMemo(() => {

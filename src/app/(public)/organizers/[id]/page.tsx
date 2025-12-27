@@ -38,6 +38,7 @@ import {
     checkIsFollowing
 } from '@/lib/follows-api';
 import { ShareDialog } from '@/components/share/ShareDialog';
+import { toast } from '@/lib/notifications';
 
 /**
  * Format date for event cards
@@ -89,54 +90,67 @@ function SocialIcon({ platform }: { platform: string }) {
 /**
  * Event card component
  */
-function EventCard({ event }: { event: PublicOrganizerEvent }) {
+function EventCard({ event, isPast = false }: { event: PublicOrganizerEvent; isPast?: boolean }) {
     const eventUrl = event.slug ? `/events/${event.slug}` : `/events/${event.id}`;
+    const handlePastClick = () => {
+        toast.info('Event has ended', {
+            description: 'This event is no longer available. It has already happened.',
+        });
+    };
 
-    return (
-        <Link href={eventUrl}>
-            <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full">
-                <div className="relative aspect-[16/10] overflow-hidden">
-                    {event.bannerImageUrl ? (
-                        <Image
-                            src={event.bannerImageUrl}
-                            alt={event.title || 'Event'}
-                            fill
-                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                            className="object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                    ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                            <Calendar className="h-10 w-10 text-primary/40" />
-                        </div>
-                    )}
-                    {event.category && (
-                        <span className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-sm text-white text-xs font-medium rounded-full">
-                            {event.category}
-                        </span>
-                    )}
-                </div>
-                <CardContent className="p-4">
-                    <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-colors">
-                        {event.title || 'Untitled Event'}
-                    </h3>
-                    <div className="mt-3 space-y-1.5">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Calendar className="h-4 w-4 text-primary" />
-                            <span>{formatEventDate(event.startDatetime)}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            {event.locationType === 'online' ? (
-                                <Globe className="h-4 w-4 text-primary" />
-                            ) : (
-                                <MapPin className="h-4 w-4 text-primary" />
-                            )}
-                            <span className="truncate">{getLocationString(event)}</span>
-                        </div>
+    const card = (
+        <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full">
+            <div className="relative aspect-[4/5] overflow-hidden">
+                {event.bannerImageUrl ? (
+                    <Image
+                        src={event.bannerImageUrl}
+                        alt={event.title || 'Event'}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                        <Calendar className="h-10 w-10 text-primary/40" />
                     </div>
-                </CardContent>
-            </Card>
-        </Link>
+                )}
+                {event.category && (
+                    <span className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-sm text-white text-xs font-medium rounded-full">
+                        {event.category}
+                    </span>
+                )}
+            </div>
+            <CardContent className="p-4">
+                <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-colors">
+                    {event.title || 'Untitled Event'}
+                </h3>
+                <div className="mt-3 space-y-1.5">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        <span>{formatEventDate(event.startDatetime)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {event.locationType === 'online' ? (
+                            <Globe className="h-4 w-4 text-primary" />
+                        ) : (
+                            <MapPin className="h-4 w-4 text-primary" />
+                        )}
+                        <span className="truncate">{getLocationString(event)}</span>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
     );
+
+    if (isPast) {
+        return (
+            <button type="button" className="text-left" onClick={handlePastClick}>
+                {card}
+            </button>
+        );
+    }
+
+    return <Link href={eventUrl}>{card}</Link>;
 }
 
 /**
@@ -446,7 +460,7 @@ export default function OrganizerProfilePage() {
 
                         <TabsContent value="upcoming">
                             {upcomingEvents.length > 0 ? (
-                                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                                <div className="grid gap-6 grid-cols-2 lg:grid-cols-4">
                                     {upcomingEvents.map((event) => (
                                         <EventCard key={event.id} event={event} />
                                     ))}
@@ -458,9 +472,9 @@ export default function OrganizerProfilePage() {
 
                         <TabsContent value="past">
                             {pastEvents.length > 0 ? (
-                                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                                <div className="grid gap-6 grid-cols-2 lg:grid-cols-4">
                                     {pastEvents.map((event) => (
-                                        <EventCard key={event.id} event={event} />
+                                        <EventCard key={event.id} event={event} isPast />
                                     ))}
                                 </div>
                             ) : (
