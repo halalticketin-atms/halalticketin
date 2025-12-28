@@ -60,6 +60,8 @@ function formatEventForDisplay(event: PublicEventRecord) {
         category: event.category ?? 'Other',
         imageUrl: event.bannerImageUrl,
         attendees: 0, // Placeholder
+        organizerName: event.organizerName,
+        organizerAvatarUrl: event.organizerAvatarUrl,
         // Pass through favorite status from API (null if unauthenticated)
         isFavorited: event.isFavorited,
     };
@@ -268,6 +270,25 @@ function BrowseEventsContent() {
                                                     <h3 className="font-display font-bold text-sm leading-snug line-clamp-2 group-hover:text-[var(--brand-teal)] transition-colors">
                                                         {event.title}
                                                     </h3>
+                                                    {event.organizerName && (
+                                                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                                            <div
+                                                                className={`relative h-5 w-5 overflow-hidden rounded-full flex items-center justify-center text-[10px] font-semibold text-foreground/70 ${event.organizerAvatarUrl ? 'bg-transparent' : 'bg-muted'}`}
+                                                            >
+                                                                {event.organizerAvatarUrl ? (
+                                                                    <Image
+                                                                        src={event.organizerAvatarUrl}
+                                                                        alt={event.organizerName}
+                                                                        fill
+                                                                        className="object-cover"
+                                                                    />
+                                                                ) : (
+                                                                    <span>{event.organizerName.charAt(0).toUpperCase()}</span>
+                                                                )}
+                                                            </div>
+                                                            <span className="truncate">{event.organizerName}</span>
+                                                        </div>
+                                                    )}
                                                     <p className="mt-1 text-xs text-muted-foreground">
                                                         {event.date}
                                                     </p>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
+import { fetchPublicOrganizerProfile } from '@/lib/organizers-api';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     Calendar,
@@ -164,6 +165,15 @@ export function PublicEventPageContent({
 
     const auth = useOptionalAuth();
     const user = auth?.user;
+
+    // Fetch organizer profile for avatar
+    const [organizerAvatar, setOrganizerAvatar] = useState<string | null>(null);
+    useEffect(() => {
+        if (!event?.organizerId || isPreview) return;
+        fetchPublicOrganizerProfile(event.organizerId)
+            .then(res => setOrganizerAvatar(res.organizer.avatarUrl))
+            .catch(() => setOrganizerAvatar(null));
+    }, [event?.organizerId, isPreview]);
 
     // Checkout state
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -821,7 +831,7 @@ export function PublicEventPageContent({
                 <div className="grid gap-8 lg:grid-cols-3">
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-8">
-                        {/* Title and Organizer */}
+                        {/* Title */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -830,18 +840,55 @@ export function PublicEventPageContent({
                             <h1 className="font-display text-3xl sm:text-4xl font-bold">
                                 {event.title || 'Untitled Event'}
                             </h1>
-                            {organizerName && (
-                                <p className="mt-2 text-muted-foreground">
-                                    Hosted by{' '}
-                                    <Link
-                                        href={`/organizers/${event.organizerId}`}
-                                        className="font-medium text-foreground hover:text-primary transition-colors hover:underline"
-                                    >
-                                        {organizerName}
-                                    </Link>
-                                </p>
-                            )}
                         </motion.div>
+
+                        {/* Organizer Card - Prominent Design */}
+                        {organizerName && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.4, delay: 0.05 }}
+                            >
+                                <Link href={`/organizers/${event.organizerId}`}>
+                                    <Card className="group hover:border-primary/50 transition-all duration-300 hover:shadow-lg cursor-pointer bg-gradient-to-br from-primary/5 to-transparent">
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center gap-4">
+                                                {/* Organizer Avatar */}
+                                                <div
+                                                    className={cn(
+                                                        "relative h-14 w-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-110 transition-transform duration-300 overflow-hidden",
+                                                        organizerAvatar ? "bg-transparent" : "bg-gradient-to-br from-primary to-primary/60"
+                                                    )}
+                                                >
+                                                    {organizerAvatar ? (
+                                                        <Image
+                                                            src={organizerAvatar}
+                                                            alt={organizerName}
+                                                            fill
+                                                            className="object-cover"
+                                                        />
+                                                    ) : (
+                                                        <span>{organizerName.charAt(0).toUpperCase()}</span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+                                                        Event Organizer
+                                                    </p>
+                                                    <p className="font-semibold text-lg group-hover:text-primary transition-colors truncate">
+                                                        {organizerName}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground group-hover:underline">
+                                                        View organizer profile →
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </Link>
+                            </motion.div>
+                        )}
 
                         {/* Date, Time, Location Info */}
                         <motion.div

@@ -90,7 +90,17 @@ function SocialIcon({ platform }: { platform: string }) {
 /**
  * Event card component
  */
-function EventCard({ event, isPast = false }: { event: PublicOrganizerEvent; isPast?: boolean }) {
+function EventCard({
+    event,
+    organizerName,
+    organizerAvatarUrl,
+    isPast = false
+}: {
+    event: PublicOrganizerEvent;
+    organizerName: string;
+    organizerAvatarUrl: string | null;
+    isPast?: boolean;
+}) {
     const eventUrl = event.slug ? `/events/${event.slug}` : `/events/${event.id}`;
     const handlePastClick = () => {
         toast.info('Event has ended', {
@@ -124,6 +134,21 @@ function EventCard({ event, isPast = false }: { event: PublicOrganizerEvent; isP
                 <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-colors">
                     {event.title || 'Untitled Event'}
                 </h3>
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="relative h-5 w-5 overflow-hidden rounded-full flex items-center justify-center bg-white text-[10px] font-semibold text-foreground/70">
+                        {organizerAvatarUrl ? (
+                            <Image
+                                src={organizerAvatarUrl}
+                                alt={organizerName}
+                                fill
+                                className="object-cover"
+                            />
+                        ) : (
+                            <span>{organizerName.charAt(0).toUpperCase()}</span>
+                        )}
+                    </div>
+                    <span className="truncate">Hosted by {organizerName}</span>
+                </div>
                 <div className="mt-3 space-y-1.5">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar className="h-4 w-4 text-primary" />
@@ -323,7 +348,7 @@ export default function OrganizerProfilePage() {
                     >
                         {/* Avatar */}
                         <div className="relative shrink-0">
-                            <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-2xl overflow-hidden ring-4 ring-background shadow-xl bg-gradient-to-br from-primary/20 to-primary/5">
+                            <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-2xl overflow-hidden ring-4 ring-background shadow-xl bg-white">
                                 {organizer.avatarUrl ? (
                                     <Image
                                         src={organizer.avatarUrl}
@@ -462,7 +487,12 @@ export default function OrganizerProfilePage() {
                             {upcomingEvents.length > 0 ? (
                                 <div className="grid gap-6 grid-cols-2 lg:grid-cols-4">
                                     {upcomingEvents.map((event) => (
-                                        <EventCard key={event.id} event={event} />
+                                        <EventCard
+                                            key={event.id}
+                                            event={event}
+                                            organizerName={organizer.name}
+                                            organizerAvatarUrl={organizer.avatarUrl}
+                                        />
                                     ))}
                                 </div>
                             ) : (
@@ -474,7 +504,13 @@ export default function OrganizerProfilePage() {
                             {pastEvents.length > 0 ? (
                                 <div className="grid gap-6 grid-cols-2 lg:grid-cols-4">
                                     {pastEvents.map((event) => (
-                                        <EventCard key={event.id} event={event} isPast />
+                                        <EventCard
+                                            key={event.id}
+                                            event={event}
+                                            organizerName={organizer.name}
+                                            organizerAvatarUrl={organizer.avatarUrl}
+                                            isPast
+                                        />
                                     ))}
                                 </div>
                             ) : (

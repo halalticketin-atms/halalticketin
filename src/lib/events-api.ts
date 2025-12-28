@@ -213,6 +213,7 @@ export interface PublicEventRecord {
     longitude: number | null;
     currency: string;
     organizerName: string | null;
+    organizerAvatarUrl: string | null;
     category: string | null;
     absorbFee: boolean;
     feeTier: BackendFeeTier | null;
