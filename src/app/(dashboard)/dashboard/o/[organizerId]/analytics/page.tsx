@@ -98,6 +98,10 @@ export default function AnalyticsPage() {
                 if (eventId) {
                     params.eventId = eventId;
                 }
+                if (periodView === 'yearly') {
+                    params.year = selectedYear.toString();
+                }
+
                 const response = await api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
                     params,
                 });
@@ -113,7 +117,7 @@ export default function AnalyticsPage() {
                 setIsLoading(false);
             }
         },
-        [organizerId]
+        [organizerId, periodView, selectedYear]
     );
 
     useEffect(() => {
@@ -122,8 +126,8 @@ export default function AnalyticsPage() {
             setIsLoading(false);
             return;
         }
-        void fetchAnalytics();
-    }, [fetchAnalytics, organizerId]);
+        void fetchAnalytics(selectedEvent === 'all' ? undefined : selectedEvent);
+    }, [fetchAnalytics, organizerId, selectedEvent]);
 
     useEffect(() => {
         setMounted(true);
@@ -230,11 +234,6 @@ export default function AnalyticsPage() {
 
     const handleEventChange = (value: string) => {
         setSelectedEvent(value);
-        if (value === 'all') {
-            void fetchAnalytics();
-        } else {
-            void fetchAnalytics(value);
-        }
     };
 
     const emptyState = !isLoading && !error && analytics?.eventPerformance.length === 0;
