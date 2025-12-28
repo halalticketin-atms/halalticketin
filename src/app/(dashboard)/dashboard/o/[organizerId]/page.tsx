@@ -12,6 +12,7 @@ import api from '@/lib/api';
 
 interface AnalyticsStats {
     totalRevenue: number;
+    netRevenue?: number; // Revenue after fees, optional for backwards compatibility
     ticketsSold: number;
     paidOrders: number;
     totalEvents: number;
@@ -127,7 +128,7 @@ export default function DashboardPage() {
         () => [
             {
                 title: 'Total Revenue',
-                value: formatCurrency(analyticsStats?.totalRevenue ?? 0, analyticsStats?.currency ?? 'GBP'),
+                value: formatCurrency(analyticsStats?.netRevenue ?? analyticsStats?.totalRevenue ?? 0, analyticsStats?.currency ?? 'GBP'),
                 icon: DollarSign,
                 color: 'green' as const
             },

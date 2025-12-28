@@ -415,19 +415,22 @@ export default function OrganizerProfilePage() {
                                     Share
                                 </Button>
 
-                                {organizer.website && (
-                                    <Button size="sm" variant="ghost" asChild className="hidden sm:inline-flex">
-                                        <a href={organizer.website} target="_blank" rel="noopener noreferrer">
-                                            <ExternalLink className="h-4 w-4 mr-1.5" />
-                                            Website
-                                        </a>
-                                    </Button>
-                                )}
                             </div>
 
                             {/* Social Links */}
-                            {socialLinks.length > 0 && (
-                                <div className="flex items-center gap-2 mt-3 sm:mt-4">
+                            {(socialLinks.length > 0 || organizer.website) && (
+                                <div className="flex flex-wrap items-center gap-2 mt-3 sm:mt-4">
+                                    {organizer.website && (
+                                        <a
+                                            href={organizer.website}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted"
+                                        >
+                                            <ExternalLink className="h-4 w-4" />
+                                            Website
+                                        </a>
+                                    )}
                                     {socialLinks.map(([platform, url]) => (
                                         <a
                                             key={platform}
@@ -439,17 +442,6 @@ export default function OrganizerProfilePage() {
                                             <SocialIcon platform={platform} />
                                         </a>
                                     ))}
-                                    {/* Mobile website link */}
-                                    {organizer.website && (
-                                        <a
-                                            href={organizer.website}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-2 rounded-full bg-muted hover:bg-muted/80 transition-colors sm:hidden"
-                                        >
-                                            <Globe className="h-4 w-4" />
-                                        </a>
-                                    )}
                                 </div>
                             )}
 
@@ -465,19 +457,25 @@ export default function OrganizerProfilePage() {
             </div>
 
             {/* Events Section */}
-            <div className="container pb-16">
+            <div className="container pt-6 sm:pt-8 pb-16">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
                 >
                     <Tabs defaultValue="upcoming" className="w-full">
-                        <TabsList className="mb-6">
-                            <TabsTrigger value="upcoming" className="gap-2">
+                        <TabsList className="mb-6 bg-muted/50 p-1">
+                            <TabsTrigger
+                                value="upcoming"
+                                className="gap-2 px-4 py-2 text-sm sm:text-base font-normal"
+                            >
                                 <Calendar className="h-4 w-4" />
                                 Upcoming ({upcomingEvents.length})
                             </TabsTrigger>
-                            <TabsTrigger value="past" className="gap-2">
+                            <TabsTrigger
+                                value="past"
+                                className="gap-2 px-4 py-2 text-sm sm:text-base font-normal"
+                            >
                                 <Clock className="h-4 w-4" />
                                 Past ({pastEvents.length})
                             </TabsTrigger>

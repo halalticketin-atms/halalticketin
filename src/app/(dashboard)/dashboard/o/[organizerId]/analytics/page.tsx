@@ -1,13 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
     Calendar,
     Ticket,
     DollarSign,
     ArrowLeft,
     Receipt,
+    TrendingUp,
+    TrendingDown,
+    Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -20,7 +23,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import api from "@/lib/api";
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { buildDashboardPath } from '@/lib/organizer-path';
@@ -49,6 +51,7 @@ interface AnalyticsResponse {
     };
     stats: {
         totalRevenue: number;
+        netRevenue: number; // Revenue after platform + Stripe fees
         ticketsSold: number;
         paidOrders: number;
         totalEvents: number;
@@ -76,6 +79,8 @@ export default function AnalyticsPage() {
     const [mounted, setMounted] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [chartView, setChartView] = useState<'revenue' | 'tickets'>('revenue');
+    const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
     const fetchAnalytics = useCallback(
         async (eventId?: string) => {
@@ -122,6 +127,7 @@ export default function AnalyticsPage() {
     const eventOptions = analytics?.filters.events ?? [];
     const selectedEventMeta = selectedEvent === 'all' ? null : eventOptions.find(event => event.id === selectedEvent);
 
+    // Enhanced KPI stats with consistent styling
     const stats = useMemo(() => {
         if (!analytics) {
             return [];
@@ -129,32 +135,82 @@ export default function AnalyticsPage() {
 
         return [
             {
-                title: 'Total Revenue',
-                value: formatCurrency(analytics.stats.totalRevenue, analytics.stats.currency),
+                title: 'Net Revenue',
+                value: formatCurrency(analytics.stats.netRevenue, analytics.stats.currency),
                 icon: DollarSign,
+                cardClass: 'bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900',
+                iconClass: 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg',
             },
             {
                 title: 'Tickets Sold',
-                value: analytics.stats.ticketsSold.toString(),
+                value: analytics.stats.ticketsSold.toLocaleString(),
                 icon: Ticket,
+                cardClass: 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900',
+                iconClass: 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg',
             },
             {
                 title: 'Paid Orders',
-                value: analytics.stats.paidOrders.toString(),
-                icon: Receipt,
+                value: analytics.stats.paidOrders.toLocaleString(),
+                icon: Check,
+                cardClass: 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900',
+                iconClass: 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-lg',
             },
             {
-                title: 'Active Events',
+                title: 'Total Events',
                 value: analytics.stats.totalEvents.toString(),
                 icon: Calendar,
+                cardClass: 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900',
+                iconClass: 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg',
             },
         ];
     }, [analytics]);
 
-    const revenueSeries = analytics?.charts.revenueMonthly ?? [];
-    const ticketsSeries = analytics?.charts.ticketsMonthly ?? [];
-    const maxRevenue = Math.max(1, ...revenueSeries.map(point => point.value));
-    const maxTickets = Math.max(1, ...ticketsSeries.map(point => point.value));
+    // Calculate derived metrics
+    const derivedMetrics = useMemo(() => {
+        if (!analytics) {
+            return { avgTicketPrice: 0, peakMonth: null, growth: null, avgOrderValue: 0 };
+        }
+
+        const avgTicketPrice = analytics.stats.ticketsSold > 0
+            ? analytics.stats.netRevenue / analytics.stats.ticketsSold
+            : 0;
+
+        const avgOrderValue = analytics.stats.paidOrders > 0
+            ? analytics.stats.netRevenue / analytics.stats.paidOrders
+            : 0;
+
+        // Find peak sales month
+        const peakMonth = analytics.charts.revenueMonthly.reduce((max, point) =>
+            point.value > max.value ? point : max
+            , analytics.charts.revenueMonthly[0]);
+
+        // Calculate growth (last month vs previous month)
+        const months = analytics.charts.revenueMonthly;
+        const growth = months.length >= 2 ? {
+            percentage: months[months.length - 2].value > 0
+                ? ((months[months.length - 1].value - months[months.length - 2].value) / months[months.length - 2].value) * 100
+                : 0,
+            isPositive: months[months.length - 1].value >= months[months.length - 2].value
+        } : null;
+
+        return { avgTicketPrice, peakMonth, growth, avgOrderValue };
+    }, [analytics]);
+
+    const currentSeries = chartView === 'revenue'
+        ? analytics?.charts.revenueMonthly ?? []
+        : analytics?.charts.ticketsMonthly ?? [];
+
+    const maxValue = Math.max(1, ...currentSeries.map(point => point.value));
+
+    // Top events by revenue (limit to 5)
+    const topEvents = useMemo(() => {
+        if (!analytics) return [];
+        return [...analytics.eventPerformance]
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 5);
+    }, [analytics]);
+
+    const maxEventRevenue = topEvents.length > 0 ? topEvents[0].revenue : 1;
 
     const handleEventChange = (value: string) => {
         setSelectedEvent(value);
@@ -169,7 +225,7 @@ export default function AnalyticsPage() {
 
     return (
         <div className="min-h-screen bg-muted/30">
-            <div className="container py-8">
+            <div className="container py-8 max-w-7xl">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -186,7 +242,7 @@ export default function AnalyticsPage() {
                         <h1 className="font-display text-2xl sm:text-3xl font-bold">Analytics</h1>
                         <p className="text-muted-foreground">Track performance and insights</p>
                         {selectedEventMeta && (
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
                                 Viewing data for {selectedEventMeta.name}
                             </p>
                         )}
@@ -196,7 +252,7 @@ export default function AnalyticsPage() {
                     <div className="flex items-center gap-3">
                         {mounted ? (
                             <Select value={selectedEvent} onValueChange={handleEventChange}>
-                                <SelectTrigger className="w-[280px] h-12 bg-background">
+                                <SelectTrigger className="w-full sm:w-[280px] h-12 bg-background">
                                     <SelectValue placeholder="Select event" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -205,7 +261,7 @@ export default function AnalyticsPage() {
                                         <SelectItem key={event.id} value={event.id}>
                                             <div className="flex items-center gap-3">
                                                 {event.bannerImageUrl && (
-                                                    <div className="relative h-6 w-6 rounded overflow-hidden">
+                                                    <div className="relative h-6 w-6 rounded overflow-hidden flex-shrink-0">
                                                         <Image
                                                             src={event.bannerImageUrl}
                                                             alt=""
@@ -215,22 +271,26 @@ export default function AnalyticsPage() {
                                                         />
                                                     </div>
                                                 )}
-                                                {event.name}
+                                                <span className="truncate">{event.name}</span>
                                             </div>
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         ) : (
-                            <div className="w-[280px] h-12 bg-background rounded-md border border-input" />
+                            <div className="w-full sm:w-[280px] h-12 bg-background rounded-md border border-input" />
                         )}
                     </div>
                 </motion.div>
 
-                {/* Stats Grid */}
+                {/* Enhanced KPI Cards with consistent styling */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
                     {stats.length === 0 && isLoading && (
-                        <Card className="border-border/50 h-32 animate-pulse" />
+                        <>
+                            {[...Array(4)].map((_, i) => (
+                                <Card key={i} className="h-32 animate-pulse" />
+                            ))}
+                        </>
                     )}
                     {stats.map((stat, i) => (
                         <motion.div
@@ -239,15 +299,15 @@ export default function AnalyticsPage() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.1 }}
                         >
-                            <Card className="border-border/50 hover:shadow-md transition-shadow">
-                                <CardContent className="p-5">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-muted-foreground">{stat.title}</p>
-                                            <p className="text-2xl font-bold mt-1">{stat.value}</p>
+                            <Card className={stat.cardClass}>
+                                <CardContent className="p-4 sm:p-6">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium text-muted-foreground mb-1 truncate">{stat.title}</p>
+                                            <p className="text-2xl sm:text-3xl font-bold break-words">{stat.value}</p>
                                         </div>
-                                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                                            <stat.icon className="h-5 w-5" />
+                                        <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${stat.iconClass}`}>
+                                            <stat.icon className="h-6 w-6" />
                                         </div>
                                     </div>
                                 </CardContent>
@@ -256,214 +316,355 @@ export default function AnalyticsPage() {
                     ))}
                 </div>
 
-                {/* Charts Section */}
-                <Tabs defaultValue="revenue" className="space-y-6">
-                    <TabsList className="bg-muted/50">
-                        <TabsTrigger value="revenue">Revenue</TabsTrigger>
-                        <TabsTrigger value="tickets">Ticket Sales</TabsTrigger>
-                        <TabsTrigger value="engagement">Engagement</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="revenue">
-                        <div className="grid gap-6 lg:grid-cols-3">
-                            {/* Main Chart */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="lg:col-span-2"
-                            >
-                                <Card className="border-border/50">
-                                    <CardHeader className="flex-row items-center justify-between">
-                                        <CardTitle className="text-lg">Revenue Over Time</CardTitle>
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <span className="flex items-center gap-1">
-                                                <div className="h-3 w-3 rounded-full bg-primary" />
-                                                Revenue
-                                            </span>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="h-72 flex items-end justify-between gap-3 pt-8">
-                                            {revenueSeries.map((point, i) => (
-                                                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                                                    <span className="text-xs font-medium text-muted-foreground">
-                                                        {formatCurrency(point.value, analytics?.stats.currency ?? 'GBP')}
-                                                    </span>
-                                                    <motion.div
-                                                        className="w-full bg-gradient-to-t from-primary to-[oklch(0.72_0.15_185)] rounded-lg"
-                                                        initial={{ height: 0 }}
-                                                        animate={{ height: `${(point.value / maxRevenue) * 200}px` }}
-                                                        transition={{ duration: 0.6, delay: i * 0.1 }}
-                                                    />
-                                                    <span className="text-xs text-muted-foreground">{point.label}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-
-                            {/* Side Stats */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2 }}
-                                className="space-y-4"
-                            >
-                                <Card className="border-border/50">
-                                    <CardContent className="p-5">
-                                        <p className="text-sm text-muted-foreground">Average Ticket Price</p>
-                                        <p className="text-3xl font-bold mt-1">
-                                            {analytics && analytics.stats.ticketsSold > 0
-                                                ? formatCurrency(
-                                                    analytics.stats.totalRevenue / analytics.stats.ticketsSold,
-                                                    analytics.stats.currency
-                                                )
-                                                : formatCurrency(0, analytics?.stats.currency ?? 'GBP')}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground mt-2">Live calculation</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="border-border/50">
-                                    <CardContent className="p-5">
-                                        <p className="text-sm text-muted-foreground">Conversion Rate</p>
-                                        <p className="text-3xl font-bold mt-1 text-muted-foreground/50">—</p>
-                                        <p className="text-sm text-muted-foreground mt-2">Coming soon</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="border-border/50">
-                                    <CardContent className="p-5">
-                                        <p className="text-sm text-muted-foreground">Refund Rate</p>
-                                        <p className="text-3xl font-bold mt-1 text-muted-foreground/50">—</p>
-                                        <p className="text-sm text-muted-foreground mt-2">Coming soon</p>
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="tickets">
+                {/* Main Content Grid */}
+                <div className="grid gap-6 lg:grid-cols-3 mb-6">
+                    {/* Left Column - Charts (2/3 width on desktop) */}
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* Revenue/Tickets Chart with Toggle */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
                         >
                             <Card className="border-border/50">
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Ticket Sales Breakdown</CardTitle>
+                                <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4 pb-4">
+                                    <CardTitle className="text-lg font-semibold">
+                                        {chartView === 'revenue' ? 'Revenue' : 'Tickets'} Over Time
+                                    </CardTitle>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant={chartView === 'revenue' ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => setChartView('revenue')}
+                                            className="h-8"
+                                        >
+                                            <DollarSign className="h-4 w-4 mr-1" />
+                                            Revenue
+                                        </Button>
+                                        <Button
+                                            variant={chartView === 'tickets' ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => setChartView('tickets')}
+                                            className="h-8"
+                                        >
+                                            <Ticket className="h-4 w-4 mr-1" />
+                                            Tickets
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="h-72 flex items-end justify-between gap-3 pt-8">
-                                        {ticketsSeries.map((point, i) => (
-                                            <div key={point.label} className="flex-1 flex flex-col items-center gap-2">
-                                                <span className="text-xs font-medium text-muted-foreground">{point.value}</span>
+                                    <div className="h-64 relative pb-6">
+                                        <AnimatePresence mode="wait">
+                                            <motion.svg
+                                                key={chartView}
+                                                className="w-full h-full"
+                                                viewBox="0 0 600 210"
+                                                preserveAspectRatio="none"
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                exit={{ opacity: 0 }}
+                                                transition={{ duration: 0.3 }}
+                                            >
+                                                {/* Grid lines */}
+                                                {[0, 1, 2, 3, 4].map((i) => (
+                                                    <line
+                                                        key={i}
+                                                        x1="0"
+                                                        y1={5 + i * 50}
+                                                        x2="600"
+                                                        y2={5 + i * 50}
+                                                        stroke="currentColor"
+                                                        strokeOpacity="0.1"
+                                                        className="text-muted-foreground"
+                                                    />
+                                                ))}
+
+                                                {/* Gradient fill */}
+                                                <defs>
+                                                    <linearGradient id={`${chartView}Gradient`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                                        <stop offset="0%" stopColor={chartView === 'revenue' ? '#10b981' : '#3b82f6'} stopOpacity="0.3" />
+                                                        <stop offset="100%" stopColor={chartView === 'revenue' ? '#10b981' : '#3b82f6'} stopOpacity="0.05" />
+                                                    </linearGradient>
+                                                    <linearGradient id={`${chartView}LineGradient`} x1="0%" y1="0%" x2="100%" y2="0%">
+                                                        <stop offset="0%" stopColor={chartView === 'revenue' ? '#10b981' : '#3b82f6'} />
+                                                        <stop offset="100%" stopColor={chartView === 'revenue' ? '#059669' : '#2563eb'} />
+                                                    </linearGradient>
+                                                </defs>
+
+                                                {currentSeries.length > 0 && (
+                                                    <>
+                                                        {/* Line path */}
+                                                        <motion.path
+                                                            d={currentSeries.map((point, i) => {
+                                                                const x = (i / (currentSeries.length - 1)) * 600;
+                                                                const y = 10 + (1 - point.value / maxValue) * 190;
+                                                                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+                                                            }).join(' ')}
+                                                            fill="none"
+                                                            stroke={`url(#${chartView}LineGradient)`}
+                                                            strokeWidth="3"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            initial={{ pathLength: 0 }}
+                                                            animate={{ pathLength: 1 }}
+                                                            transition={{ duration: 1.5, ease: "easeInOut" }}
+                                                        />
+
+                                                        {/* Fill area */}
+                                                        <motion.path
+                                                            d={`${currentSeries.map((point, i) => {
+                                                                const x = (i / (currentSeries.length - 1)) * 600;
+                                                                const y = 10 + (1 - point.value / maxValue) * 190;
+                                                                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+                                                            }).join(' ')} L 600 210 L 0 210 Z`}
+                                                            fill={`url(#${chartView}Gradient)`}
+                                                            initial={{ opacity: 0 }}
+                                                            animate={{ opacity: 1 }}
+                                                            transition={{ duration: 1, delay: 0.5 }}
+                                                        />
+
+                                                        {/* Interactive data points */}
+                                                        {currentSeries.map((point, i) => {
+                                                            const x = (i / (currentSeries.length - 1)) * 600;
+                                                            const y = 10 + (1 - point.value / maxValue) * 190;
+                                                            return (
+                                                                <g key={i}>
+                                                                    {/* Invisible larger hit area */}
+                                                                    <circle
+                                                                        cx={x}
+                                                                        cy={y}
+                                                                        r="15"
+                                                                        fill="transparent"
+                                                                        className="cursor-pointer"
+                                                                        onMouseEnter={() => setHoveredPoint(i)}
+                                                                        onMouseLeave={() => setHoveredPoint(null)}
+                                                                    />
+                                                                    {/* Visible point */}
+                                                                    <motion.circle
+                                                                        cx={x}
+                                                                        cy={y}
+                                                                        r={hoveredPoint === i ? "7" : "5"}
+                                                                        fill={chartView === 'revenue' ? '#10b981' : '#3b82f6'}
+                                                                        stroke="white"
+                                                                        strokeWidth="2"
+                                                                        initial={{ scale: 0 }}
+                                                                        animate={{ scale: 1 }}
+                                                                        transition={{ duration: 0.3, delay: 0.5 + (i * 0.1) }}
+                                                                        className="pointer-events-none"
+                                                                    />
+                                                                </g>
+                                                            );
+                                                        })}
+                                                    </>
+                                                )}
+                                            </motion.svg>
+                                        </AnimatePresence>
+
+                                        {/* Tooltip */}
+                                        <AnimatePresence>
+                                            {hoveredPoint !== null && currentSeries[hoveredPoint] && (
                                                 <motion.div
-                                                    className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-lg"
-                                                    initial={{ height: 0 }}
-                                                    animate={{ height: `${(point.value / maxTickets) * 200}px` }}
-                                                    transition={{ duration: 0.6, delay: i * 0.1 }}
-                                                />
-                                                <span className="text-xs text-muted-foreground">{point.label}</span>
-                                            </div>
-                                        ))}
+                                                    initial={{ opacity: 0, y: -10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0 }}
+                                                    className="absolute top-0 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-3 py-2 rounded-lg shadow-lg border z-10"
+                                                >
+                                                    <div className="text-xs font-medium">{currentSeries[hoveredPoint].label}</div>
+                                                    <div className="text-sm font-bold">
+                                                        {chartView === 'revenue'
+                                                            ? formatCurrency(currentSeries[hoveredPoint].value, analytics?.stats.currency ?? 'GBP')
+                                                            : currentSeries[hoveredPoint].value.toLocaleString()}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+
+                                        {/* X-axis labels */}
+                                        <div className="absolute bottom-0 left-0 right-0 flex justify-between px-2">
+                                            {currentSeries.map((point, i) => (
+                                                <span key={i} className="text-xs text-muted-foreground truncate">
+                                                    {point.label}
+                                                </span>
+                                            ))}
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
                         </motion.div>
-                    </TabsContent>
 
-                    <TabsContent value="engagement">
+                        {/* Top Events Performance */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4 }}
                         >
                             <Card className="border-border/50">
                                 <CardHeader>
-                                    <CardTitle className="text-lg">Engagement Metrics</CardTitle>
+                                    <CardTitle className="text-lg font-semibold">Top Performing Events</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <p className="text-sm text-muted-foreground">
-                                        Engagement tracking will be available once we start collecting on-site analytics.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                    </TabsContent>
-                </Tabs>
-
-                {/* Event Performance Table */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="mt-8"
-                >
-                    <Card className="border-border/50">
-                        <CardHeader>
-                            <CardTitle className="text-lg">Event Performance</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {isLoading ? (
-                                <p className="text-sm text-muted-foreground">Loading event performance...</p>
-                            ) : error ? (
-                                <p className="text-sm text-muted-foreground">{error}</p>
-                            ) : emptyState ? (
-                                <p className="text-sm text-muted-foreground">No event activity yet.</p>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead>
-                                            <tr className="border-b">
-                                                <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Event</th>
-                                                <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Tickets</th>
-                                                <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Revenue</th>
-                                                <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Last Order</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {analytics?.eventPerformance.map(event => (
-                                                <tr key={event.id} className="border-b last:border-0 hover:bg-muted/50">
-                                                    <td className="py-4 px-4">
+                                    {topEvents.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground">No event data available</p>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            {topEvents.map((event, i) => {
+                                                const percentage = (event.revenue / maxEventRevenue) * 100;
+                                                return (
+                                                    <motion.div
+                                                        key={event.id}
+                                                        initial={{ opacity: 0, x: -20 }}
+                                                        animate={{ opacity: 1, x: 0 }}
+                                                        transition={{ delay: 0.4 + (i * 0.1) }}
+                                                        className="space-y-2"
+                                                    >
                                                         <div className="flex items-center gap-3">
                                                             {event.bannerImageUrl ? (
-                                                                <div className="relative h-10 w-14 rounded-lg overflow-hidden">
+                                                                <div className="relative h-12 w-16 rounded-lg overflow-hidden flex-shrink-0">
                                                                     <Image
                                                                         src={event.bannerImageUrl}
                                                                         alt=""
                                                                         fill
-                                                                        sizes="56px"
+                                                                        sizes="64px"
                                                                         className="object-cover"
                                                                     />
                                                                 </div>
                                                             ) : (
-                                                                <div className="h-10 w-14 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground">
-                                                                    No image
+                                                                <div className="h-12 w-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                                                                    <Calendar className="h-6 w-6 text-muted-foreground" />
                                                                 </div>
                                                             )}
-                                                            <span className="font-medium">{event.name}</span>
+                                                            <p className="text-sm font-medium flex-1 min-w-0 truncate">{event.name}</p>
                                                         </div>
-                                                    </td>
-                                                    <td className="py-4 px-4 text-right">{event.ticketsSold}</td>
-                                                    <td className="py-4 px-4 text-right font-medium">
-                                                        {formatCurrency(event.revenue, analytics?.stats.currency ?? 'GBP')}
-                                                    </td>
-                                                    <td className="py-4 px-4 text-right text-muted-foreground">
-                                                        {event.lastOrderAt
-                                                            ? new Date(event.lastOrderAt).toLocaleDateString('en-GB', {
-                                                                day: 'numeric',
-                                                                month: 'short',
-                                                                year: 'numeric',
-                                                            })
-                                                            : '—'}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </motion.div>
+
+                                                        {/* Progress bar */}
+                                                        <div className="h-3 bg-muted rounded-full overflow-hidden">
+                                                            <motion.div
+                                                                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
+                                                                initial={{ width: 0 }}
+                                                                animate={{ width: `${percentage}%` }}
+                                                                transition={{ duration: 1, delay: 0.6 + (i * 0.1) }}
+                                                            />
+                                                        </div>
+
+                                                        {/* Revenue and Tickets */}
+                                                        <div className="flex items-center justify-between text-sm">
+                                                            <div className="flex items-center gap-2">
+                                                                <DollarSign className="h-4 w-4 text-blue-500" />
+                                                                <span className="font-semibold">
+                                                                    {formatCurrency(event.revenue, analytics?.stats.currency ?? 'GBP')}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Ticket className="h-4 w-4 text-indigo-500" />
+                                                                <span className="font-semibold text-muted-foreground">
+                                                                    {event.ticketsSold} sold
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+                    </div>
+
+                    {/* Right Column - Derived Metrics (1/3 width on desktop) */}
+                    <div className="space-y-6">
+                        {/* Average Ticket Price */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
+                                <CardContent className="p-4 sm:p-6">
+                                    <p className="text-sm font-medium text-muted-foreground mb-2 truncate">Average Ticket Price</p>
+                                    <p className="text-2xl sm:text-3xl font-bold break-words">
+                                        {analytics
+                                            ? formatCurrency(derivedMetrics.avgTicketPrice, analytics.stats.currency)
+                                            : '—'}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-2">Live calculation</p>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+
+                        {/* Average Order Value */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.35 }}
+                        >
+                            <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
+                                <CardContent className="p-4 sm:p-6">
+                                    <p className="text-sm font-medium text-muted-foreground mb-2 truncate">Average Order Value</p>
+                                    <p className="text-2xl sm:text-3xl font-bold break-words">
+                                        {analytics
+                                            ? formatCurrency(derivedMetrics.avgOrderValue, analytics.stats.currency)
+                                            : '—'}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-2">Per paid order</p>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+
+                        {/* Peak Sales Month */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4 }}
+                        >
+                            <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900">
+                                <CardContent className="p-4 sm:p-6">
+                                    <p className="text-sm font-medium text-muted-foreground mb-2 truncate">Peak Sales Month</p>
+                                    {derivedMetrics.peakMonth ? (
+                                        <>
+                                            <p className="text-2xl sm:text-3xl font-bold">{derivedMetrics.peakMonth.label}</p>
+                                            <p className="text-sm text-muted-foreground mt-2 break-words">
+                                                {formatCurrency(derivedMetrics.peakMonth.value, analytics?.stats.currency ?? 'GBP')}
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <p className="text-3xl font-bold text-muted-foreground">—</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+
+                        {/* Monthly Growth */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.5 }}
+                        >
+                            <Card className="border-border/50">
+                                <CardContent className="p-4 sm:p-6">
+                                    <p className="text-sm font-medium text-muted-foreground mb-2 truncate">Revenue Growth</p>
+                                    {derivedMetrics.growth ? (
+                                        <>
+                                            <div className="flex items-center gap-2">
+                                                <p className={`text-2xl sm:text-3xl font-bold ${derivedMetrics.growth.isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                    {derivedMetrics.growth.isPositive ? '+' : ''}{derivedMetrics.growth.percentage.toFixed(1)}%
+                                                </p>
+                                                {derivedMetrics.growth.isPositive ? (
+                                                    <TrendingUp className="h-6 w-6 text-emerald-500" />
+                                                ) : (
+                                                    <TrendingDown className="h-6 w-6 text-red-500" />
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mt-2">Month over month</p>
+                                        </>
+                                    ) : (
+                                        <p className="text-3xl font-bold text-muted-foreground">—</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+                    </div>
+                </div>
             </div>
         </div>
     );
