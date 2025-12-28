@@ -149,26 +149,11 @@ export default function Home() {
             transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="text-center"
           >
-            {/* Badge */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-            >
-              <Badge
-                variant="secondary"
-                className="mb-6 px-4 py-2 text-sm font-medium border border-border/50"
-              >
-                <Sparkles className="mr-2 h-4 w-4 text-[oklch(0.8_0.16_85)]" />
-                Discover Community Events
-              </Badge>
-            </motion.div>
-
             {/* Headline */}
             <h1 className="font-display text-5xl font-bold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl">
-              Find your next
+              Your home for
               <br />
-              <span className="text-gradient">community event.</span>
+              <span className="text-gradient">meaningful events.</span>
             </h1>
 
             {/* Subheadline */}
@@ -178,8 +163,7 @@ export default function Home() {
               transition={{ delay: 0.4, duration: 0.6 }}
               className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground md:text-xl"
             >
-              The trusted platform for discovering and hosting halal events.
-              Connect with your community through meaningful experiences.
+              Connect with your community by <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)]">ticketin’</span> the right away
             </motion.p>
           </motion.div>
 
@@ -188,7 +172,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.6 }}
-            className="mt-12 w-full max-w-2xl"
+            className="mt-10 w-full max-w-2xl"
           >
             <Card className="border-border/50 bg-card/80 backdrop-blur-md shadow-xl">
               <CardContent className="p-3 sm:p-4">
@@ -204,21 +188,10 @@ export default function Home() {
                     />
                   </div>
 
-                  {/* Location Input */}
-                  <div className="relative flex-1 sm:max-w-[200px]">
-                    <MapPin className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Location"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      className="h-12 border-0 bg-muted/50 pl-10 text-base focus-visible:ring-1"
-                    />
-                  </div>
-
                   {/* Search Button */}
                   <Button type="submit" size="lg" className="h-12 px-8 font-semibold">
                     <Search className="mr-2 h-4 w-4" />
-                    Search
+                    Find Events
                   </Button>
                 </form>
               </CardContent>
@@ -239,12 +212,12 @@ export default function Home() {
             className="mx-auto max-w-2xl text-center"
           >
             <Badge variant="secondary" className="mb-4">
-              Why HalalTicketin&apos;?
+              Why organisers choose us?
             </Badge>
             <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
               Everything you need to
               <br />
-              <span className="text-gradient">host amazing events.</span>
+              <span className="text-gradient">host meaningful events.</span>
             </h2>
           </motion.div>
 
@@ -252,9 +225,9 @@ export default function Home() {
             {[
               {
                 icon: Ticket,
-                title: 'Easy Ticketing',
+                title: 'Effortless ticketing',
                 description:
-                  'Create beautiful event pages and sell tickets in minutes. Free and paid options available.',
+                  'Create professional event pages and start selling tickets in minutes. Support both free and paid events with ease',
                 color: 'text-[oklch(0.72_0.15_185)]',   // Brand cyan
                 bgColor: 'bg-[oklch(0.72_0.15_185/0.1)]',
               },
@@ -262,7 +235,7 @@ export default function Home() {
                 icon: Users,
                 title: 'Community First',
                 description:
-                  'Built specifically for Muslim communities. Find events that matter to you.',
+                  'Designed to support organisers and attendees alike, with a focus on relevance, trust, and real engagement',
                 color: 'text-[oklch(0.78_0.14_165)]',   // Brand mint
                 bgColor: 'bg-[oklch(0.78_0.14_165/0.1)]',
               },
@@ -270,7 +243,7 @@ export default function Home() {
                 icon: Sparkles,
                 title: 'Seamless Experience',
                 description:
-                  'From discovery to check-in, we make the entire journey smooth and delightful.',
+                  'From event discovery to check-in, we ensure a smooth, reliable experience for organisers and attendees',
                 color: 'text-[oklch(0.65_0.12_190)]',   // Brand teal
                 bgColor: 'bg-[oklch(0.65_0.12_190/0.1)]',
               },
@@ -319,8 +292,7 @@ export default function Home() {
               community together?
             </h2>
             <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-              Join thousands of organisers who trust HalalTicketin&apos; to create
-              memorable events for their communities.
+              Join organisers who use HalalTicketin to plan and run events that people remember.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Button size="lg" className="h-14 px-8 text-base font-semibold" asChild>
