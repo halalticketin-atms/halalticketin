@@ -60,6 +60,8 @@ interface AnalyticsResponse {
     charts: {
         revenueMonthly: MonthlyPoint[];
         ticketsMonthly: MonthlyPoint[];
+        revenueYearly: MonthlyPoint[];
+        ticketsYearly: MonthlyPoint[];
     };
     eventPerformance: AnalyticsEvent[];
 }
@@ -80,6 +82,9 @@ export default function AnalyticsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [chartView, setChartView] = useState<'revenue' | 'tickets'>('revenue');
+    const [periodView, setPeriodView] = useState<'6months' | 'yearly'>('6months');
+    const [selectedYear, setSelectedYear] = useState<number>(2025);
+    const [eventSortBy, setEventSortBy] = useState<'revenue' | 'tickets'>('revenue');
     const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
     const fetchAnalytics = useCallback(
@@ -196,21 +201,32 @@ export default function AnalyticsPage() {
         return { avgTicketPrice, peakMonth, growth, avgOrderValue };
     }, [analytics]);
 
-    const currentSeries = chartView === 'revenue'
-        ? analytics?.charts.revenueMonthly ?? []
-        : analytics?.charts.ticketsMonthly ?? [];
+    const currentSeries = useMemo(() => {
+        if (!analytics) return [];
 
+        if (periodView === 'yearly') {
+            return chartView === 'revenue'
+                ? analytics.charts.revenueYearly
+                : analytics.charts.ticketsYearly;
+        }
+
+        return chartView === 'revenue'
+            ? analytics.charts.revenueMonthly
+            : analytics.charts.ticketsMonthly;
+    }, [analytics, chartView, periodView]);
     const maxValue = Math.max(1, ...currentSeries.map(point => point.value));
 
-    // Top events by revenue (limit to 5)
+    // Top events sorted by revenue or tickets
     const topEvents = useMemo(() => {
         if (!analytics) return [];
         return [...analytics.eventPerformance]
-            .sort((a, b) => b.revenue - a.revenue)
+            .sort((a, b) => eventSortBy === 'revenue' ? b.revenue - a.revenue : b.ticketsSold - a.ticketsSold)
             .slice(0, 5);
-    }, [analytics]);
+    }, [analytics, eventSortBy]);
 
-    const maxEventRevenue = topEvents.length > 0 ? topEvents[0].revenue : 1;
+    const maxEventValue = topEvents.length > 0
+        ? (eventSortBy === 'revenue' ? topEvents[0].revenue : topEvents[0].ticketsSold)
+        : 1;
 
     const handleEventChange = (value: string) => {
         setSelectedEvent(value);
@@ -327,29 +343,76 @@ export default function AnalyticsPage() {
                             transition={{ delay: 0.2 }}
                         >
                             <Card className="border-border/50">
-                                <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4 pb-4">
-                                    <CardTitle className="text-lg font-semibold">
-                                        {chartView === 'revenue' ? 'Revenue' : 'Tickets'} Over Time
-                                    </CardTitle>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant={chartView === 'revenue' ? 'default' : 'outline'}
-                                            size="sm"
-                                            onClick={() => setChartView('revenue')}
-                                            className="h-8"
-                                        >
-                                            <DollarSign className="h-4 w-4 mr-1" />
-                                            Revenue
-                                        </Button>
-                                        <Button
-                                            variant={chartView === 'tickets' ? 'default' : 'outline'}
-                                            size="sm"
-                                            onClick={() => setChartView('tickets')}
-                                            className="h-8"
-                                        >
-                                            <Ticket className="h-4 w-4 mr-1" />
-                                            Tickets
-                                        </Button>
+                                <CardHeader className="pb-4">
+                                    <div className="flex items-center justify-between flex-wrap gap-4">
+                                        <CardTitle className="text-lg font-semibold">
+                                            {chartView === 'revenue' ? 'Revenue' : 'Tickets'} Over Time
+                                        </CardTitle>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {/* Period Toggle */}
+                                            <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                                <Button
+                                                    variant={periodView === '6months' ? 'default' : 'ghost'}
+                                                    size="sm"
+                                                    onClick={() => setPeriodView('6months')}
+                                                    className="h-7 text-xs px-3"
+                                                >
+                                                    6 Months
+                                                </Button>
+                                                <Button
+                                                    variant={periodView === 'yearly' ? 'default' : 'ghost'}
+                                                    size="sm"
+                                                    onClick={() => setPeriodView('yearly')}
+                                                    className="h-7 text-xs px-3"
+                                                >
+                                                    Yearly
+                                                </Button>
+                                            </div>
+
+                                            {/* Year Selector - Only show for yearly view */}
+                                            {periodView === 'yearly' && (
+                                                <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                                    <Button
+                                                        variant={selectedYear === 2025 ? 'default' : 'ghost'}
+                                                        size="sm"
+                                                        onClick={() => setSelectedYear(2025)}
+                                                        className="h-7 text-xs px-3"
+                                                    >
+                                                        2025
+                                                    </Button>
+                                                    <Button
+                                                        variant={selectedYear === 2026 ? 'default' : 'ghost'}
+                                                        size="sm"
+                                                        onClick={() => setSelectedYear(2026)}
+                                                        className="h-7 text-xs px-3"
+                                                    >
+                                                        2026
+                                                    </Button>
+                                                </div>
+                                            )}
+
+                                            {/* Chart Type Toggle */}
+                                            <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                                <Button
+                                                    variant={chartView === 'revenue' ? 'default' : 'ghost'}
+                                                    size="sm"
+                                                    onClick={() => setChartView('revenue')}
+                                                    className="h-7 px-3"
+                                                >
+                                                    <DollarSign className="h-3.5 w-3.5 mr-1.5" />
+                                                    Revenue
+                                                </Button>
+                                                <Button
+                                                    variant={chartView === 'tickets' ? 'default' : 'ghost'}
+                                                    size="sm"
+                                                    onClick={() => setChartView('tickets')}
+                                                    className="h-7 px-3"
+                                                >
+                                                    <Ticket className="h-3.5 w-3.5 mr-1.5" />
+                                                    Tickets
+                                                </Button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
@@ -500,7 +563,29 @@ export default function AnalyticsPage() {
                         >
                             <Card className="border-border/50">
                                 <CardHeader>
-                                    <CardTitle className="text-lg font-semibold">Top Performing Events</CardTitle>
+                                    <div className="flex items-center justify-between flex-wrap gap-4">
+                                        <CardTitle className="text-lg font-semibold">Top Performing Events</CardTitle>
+                                        <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                            <Button
+                                                variant={eventSortBy === 'revenue' ? 'default' : 'ghost'}
+                                                size="sm"
+                                                onClick={() => setEventSortBy('revenue')}
+                                                className="h-7 text-xs"
+                                            >
+                                                <DollarSign className="h-3 w-3 mr-1" />
+                                                Revenue
+                                            </Button>
+                                            <Button
+                                                variant={eventSortBy === 'tickets' ? 'default' : 'ghost'}
+                                                size="sm"
+                                                onClick={() => setEventSortBy('tickets')}
+                                                className="h-7 text-xs"
+                                            >
+                                                <Ticket className="h-3 w-3 mr-1" />
+                                                Tickets
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
                                     {topEvents.length === 0 ? (
@@ -508,7 +593,8 @@ export default function AnalyticsPage() {
                                     ) : (
                                         <div className="space-y-6">
                                             {topEvents.map((event, i) => {
-                                                const percentage = (event.revenue / maxEventRevenue) * 100;
+                                                const currentValue = eventSortBy === 'revenue' ? event.revenue : event.ticketsSold;
+                                                const percentage = (currentValue / maxEventValue) * 100;
                                                 return (
                                                     <motion.div
                                                         key={event.id}
@@ -536,29 +622,34 @@ export default function AnalyticsPage() {
                                                             <p className="text-sm font-medium flex-1 min-w-0 truncate">{event.name}</p>
                                                         </div>
 
-                                                        {/* Progress bar */}
-                                                        <div className="h-3 bg-muted rounded-full overflow-hidden">
-                                                            <motion.div
-                                                                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
-                                                                initial={{ width: 0 }}
-                                                                animate={{ width: `${percentage}%` }}
-                                                                transition={{ duration: 1, delay: 0.6 + (i * 0.1) }}
-                                                            />
-                                                        </div>
-
-                                                        {/* Revenue and Tickets */}
-                                                        <div className="flex items-center justify-between text-sm">
-                                                            <div className="flex items-center gap-2">
-                                                                <DollarSign className="h-4 w-4 text-blue-500" />
-                                                                <span className="font-semibold">
-                                                                    {formatCurrency(event.revenue, analytics?.stats.currency ?? 'GBP')}
-                                                                </span>
+                                                        {/* Progress bar with value on right */}
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                                                                <motion.div
+                                                                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
+                                                                    initial={{ width: 0 }}
+                                                                    animate={{ width: `${percentage}%` }}
+                                                                    transition={{ duration: 1, delay: 0.6 + (i * 0.1) }}
+                                                                />
                                                             </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <Ticket className="h-4 w-4 text-indigo-500" />
-                                                                <span className="font-semibold text-muted-foreground">
-                                                                    {event.ticketsSold} sold
-                                                                </span>
+
+                                                            {/* Value at end of bar */}
+                                                            <div className="flex items-center gap-1.5 text-sm whitespace-nowrap">
+                                                                {eventSortBy === 'revenue' ? (
+                                                                    <>
+                                                                        <DollarSign className="h-3.5 w-3.5 text-blue-500" />
+                                                                        <span className="font-semibold">
+                                                                            {formatCurrency(event.revenue, analytics?.stats.currency ?? 'GBP')}
+                                                                        </span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Ticket className="h-3.5 w-3.5 text-indigo-500" />
+                                                                        <span className="font-semibold">
+                                                                            {event.ticketsSold}
+                                                                        </span>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </motion.div>
