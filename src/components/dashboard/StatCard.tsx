@@ -13,16 +13,38 @@ interface StatCardProps {
         isPositive: boolean;
     };
     delay?: number;
+    color?: 'default' | 'green' | 'blue' | 'purple';
 }
 
-export function StatCard({ title, value, icon: Icon, trend, delay = 0 }: StatCardProps) {
+const colorStyles = {
+    default: {
+        card: 'border-border/50 hover:border-primary/20',
+        icon: 'bg-primary/10 text-primary',
+    },
+    green: {
+        card: 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900',
+        icon: 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-lg',
+    },
+    blue: {
+        card: 'bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900',
+        icon: 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg',
+    },
+    purple: {
+        card: 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900',
+        icon: 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg',
+    },
+};
+
+export function StatCard({ title, value, icon: Icon, trend, delay = 0, color = 'default' }: StatCardProps) {
+    const styles = colorStyles[color];
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay }}
         >
-            <Card className="border-border/50 hover:border-primary/20 transition-colors">
+            <Card className={`${styles.card} transition-colors`}>
                 <CardContent className="p-4 sm:p-6">
                     <div className="flex items-start justify-between">
                         <div>
@@ -34,7 +56,7 @@ export function StatCard({ title, value, icon: Icon, trend, delay = 0 }: StatCar
                                 </p>
                             )}
                         </div>
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${styles.icon}`}>
                             <Icon className="h-6 w-6" />
                         </div>
                     </div>

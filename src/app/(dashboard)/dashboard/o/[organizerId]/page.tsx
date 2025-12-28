@@ -2,13 +2,12 @@
 
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { Calendar, Ticket, DollarSign, Users } from 'lucide-react';
+import { Calendar, Ticket, DollarSign } from 'lucide-react';
 
-import { StatCard, RecentEvents } from '@/components/dashboard';
+import { StatCard, EventPerformanceCards } from '@/components/dashboard';
 
 import { useAuth } from '@/context/auth-context';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
-import { useOrganizerEvents, DashboardEvent } from '@/hooks/useOrganizerEvents';
 import api from '@/lib/api';
 
 interface AnalyticsStats {
@@ -23,7 +22,31 @@ interface AnalyticsResponse {
     stats: AnalyticsStats;
 }
 
+interface EventPerformanceData {
+    id: string;
+    title: string;
+    startDatetime: string | null;
+    venue: string | null;
+    city: string | null;
+    bannerImageUrl: string | null;
+    ticketsSold: number;
+    totalTickets: number;
+    revenue: number;
+    currency: string;
+    status: 'published' | 'draft' | 'cancelled' | 'archived';
+    displayStatus: 'published' | 'draft' | 'past';
+    salesTrend: number[];
+    trendPercentage: number;
+    weeklySales: Array<{
+        weekStart: string;
+        ticketsSold: number;
+        revenue: number;
+    }>;
+}
 
+interface EventsPerformanceResponse {
+    events: EventPerformanceData[];
+}
 
 const formatCurrency = (amount: number, currency: string) => {
     try {
@@ -35,27 +58,42 @@ const formatCurrency = (amount: number, currency: string) => {
 
 export default function DashboardPage() {
     const organizerId = useOrganizerFromParams();
-    const { user, memberships } = useAuth();
-    const { events, counts } = useOrganizerEvents(organizerId);
+    const { user } = useAuth();
     const [analyticsStats, setAnalyticsStats] = useState<AnalyticsStats | null>(null);
+    const [eventsPerformance, setEventsPerformance] = useState<EventPerformanceData[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
 
-    const fetchAnalytics = useEffectEvent(async (currentOrganizerId: string | null) => {
+    const fetchData = useEffectEvent(async (currentOrganizerId: string | null) => {
         if (!currentOrganizerId) {
             setAnalyticsStats(null);
+            setEventsPerformance([]);
             return;
         }
+
+        setIsLoading(true);
         try {
-            const response = await api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
-                params: { organizerId: currentOrganizerId },
-            });
-            setAnalyticsStats(response.stats);
-        } catch {
-            // Silently fail - dashboard will show defaults
+            // Fetch both analytics stats and events performance in parallel
+            const [analyticsRes, eventsRes] = await Promise.all([
+                api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
+                    params: { organizerId: currentOrganizerId },
+                }),
+                api.get<EventsPerformanceResponse>('/api/v1/analytics/events-performance', {
+                    params: { organizerId: currentOrganizerId },
+                })
+            ]);
+
+            setAnalyticsStats(analyticsRes.stats);
+            setEventsPerformance(eventsRes.events);
+        } catch (error) {
+            console.error('Failed to fetch dashboard data:', error);
+            // Continue with empty data on error
+        } finally {
+            setIsLoading(false);
         }
     });
 
     useEffect(() => {
-        void fetchAnalytics(organizerId ?? null);
+        void fetchData(organizerId ?? null);
     }, [organizerId]);
 
     const greetingName = user?.name || user?.email?.split('@')[0] || '';
@@ -85,60 +123,28 @@ export default function DashboardPage() {
         ? "Here's what's happening with your events"
         : 'Sign in to start creating and managing your halal events.';
 
-    // Transform events for RecentEvents component
-    const recentEventsData = useMemo(() => {
-        return events.slice(0, 5).map((event: DashboardEvent) => {
-            const start = event.startDatetime ? new Date(event.startDatetime) : null;
-            const dateStr = start
-                ? start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-                : 'Date TBD';
-
-            let location = 'Location TBD';
-            if (event.locationType === 'online') {
-                location = 'Online Event';
-            } else if (event.venue) {
-                location = event.city ? `${event.venue}, ${event.city}` : event.venue;
-            } else if (event.city) {
-                location = event.city;
-            }
-
-            // Map displayStatus to the component's expected labels
-            let displayStatus: 'published' | 'draft' | 'completed' = 'draft';
-            if (event.displayStatus === 'draft') {
-                displayStatus = 'draft';
-            } else if (event.displayStatus === 'past') {
-                displayStatus = 'completed';
-            } else {
-                displayStatus = 'published';
-            }
-
-            return {
-                id: event.id,
-                title: event.title || 'Untitled Event',
-                date: dateStr,
-                location,
-                status: displayStatus,
-                displayStatus,
-                ticketsSold: event.ticketsSold || 0,
-                totalTickets: event.totalTickets || 100,
-                bannerImageUrl: event.bannerImageUrl || undefined,
-                currency: event.currency,
-            };
-        });
-    }, [events]);
-
     const stats = useMemo(
         () => [
-            { title: 'Total Events', value: counts.all, icon: Calendar },
-            { title: 'Tickets Sold', value: analyticsStats?.ticketsSold ?? 0, icon: Ticket },
             {
-                title: 'Revenue',
+                title: 'Total Revenue',
                 value: formatCurrency(analyticsStats?.totalRevenue ?? 0, analyticsStats?.currency ?? 'GBP'),
                 icon: DollarSign,
+                color: 'green' as const
             },
-            { title: 'Organizer Teams', value: memberships.length, icon: Users },
+            {
+                title: 'Tickets Sold',
+                value: analyticsStats?.ticketsSold ?? 0,
+                icon: Ticket,
+                color: 'blue' as const
+            },
+            {
+                title: 'Active Events',
+                value: eventsPerformance.length,
+                icon: Calendar,
+                color: 'purple' as const
+            },
         ],
-        [counts.all, memberships.length, analyticsStats]
+        [analyticsStats, eventsPerformance]
     );
 
     return (
@@ -155,15 +161,21 @@ export default function DashboardPage() {
                     <p className="text-muted-foreground mt-1">{welcomeSubtitle}</p>
                 </motion.div>
 
-                {/* Stats Grid */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                {/* Stats Grid - Only 3 cards */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">
                     {stats.map((stat, i) => (
                         <StatCard key={stat.title} {...stat} delay={i * 0.1} />
                     ))}
                 </div>
 
-                {/* Recent Events - Full Width */}
-                <RecentEvents events={recentEventsData} organizerId={organizerId} />
+                {/* Event Performance Cards */}
+                {isLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+                    </div>
+                ) : (
+                    <EventPerformanceCards events={eventsPerformance} organizerId={organizerId} />
+                )}
             </div>
         </div>
     );
