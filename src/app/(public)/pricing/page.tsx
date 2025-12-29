@@ -98,11 +98,8 @@ export default function PricingPage() {
             <div className="relative z-10 container mx-auto px-4 pt-24 md:pt-32 pb-16">
                 {/* Header */}
                 <div className="text-center mb-12 md:mb-16 space-y-4 animate-fade-up">
-                    <div className="inline-block px-4 py-1.5 rounded-full bg-white/80 md:bg-white/50 md:backdrop-blur-md border border-white/60 text-teal-700 text-sm font-bold shadow-sm mb-4">
-                        Transparent Pricing
-                    </div>
                     <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900">
-                        Simple pricing for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)]">everyone</span>
+                        Simple, transparent pricing for <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)]">every event organizer.</span>
                     </h1>
                     <div className="flex justify-center mt-6">
                         <Select value={currency} onValueChange={(v) => setCurrency(v as SupportedCurrency)}>
@@ -136,7 +133,7 @@ export default function PricingPage() {
                             <div className="relative z-10 space-y-6">
                                 <div>
                                     <h2 className="font-display text-4xl md:text-5xl font-bold leading-tight mb-4">
-                                        Grow your<br />events now.
+                                        Get started.
                                     </h2>
                                     <p className="text-white/90 text-lg leading-relaxed">
                                         Manage your ticket sales effortlessly. Our platform provides everything you need to create, promote, and sell out your events.
@@ -252,7 +249,6 @@ export default function PricingPage() {
                                 </ul>
                             </div>
                             <div className="text-center z-10">
-                                <div className="text-xs text-slate-500 mb-1 font-medium uppercase tracking-wide">From</div>
                                 <div className="font-display text-5xl font-bold text-slate-900 mb-1">
                                     {symbol}{(PAYG_FEE_GBP * rate).toFixed(2)}
                                 </div>
@@ -276,7 +272,7 @@ export default function PricingPage() {
                         <>
                             <div className="text-center mb-12">
                                 <h2 className="font-display text-3xl md:text-4xl font-bold text-slate-900 mb-4">Calculate your savings</h2>
-                                <p className="text-slate-600 max-w-2xl mx-auto">See exactly how much you&rsquo;ll pay (or save) based on your ticket price and volume.</p>
+                                <p className="text-slate-600 max-w-2xl mx-auto">See exactly what you&rsquo;re paying per ticket.</p>
                             </div>
 
                             <div className="grid md:grid-cols-12 gap-8">
@@ -411,13 +407,12 @@ export default function PricingPage() {
                         <div className="space-y-4 text-slate-600 leading-relaxed">
                             <p>
                                 The pricing plans above show <strong>our platform fees only</strong>. To accept payments online,
-                                you&apos;ll also need a payment processor. We&apos;ve partnered with <strong>Stripe</strong> to make
-                                this as easy and cost-effective as possible.
+                                you&apos;ll also need a payment processor.
                             </p>
                             <p>
-                                Halal Ticketin does not touch or process payments directly. All transactions are securely
-                                managed via Stripe, ensuring fast, reliable, and secure transfers between your ticket buyers
-                                and your bank account.
+                                Halal Ticketin does not touch or process payments directly. Transactions are managed securely by
+                                reliable, certified payment processors, for example. Stripe ensures fast, reliable, and
+                                secure transfers between your ticket buyers and your bank account.
                             </p>
                         </div>
 

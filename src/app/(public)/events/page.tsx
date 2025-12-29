@@ -125,10 +125,10 @@ function BrowseEventsContent() {
                             Browse Events
                         </Badge>
                         <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-                            Discover <span className="text-gradient">Community</span>
+                            Explore <span className="text-gradient">Events</span>
                         </h1>
                         <p className="mt-4 text-muted-foreground text-lg max-w-2xl mx-auto">
-                            Find meaningful halal events, workshops, and gatherings near you.
+                            Find meaningful events, workshops, and gatherings near you.
                         </p>
                     </motion.div>
 
@@ -140,13 +140,13 @@ function BrowseEventsContent() {
                         className="mt-8 max-w-2xl mx-auto"
                     >
                         <div className="relative group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                             <Input
                                 placeholder="Search events or locations..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="h-14 pl-12 pr-4 text-base rounded-2xl border-border/50 bg-background/50 backdrop-blur-sm shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-[var(--brand-cyan)] focus-visible:border-[var(--brand-teal)]"
                             />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
                         </div>
                     </motion.div>
 
