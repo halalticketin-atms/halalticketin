@@ -134,7 +134,7 @@ export default function DashboardLandingPage() {
                     onOpenChange={(open) => {
                         if (!open) {
                             // If user closes dialog, redirect to events
-                            router.replace('/events');
+                            router.replace('/login');
                         }
                     }}
                     onSuccess={async (organizerId: string) => {

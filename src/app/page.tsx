@@ -352,7 +352,7 @@ export default function Home() {
               {/* Stacked buttons with raw styling */}
               <div className="mt-10 flex flex-col gap-3 sm:max-w-xs">
                 <Button size="lg" className="h-14 text-base font-semibold justify-between group" asChild>
-                  <Link href="/register">
+                  <Link href="/register?role=organizer">
                     Start For Free
                     <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                   </Link>

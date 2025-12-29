@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useEffectEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/context/auth-context';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
@@ -17,8 +17,14 @@ export default function RegisterPage() {
     const [dialogOpen, setDialogOpen] = useState(true);
     const [initialLoadComplete, setInitialLoadComplete] = useState(false);
     const isCompletingRef = useRef(false);
+    const userClosedRef = useRef(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { user, isLoading } = useAuth();
+
+    // Get default role from URL query param
+    const roleParam = searchParams.get('role');
+    const defaultRole = roleParam === 'organizer' ? 'organizer' : undefined;
 
     const markInitialLoadComplete = useEffectEvent(() => {
         setInitialLoadComplete(true);
@@ -34,7 +40,7 @@ export default function RegisterPage() {
     // If already logged in AND not in the middle of onboarding, redirect to dashboard
     // Only check this on initial load, not during the signup flow
     useEffect(() => {
-        if (initialLoadComplete && user && !dialogOpen && !isCompletingRef.current) {
+        if (initialLoadComplete && user && !dialogOpen && !isCompletingRef.current && !userClosedRef.current) {
             router.push('/dashboard');
         }
     }, [user, initialLoadComplete, router, dialogOpen]);
@@ -42,8 +48,9 @@ export default function RegisterPage() {
     const handleDialogClose = (open: boolean) => {
         setDialogOpen(open);
         if (!open && !isCompletingRef.current) {
-            // Only redirect to home if user manually closed (not after completion)
-            router.push('/');
+            // Mark that user manually closed, then redirect to home
+            userClosedRef.current = true;
+            router.replace('/');
         }
     };
 
@@ -69,6 +76,7 @@ export default function RegisterPage() {
                 open={dialogOpen}
                 onOpenChange={handleDialogClose}
                 onComplete={handleComplete}
+                defaultRole={defaultRole}
             />
         </div>
     );
