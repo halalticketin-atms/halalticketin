@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useEffectEvent } from 'react';
+import { Suspense, useState, useEffect, useRef, useEffectEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/context/auth-context';
@@ -13,7 +13,7 @@ const SignupOnboardingDialog = dynamic(
     { ssr: false }
 );
 
-export default function RegisterPage() {
+function RegisterPageContent() {
     const [dialogOpen, setDialogOpen] = useState(true);
     const [initialLoadComplete, setInitialLoadComplete] = useState(false);
     const isCompletingRef = useRef(false);
@@ -79,5 +79,17 @@ export default function RegisterPage() {
                 defaultRole={defaultRole}
             />
         </div>
+    );
+}
+
+export default function RegisterPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-cyan)]" />
+            </div>
+        }>
+            <RegisterPageContent />
+        </Suspense>
     );
 }

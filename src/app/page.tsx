@@ -234,21 +234,19 @@ export default function Home() {
                 <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.72_0.15_185/0.4)] to-[oklch(0.72_0.15_185/0.1)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[oklch(0.72_0.15_185/0.1)]">
                   <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
                     <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[oklch(0.72_0.15_185/0.08)] blur-3xl pointer-events-none" />
-                    <CardContent className="relative p-8 flex flex-col h-full">
-                      <div className="flex-1">
+                    <CardContent className="relative p-8">
+                      {/* Title + Icon side by side */}
+                      <div className="flex items-center justify-between gap-4 mb-4">
                         <h3 className="font-display text-lg font-bold tracking-tight">
                           Effortless ticketing
                         </h3>
-                        <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
-                          Create <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.72_0.15_185)] to-[oklch(0.65_0.12_190)]">professional</span> event pages and start selling tickets in minutes.
-                        </p>
-                      </div>
-                      {/* Icon at bottom-left */}
-                      <div className="mt-5 flex justify-start">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[oklch(0.72_0.15_185/0.1)] transition-transform duration-300 group-hover:scale-105">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[oklch(0.72_0.15_185/0.1)] transition-transform duration-300 group-hover:scale-105">
                           <QrCode className="h-5 w-5 text-[oklch(0.72_0.15_185)]" strokeWidth={1.5} />
                         </div>
                       </div>
+                      <p className="text-muted-foreground text-sm leading-relaxed">
+                        Create <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.72_0.15_185)] to-[oklch(0.65_0.12_190)]">professional</span> event pages and start selling tickets in minutes.
+                      </p>
                     </CardContent>
                   </Card>
                 </div>
@@ -292,21 +290,19 @@ export default function Home() {
                 <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.65_0.12_190/0.4)] to-[oklch(0.65_0.12_190/0.1)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[oklch(0.65_0.12_190/0.1)]">
                   <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
                     <div className="absolute -bottom-24 -right-12 h-60 w-60 rounded-full bg-[oklch(0.65_0.12_190/0.08)] blur-3xl pointer-events-none" />
-                    <CardContent className="relative p-8 flex flex-col h-full">
-                      <div className="flex-1">
+                    <CardContent className="relative p-8">
+                      {/* Title + Icon side by side */}
+                      <div className="flex items-center justify-between gap-4 mb-4">
                         <h3 className="font-display text-lg font-bold tracking-tight">
                           Seamless Experience
                         </h3>
-                        <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
-                          From event discovery to check-in, we ensure a <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.65_0.12_190)] to-[oklch(0.72_0.15_185)]">smooth, reliable</span> experience.
-                        </p>
-                      </div>
-                      {/* Icon as accent at bottom-right */}
-                      <div className="mt-5 flex justify-end">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[oklch(0.65_0.12_190/0.1)] transition-transform duration-300 group-hover:scale-105">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[oklch(0.65_0.12_190/0.1)] transition-transform duration-300 group-hover:scale-105">
                           <BadgeCheck className="h-5 w-5 text-[oklch(0.65_0.12_190)]" strokeWidth={1.5} />
                         </div>
                       </div>
+                      <p className="text-muted-foreground text-sm leading-relaxed">
+                        From event discovery to check-in, we ensure a <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.65_0.12_190)] to-[oklch(0.72_0.15_185)]">smooth, reliable</span> experience.
+                      </p>
                     </CardContent>
                   </Card>
                 </div>
