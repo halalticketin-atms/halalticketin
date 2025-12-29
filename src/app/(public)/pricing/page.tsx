@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
-import { Check, Ticket, Zap, Shield } from 'lucide-react';
+import { Check, Wand2, Banknote, ShieldCheck, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -142,21 +142,27 @@ export default function PricingPage() {
                                 <div className="space-y-4 pt-4">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
-                                            <Zap className="h-5 w-5 text-white" />
+                                            <Banknote className="h-5 w-5 text-white" />
                                         </div>
                                         <span className="font-semibold text-lg">Instant Payouts</span>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
-                                            <Shield className="h-5 w-5 text-white" />
+                                            <ShieldCheck className="h-5 w-5 text-white" />
                                         </div>
                                         <span className="font-semibold text-lg">Secure Booking</span>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
-                                            <Ticket className="h-5 w-5 text-white" />
+                                            <QrCode className="h-5 w-5 text-white" />
                                         </div>
-                                        <span className="font-semibold text-lg">Smart Ticketing</span>
+                                        <span className="font-semibold text-lg">Effortless Ticketing</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                                            <Wand2 className="h-5 w-5 text-white" />
+                                        </div>
+                                        <span className="font-semibold text-lg">AI Integrated</span>
                                     </div>
                                 </div>
                             </div>
