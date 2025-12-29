@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Search, MapPin, ArrowRight, Ticket, Users, Sparkles } from 'lucide-react';
+import { Search, MapPin, ArrowRight, QrCode, HeartHandshake, BadgeCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -221,96 +221,165 @@ export default function Home() {
             </h2>
           </motion.div>
 
-          <div className="mx-auto mt-16 grid max-w-5xl gap-6 md:grid-cols-3">
-            {[
-              {
-                icon: Ticket,
-                title: 'Effortless ticketing',
-                description:
-                  'Create professional event pages and start selling tickets in minutes. Support both free and paid events with ease',
-                color: 'text-[oklch(0.72_0.15_185)]',   // Brand cyan
-                bgColor: 'bg-[oklch(0.72_0.15_185/0.1)]',
-              },
-              {
-                icon: Users,
-                title: 'Community First',
-                description:
-                  'Designed to support organisers and attendees alike, with a focus on relevance, trust, and real engagement',
-                color: 'text-[oklch(0.78_0.14_165)]',   // Brand mint
-                bgColor: 'bg-[oklch(0.78_0.14_165/0.1)]',
-              },
-              {
-                icon: Sparkles,
-                title: 'Seamless Experience',
-                description:
-                  'From event discovery to check-in, we ensure a smooth, reliable experience for organisers and attendees',
-                color: 'text-[oklch(0.65_0.12_190)]',   // Brand teal
-                bgColor: 'bg-[oklch(0.65_0.12_190/0.1)]',
-              },
-            ].map((feature, index) => (
+          {/* Bento Grid Layout - Custom Design */}
+          <div className="mx-auto mt-16 w-full max-w-7xl px-4 md:px-6 lg:px-8">
+            <div className="grid gap-6 md:grid-cols-3">
+              {/* Card 1: Text first, icon bottom-left */}
               <motion.div
-                key={feature.title}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{ duration: 0.5 }}
               >
-                <Card className="group h-full border-border/50 bg-card/50 backdrop-blur-sm transition-all duration-300 hover:border-primary/20 hover:shadow-lg">
-                  <CardContent className="p-6">
-                    <div
-                      className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${feature.bgColor}`}
-                    >
-                      <feature.icon className={`h-6 w-6 ${feature.color}`} />
-                    </div>
-                    <h3 className="font-display text-xl font-semibold">{feature.title}</h3>
-                    <p className="mt-2 text-muted-foreground">{feature.description}</p>
-                  </CardContent>
-                </Card>
+                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.72_0.15_185/0.4)] to-[oklch(0.72_0.15_185/0.1)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[oklch(0.72_0.15_185/0.1)]">
+                  <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
+                    <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[oklch(0.72_0.15_185/0.08)] blur-3xl pointer-events-none" />
+                    <CardContent className="relative p-8 flex flex-col h-full">
+                      <div className="flex-1">
+                        <h3 className="font-display text-lg font-bold tracking-tight">
+                          Effortless ticketing
+                        </h3>
+                        <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
+                          Create <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.72_0.15_185)] to-[oklch(0.65_0.12_190)]">professional</span> event pages and start selling tickets in minutes.
+                        </p>
+                      </div>
+                      {/* Icon at bottom-left */}
+                      <div className="mt-5 flex justify-start">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[oklch(0.72_0.15_185/0.1)] transition-transform duration-300 group-hover:scale-105">
+                          <QrCode className="h-5 w-5 text-[oklch(0.72_0.15_185)]" strokeWidth={1.5} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </motion.div>
-            ))}
+
+              {/* Card 2: Horizontal header - Icon + Title side by side */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+              >
+                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.78_0.14_165/0.4)] to-[oklch(0.78_0.14_165/0.1)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[oklch(0.78_0.14_165/0.1)]">
+                  <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
+                    <div className="absolute -top-16 -right-16 h-56 w-56 rounded-full bg-[oklch(0.78_0.14_165/0.08)] blur-3xl pointer-events-none" />
+                    <CardContent className="relative p-8">
+                      {/* Horizontal header: Icon + Title */}
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[oklch(0.78_0.14_165/0.1)] transition-transform duration-300 group-hover:scale-105">
+                          <HeartHandshake className="h-5 w-5 text-[oklch(0.78_0.14_165)]" strokeWidth={1.5} />
+                        </div>
+                        <h3 className="font-display text-lg font-bold tracking-tight">
+                          Community First
+                        </h3>
+                      </div>
+                      <p className="text-muted-foreground text-sm leading-relaxed">
+                        Designed to support organisers and attendees alike, with a focus on <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)]">real engagement</span>.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </motion.div>
+
+              {/* Card 3: Content first, icon as finishing accent */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.65_0.12_190/0.4)] to-[oklch(0.65_0.12_190/0.1)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[oklch(0.65_0.12_190/0.1)]">
+                  <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
+                    <div className="absolute -bottom-24 -right-12 h-60 w-60 rounded-full bg-[oklch(0.65_0.12_190/0.08)] blur-3xl pointer-events-none" />
+                    <CardContent className="relative p-8 flex flex-col h-full">
+                      <div className="flex-1">
+                        <h3 className="font-display text-lg font-bold tracking-tight">
+                          Seamless Experience
+                        </h3>
+                        <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
+                          From event discovery to check-in, we ensure a <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.65_0.12_190)] to-[oklch(0.72_0.15_185)]">smooth, reliable</span> experience.
+                        </p>
+                      </div>
+                      {/* Icon as accent at bottom-right */}
+                      <div className="mt-5 flex justify-end">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[oklch(0.65_0.12_190/0.1)] transition-transform duration-300 group-hover:scale-105">
+                          <BadgeCheck className="h-5 w-5 text-[oklch(0.65_0.12_190)]" strokeWidth={1.5} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </motion.div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="relative overflow-hidden py-24 md:py-32">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-[oklch(0.65_0.18_180/0.05)]" />
-        <div className="absolute inset-0 bg-noise pointer-events-none opacity-30" />
+      {/* CTA Section - Brutalist Minimalist */}
+      <section className="relative overflow-hidden py-32 md:py-40">
+        {/* Subtle noise texture */}
+        <div className="absolute inset-0 bg-noise pointer-events-none opacity-20" />
+
+        {/* Geometric accent - raw edge */}
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[oklch(0.72_0.15_185/0.3)] to-transparent" />
 
         <div className="container relative">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
             viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.6 }}
-            className="mx-auto max-w-3xl text-center"
+            transition={{ duration: 0.8 }}
+            className="grid md:grid-cols-2 gap-12 md:gap-20 items-center"
           >
-            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-              Ready to bring your
-              <br />
-              community together?
-            </h2>
-            <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-              Join organisers who use HalalTicketin to plan and run events that people remember.
-            </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Button size="lg" className="h-14 px-8 text-base font-semibold" asChild>
-                <Link href="/register">
-                  Start For Free
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="h-14 px-8 text-base font-semibold"
-                asChild
-              >
-                <Link href="/events">Browse Events</Link>
-              </Button>
+            {/* Left: Bold headline */}
+            <div>
+              <h2 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[0.95]">
+                Ready to bring
+                <br />
+                your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.72_0.15_185)] to-[oklch(0.78_0.14_165)]">community</span>
+                <br />
+                together?
+              </h2>
+            </div>
+
+            {/* Right: CTA content */}
+            <div className="md:pl-8 md:border-l border-border/30">
+              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-md">
+                Join organisers who use HalalTicketin to plan and run events that people remember.
+              </p>
+
+              {/* Stacked buttons with raw styling */}
+              <div className="mt-10 flex flex-col gap-3 sm:max-w-xs">
+                <Button size="lg" className="h-14 text-base font-semibold justify-between group" asChild>
+                  <Link href="/register">
+                    Start For Free
+                    <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </Button>
+                <Button
+                  size="lg"
+                  variant="ghost"
+                  className="h-14 text-base font-semibold justify-start text-muted-foreground hover:text-foreground"
+                  asChild
+                >
+                  <Link href="/events">
+                    <span className="mr-2 text-xs uppercase tracking-widest opacity-50">or</span>
+                    Browse Events →
+                  </Link>
+                </Button>
+              </div>
             </div>
           </motion.div>
+
+          {/* Bottom accent line */}
+          <motion.div
+            initial={{ scaleX: 0 }}
+            whileInView={{ scaleX: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }}
+            className="mt-20 h-px bg-gradient-to-r from-[oklch(0.72_0.15_185/0.5)] via-[oklch(0.78_0.14_165/0.3)] to-transparent origin-left"
+          />
         </div>
       </section>
     </>
