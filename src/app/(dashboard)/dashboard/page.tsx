@@ -133,7 +133,7 @@ export default function DashboardLandingPage() {
                     open={true}
                     onOpenChange={(open) => {
                         if (!open) {
-                            // If user closes dialog, redirect to events
+                            // If user closes dialog, redirect to login
                             router.replace('/login');
                         }
                     }}
