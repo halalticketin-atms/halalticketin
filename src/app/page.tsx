@@ -201,29 +201,33 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="relative py-24 md:py-32">
-        <div className="absolute inset-0 bg-noise pointer-events-none opacity-50" />
+      <section className="relative py-32 md:py-40">
+        <div className="absolute inset-0 bg-noise pointer-events-none opacity-30" />
+
+        {/* Top accent line - matching CTA section style */}
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[oklch(0.78_0.14_165/0.3)] to-transparent" />
+
         <div className="container relative">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.6 }}
-            className="mx-auto max-w-2xl text-center"
+            className="mx-auto max-w-3xl text-center mb-20"
           >
-            <Badge variant="secondary" className="mb-4">
+            <Badge variant="secondary" className="mb-6 text-sm px-4 py-1.5">
               Why organisers choose us?
             </Badge>
-            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
+            <h2 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1]">
               Everything you need to
               <br />
               <span className="text-gradient">host meaningful events.</span>
             </h2>
           </motion.div>
 
-          {/* Bento Grid Layout - Custom Design */}
-          <div className="mx-auto mt-16 w-full max-w-7xl px-4 md:px-6 lg:px-8">
-            <div className="grid gap-6 md:grid-cols-3">
+          {/* Bento Grid Layout - Enhanced Design */}
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="grid gap-8 md:grid-cols-3">
               {/* Card 1: Text first, icon bottom-left */}
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
@@ -231,20 +235,20 @@ export default function Home() {
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ duration: 0.5 }}
               >
-                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.72_0.15_185/0.4)] to-[oklch(0.72_0.15_185/0.1)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[oklch(0.72_0.15_185/0.1)]">
+                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.72_0.15_185/0.5)] to-[oklch(0.72_0.15_185/0.1)] transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.72_0.15_185/0.15)]">
                   <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
-                    <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[oklch(0.72_0.15_185/0.08)] blur-3xl pointer-events-none" />
-                    <CardContent className="relative p-8">
+                    <div className="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-[oklch(0.72_0.15_185/0.1)] blur-3xl pointer-events-none" />
+                    <CardContent className="relative p-10">
                       {/* Title + Icon side by side */}
-                      <div className="flex items-center justify-between gap-4 mb-4">
-                        <h3 className="font-display text-lg font-bold tracking-tight">
+                      <div className="flex items-center justify-between gap-4 mb-5">
+                        <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight">
                           Effortless ticketing
                         </h3>
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[oklch(0.72_0.15_185/0.1)] transition-transform duration-300 group-hover:scale-105">
-                          <QrCode className="h-5 w-5 text-[oklch(0.72_0.15_185)]" strokeWidth={1.5} />
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[oklch(0.72_0.15_185/0.12)] transition-transform duration-300 group-hover:scale-110">
+                          <QrCode className="h-7 w-7 text-[oklch(0.72_0.15_185)]" strokeWidth={1.5} />
                         </div>
                       </div>
-                      <p className="text-muted-foreground text-sm leading-relaxed">
+                      <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
                         Create <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.72_0.15_185)] to-[oklch(0.65_0.12_190)]">professional</span> event pages and start selling tickets in minutes.
                       </p>
                     </CardContent>
@@ -259,20 +263,20 @@ export default function Home() {
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ duration: 0.5, delay: 0.1 }}
               >
-                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.78_0.14_165/0.4)] to-[oklch(0.78_0.14_165/0.1)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[oklch(0.78_0.14_165/0.1)]">
+                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.78_0.14_165/0.5)] to-[oklch(0.78_0.14_165/0.1)] transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.78_0.14_165/0.15)]">
                   <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
-                    <div className="absolute -top-16 -right-16 h-56 w-56 rounded-full bg-[oklch(0.78_0.14_165/0.08)] blur-3xl pointer-events-none" />
-                    <CardContent className="relative p-8">
+                    <div className="absolute -top-16 -right-16 h-64 w-64 rounded-full bg-[oklch(0.78_0.14_165/0.1)] blur-3xl pointer-events-none" />
+                    <CardContent className="relative p-10">
                       {/* Horizontal header: Icon + Title */}
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[oklch(0.78_0.14_165/0.1)] transition-transform duration-300 group-hover:scale-105">
-                          <HeartHandshake className="h-5 w-5 text-[oklch(0.78_0.14_165)]" strokeWidth={1.5} />
+                      <div className="flex items-center gap-4 mb-5">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[oklch(0.78_0.14_165/0.12)] transition-transform duration-300 group-hover:scale-110">
+                          <HeartHandshake className="h-7 w-7 text-[oklch(0.78_0.14_165)]" strokeWidth={1.5} />
                         </div>
-                        <h3 className="font-display text-lg font-bold tracking-tight">
+                        <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight">
                           Community First
                         </h3>
                       </div>
-                      <p className="text-muted-foreground text-sm leading-relaxed">
+                      <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
                         Designed to support organisers and attendees alike, with a focus on <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)]">real engagement</span>.
                       </p>
                     </CardContent>
@@ -287,20 +291,20 @@ export default function Home() {
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ duration: 0.5, delay: 0.2 }}
               >
-                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.65_0.12_190/0.4)] to-[oklch(0.65_0.12_190/0.1)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[oklch(0.65_0.12_190/0.1)]">
+                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.65_0.12_190/0.5)] to-[oklch(0.65_0.12_190/0.1)] transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.65_0.12_190/0.15)]">
                   <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
-                    <div className="absolute -bottom-24 -right-12 h-60 w-60 rounded-full bg-[oklch(0.65_0.12_190/0.08)] blur-3xl pointer-events-none" />
-                    <CardContent className="relative p-8">
+                    <div className="absolute -bottom-24 -right-12 h-68 w-68 rounded-full bg-[oklch(0.65_0.12_190/0.1)] blur-3xl pointer-events-none" />
+                    <CardContent className="relative p-10">
                       {/* Title + Icon side by side */}
-                      <div className="flex items-center justify-between gap-4 mb-4">
-                        <h3 className="font-display text-lg font-bold tracking-tight">
+                      <div className="flex items-center justify-between gap-4 mb-5">
+                        <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight">
                           Seamless Experience
                         </h3>
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[oklch(0.65_0.12_190/0.1)] transition-transform duration-300 group-hover:scale-105">
-                          <BadgeCheck className="h-5 w-5 text-[oklch(0.65_0.12_190)]" strokeWidth={1.5} />
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[oklch(0.65_0.12_190/0.12)] transition-transform duration-300 group-hover:scale-110">
+                          <BadgeCheck className="h-7 w-7 text-[oklch(0.65_0.12_190)]" strokeWidth={1.5} />
                         </div>
                       </div>
-                      <p className="text-muted-foreground text-sm leading-relaxed">
+                      <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
                         From event discovery to check-in, we ensure a <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.65_0.12_190)] to-[oklch(0.72_0.15_185)]">smooth, reliable</span> experience.
                       </p>
                     </CardContent>
@@ -310,6 +314,9 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Bottom accent line */}
+        <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[oklch(0.72_0.15_185/0.3)] to-transparent" />
       </section>
 
       {/* CTA Section - Brutalist Minimalist */}
