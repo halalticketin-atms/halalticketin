@@ -116,7 +116,6 @@ export default function Home() {
   return (
     <>
       {/* Hero Section - extends behind header for seamless background */}
-      {/* Hero Section - extends behind header for seamless background */}
       {/* Updated to 100svh to fix mobile address bar whitespace issues */}
       <section className="relative min-h-[100svh] overflow-hidden gradient-mesh -mt-[var(--nav-safe-offset)] pt-[var(--nav-safe-offset)]">
         {/* Floating Event Cards */}
@@ -127,17 +126,22 @@ export default function Home() {
         {/* Background Decorative Elements */}
         <div className="absolute inset-0 bg-noise pointer-events-none" />
 
-        {/* Animated gradient orbs - brand colors */}
+        {/* Animated gradient orbs - desktop only for performance, static on mobile */}
         <motion.div
+          initial={{ scale: 1, opacity: 0.35 }}
           animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
           transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.25)] blur-3xl"
+          className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.25)] blur-3xl lg:animate-pulse-slow"
         />
         <motion.div
+          initial={{ scale: 1, opacity: 0.35 }}
           animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.5, 0.3] }}
           transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.25)] blur-3xl"
+          className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.25)] blur-3xl lg:animate-pulse-slow"
         />
+
+        {/* Bottom gradient fade for seamless transition */}
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent pointer-events-none" />
 
         {/* Main Content */}
         {/* Main Content */}
@@ -201,13 +205,18 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="relative py-32 md:py-40">
+      <section className="relative pt-20 pb-32 md:pt-24 md:pb-40 overflow-hidden">
         <div className="absolute inset-0 bg-noise pointer-events-none opacity-30" />
 
-        {/* Top accent line - matching CTA section style */}
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[oklch(0.78_0.14_165/0.3)] to-transparent" />
+        {/* Ambient gradient orbs - static on mobile, animated on desktop */}
+        <div className="absolute -top-32 -left-32 h-80 w-80 rounded-full bg-[oklch(0.78_0.14_165/0.15)] blur-3xl pointer-events-none lg:animate-[pulse_12s_ease-in-out_infinite]" />
+        <div className="absolute top-1/2 -right-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.12)] blur-3xl pointer-events-none lg:animate-[pulse_15s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-20 left-1/3 h-72 w-72 rounded-full bg-[oklch(0.65_0.12_190/0.1)] blur-3xl pointer-events-none lg:animate-[pulse_10s_ease-in-out_infinite]" />
 
-        <div className="container relative">
+        {/* Top gradient fade for seamless transition from hero */}
+        <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-background to-transparent pointer-events-none" />
+
+        <div className="container relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -315,8 +324,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Bottom accent line */}
-        <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[oklch(0.72_0.15_185/0.3)] to-transparent" />
+        {/* Bottom gradient fade for seamless transition to CTA */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
       </section>
 
       {/* CTA Section - Brutalist Minimalist */}
@@ -324,10 +333,15 @@ export default function Home() {
         {/* Subtle noise texture */}
         <div className="absolute inset-0 bg-noise pointer-events-none opacity-20" />
 
-        {/* Geometric accent - raw edge */}
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[oklch(0.72_0.15_185/0.3)] to-transparent" />
+        {/* Ambient gradient orbs - static on mobile, animated on desktop */}
+        <div className="absolute -top-20 -right-32 h-80 w-80 rounded-full bg-[oklch(0.72_0.15_185/0.15)] blur-3xl pointer-events-none lg:animate-[pulse_14s_ease-in-out_infinite]" />
+        <div className="absolute bottom-0 -left-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.12)] blur-3xl pointer-events-none lg:animate-[pulse_11s_ease-in-out_infinite]" />
+        <div className="absolute top-1/2 right-1/4 h-64 w-64 rounded-full bg-[oklch(0.65_0.12_190/0.08)] blur-3xl pointer-events-none lg:animate-[pulse_16s_ease-in-out_infinite]" />
 
-        <div className="container relative">
+        {/* Top gradient fade for seamless transition from features */}
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-background to-transparent pointer-events-none" />
+
+        <div className="container relative z-10">
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
