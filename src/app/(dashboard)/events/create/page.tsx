@@ -75,6 +75,7 @@ import {
 } from '@/lib/events-api';
 import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
 import { ApiError } from '@/lib/api';
+import { getBackendErrorDetails } from '@/lib/api-errors';
 import { getUserFriendlyMessage, showWarning } from '@/lib/errors';
 import { PAYG_FEE_GBP, getCurrencySymbol, convertFromGBP } from '@/lib/fees';
 import { uploadEventBanner } from '@/lib/upload-api';
@@ -265,9 +266,9 @@ export function EventWizard({
         removeTicket: removeTicketBase,
         promoCodes,
         setPromoCodes,
-        addPromoCode,
-        updatePromoCode,
-        removePromoCode,
+        addPromoCode: addPromoCodeBase,
+        updatePromoCode: updatePromoCodeBase,
+        removePromoCode: removePromoCodeBase,
         nextStep,
         prevStep,
         progressPercentage,
@@ -320,6 +321,8 @@ export function EventWizard({
     const [actionError, setActionError] = useState<string | null>(null);
     const [publishErrors, setPublishErrors] = useState<string[]>([]);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [ticketErrors, setTicketErrors] = useState<Record<string, { maxPerOrder?: string }>>({});
+    const [promoErrors, setPromoErrors] = useState<Record<string, { code?: string; discountValue?: string }>>({});
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
     // Banner file upload state
@@ -402,8 +405,87 @@ export function EventWizard({
         (id: string) => {
             removeTicketBase(id);
             clearFieldErrors('tickets');
+            setTicketErrors((prev) => {
+                if (!prev[id]) {
+                    return prev;
+                }
+                const { [id]: _removed, ...rest } = prev;
+                return rest;
+            });
         },
         [clearFieldErrors, removeTicketBase],
+    );
+
+    const clearTicketError = useCallback((id: string, field?: 'maxPerOrder') => {
+        setTicketErrors((prev) => {
+            if (!prev[id]) {
+                return prev;
+            }
+
+            if (!field) {
+                const { [id]: _removed, ...rest } = prev;
+                return rest;
+            }
+
+            const next = {
+                ...prev,
+                [id]: { ...prev[id], [field]: undefined },
+            };
+
+            if (!next[id].maxPerOrder) {
+                const { [id]: _removed, ...rest } = next;
+                return rest;
+            }
+
+            return next;
+        });
+    }, []);
+
+    const clearPromoError = useCallback((id: string, field?: 'code' | 'discountValue') => {
+        setPromoErrors((prev) => {
+            if (!prev[id]) {
+                return prev;
+            }
+
+            if (!field) {
+                const { [id]: _removed, ...rest } = prev;
+                return rest;
+            }
+
+            const next = {
+                ...prev,
+                [id]: { ...prev[id], [field]: undefined },
+            };
+
+            if (!next[id].code && !next[id].discountValue) {
+                const { [id]: _removed, ...rest } = next;
+                return rest;
+            }
+
+            return next;
+        });
+    }, []);
+
+    const updatePromoCode = useCallback(
+        <K extends keyof DraftPromoCode>(id: string, field: K, value: DraftPromoCode[K]) => {
+            updatePromoCodeBase(id, field, value);
+            if (field === 'code' || field === 'discountValue') {
+                clearPromoError(id, field);
+            }
+        },
+        [clearPromoError, updatePromoCodeBase],
+    );
+
+    const addPromoCode = useCallback(() => {
+        addPromoCodeBase();
+    }, [addPromoCodeBase]);
+
+    const removePromoCode = useCallback(
+        (id: string) => {
+            removePromoCodeBase(id);
+            clearPromoError(id);
+        },
+        [clearPromoError, removePromoCodeBase],
     );
 
     const handleFieldChange = useCallback(
@@ -477,7 +559,9 @@ export function EventWizard({
 
             const trimmedTitle = formData.title.trim();
             if (trimmedTitle.length < 2) {
-                setActionError('Add a title with at least 2 characters before saving.');
+                setActionError('Event title must be at least 2 characters.');
+                setFieldErrors({ title: 'Title must be at least 2 characters' });
+                setCurrentStep(1); // Navigate to Basic Details step
                 return null;
             }
 
@@ -509,19 +593,49 @@ export function EventWizard({
                     setTickets(normalizedTickets);
                 }
 
-                // Save promo codes
+                // Save promo codes (only if we have a valid event ID)
                 let normalizedPromoCodes = promoCodes;
-                if (promoCodes.length > 0) {
+                const nextPromoErrors: Record<string, { code?: string; discountValue?: string }> = {};
+
+                for (const promo of promoCodes) {
+                    const code = promo.code.trim();
+                    const discountValue = Number.parseFloat(promo.discountValue);
+                    const errors: { code?: string; discountValue?: string } = {};
+
+                    if (!code) {
+                        errors.code = 'Code is required.';
+                    }
+                    if (!Number.isFinite(discountValue) || discountValue <= 0) {
+                        errors.discountValue = 'Discount must be greater than 0.';
+                    }
+
+                    if (errors.code || errors.discountValue) {
+                        nextPromoErrors[promo.id] = errors;
+                    }
+                }
+
+                const hasPromoValidationErrors = Object.keys(nextPromoErrors).length > 0;
+                setPromoErrors(nextPromoErrors);
+
+                if (hasPromoValidationErrors) {
+                    setActionError('Fix promo code errors before saving.');
+                    setCurrentStep(3);
+                }
+
+                if (promoCodes.length > 0 && isUuid(nextEventId) && !hasPromoValidationErrors) {
                     const existingPromos = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
                     const existingIds = new Set(existingPromos.promoCodes.map(p => p.id));
 
                     for (const promo of promoCodes) {
-                        if (!promo.code.trim()) continue; // Skip empty codes
+                        const discountValue = Number.parseFloat(promo.discountValue);
+                        if (!promo.code.trim() || !Number.isFinite(discountValue) || discountValue <= 0) {
+                            continue;
+                        }
 
                         const promoInput: PromoCodeInput = {
                             code: promo.code.trim().toUpperCase(),
                             discountType: promo.discountType === 'fixed' ? 'amount' : 'percentage',
-                            discountValue: parseFloat(promo.discountValue) || 0,
+                            discountValue,
                             usageLimit: promo.usageLimit || null,
                             validFrom: promo.validFrom ? `${promo.validFrom}T00:00:00.000Z` : null,
                             validUntil: promo.validUntil ? `${promo.validUntil}T23:59:59.000Z` : null,
@@ -561,16 +675,45 @@ export function EventWizard({
                 }
 
                 setEventId(nextEventId);
-                markSnapshotAsSaved({ tickets: normalizedTickets, promoCodes: normalizedPromoCodes });
-                setFieldErrors({});
-                setPublishErrors([]);
+                if (!hasPromoValidationErrors) {
+                    markSnapshotAsSaved({ tickets: normalizedTickets, promoCodes: normalizedPromoCodes });
+                    setFieldErrors({});
+                    setPublishErrors([]);
+                    setPromoErrors({});
 
-                if (!options?.silent) {
-                    setActionMessage('Draft saved');
+                    if (!options?.silent) {
+                        setActionMessage('Draft saved');
+                    }
+                } else {
+                    setPublishErrors([]);
                 }
 
                 return nextEventId;
             } catch (error) {
+                // Extract detailed field errors from backend
+                if (error instanceof ApiError) {
+                    const details = getBackendErrorDetails<{ fieldErrors?: Record<string, string[]> }>(error.payload);
+                    if (details?.fieldErrors) {
+                        // Map Zod field errors to our fieldErrors state
+                        const mappedErrors: Record<string, string> = {};
+                        for (const [field, messages] of Object.entries(details.fieldErrors)) {
+                            if (Array.isArray(messages) && messages.length > 0) {
+                                mappedErrors[field] = messages[0];
+                            }
+                        }
+                        if (Object.keys(mappedErrors).length > 0) {
+                            setFieldErrors(mappedErrors);
+                            // Navigate to step with first error
+                            if (mappedErrors.title || mappedErrors.description) {
+                                setCurrentStep(1);
+                            } else if (mappedErrors.date || mappedErrors.venue || mappedErrors.startTime || mappedErrors.endTime) {
+                                setCurrentStep(2);
+                            } else if (mappedErrors.tickets) {
+                                setCurrentStep(3);
+                            }
+                        }
+                    }
+                }
                 const message = getUserFriendlyMessage(error) || 'Unable to save draft.';
                 setActionError(message);
                 return null;
@@ -1559,12 +1702,42 @@ export function EventWizard({
                                                                     <Label>Max Per Order</Label>
                                                                     <Input
                                                                         type="number"
-                                                                        value={ticket.maxPerOrder}
-                                                                        onChange={(e) => updateTicket(ticket.id, 'maxPerOrder', parseInt(e.target.value) || 1)}
+                                                                        value={ticket.maxPerOrder || ''}
+                                                                        onChange={(e) => {
+                                                                            const value = e.target.value;
+                                                                            if (value === '') {
+                                                                                updateTicket(ticket.id, 'maxPerOrder', 0);
+                                                                                clearTicketError(ticket.id, 'maxPerOrder');
+                                                                                return;
+                                                                            }
+                                                                            const numericValue = Number.parseInt(value, 10);
+                                                                            if (Number.isNaN(numericValue) || numericValue < 0) {
+                                                                                return;
+                                                                            }
+                                                                            updateTicket(ticket.id, 'maxPerOrder', numericValue);
+                                                                            if (numericValue >= 1) {
+                                                                                clearTicketError(ticket.id, 'maxPerOrder');
+                                                                            }
+                                                                        }}
+                                                                        onBlur={() => {
+                                                                            if (!ticket.maxPerOrder || ticket.maxPerOrder < 1) {
+                                                                                updateTicket(ticket.id, 'maxPerOrder', 1);
+                                                                                setTicketErrors((prev) => ({
+                                                                                    ...prev,
+                                                                                    [ticket.id]: {
+                                                                                        ...prev[ticket.id],
+                                                                                        maxPerOrder: "Can't be less than one.",
+                                                                                    },
+                                                                                }));
+                                                                            }
+                                                                        }}
                                                                         className="h-10"
                                                                         min={1}
-                                                                        max={ticket.quantity}
+                                                                        max={Math.max(ticket.quantity, 1)}
                                                                     />
+                                                                    {ticketErrors[ticket.id]?.maxPerOrder ? (
+                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
+                                                                    ) : null}
                                                                 </div>
                                                             </div>
 
@@ -1692,24 +1865,35 @@ export function EventWizard({
                                                     </div>
                                                 ) : (
                                                     <div className="space-y-4">
-                                                        {promoCodes.map((promo) => (
-                                                            <div key={promo.id} className="border rounded-xl p-4 space-y-4">
-                                                                <div className="flex items-center justify-between">
-                                                                    <Input
-                                                                        placeholder="CODE2024"
-                                                                        value={promo.code}
-                                                                        onChange={(e) => updatePromoCode(promo.id, 'code', e.target.value.toUpperCase())}
-                                                                        className="h-10 w-40 font-mono uppercase"
-                                                                    />
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        onClick={() => removePromoCode(promo.id)}
-                                                                        className="text-destructive hover:text-destructive h-8 w-8"
-                                                                    >
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                    </Button>
-                                                                </div>
+                                                        {promoCodes.map((promo) => {
+                                                            const promoError = promoErrors[promo.id];
+
+                                                            return (
+                                                                <div key={promo.id} className="border rounded-xl p-4 space-y-4">
+                                                                    <div className="flex items-start justify-between gap-4">
+                                                                        <div className="space-y-1">
+                                                                            <Input
+                                                                                placeholder="CODE2024"
+                                                                                value={promo.code}
+                                                                                onChange={(e) => updatePromoCode(promo.id, 'code', e.target.value.toUpperCase())}
+                                                                                className={cn(
+                                                                                    'h-10 w-40 font-mono uppercase',
+                                                                                    promoError?.code ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                )}
+                                                                            />
+                                                                            {promoError?.code ? (
+                                                                                <p className="text-xs text-destructive">{promoError.code}</p>
+                                                                            ) : null}
+                                                                        </div>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={() => removePromoCode(promo.id)}
+                                                                            className="text-destructive hover:text-destructive h-8 w-8"
+                                                                        >
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </div>
                                                                 <div className="grid gap-4 sm:grid-cols-3">
                                                                     <div className="space-y-2">
                                                                         <Label className="text-sm">Discount Type</Label>
@@ -1741,12 +1925,18 @@ export function EventWizard({
                                                                                         updatePromoCode(promo.id, 'discountValue', value);
                                                                                     }
                                                                                 }}
-                                                                                className="h-10 pr-8"
+                                                                                className={cn(
+                                                                                    'h-10 pr-8',
+                                                                                    promoError?.discountValue ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                )}
                                                                             />
                                                                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                                                                                 {promo.discountType === 'percentage' ? '%' : getCurrencySymbol(formData.currency)}
                                                                             </span>
                                                                         </div>
+                                                                        {promoError?.discountValue ? (
+                                                                            <p className="text-xs text-destructive">{promoError.discountValue}</p>
+                                                                        ) : null}
                                                                     </div>
                                                                     <div className="space-y-2">
                                                                         <Label className="text-sm">Usage Limit</Label>
@@ -1783,7 +1973,8 @@ export function EventWizard({
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                        ))}
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}</CardContent>
                                         </Card>

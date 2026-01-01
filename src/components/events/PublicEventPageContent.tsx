@@ -322,6 +322,14 @@ export function PublicEventPageContent({
         cartItems.reduce((sum, item) => sum + item.quantity, 0)
         , [cartItems]);
 
+    const paidTicketCount = useMemo(() =>
+        cartItems.reduce((sum, item) => {
+            const unitPrice = Number.parseFloat(item.ticket.price || '0');
+            return unitPrice > 0 ? sum + item.quantity : sum;
+        }, 0),
+        [cartItems]
+    );
+
     const customQuestionCount = event?.customQuestions?.length ?? 0;
     const forcePerTicket = customQuestionCount > 0;
     const requiresPerTicket = useMemo(() => {
@@ -439,7 +447,7 @@ export function PublicEventPageContent({
     }, [eventPixelId, event?.id, event?.title, currencyCode, track]);
 
     const platformFeeAmount = useMemo(() => {
-        if (!event || totalTickets === 0 || finalTotal <= 0) {
+        if (!event || paidTicketCount === 0 || finalTotal <= 0) {
             return 0;
         }
 
@@ -454,14 +462,14 @@ export function PublicEventPageContent({
 
         const { totalFee } = calculatePlatformFee({
             feeTier,
-            ticketCount: totalTickets,
+            ticketCount: paidTicketCount,
             currency: currencyCode,
             customBookingFee,
             exchangeRates: rates
         });
 
         return event.absorbFee ? 0 : totalFee;
-    }, [event, totalTickets, currencyCode, rates, finalTotal]);
+    }, [event, paidTicketCount, currencyCode, rates, finalTotal]);
 
     const grandTotal = finalTotal + platformFeeAmount;
 

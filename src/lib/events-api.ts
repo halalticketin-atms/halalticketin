@@ -4,6 +4,24 @@ export type BackendLocationType = 'in_person' | 'online' | 'hybrid';
 export type BackendFeeTier = 'payg' | 'token' | 'charity';
 export type EventVisibility = 'public' | 'private';
 
+// UUID validation regex - matches standard UUID v1-5 format
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isValidUuid = (value: string): boolean => UUID_REGEX.test(value);
+
+const assertValidEventId = (eventId: string): void => {
+    if (!eventId || !isValidUuid(eventId)) {
+        console.error('[events-api] Invalid eventId received:', eventId, new Error().stack);
+        throw new Error(`Invalid event ID: "${eventId}". Expected a valid UUID.`);
+    }
+};
+
+const assertValidOrganizerId = (organizerId: string): void => {
+    if (!organizerId || !isValidUuid(organizerId)) {
+        throw new Error(`Invalid organizer ID: "${organizerId}". Expected a valid UUID.`);
+    }
+};
+
 export interface EventRecord {
     id: string;
     organizerId: string;
@@ -105,24 +123,29 @@ export interface TicketInputPayload {
 }
 
 export const createEventDraft = async (organizerId: string, payload: UpsertEventPayload) => {
+    assertValidOrganizerId(organizerId);
     return api.post<{ event: EventRecord }>(`/api/v1/organizers/${organizerId}/events`, payload);
 };
 
 export const updateEventDraft = async (eventId: string, payload: UpsertEventPayload) => {
+    assertValidEventId(eventId);
     return api.patch<{ event: EventRecord }>(`/api/v1/events/${eventId}`, payload);
 };
 
 export const saveEventTickets = async (eventId: string, tickets: TicketInputPayload[]) => {
+    assertValidEventId(eventId);
     return api.put<{ tickets: TicketRecord[] }>(`/api/v1/events/${eventId}/tickets`, { tickets });
 };
 
 export const publishEvent = async (eventId: string, visibility: EventVisibility) => {
+    assertValidEventId(eventId);
     return api.post<{ event: EventRecord }>(`/api/v1/events/${eventId}/publish`, {
         visibility,
     });
 };
 
 export const fetchEventDetails = async (eventId: string) => {
+    assertValidEventId(eventId);
     return api.get<{ event: EventRecord; tickets: TicketRecord[] }>(`/api/v1/events/${eventId}`);
 };
 
@@ -130,6 +153,7 @@ export const listOrganizerEvents = async (
     organizerId: string,
     options?: { status?: 'draft' | 'published' | 'cancelled' | 'archived' },
 ) => {
+    assertValidOrganizerId(organizerId);
     const params = options?.status ? { status: options.status } : undefined;
     return api.get<{ events: EventRecord[] }>(`/api/v1/organizers/${organizerId}/events`, {
         params,
@@ -166,10 +190,12 @@ export interface PromoCodeInput {
 }
 
 export const fetchEventPromoCodes = async (eventId: string) => {
+    assertValidEventId(eventId);
     return api.get<{ promoCodes: PromoCodeRecord[] }>(`/api/v1/events/${eventId}/promo-codes`);
 };
 
 export const createPromoCode = async (eventId: string, data: PromoCodeInput) => {
+    assertValidEventId(eventId);
     return api.post<{ promoCode: PromoCodeRecord }>(`/api/v1/events/${eventId}/promo-codes`, data);
 };
 
@@ -178,6 +204,7 @@ export const updatePromoCode = async (
     promoId: string,
     data: Partial<PromoCodeInput>
 ) => {
+    assertValidEventId(eventId);
     return api.patch<{ promoCode: PromoCodeRecord }>(
         `/api/v1/events/${eventId}/promo-codes/${promoId}`,
         data
@@ -185,6 +212,7 @@ export const updatePromoCode = async (
 };
 
 export const deletePromoCode = async (eventId: string, promoId: string) => {
+    assertValidEventId(eventId);
     return api.delete(`/api/v1/events/${eventId}/promo-codes/${promoId}`);
 };
 

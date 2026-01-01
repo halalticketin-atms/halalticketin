@@ -7,15 +7,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
     AlertCircle,
     ArrowLeft,
+    ArrowRight,
     Calendar,
-    Mail,
-    Send,
-    Users,
-    Loader2,
     Check,
     Eye,
-    ChevronDown,
+    Loader2,
+    Mail,
     Search,
+    Send,
+    Users,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -111,107 +111,88 @@ const buildSubject = (event: DashboardEvent | null) => {
     return `Update for ${title}${date ? ` - ${date}` : ''}`;
 };
 
-type CardType = 'event' | 'audience' | 'compose';
+type Step = 'event' | 'audience' | 'compose' | 'send';
 
-interface ExpandableCardProps {
-    title: string;
-    description: string;
-    icon: React.ElementType;
-    isExpanded: boolean;
-    isCompleted: boolean;
-    isPending: boolean;
-    summary?: string;
-    onExpand: () => void;
-    children: React.ReactNode;
+const STEPS: { id: Step; label: string; icon: React.ElementType }[] = [
+    { id: 'event', label: 'Event', icon: Calendar },
+    { id: 'audience', label: 'Audience', icon: Users },
+    { id: 'compose', label: 'Message', icon: Mail },
+    { id: 'send', label: 'Review & Send', icon: Send },
+];
+
+interface StepIndicatorProps {
+    steps: typeof STEPS;
+    currentStep: Step;
+    completedSteps: Set<Step>;
+    onStepClick: (step: Step) => void;
 }
 
-function ExpandableCard({
-    title,
-    description,
-    icon: Icon,
-    isExpanded,
-    isCompleted,
-    isPending,
-    summary,
-    onExpand,
-    children,
-}: ExpandableCardProps) {
+function StepIndicator({ steps, currentStep, completedSteps, onStepClick }: StepIndicatorProps) {
+    const currentIndex = steps.findIndex(s => s.id === currentStep);
+
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={cn(
-                'rounded-2xl border-2 transition-all duration-300',
-                isExpanded && 'shadow-xl',
-                isCompleted && !isExpanded && 'border-emerald-200 bg-emerald-50/30',
-                isExpanded && 'border-transparent bg-gradient-to-br from-[oklch(0.78_0.14_165)]/10 to-[oklch(0.72_0.15_185)]/10',
-                isPending && 'border-dashed border-border/50 opacity-60',
-                !isExpanded && !isCompleted && !isPending && 'border-border/60'
-            )}
-            style={
-                isExpanded
-                    ? {
-                        background: 'linear-gradient(white, white) padding-box, linear-gradient(135deg, oklch(0.78 0.14 165), oklch(0.72 0.15 185)) border-box',
-                        borderColor: 'transparent',
-                    }
-                    : undefined
-            }
-        >
-            <button
-                onClick={onExpand}
-                disabled={isPending}
-                className="w-full text-left"
-            >
-                <div className="flex items-center justify-between p-5">
-                    <div className="flex items-center gap-4">
-                        <div
+        <div className="flex items-center justify-center gap-0 w-full max-w-2xl mx-auto">
+            {steps.map((step, index) => {
+                const isCompleted = completedSteps.has(step.id);
+                const isCurrent = step.id === currentStep;
+                const isPast = index < currentIndex;
+                const isClickable = isCompleted || isPast;
+                const Icon = step.icon;
+
+                return (
+                    <div key={step.id} className="flex items-center flex-1 last:flex-none">
+                        {/* Step circle */}
+                        <button
+                            onClick={() => isClickable && onStepClick(step.id)}
+                            disabled={!isClickable}
                             className={cn(
-                                'h-12 w-12 rounded-xl flex items-center justify-center transition-all',
-                                isExpanded && 'bg-gradient-to-br from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] text-white shadow-lg',
-                                isCompleted && !isExpanded && 'bg-emerald-500 text-white',
-                                !isExpanded && !isCompleted && 'bg-muted text-muted-foreground'
+                                'relative flex flex-col items-center gap-2 group transition-all duration-300',
+                                isClickable && 'cursor-pointer',
+                                !isClickable && 'cursor-default'
                             )}
                         >
-                            {isCompleted && !isExpanded ? (
-                                <Check className="h-5 w-5" />
-                            ) : (
-                                <Icon className="h-5 w-5" />
-                            )}
-                        </div>
-                        <div>
-                            <h3 className="font-display text-lg font-semibold">{title}</h3>
-                            {!isExpanded && summary ? (
-                                <p className="text-sm text-muted-foreground mt-0.5">{summary}</p>
-                            ) : (
-                                !isExpanded && <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
-                            )}
-                        </div>
-                    </div>
-                    <ChevronDown
-                        className={cn(
-                            'h-5 w-5 text-muted-foreground transition-transform',
-                            isExpanded && 'rotate-180'
-                        )}
-                    />
-                </div>
-            </button>
+                            <motion.div
+                                className={cn(
+                                    'h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm',
+                                    isCurrent && 'bg-gradient-to-br from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] text-white shadow-lg scale-110',
+                                    isCompleted && !isCurrent && 'bg-emerald-500 text-white',
+                                    !isCurrent && !isCompleted && 'bg-muted/60 text-muted-foreground border-2 border-dashed border-border/60'
+                                )}
+                                whileHover={isClickable ? { scale: 1.05 } : undefined}
+                                whileTap={isClickable ? { scale: 0.95 } : undefined}
+                            >
+                                {isCompleted && !isCurrent ? (
+                                    <Check className="h-5 w-5" />
+                                ) : (
+                                    <Icon className="h-5 w-5" />
+                                )}
+                            </motion.div>
+                            <span className={cn(
+                                'text-xs font-medium transition-colors whitespace-nowrap',
+                                isCurrent && 'text-foreground',
+                                isCompleted && !isCurrent && 'text-emerald-600',
+                                !isCurrent && !isCompleted && 'text-muted-foreground'
+                            )}>
+                                {step.label}
+                            </span>
+                        </button>
 
-            <AnimatePresence initial={false}>
-                {isExpanded && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="overflow-hidden"
-                    >
-                        <div className="border-t border-border/50 p-6 pt-5">
-                            {children}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </motion.div>
+                        {/* Connector line */}
+                        {index < steps.length - 1 && (
+                            <div className="flex-1 h-0.5 mx-3 relative">
+                                <div className="absolute inset-0 bg-border/40 rounded-full" />
+                                <motion.div
+                                    className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full origin-left"
+                                    initial={{ scaleX: 0 }}
+                                    animate={{ scaleX: isCompleted || isPast ? 1 : 0 }}
+                                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                                />
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
     );
 }
 
@@ -290,15 +271,12 @@ function LiveEmailPreview({
 export default function EmailAttendeesPage() {
     const organizerId = useOrganizerFromParams();
     const { events, isLoading, error } = useOrganizerEvents(organizerId);
+    const [currentStep, setCurrentStep] = useState<Step>('event');
+    const [completedSteps, setCompletedSteps] = useState<Set<Step>>(new Set());
+
     const [selectedEventId, setSelectedEventId] = useState<string>('');
     const [subject, setSubject] = useState('Event update');
     const [message, setMessage] = useState('');
-    const [expandedCard, setExpandedCard] = useState<CardType>('event');
-    const [completedCards, setCompletedCards] = useState({
-        event: false,
-        audience: false,
-        compose: false,
-    });
     const [audience, setAudience] = useState<'all' | 'individual' | 'recent'>('all');
     const [showMobilePreview, setShowMobilePreview] = useState(false);
 
@@ -317,7 +295,10 @@ export default function EmailAttendeesPage() {
     // Auto-select first event
     useEffect(() => {
         if (!selectedEventId && events.length > 0) {
-            setSelectedEventId(events[0].id);
+            const activeEvents = events.filter(e => e.displayStatus === 'active');
+            if (activeEvents.length > 0) {
+                setSelectedEventId(activeEvents[0].id);
+            }
         }
     }, [events, selectedEventId]);
 
@@ -325,6 +306,10 @@ export default function EmailAttendeesPage() {
     useEffect(() => {
         setSubject(buildSubject(selectedEvent));
     }, [selectedEvent]);
+
+    useEffect(() => {
+        setSelectedAttendeeIds(new Set());
+    }, [selectedEventId]);
 
     // Fetch orders for selected event
     useEffect(() => {
@@ -367,32 +352,65 @@ export default function EmailAttendeesPage() {
     const formattedLocation = selectedEvent ? formatEventLocation(selectedEvent) : null;
     const statusMeta = selectedEvent ? statusStyles[selectedEvent.displayStatus] : null;
 
-    const handleCompleteCard = (card: CardType) => {
-        setCompletedCards((prev) => ({ ...prev, [card]: true }));
-        // Auto-expand next card
-        if (card === 'event') {
-            setExpandedCard('audience');
-        } else if (card === 'audience') {
-            setExpandedCard('compose');
+    // Step validation
+    const canProceedFromEvent = !!selectedEventId;
+    const hasAttendees = orders.length > 0;
+    const canProceedFromAudience =
+        (audience === 'all' && hasAttendees) ||
+        (audience === 'recent' && hasAttendees) ||
+        (audience === 'individual' && selectedAttendeeIds.size > 0);
+    const canProceedFromCompose = subject.trim().length > 0 && message.trim().length > 0;
+    const canSend = canProceedFromEvent && canProceedFromAudience && canProceedFromCompose;
+
+    useEffect(() => {
+        setCompletedSteps((prev) => {
+            const next = new Set(prev);
+
+            if (!canProceedFromEvent) {
+                next.delete('event');
+                next.delete('audience');
+                next.delete('compose');
+                next.delete('send');
+                return next;
+            }
+
+            if (!canProceedFromAudience) {
+                next.delete('audience');
+                next.delete('compose');
+                next.delete('send');
+            }
+
+            if (!canProceedFromCompose) {
+                next.delete('compose');
+                next.delete('send');
+            }
+
+            return next;
+        });
+    }, [canProceedFromAudience, canProceedFromCompose, canProceedFromEvent]);
+
+    const handleContinue = () => {
+        const stepOrder: Step[] = ['event', 'audience', 'compose', 'send'];
+        const currentIndex = stepOrder.indexOf(currentStep);
+
+        if (currentIndex < stepOrder.length - 1) {
+            setCompletedSteps(prev => new Set([...prev, currentStep]));
+            setCurrentStep(stepOrder[currentIndex + 1]);
         }
     };
 
-    const eventSummary = selectedEvent
-        ? `${selectedEvent.title} - ${formattedDate}`
-        : undefined;
+    const handleBack = () => {
+        const stepOrder: Step[] = ['event', 'audience', 'compose', 'send'];
+        const currentIndex = stepOrder.indexOf(currentStep);
 
-    const audienceSummary = selectedAudience.length > 0
-        ? selectedAudience.join(', ')
-        : undefined;
+        if (currentIndex > 0) {
+            setCurrentStep(stepOrder[currentIndex - 1]);
+        }
+    };
 
-    const composeSummary = subject && message
-        ? `${subject.substring(0, 50)}${subject.length > 50 ? '...' : ''}`
-        : undefined;
-
-    const completionPercentage =
-        (Object.values(completedCards).filter(Boolean).length / 3) * 100;
-
-    const canSend = completedCards.event && completedCards.audience && completedCards.compose;
+    const handleStepClick = (step: Step) => {
+        setCurrentStep(step);
+    };
 
     const handleSendEmail = async () => {
         if (!organizerId || !selectedEventId) {
@@ -423,9 +441,28 @@ export default function EmailAttendeesPage() {
         }
     };
 
+    // Get summary badges for completed steps
+    const getSummaryBadges = () => {
+        const badges: { label: string; icon: React.ElementType }[] = [];
+
+        if (completedSteps.has('event') && selectedEvent) {
+            badges.push({ label: selectedEvent.title || 'Untitled', icon: Calendar });
+        }
+        if (completedSteps.has('audience')) {
+            badges.push({ label: selectedAudience[0] || 'No audience', icon: Users });
+        }
+        if (completedSteps.has('compose')) {
+            badges.push({ label: subject.substring(0, 30) + (subject.length > 30 ? '...' : ''), icon: Mail });
+        }
+
+        return badges;
+    };
+
+    const summaryBadges = getSummaryBadges();
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-muted/30 via-background to-muted/20">
-            <div className="container py-8 space-y-6">
+            <div className="container py-8 space-y-8">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -16 }}
@@ -448,220 +485,340 @@ export default function EmailAttendeesPage() {
                                     Email Attendees
                                 </h1>
                                 <p className="text-muted-foreground">
-                                    Compose and send updates to your event attendees
+                                    Send updates to your event attendees in 4 simple steps
                                 </p>
-                            </div>
-                        </div>
-
-                        {/* Progress Indicator */}
-                        <div className="flex items-center gap-3">
-                            <div className="hidden sm:flex flex-col items-end gap-1">
-                                <p className="text-xs font-medium text-muted-foreground">
-                                    {Math.round(completionPercentage)}% complete
-                                </p>
-                                <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                                    <motion.div
-                                        className="h-full bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)]"
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${completionPercentage}%` }}
-                                        transition={{ duration: 0.5, ease: 'easeOut' }}
-                                    />
-                                </div>
                             </div>
                         </div>
                     </div>
                 </motion.div>
 
-                {/* Main Content - Split Screen */}
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr,400px] gap-6 items-start">
-                    {/* Left Column - Cards */}
-                    <div className="space-y-4">
-                        {/* Event Selection Card */}
-                        <ExpandableCard
-                            title="Select Event"
-                            description="Choose which event you're messaging about"
-                            icon={Calendar}
-                            isExpanded={expandedCard === 'event'}
-                            isCompleted={completedCards.event}
-                            isPending={false}
-                            summary={eventSummary}
-                            onExpand={() => setExpandedCard('event')}
-                        >
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="event-select">Event</Label>
-                                    <Select
-                                        value={selectedEventId || undefined}
-                                        onValueChange={setSelectedEventId}
-                                        disabled={isLoading || events.length === 0}
-                                    >
-                                        <SelectTrigger id="event-select" className="h-12 bg-background">
-                                            <SelectValue
-                                                placeholder={isLoading ? 'Loading events...' : 'Select event'}
-                                            />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {events
-                                                .filter(event => event.displayStatus === 'active')
-                                                .map((event) => (
-                                                    <SelectItem key={event.id} value={event.id}>
-                                                        <div className="flex items-center gap-3">
-                                                            {event.bannerImageUrl ? (
-                                                                <div className="relative h-6 w-6 rounded overflow-hidden">
-                                                                    <Image
-                                                                        src={event.bannerImageUrl}
-                                                                        alt=""
-                                                                        fill
-                                                                        sizes="24px"
-                                                                        className="object-cover"
-                                                                    />
-                                                                </div>
-                                                            ) : (
-                                                                <div className="h-6 w-6 rounded bg-muted/70 flex items-center justify-center text-[10px] text-muted-foreground">
-                                                                    {(event.title || 'E')
-                                                                        .charAt(0)
-                                                                        .toUpperCase()}
-                                                                </div>
-                                                            )}
-                                                            <span>{event.title || 'Untitled event'}</span>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {isLoading && (
-                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                            Loading events
-                                        </div>
-                                    )}
-                                    {error && (
-                                        <div className="flex items-center gap-2 text-xs text-destructive">
-                                            <AlertCircle className="h-3.5 w-3.5" />
-                                            {error}
-                                        </div>
-                                    )}
-                                </div>
+                {/* Step Indicator */}
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="py-4"
+                >
+                    <StepIndicator
+                        steps={STEPS}
+                        currentStep={currentStep}
+                        completedSteps={completedSteps}
+                        onStepClick={handleStepClick}
+                    />
+                </motion.div>
 
-                                {selectedEvent && (
-                                    <div className="flex flex-col gap-3 rounded-xl border border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between bg-muted/30">
-                                        <div className="flex items-center gap-3">
-                                            {selectedEvent.bannerImageUrl ? (
-                                                <div className="relative h-12 w-12 rounded-lg overflow-hidden">
-                                                    <Image
-                                                        src={selectedEvent.bannerImageUrl}
-                                                        alt=""
-                                                        fill
-                                                        sizes="48px"
-                                                        className="object-cover"
+                {/* Summary Badges */}
+                {summaryBadges.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex flex-wrap justify-center gap-2"
+                    >
+                        {summaryBadges.map((badge, i) => (
+                            <Badge
+                                key={i}
+                                variant="secondary"
+                                className="px-3 py-1.5 gap-2 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            >
+                                <badge.icon className="h-3.5 w-3.5" />
+                                {badge.label}
+                            </Badge>
+                        ))}
+                    </motion.div>
+                )}
+
+                {/* Main Content - Split Screen */}
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr,380px] gap-8 items-start">
+                    {/* Left Column - Step Content */}
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={currentStep}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.25, ease: 'easeInOut' }}
+                            className="rounded-2xl border border-border/60 bg-white/80 backdrop-blur-sm shadow-xl overflow-hidden"
+                            style={{
+                                background: 'linear-gradient(white, white) padding-box, linear-gradient(135deg, oklch(0.78 0.14 165 / 0.3), oklch(0.72 0.15 185 / 0.3)) border-box',
+                                borderColor: 'transparent',
+                            }}
+                        >
+                            {/* Step Header */}
+                            <div className="border-b border-border/40 px-6 py-5 bg-gradient-to-r from-muted/30 to-transparent">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] text-white flex items-center justify-center">
+                                        {STEPS.find(s => s.id === currentStep)?.icon && (
+                                            (() => {
+                                                const Icon = STEPS.find(s => s.id === currentStep)!.icon;
+                                                return <Icon className="h-5 w-5" />;
+                                            })()
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h2 className="font-display text-xl font-semibold">
+                                            {STEPS.find(s => s.id === currentStep)?.label}
+                                        </h2>
+                                        <p className="text-sm text-muted-foreground">
+                                            {currentStep === 'event' && 'Choose which event you\'re messaging about'}
+                                            {currentStep === 'audience' && 'Select who should receive this email'}
+                                            {currentStep === 'compose' && 'Write your email subject and message'}
+                                            {currentStep === 'send' && 'Review your email and send it'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Step Content */}
+                            <div className="p-6">
+                                {/* Event Selection Step */}
+                                {currentStep === 'event' && (
+                                    <div className="space-y-5">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="event-select">Select an event</Label>
+                                            <Select
+                                                value={selectedEventId || undefined}
+                                                onValueChange={setSelectedEventId}
+                                                disabled={isLoading || events.length === 0}
+                                            >
+                                                <SelectTrigger id="event-select" className="h-12 bg-background">
+                                                    <SelectValue
+                                                        placeholder={isLoading ? 'Loading events...' : 'Select event'}
                                                     />
-                                                </div>
-                                            ) : (
-                                                <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center text-sm text-muted-foreground">
-                                                    {(selectedEvent.title || 'E').charAt(0).toUpperCase()}
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {events
+                                                        .filter(event => event.displayStatus === 'active')
+                                                        .map((event) => (
+                                                            <SelectItem key={event.id} value={event.id}>
+                                                                <div className="flex items-center gap-3">
+                                                                    {event.bannerImageUrl ? (
+                                                                        <div className="relative h-6 w-6 rounded overflow-hidden">
+                                                                            <Image
+                                                                                src={event.bannerImageUrl}
+                                                                                alt=""
+                                                                                fill
+                                                                                sizes="24px"
+                                                                                className="object-cover"
+                                                                            />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="h-6 w-6 rounded bg-muted/70 flex items-center justify-center text-[10px] text-muted-foreground">
+                                                                            {(event.title || 'E')
+                                                                                .charAt(0)
+                                                                                .toUpperCase()}
+                                                                        </div>
+                                                                    )}
+                                                                    <span>{event.title || 'Untitled event'}</span>
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                </SelectContent>
+                                            </Select>
+                                            {isLoading && (
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    Loading events
                                                 </div>
                                             )}
-                                            <div>
-                                                <p className="text-sm font-semibold">
-                                                    {selectedEvent.title || 'Untitled event'}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {formattedDate} · {formattedLocation}
-                                                </p>
-                                            </div>
+                                            {error && (
+                                                <div className="flex items-center gap-2 text-xs text-destructive">
+                                                    <AlertCircle className="h-3.5 w-3.5" />
+                                                    {error}
+                                                </div>
+                                            )}
                                         </div>
-                                        {statusMeta && (
-                                            <Badge variant="outline" className={cn('border', statusMeta.className)}>
-                                                {statusMeta.label}
-                                            </Badge>
+
+                                        {selectedEvent && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="flex flex-col gap-3 rounded-xl border border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between bg-muted/20"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    {selectedEvent.bannerImageUrl ? (
+                                                        <div className="relative h-14 w-14 rounded-xl overflow-hidden">
+                                                            <Image
+                                                                src={selectedEvent.bannerImageUrl}
+                                                                alt=""
+                                                                fill
+                                                                sizes="56px"
+                                                                className="object-cover"
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="h-14 w-14 rounded-xl bg-muted flex items-center justify-center text-lg text-muted-foreground">
+                                                            {(selectedEvent.title || 'E').charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <p className="font-semibold">
+                                                            {selectedEvent.title || 'Untitled event'}
+                                                        </p>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            {formattedDate} · {formattedLocation}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {statusMeta && (
+                                                    <Badge variant="outline" className={cn('border shrink-0', statusMeta.className)}>
+                                                        {statusMeta.label}
+                                                    </Badge>
+                                                )}
+                                            </motion.div>
                                         )}
                                     </div>
                                 )}
 
-                                <Button
-                                    onClick={() => handleCompleteCard('event')}
-                                    disabled={!selectedEventId}
-                                    className="w-full bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] hover:from-[oklch(0.75_0.14_165)] hover:to-[oklch(0.68_0.15_185)]"
-                                >
-                                    Continue to Audience
-                                </Button>
-                            </div>
-                        </ExpandableCard>
-
-                        {/* Audience Selection Card */}
-                        <ExpandableCard
-                            title="Choose Audience"
-                            description="Select who should receive this email"
-                            icon={Users}
-                            isExpanded={expandedCard === 'audience'}
-                            isCompleted={completedCards.audience}
-                            isPending={!completedCards.event}
-                            summary={audienceSummary}
-                            onExpand={() => completedCards.event && setExpandedCard('audience')}
-                        >
-                            <div className="space-y-4">
-                                <div className="space-y-3">
-                                    <label className="flex items-start gap-3 rounded-xl border border-border/60 p-4 cursor-pointer hover:bg-muted/30 transition">
-                                        <Checkbox
-                                            checked={audience === 'all'}
-                                            onCheckedChange={(checked) => {
-                                                if (checked) setAudience('all');
-                                            }}
-                                        />
-                                        <div className="flex-1">
-                                            <p className="text-sm font-medium">All ticket holders</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                Includes paid and free tickets
-                                            </p>
-                                        </div>
-                                    </label>
-
-                                    {/* Individual Attendee Selection - Checkbox with expandable list */}
-                                    <div className="rounded-xl border border-border/60 overflow-hidden">
-                                        <label className="flex items-start gap-3 p-4 cursor-pointer hover:bg-muted/30 transition">
-                                            <Checkbox
-                                                checked={audience === 'individual'}
-                                                onCheckedChange={(checked) => {
-                                                    if (checked) {
-                                                        setAudience('individual');
-                                                    } else {
-                                                        setAudience('all');
-                                                        setSelectedAttendeeIds(new Set());
-                                                        setAttendeeSearchQuery('');
-                                                    }
-                                                }}
-                                            />
-                                            <div className="flex-1">
-                                                <div className="flex items-center justify-between">
-                                                    <p className="text-sm font-medium">Select Individual Attendees</p>
-                                                    {selectedAttendeeIds.size > 0 && (
-                                                        <Badge variant="secondary" className="ml-2">
-                                                            {selectedAttendeeIds.size}
-                                                        </Badge>
-                                                    )}
+                                {/* Audience Selection Step */}
+                                {currentStep === 'audience' && (
+                                    <div className="space-y-4">
+                                        <div className="grid gap-3 sm:grid-cols-3">
+                                            {/* All Attendees */}
+                                            <button
+                                                onClick={() => setAudience('all')}
+                                                className={cn(
+                                                    'group relative rounded-xl border-2 p-5 text-left transition-all hover:shadow-md',
+                                                    audience === 'all'
+                                                        ? 'border-[oklch(0.72_0.15_185)] bg-gradient-to-br from-[oklch(0.78_0.14_165)]/5 to-[oklch(0.72_0.15_185)]/10'
+                                                        : 'border-border/60 hover:border-border'
+                                                )}
+                                            >
+                                                <div className="flex flex-col gap-2">
+                                                    <div className={cn(
+                                                        'h-10 w-10 rounded-lg flex items-center justify-center transition-colors',
+                                                        audience === 'all'
+                                                            ? 'bg-gradient-to-br from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] text-white'
+                                                            : 'bg-muted text-muted-foreground'
+                                                    )}>
+                                                        <Users className="h-5 w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold">All Attendees</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {orders.length > 0 ? `${orders.length} attendee${orders.length !== 1 ? 's' : ''}` : 'No attendees yet'}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Choose specific attendees from the list
-                                                </p>
-                                            </div>
-                                        </label>
+                                                {audience === 'all' && orders.length > 0 && (
+                                                    <Badge className="absolute top-3 right-3 bg-[oklch(0.72_0.15_185)]">
+                                                        {orders.length}
+                                                    </Badge>
+                                                )}
+                                                {audience === 'all' && orders.length === 0 && (
+                                                    <div className="absolute top-3 right-3">
+                                                        <Check className="h-5 w-5 text-[oklch(0.72_0.15_185)]" />
+                                                    </div>
+                                                )}
+                                            </button>
 
-                                        {/* Expandable attendee list - only shows when checkbox checked */}
+                                            {/* Individual Selection */}
+                                            <button
+                                                onClick={() => setAudience('individual')}
+                                                className={cn(
+                                                    'group relative rounded-xl border-2 p-5 text-left transition-all hover:shadow-md',
+                                                    audience === 'individual'
+                                                        ? 'border-[oklch(0.72_0.15_185)] bg-gradient-to-br from-[oklch(0.78_0.14_165)]/5 to-[oklch(0.72_0.15_185)]/10'
+                                                        : 'border-border/60 hover:border-border'
+                                                )}
+                                            >
+                                                <div className="flex flex-col gap-2">
+                                                    <div className={cn(
+                                                        'h-10 w-10 rounded-lg flex items-center justify-center transition-colors',
+                                                        audience === 'individual'
+                                                            ? 'bg-gradient-to-br from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] text-white'
+                                                            : 'bg-muted text-muted-foreground'
+                                                    )}>
+                                                        <Search className="h-5 w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold">Select Individuals</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Choose specific people
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {audience === 'individual' && selectedAttendeeIds.size > 0 && (
+                                                    <Badge className="absolute top-3 right-3 bg-[oklch(0.72_0.15_185)]">
+                                                        {selectedAttendeeIds.size}
+                                                    </Badge>
+                                                )}
+                                            </button>
+
+                                            {/* Recent Buyers */}
+                                            <button
+                                                onClick={() => setAudience('recent')}
+                                                className={cn(
+                                                    'group relative rounded-xl border-2 p-5 text-left transition-all hover:shadow-md',
+                                                    audience === 'recent'
+                                                        ? 'border-[oklch(0.72_0.15_185)] bg-gradient-to-br from-[oklch(0.78_0.14_165)]/5 to-[oklch(0.72_0.15_185)]/10'
+                                                        : 'border-border/60 hover:border-border'
+                                                )}
+                                            >
+                                                <div className="flex flex-col gap-2">
+                                                    <div className={cn(
+                                                        'h-10 w-10 rounded-lg flex items-center justify-center transition-colors',
+                                                        audience === 'recent'
+                                                            ? 'bg-gradient-to-br from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] text-white'
+                                                            : 'bg-muted text-muted-foreground'
+                                                    )}>
+                                                        <Calendar className="h-5 w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold">Recent Buyers</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Last 48 hours
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {audience === 'recent' && orders.length > 0 && (
+                                                    <Badge className="absolute top-3 right-3 bg-[oklch(0.72_0.15_185)]">
+                                                        {orders.length}
+                                                    </Badge>
+                                                )}
+                                                {audience === 'recent' && orders.length === 0 && (
+                                                    <div className="absolute top-3 right-3">
+                                                        <Check className="h-5 w-5 text-[oklch(0.72_0.15_185)]" />
+                                                    </div>
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {/* Empty attendees warning */}
+                                        {(audience === 'all' || audience === 'recent') && !isLoadingOrders && orders.length === 0 && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900"
+                                            >
+                                                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                                                <div>
+                                                    <p className="font-medium">No attendees found</p>
+                                                    <p className="text-sm text-amber-700">
+                                                        This event has no orders yet. Attendees will appear here once tickets are purchased.
+                                                    </p>
+                                                </div>
+                                            </motion.div>
+                                        )}
+
+                                        {/* Individual attendee list */}
                                         {audience === 'individual' && (
-                                            <div className="px-4 pb-4 pt-2 space-y-3 border-t border-border/60">
-                                                {/* Search */}
+                                            <motion.div
+                                                initial={{ opacity: 0, height: 0 }}
+                                                animate={{ opacity: 1, height: 'auto' }}
+                                                exit={{ opacity: 0, height: 0 }}
+                                                className="space-y-3 pt-2"
+                                            >
                                                 <div className="relative">
                                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                                     <Input
                                                         placeholder="Search attendees by name or email..."
                                                         value={attendeeSearchQuery}
                                                         onChange={(e) => setAttendeeSearchQuery(e.target.value)}
-                                                        className="pl-9 h-9"
+                                                        className="pl-9 h-11"
                                                     />
                                                 </div>
 
-                                                {/* Attendee List */}
-                                                <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                                                <div className="max-h-64 overflow-y-auto space-y-1 pr-1 rounded-xl border border-border/60 p-2 bg-muted/20">
                                                     {isLoadingOrders ? (
                                                         <div className="flex items-center justify-center py-8 text-muted-foreground">
                                                             <Loader2 className="h-5 w-5 animate-spin" />
@@ -684,7 +841,10 @@ export default function EmailAttendeesPage() {
                                                                 return (
                                                                     <label
                                                                         key={order.id}
-                                                                        className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition"
+                                                                        className={cn(
+                                                                            'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition',
+                                                                            isSelected ? 'bg-[oklch(0.78_0.14_165)]/10' : 'hover:bg-muted/50'
+                                                                        )}
                                                                     >
                                                                         <Checkbox
                                                                             checked={isSelected}
@@ -711,128 +871,170 @@ export default function EmailAttendeesPage() {
                                                             })
                                                     )}
                                                 </div>
-                                            </div>
+                                            </motion.div>
                                         )}
                                     </div>
+                                )}
 
-                                    <label className="flex items-start gap-3 rounded-xl border border-border/60 p-4 cursor-pointer hover:bg-muted/30 transition">
-                                        <Checkbox
-                                            checked={audience === 'recent'}
-                                            onCheckedChange={(checked) => {
-                                                if (checked) setAudience('recent');
-                                            }}
-                                        />
-                                        <div className="flex-1">
-                                            <p className="text-sm font-medium">Recent buyers</p>
+                                {/* Compose Message Step */}
+                                {currentStep === 'compose' && (
+                                    <div className="space-y-5">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="subject">Subject line</Label>
+                                            <Input
+                                                id="subject"
+                                                value={subject}
+                                                onChange={(e) => setSubject(e.target.value)}
+                                                className="h-12"
+                                                placeholder="Email subject line"
+                                            />
                                             <p className="text-xs text-muted-foreground">
-                                                Purchased within the last 48 hours
+                                                Auto-filled from your event. Edit as needed.
                                             </p>
                                         </div>
-                                    </label>
-                                </div>
-
-                                <Button
-                                    onClick={() => handleCompleteCard('audience')}
-                                    disabled={selectedAudience.length === 0}
-                                    className="w-full bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] hover:from-[oklch(0.75_0.14_165)] hover:to-[oklch(0.68_0.15_185)]"
-                                >
-                                    Continue to Compose
-                                </Button>
-                            </div>
-                        </ExpandableCard>
-
-                        {/* Compose Message Card */}
-                        <ExpandableCard
-                            title="Compose Message"
-                            description="Write your email subject and message"
-                            icon={Mail}
-                            isExpanded={expandedCard === 'compose'}
-                            isCompleted={completedCards.compose}
-                            isPending={!completedCards.audience}
-                            summary={composeSummary}
-                            onExpand={() => completedCards.audience && setExpandedCard('compose')}
-                        >
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="subject">Subject</Label>
-                                    <Input
-                                        id="subject"
-                                        value={subject}
-                                        onChange={(e) => setSubject(e.target.value)}
-                                        className="h-12"
-                                        placeholder="Email subject line"
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        Auto-filled from your event. Edit as needed.
-                                    </p>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="message">Message</Label>
-                                    <Textarea
-                                        id="message"
-                                        value={message}
-                                        onChange={(e) => setMessage(e.target.value)}
-                                        className="min-h-[240px] resize-none"
-                                        placeholder="Write your message to attendees..."
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        {message.length} characters
-                                    </p>
-                                </div>
-
-                                <Button
-                                    onClick={() => handleCompleteCard('compose')}
-                                    disabled={!subject.trim() || !message.trim()}
-                                    className="w-full bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] hover:from-[oklch(0.75_0.14_165)] hover:to-[oklch(0.68_0.15_185)]"
-                                >
-                                    Mark as Complete
-                                </Button>
-                            </div>
-                        </ExpandableCard>
-
-                        {/* Send Button */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{
-                                opacity: canSend ? 1 : 0.5,
-                                scale: canSend ? 1 : 0.95
-                            }}
-                            className="rounded-2xl border-2 border-dashed border-border/60 p-6 space-y-3 bg-muted/20"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center">
-                                    <Send className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-display font-semibold">Ready to Send</h3>
-                                    <p className="text-xs text-muted-foreground">
-                                        {canSend
-                                            ? `Send email to ${selectedAudience.join(', ')}`
-                                            : 'Complete all sections above to send'}
-                                    </p>
-                                </div>
-                            </div>
-                            <Button
-                                disabled={!canSend || isSending}
-                                className="w-full h-12 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 font-semibold"
-                                onClick={handleSendEmail}
-                            >
-                                {isSending ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                        Sending...
-                                    </>
-                                ) : (
-                                    'Send Email Now'
+                                        <div className="space-y-2">
+                                            <Label htmlFor="message">Your message</Label>
+                                            <Textarea
+                                                id="message"
+                                                value={message}
+                                                onChange={(e) => setMessage(e.target.value)}
+                                                className="min-h-[200px] resize-none"
+                                                placeholder="Write your message to attendees..."
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                {message.length} characters
+                                            </p>
+                                        </div>
+                                    </div>
                                 )}
-                            </Button>
-                            {canSend && (
-                                <p className="text-xs text-center text-muted-foreground">
-                                    Emails are sent immediately to the selected audience.
-                                </p>
+
+                                {/* Review & Send Step */}
+                                {currentStep === 'send' && (
+                                    <div className="space-y-6">
+                                        {/* Summary Cards */}
+                                        <div className="grid gap-4 sm:grid-cols-3">
+                                            <div className="rounded-xl border border-border/60 p-4 bg-muted/20">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="text-xs text-muted-foreground">Event</span>
+                                                </div>
+                                                <p className="font-semibold text-sm truncate">
+                                                    {selectedEvent?.title || 'Not selected'}
+                                                </p>
+                                            </div>
+                                            <div className="rounded-xl border border-border/60 p-4 bg-muted/20">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="text-xs text-muted-foreground">Audience</span>
+                                                </div>
+                                                <p className="font-semibold text-sm truncate">
+                                                    {selectedAudience[0] || 'Not selected'}
+                                                </p>
+                                            </div>
+                                            <div className="rounded-xl border border-border/60 p-4 bg-muted/20">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Mail className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="text-xs text-muted-foreground">Subject</span>
+                                                </div>
+                                                <p className="font-semibold text-sm truncate">
+                                                    {subject || 'No subject'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Message Preview */}
+                                        <div className="rounded-xl border border-border/60 p-4 bg-muted/10">
+                                            <p className="text-xs text-muted-foreground mb-2">Message preview</p>
+                                            <p className="text-sm whitespace-pre-wrap line-clamp-4">
+                                                {message || 'No message written'}
+                                            </p>
+                                        </div>
+
+                                        {/* Validation Warnings */}
+                                        {!canSend && (
+                                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                                                <div className="flex items-start gap-2">
+                                                    <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                                                    <div className="text-sm text-amber-800">
+                                                        <p className="font-medium">Please complete all steps before sending:</p>
+                                                        <ul className="mt-1 list-disc list-inside text-xs space-y-0.5">
+                                                            {!canProceedFromEvent && <li>Select an event</li>}
+                                                            {!canProceedFromAudience && <li>Choose an audience</li>}
+                                                            {!canProceedFromCompose && <li>Write your message</li>}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Send Button */}
+                                        <Button
+                                            disabled={!canSend || isSending}
+                                            className="w-full h-14 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 font-semibold text-base shadow-lg"
+                                            onClick={handleSendEmail}
+                                        >
+                                            {isSending ? (
+                                                <>
+                                                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                                                    Sending...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Send className="h-5 w-5 mr-2" />
+                                                    Send Email Now
+                                                </>
+                                            )}
+                                        </Button>
+                                        {canSend && (
+                                            <p className="text-xs text-center text-muted-foreground">
+                                                Emails are sent immediately to the selected audience.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Step Navigation */}
+                            {currentStep !== 'send' && (
+                                <div className="border-t border-border/40 px-6 py-4 bg-muted/10 flex items-center justify-between">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={handleBack}
+                                        disabled={currentStep === 'event'}
+                                        className="gap-2"
+                                    >
+                                        <ArrowLeft className="h-4 w-4" />
+                                        Back
+                                    </Button>
+                                    <Button
+                                        onClick={handleContinue}
+                                        disabled={
+                                            (currentStep === 'event' && !canProceedFromEvent) ||
+                                            (currentStep === 'audience' && !canProceedFromAudience) ||
+                                            (currentStep === 'compose' && !canProceedFromCompose)
+                                        }
+                                        className="gap-2 bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] hover:from-[oklch(0.75_0.14_165)] hover:to-[oklch(0.68_0.15_185)]"
+                                    >
+                                        Continue
+                                        <ArrowRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
+
+                            {currentStep === 'send' && (
+                                <div className="border-t border-border/40 px-6 py-4 bg-muted/10">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={handleBack}
+                                        className="gap-2"
+                                    >
+                                        <ArrowLeft className="h-4 w-4" />
+                                        Back to Edit
+                                    </Button>
+                                </div>
                             )}
                         </motion.div>
-                    </div>
+                    </AnimatePresence>
 
                     {/* Right Column - Live Preview (Desktop) */}
                     <div className="hidden lg:block">
