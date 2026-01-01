@@ -62,7 +62,7 @@ async function createEvent(eventData: Record<string, unknown>) {
         api.post('/api/v1/events', eventData),
         {
             loading: 'Creating your event...',
-            success: (data) => {
+            success: () => {
                 // Navigate to event page
                 return 'Event created successfully! 🎉';
             },
@@ -129,7 +129,7 @@ async function processPayment(checkoutData: Record<string, unknown>) {
         api.post('/api/v1/checkout/process', checkoutData),
         {
             loading: 'Processing payment...',
-            success: (order) => {
+            success: () => {
                 // Navigate to success page
                 return 'Tickets purchased! 🎫';
             },
@@ -376,5 +376,32 @@ async function bulkDeleteTickets(ticketIds: string[]) {
 }
 
 export {
-    // Export individual functions as needed for testing or reuse
+    handleLoginSuccess,
+    handleLogin,
+    handleSignup,
+    handleSessionExpired,
+    createEvent,
+    updateEvent,
+    publishEvent,
+    deleteEvent,
+    addToCart,
+    processPayment,
+    handlePaymentError,
+    handleFreeTicketSuccess,
+    processRefund,
+    resendConfirmationEmail,
+    handleCooldown,
+    handleCheckInSuccess,
+    handleInvalidQRCode,
+    updateProfile,
+    uploadAvatar,
+    changePassword,
+    handleValidationErrors,
+    handleInvalidInput,
+    handleNetworkError,
+    handleServerError,
+    exportData,
+    uploadFileWithProgress,
+    toggleFavorite,
+    bulkDeleteTickets,
 };

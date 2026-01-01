@@ -15,6 +15,7 @@ export interface CreateOrganizerPayload {
     bio?: string;
     avatarUrl?: string;
     website?: string;
+    replyToEmail?: string;
     socialLinks?: Record<string, string>;
     defaultTimezone?: string;
 }

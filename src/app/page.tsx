@@ -103,13 +103,11 @@ function FloatingEventCard({
 export default function Home() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [location, setLocation] = useState('');
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
     if (searchQuery.trim()) params.set('q', searchQuery.trim());
-    if (location.trim()) params.set('location', location.trim());
     router.push(`/events${params.toString() ? `?${params.toString()}` : ''}`);
   };
 

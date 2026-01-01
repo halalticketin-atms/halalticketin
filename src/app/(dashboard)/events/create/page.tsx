@@ -41,13 +41,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
 import { LocationAutocomplete } from '@/components/events/LocationAutocomplete';
 
 // Dynamic import to avoid SSR issues with Leaflet
@@ -664,7 +657,7 @@ export function EventWizard({
             // If save failed, show error (saveDraft already sets actionError)
             setActionError('Please save the event before previewing.');
         }
-    }, [router, saveDraft]);
+    }, [saveDraft]);
 
     const isBusy = isSaving || isPublishing;
     const statusLabel = !activeOrganizerId

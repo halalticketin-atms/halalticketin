@@ -56,7 +56,7 @@ export function LocationAutocomplete({
             const locations = await searchLocations(query);
             setResults(locations);
             setIsOpen(locations.length > 0);
-        } catch (err) {
+        } catch {
             setError('Failed to search locations. Please try again.');
             setResults([]);
         } finally {

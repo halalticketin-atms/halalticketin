@@ -7,7 +7,6 @@ import {
     Ticket,
     DollarSign,
     ArrowLeft,
-    Receipt,
     TrendingUp,
     TrendingDown,
     Check,
@@ -80,7 +79,6 @@ export default function AnalyticsPage() {
     const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
     const [mounted, setMounted] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [chartView, setChartView] = useState<'revenue' | 'tickets'>('revenue');
     const [periodView, setPeriodView] = useState<'6months' | 'yearly'>('6months');
     const [selectedYear, setSelectedYear] = useState<number>(2025);
@@ -106,10 +104,7 @@ export default function AnalyticsPage() {
                     params,
                 });
                 setAnalytics(response);
-                setError(null);
-            } catch (err) {
-                const message = err instanceof Error ? err.message : 'Unable to load analytics';
-                setError(message);
+            } catch {
                 if (eventId) {
                     setSelectedEvent('all');
                 }
@@ -235,8 +230,6 @@ export default function AnalyticsPage() {
     const handleEventChange = (value: string) => {
         setSelectedEvent(value);
     };
-
-    const emptyState = !isLoading && !error && analytics?.eventPerformance.length === 0;
 
     return (
         <div className="min-h-screen bg-muted/30">

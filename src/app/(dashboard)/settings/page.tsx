@@ -29,6 +29,7 @@ import {
     Camera,
     Building,
     Globe,
+    Mail,
     Instagram,
     Linkedin,
     X,
@@ -68,6 +69,7 @@ interface ProfileFormData {
 interface OrganizerProfileFormData {
     bio: string;
     website: string;
+    replyToEmail: string;
     instagram: string;
     tiktok: string;
     linkedin: string;
@@ -109,6 +111,7 @@ export default function SettingsPage() {
     const [organizerProfileForm, setOrganizerProfileForm] = useState<OrganizerProfileFormData>({
         bio: '',
         website: '',
+        replyToEmail: '',
         instagram: '',
         tiktok: '',
         linkedin: '',
@@ -159,6 +162,7 @@ export default function SettingsPage() {
             setOrganizerProfileForm({
                 bio: currentOrganizer.bio || '',
                 website: currentOrganizer.website || '',
+                replyToEmail: currentOrganizer.replyToEmail || '',
                 instagram: socialLinks.instagram || '',
                 tiktok: socialLinks.tiktok || '',
                 linkedin: socialLinks.linkedin || '',
@@ -322,6 +326,9 @@ export default function SettingsPage() {
             const trimmedWebsite = organizerProfileForm.website.trim();
             payload.website = trimmedWebsite === '' ? null : trimmedWebsite;
 
+            const trimmedReplyTo = organizerProfileForm.replyToEmail.trim();
+            payload.replyToEmail = trimmedReplyTo === '' ? null : trimmedReplyTo;
+
             // Social links - only include non-empty ones
             const socialLinks: Record<string, string> = {};
             if (organizerProfileForm.instagram.trim()) socialLinks.instagram = organizerProfileForm.instagram.trim();
@@ -363,6 +370,7 @@ export default function SettingsPage() {
         return (
             (organizerProfileForm.bio || '') !== (currentOrganizer.bio || '') ||
             (organizerProfileForm.website || '') !== (currentOrganizer.website || '') ||
+            (organizerProfileForm.replyToEmail || '') !== (currentOrganizer.replyToEmail || '') ||
             (organizerProfileForm.instagram || '') !== (currentSocialLinks.instagram || '') ||
             (organizerProfileForm.tiktok || '') !== (currentSocialLinks.tiktok || '') ||
             (organizerProfileForm.linkedin || '') !== (currentSocialLinks.linkedin || '') ||
@@ -697,6 +705,35 @@ export default function SettingsPage() {
                                                 </button>
                                             )}
                                         </div>
+                                    </div>
+
+                                    {/* Reply-To Email */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="org-reply-to" className="text-muted-foreground flex items-center gap-2">
+                                            <Mail className="h-4 w-4" />
+                                            Reply-to email
+                                        </Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="org-reply-to"
+                                                type="email"
+                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
+                                                placeholder="replies@your-organization.com"
+                                                value={organizerProfileForm.replyToEmail}
+                                                onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, replyToEmail: e.target.value }))}
+                                            />
+                                            {organizerProfileForm.replyToEmail && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOrganizerProfileForm(prev => ({ ...prev, replyToEmail: '' }))}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
+                                                    aria-label="Clear reply-to email"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">Used when attendees reply to broadcast emails.</p>
                                     </div>
 
                                     {/* Social Links Section */}

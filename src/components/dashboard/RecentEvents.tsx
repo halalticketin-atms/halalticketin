@@ -5,9 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion'; // Changed from 'motion/react' to 'framer-motion' based on common usage and the diff's implied context
-import { Calendar, MapPin, MoreHorizontal, Eye, Edit, Trash2, Ticket } from 'lucide-react';
+import { Calendar, MapPin, MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -17,7 +16,6 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DeleteEventDialog } from './DeleteEventDialog';
-import { SUPPORTED_CURRENCIES } from '@/lib/fees';
 
 interface Event {
     id: string;
@@ -37,12 +35,6 @@ interface RecentEventsProps {
     events: Event[];
     organizerId?: string | null;
 }
-
-const statusColors = {
-    published: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
-    draft: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
-    completed: 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20',
-};
 
 const statusLabels = {
     published: 'Published',

@@ -16,18 +16,14 @@ import {
     Eye,
     ChevronDown,
     Search,
-    X,
-    Filter,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Sheet,
     SheetContent,
@@ -39,6 +35,7 @@ import { useOrganizerEvents, type DashboardEvent, type DashboardEventStatus } fr
 import { buildDashboardPath } from '@/lib/organizer-path';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/notifications';
 
 type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
 
@@ -117,7 +114,6 @@ const buildSubject = (event: DashboardEvent | null) => {
 type CardType = 'event' | 'audience' | 'compose';
 
 interface ExpandableCardProps {
-    id: CardType;
     title: string;
     description: string;
     icon: React.ElementType;
@@ -130,7 +126,6 @@ interface ExpandableCardProps {
 }
 
 function ExpandableCard({
-    id,
     title,
     description,
     icon: Icon,
@@ -310,9 +305,9 @@ export default function EmailAttendeesPage() {
     // Enhanced audience filters
     const [selectedAttendeeIds, setSelectedAttendeeIds] = useState<Set<string>>(new Set());
     const [attendeeSearchQuery, setAttendeeSearchQuery] = useState('');
-    const [dateRangeFilter, setDateRangeFilter] = useState({ start: '', end: '' });
     const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+    const [isSending, setIsSending] = useState(false);
 
     const selectedEvent = useMemo(
         () => events.find((event) => event.id === selectedEventId) ?? null,
@@ -399,6 +394,35 @@ export default function EmailAttendeesPage() {
 
     const canSend = completedCards.event && completedCards.audience && completedCards.compose;
 
+    const handleSendEmail = async () => {
+        if (!organizerId || !selectedEventId) {
+            return;
+        }
+
+        const payload = {
+            eventId: selectedEventId,
+            audience,
+            subject: subject.trim(),
+            message: message.trim(),
+            orderIds: audience === 'individual' ? Array.from(selectedAttendeeIds) : undefined,
+        };
+
+        setIsSending(true);
+        try {
+            const response = await api.post<{ sent: number; skipped: number; failed: number }>(
+                `/api/v1/organizers/${organizerId}/attendee-emails`,
+                payload
+            );
+            toast.success('Email sent', {
+                description: `${response.sent} recipient${response.sent === 1 ? '' : 's'} queued${response.failed ? ` · ${response.failed} failed` : ''}`,
+            });
+        } catch (err) {
+            toast.error(err, 'Failed to send email');
+        } finally {
+            setIsSending(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-muted/30 via-background to-muted/20">
             <div className="container py-8 space-y-6">
@@ -454,7 +478,6 @@ export default function EmailAttendeesPage() {
                     <div className="space-y-4">
                         {/* Event Selection Card */}
                         <ExpandableCard
-                            id="event"
                             title="Select Event"
                             description="Choose which event you're messaging about"
                             icon={Calendar}
@@ -567,7 +590,6 @@ export default function EmailAttendeesPage() {
 
                         {/* Audience Selection Card */}
                         <ExpandableCard
-                            id="audience"
                             title="Choose Audience"
                             description="Select who should receive this email"
                             icon={Users}
@@ -721,7 +743,6 @@ export default function EmailAttendeesPage() {
 
                         {/* Compose Message Card */}
                         <ExpandableCard
-                            id="compose"
                             title="Compose Message"
                             description="Write your email subject and message"
                             icon={Mail}
@@ -792,14 +813,22 @@ export default function EmailAttendeesPage() {
                                 </div>
                             </div>
                             <Button
-                                disabled={!canSend}
+                                disabled={!canSend || isSending}
                                 className="w-full h-12 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 font-semibold"
+                                onClick={handleSendEmail}
                             >
-                                Send Email Now
+                                {isSending ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        Sending...
+                                    </>
+                                ) : (
+                                    'Send Email Now'
+                                )}
                             </Button>
                             {canSend && (
                                 <p className="text-xs text-center text-muted-foreground">
-                                    Email delivery will be enabled once the backend integration is complete
+                                    Emails are sent immediately to the selected audience.
                                 </p>
                             )}
                         </motion.div>

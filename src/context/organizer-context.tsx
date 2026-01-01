@@ -22,6 +22,7 @@ export interface OrganizerSummary {
     avatarUrl: string | null;
     bio: string | null;
     website: string | null;
+    replyToEmail: string | null;
     socialLinks: Record<string, string> | null;
     city: string | null;
     country: string | null;

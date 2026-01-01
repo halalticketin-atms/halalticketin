@@ -12,8 +12,6 @@ import {
     MoreHorizontal,
     Eye,
     Edit,
-    MoreVertical, // Changed from MoreHorizontal
-    Pencil, // Changed from Edit
     Trash2,
     Clock,
     CheckCircle,
@@ -85,7 +83,6 @@ function getLocationDisplay(event: DashboardEvent): string {
 function EventCard({ event, index, onDelete }: { event: DashboardEvent; index: number; onDelete: (id: string, title: string) => void }) {
     const router = useRouter();
     const config = statusConfig[event.displayStatus];
-    const StatusIcon = config.icon;
     const { date, time } = formatEventDateTime(event);
     const location = getLocationDisplay(event);
 
