@@ -172,7 +172,7 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         refundPolicy: null,
         isListedPublicly: formData.visibility === 'public',
         category: formData.categories.length > 0 ? formData.categories.join(',') : null,
-        absorbFee: formData.absorbFee,
+        // absorbFee removed - now handled per-ticket
         attendeeInfoMode: formData.attendeeInfoMode,
         customQuestions: formData.customQuestions.length > 0 ? formData.customQuestions : null,
     };
@@ -1222,47 +1222,7 @@ export function EventWizard({
                                                 </div>
 
 
-                                                {/* Event Currency moved to Step 1 if needed, or kept here. User didn't ask to move it but it was adjacent. Let's keep it here for now but clean up whitespace. */}
 
-
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-sm font-medium">Event Currency</Label>
-                                                    <Select
-                                                        value={formData.currency}
-                                                        onValueChange={(value) =>
-                                                            setFormData((prev) => ({
-                                                                ...prev,
-                                                                currency: value,
-                                                            }))
-                                                        }
-                                                    >
-                                                        <SelectTrigger className="h-11">
-                                                            <SelectValue placeholder="Select currency" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="GBP">🇬🇧 GBP (£) - British Pound</SelectItem>
-                                                            <SelectItem value="USD">🇺🇸 USD ($) - US Dollar</SelectItem>
-                                                            <SelectItem value="EUR">🇪🇺 EUR (€) - Euro</SelectItem>
-                                                            <SelectItem value="CAD">🇨🇦 CAD (C$) - Canadian Dollar</SelectItem>
-                                                            <SelectItem value="AUD">🇦🇺 AUD (A$) - Australian Dollar</SelectItem>
-                                                            <SelectItem value="AED">🇦🇪 AED (د.إ) - UAE Dirham</SelectItem>
-                                                            <SelectItem value="SAR">🇸🇦 SAR (﷼) - Saudi Riyal</SelectItem>
-                                                            <SelectItem value="MYR">🇲🇾 MYR (RM) - Malaysian Ringgit</SelectItem>
-                                                            <SelectItem value="SGD">🇸🇬 SGD (S$) - Singapore Dollar</SelectItem>
-                                                            <SelectItem value="INR">🇮🇳 INR (₹) - Indian Rupee</SelectItem>
-                                                            <SelectItem value="PKR">🇵🇰 PKR (₨) - Pakistani Rupee</SelectItem>
-                                                            <SelectItem value="TRY">🇹🇷 TRY (₺) - Turkish Lira</SelectItem>
-                                                            <SelectItem value="NGN">🇳🇬 NGN (₦) - Nigerian Naira</SelectItem>
-                                                            <SelectItem value="ZAR">🇿🇦 ZAR (R) - South African Rand</SelectItem>
-                                                            <SelectItem value="EGP">🇪🇬 EGP (E£) - Egyptian Pound</SelectItem>
-                                                            <SelectItem value="IDR">🇮🇩 IDR (Rp) - Indonesian Rupiah</SelectItem>
-                                                            <SelectItem value="BDT">🇧🇩 BDT (৳) - Bangladeshi Taka</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <p className="text-[11px] text-muted-foreground">
-                                                        Default: {currentOrganizer?.defaultCurrency || 'GBP'}. Ticket prices will be in {formData.currency}.
-                                                    </p>
-                                                </div>
                                             </CardContent>
                                         </Card>
                                     </motion.div>
@@ -1579,40 +1539,48 @@ export function EventWizard({
                                             ) : null}
                                         </div>
 
-                                        {/* Global Fee Default */}
-                                        <Card className="border-border/50 bg-gradient-to-br from-primary/5 to-primary/10">
+                                        {/* Currency Selector */}
+                                        <Card className="border-border/50 bg-card/80">
                                             <CardContent className="p-3 sm:p-4">
                                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                                     <div className="space-y-0.5">
-                                                        <Label className="text-sm font-medium">Default fee handling</Label>
+                                                        <Label className="text-sm font-medium">Ticket Currency</Label>
                                                         <p className="text-xs text-muted-foreground">
-                                                            {formData.absorbFee
-                                                                ? `You absorb ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}/ticket by default`
-                                                                : `Customers pay ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}/ticket by default`
-                                                            }
+                                                            All ticket prices will be in this currency
                                                         </p>
                                                     </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                                {formData.absorbFee ? 'Absorb fees' : 'Customer pays'}
-                                                            </span>
-                                                            <Switch
-                                                                checked={formData.absorbFee}
-                                                                onCheckedChange={(value) => setFormData(prev => ({ ...prev, absorbFee: value }))}
-                                                            />
-                                                        </div>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="text-xs whitespace-nowrap"
-                                                            onClick={() => {
-                                                                setTickets(prev => prev.map(t => ({ ...t, absorbFee: null })));
-                                                            }}
-                                                        >
-                                                            Reset All to Default
-                                                        </Button>
-                                                    </div>
+                                                    <Select
+                                                        value={formData.currency}
+                                                        onValueChange={(value) =>
+                                                            setFormData((prev) => ({
+                                                                ...prev,
+                                                                currency: value,
+                                                            }))
+                                                        }
+                                                    >
+                                                        <SelectTrigger className="w-[180px] h-10">
+                                                            <SelectValue placeholder="Select currency" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="GBP">🇬🇧 GBP (£)</SelectItem>
+                                                            <SelectItem value="USD">🇺🇸 USD ($)</SelectItem>
+                                                            <SelectItem value="EUR">🇪🇺 EUR (€)</SelectItem>
+                                                            <SelectItem value="CAD">🇨🇦 CAD (C$)</SelectItem>
+                                                            <SelectItem value="AUD">🇦🇺 AUD (A$)</SelectItem>
+                                                            <SelectItem value="AED">🇦🇪 AED (د.إ)</SelectItem>
+                                                            <SelectItem value="SAR">🇸🇦 SAR (﷼)</SelectItem>
+                                                            <SelectItem value="MYR">🇲🇾 MYR (RM)</SelectItem>
+                                                            <SelectItem value="SGD">🇸🇬 SGD (S$)</SelectItem>
+                                                            <SelectItem value="INR">🇮🇳 INR (₹)</SelectItem>
+                                                            <SelectItem value="PKR">🇵🇰 PKR (₨)</SelectItem>
+                                                            <SelectItem value="TRY">🇹🇷 TRY (₺)</SelectItem>
+                                                            <SelectItem value="NGN">🇳🇬 NGN (₦)</SelectItem>
+                                                            <SelectItem value="ZAR">🇿🇦 ZAR (R)</SelectItem>
+                                                            <SelectItem value="EGP">🇪🇬 EGP (E£)</SelectItem>
+                                                            <SelectItem value="IDR">🇮🇩 IDR (Rp)</SelectItem>
+                                                            <SelectItem value="BDT">🇧🇩 BDT (৳)</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -1694,6 +1662,28 @@ export function EventWizard({
                                                                         disabled={ticket.isFree}
                                                                     />
                                                                 </div>
+
+                                                                {/* Absorb Fee Toggle - subtle but visible */}
+                                                                {!ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                    <div className="flex items-center justify-between gap-3 mt-2 p-2 rounded-lg bg-muted/30">
+                                                                        <div className="flex items-center gap-2 min-w-0">
+                                                                            <span className="text-xs text-muted-foreground">
+                                                                                {ticket.absorbFee
+                                                                                    ? `You absorb ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)} fee`
+                                                                                    : `Customer pays ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)} fee`}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 shrink-0">
+                                                                            <span className="text-[11px] text-muted-foreground">
+                                                                                {ticket.absorbFee ? 'Absorb' : 'Pass on'}
+                                                                            </span>
+                                                                            <Switch
+                                                                                checked={ticket.absorbFee ?? false}
+                                                                                onCheckedChange={(checked) => updateTicket(ticket.id, 'absorbFee', checked)}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
 
                                                             {/* Quantity */}
@@ -1829,49 +1819,6 @@ export function EventWizard({
                                                                             </div>
                                                                         )}
                                                                     </div>
-
-                                                                    {/* Platform Fee Toggle - only for paid tickets */}
-                                                                    {!ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
-                                                                        <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">
-                                                                            <div className="flex items-center justify-between gap-3">
-                                                                                <div className="space-y-0.5 flex-1 min-w-0">
-                                                                                    <Label className="text-sm font-medium">
-                                                                                        Platform fee handling
-                                                                                    </Label>
-                                                                                    <p className="text-[11px] text-muted-foreground">
-                                                                                        {(() => {
-                                                                                            const effectiveAbsorb = ticket.absorbFee ?? formData.absorbFee;
-                                                                                            const feeAmount = `${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)}`;
-                                                                                            if (ticket.absorbFee === null) {
-                                                                                                return effectiveAbsorb
-                                                                                                    ? `Using default: You absorb ${feeAmount}/ticket`
-                                                                                                    : `Using default: Customer pays ${feeAmount}/ticket`;
-                                                                                            }
-                                                                                            return effectiveAbsorb
-                                                                                                ? `You absorb ${feeAmount}/ticket`
-                                                                                                : `Customer pays ${feeAmount}/ticket`;
-                                                                                        })()}
-                                                                                    </p>
-                                                                                </div>
-                                                                                <Select
-                                                                                    value={ticket.absorbFee === null ? 'default' : ticket.absorbFee ? 'absorb' : 'customer'}
-                                                                                    onValueChange={(value) => {
-                                                                                        const newValue = value === 'default' ? null : value === 'absorb';
-                                                                                        updateTicket(ticket.id, 'absorbFee', newValue);
-                                                                                    }}
-                                                                                >
-                                                                                    <SelectTrigger className="w-[140px] h-9 text-xs">
-                                                                                        <SelectValue />
-                                                                                    </SelectTrigger>
-                                                                                    <SelectContent>
-                                                                                        <SelectItem value="default">Use Default</SelectItem>
-                                                                                        <SelectItem value="absorb">Absorb Fee</SelectItem>
-                                                                                        <SelectItem value="customer">Customer Pays</SelectItem>
-                                                                                    </SelectContent>
-                                                                                </Select>
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
                                                                 </CollapsibleContent>
                                                             </Collapsible>
                                                         </div>
@@ -2287,6 +2234,16 @@ export function EventWizard({
                                 </Button>
 
                                 <div className="flex gap-2 sm:gap-3">
+                                    {/* Preview button - always visible on mobile like desktop */}
+                                    <Button
+                                        variant="outline"
+                                        className="lg:hidden gap-2"
+                                        onClick={handlePreviewClick}
+                                        disabled={disableSaveButtons}
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                        Preview
+                                    </Button>
                                     <Button
                                         variant="outline"
                                         className="lg:hidden"
@@ -2301,27 +2258,15 @@ export function EventWizard({
                                             <ChevronRight className="h-4 w-4" />
                                         </Button>
                                     ) : (
-                                        <>
-                                            {/* Preview button on mobile - only on last step */}
-                                            <Button
-                                                variant="outline"
-                                                className="lg:hidden gap-2"
-                                                onClick={handlePreviewClick}
-                                                disabled={disableSaveButtons}
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                                <span className="hidden sm:inline">Preview</span>
-                                            </Button>
-                                            <Button
-                                                className="gap-2 px-4 sm:px-6"
-                                                onClick={handlePublishClick}
-                                                disabled={disablePublishButtons}
-                                            >
-                                                <Sparkles className="h-4 w-4" />
-                                                <span className="hidden sm:inline">{publishButtonLabel}</span>
-                                                <span className="sm:hidden">Publish</span>
-                                            </Button>
-                                        </>
+                                        <Button
+                                            className="gap-2 px-4 sm:px-6"
+                                            onClick={handlePublishClick}
+                                            disabled={disablePublishButtons}
+                                        >
+                                            <Sparkles className="h-4 w-4" />
+                                            <span className="hidden sm:inline">{publishButtonLabel}</span>
+                                            <span className="sm:hidden">Publish</span>
+                                        </Button>
                                     )}
                                 </div>
                             </div>

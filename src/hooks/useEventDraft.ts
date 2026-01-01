@@ -112,7 +112,7 @@ const createDefaultTicket = (): DraftTicketType => ({
   earlyBirdPrice: '',
   earlyBirdEndDate: '',
   visibility: 'public',
-  absorbFee: null, // inherit from event by default
+  absorbFee: false, // per-ticket, no event-level default
 });
 
 export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = stepsCountDefault) {
