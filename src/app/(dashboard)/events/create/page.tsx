@@ -409,8 +409,9 @@ export function EventWizard({
                 if (!prev[id]) {
                     return prev;
                 }
-                const { [id]: _removed, ...rest } = prev;
-                return rest;
+                const next = { ...prev };
+                delete next[id];
+                return next;
             });
         },
         [clearFieldErrors, removeTicketBase],
@@ -423,8 +424,9 @@ export function EventWizard({
             }
 
             if (!field) {
-                const { [id]: _removed, ...rest } = prev;
-                return rest;
+                const next = { ...prev };
+                delete next[id];
+                return next;
             }
 
             const next = {
@@ -433,8 +435,8 @@ export function EventWizard({
             };
 
             if (!next[id].maxPerOrder) {
-                const { [id]: _removed, ...rest } = next;
-                return rest;
+                delete next[id];
+                return next;
             }
 
             return next;
@@ -448,8 +450,9 @@ export function EventWizard({
             }
 
             if (!field) {
-                const { [id]: _removed, ...rest } = prev;
-                return rest;
+                const next = { ...prev };
+                delete next[id];
+                return next;
             }
 
             const next = {
@@ -458,8 +461,8 @@ export function EventWizard({
             };
 
             if (!next[id].code && !next[id].discountValue) {
-                const { [id]: _removed, ...rest } = next;
-                return rest;
+                delete next[id];
+                return next;
             }
 
             return next;
@@ -721,7 +724,7 @@ export function EventWizard({
                 setIsSaving(false);
             }
         },
-        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, isSaving, markSnapshotAsSaved, promoCodes, setPromoCodes, setTickets, tickets],
+        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, isSaving, markSnapshotAsSaved, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
