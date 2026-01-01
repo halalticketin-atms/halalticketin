@@ -32,7 +32,6 @@ const buildFallbackDraft = (titleHint?: string): DraftEventInitial => {
             description:
                 'Curated by the AI assistant. Review the details, edit anything you like and publish when ready.',
             categories: ['Community'],
-            organizerName: 'HalalTicketin AI Draft',
             date: '',
             endDate: '',
             isMultiDay: false,

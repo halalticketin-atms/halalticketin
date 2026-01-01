@@ -50,7 +50,6 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
       description:
         'Join us for a warm community iftar with inspiring talks, Qur’an recitation, and delicious food.',
       categories: ['Community'],
-      organizerName: 'London Islamic Centre',
       date: '2024-12-15',
       endDate: '2024-12-15',
       isMultiDay: false,
@@ -98,7 +97,6 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
       title: 'Islamic Finance Workshop',
       description: 'Interactive workshop covering fundamentals of Islamic finance and fintech.',
       categories: ['Education'],
-      organizerName: 'HalalTicketin Team',
       date: '2025-01-10',
       endDate: '2025-01-10',
       isMultiDay: false,
@@ -147,7 +145,6 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
       description:
         'Two-day conference equipping Muslim youth with leadership tools, mentorship, and spiritual grounding.',
       categories: ['Conference'],
-      organizerName: 'UK Youth Collective',
       date: '2025-02-01',
       endDate: '2025-02-02',
       isMultiDay: true,
@@ -210,7 +207,6 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
       title: 'Ramadan Prep Workshop',
       description: 'Virtual workshop covering spiritual preparation, meals, and productivity systems.',
       categories: ['Education'],
-      organizerName: 'Faith & Focus',
       date: '2025-03-01',
       endDate: '2025-03-01',
       isMultiDay: false,

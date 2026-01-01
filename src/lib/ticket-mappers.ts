@@ -68,7 +68,6 @@ export const buildDraftFromEventRecord = (
         description: event.description ?? '',
         bannerImageDataUrl: event.bannerImageUrl ?? '', // FIX: Populate from backend's bannerImageUrl
         categories: event.category ? event.category.split(',').map((c) => c.trim()) : [],
-        organizerName: '',
         visibility: event.isListedPublicly ? 'public' : 'private',
         date: isoToDate(event.startDatetime),
         endDate: isoToDate(event.endDatetime),
