@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/select";
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
-import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, type TicketAttendeePayload } from '@/lib/checkout-api';
+import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, type TicketAttendeePayload } from '@/lib/checkout-api';
 import { showError } from '@/lib/errors';
 import { calculatePlatformFee, getCurrencySymbol, type FeeTier } from '@/lib/fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
@@ -227,6 +227,7 @@ export function PublicEventPageContent({
     const [isValidatingPromo, setIsValidatingPromo] = useState(false);
     const [appliedPromo, setAppliedPromo] = useState<ValidatePromoResult | null>(null);
     const [promoError, setPromoError] = useState<string | null>(null);
+    const [unlockedTickets, setUnlockedTickets] = useState<TicketLike[]>([]);
 
     // --- Checkout Draft Persistence ---
     const DRAFT_KEY = event?.id ? `checkout_draft_${event.id}` : null;
@@ -329,14 +330,15 @@ export function PublicEventPageContent({
 
     // Calculate totals
     const cartItems = useMemo(() => {
-        return tickets
+        const allTickets = [...tickets, ...unlockedTickets];
+        return allTickets
             .filter(t => (ticketQuantities[t.id] || 0) > 0)
             .map(t => ({
                 ticket: t,
                 quantity: ticketQuantities[t.id] || 0,
                 subtotal: (ticketQuantities[t.id] || 0) * getEffectivePrice(t)
             }));
-    }, [tickets, ticketQuantities, getEffectivePrice]);
+    }, [tickets, unlockedTickets, ticketQuantities, getEffectivePrice]);
 
     const totalAmount = useMemo(() =>
         cartItems.reduce((sum, item) => sum + item.subtotal, 0)
@@ -419,19 +421,33 @@ export function PublicEventPageContent({
 
         const result = await validatePromoCode(event.id, promoCode.trim(), totalAmount);
 
-        setIsValidatingPromo(false);
-
         if (result.valid) {
             setAppliedPromo(result);
             setPromoError(null);
+
+            // Check if this promo reveals hidden tickets
+            if (result.revealsHiddenTickets) {
+                const unlocked = await fetchUnlockedTickets(event.slug || '', promoCode.trim());
+                if (unlocked.length > 0) {
+                    setUnlockedTickets(unlocked as TicketLike[]);
+                    toast.success(`Unlocked ${unlocked.length} hidden ticket${unlocked.length === 1 ? '' : 's'}!`);
+                } else if (result.discountValue === '0' || result.discountValue === '0.00') {
+                    // Reveal-only code but no tickets found
+                    setPromoError('Code is valid but no hidden tickets are currently available.');
+                }
+            }
         } else {
             setAppliedPromo(null);
+            setUnlockedTickets([]);
             setPromoError(result.message || 'Invalid promo code');
         }
+
+        setIsValidatingPromo(false);
     };
 
     const handleRemovePromo = () => {
         setAppliedPromo(null);
+        setUnlockedTickets([]);
         setPromoCode('');
         setPromoError(null);
     };
@@ -1059,7 +1075,7 @@ export function PublicEventPageContent({
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="pt-6 space-y-4">
-                                    {tickets.length === 0 ? (
+                                    {(tickets.length === 0 && unlockedTickets.length === 0) ? (
                                         <p className="text-muted-foreground text-center py-4">
                                             No tickets available yet.
                                         </p>
@@ -1073,6 +1089,27 @@ export function PublicEventPageContent({
                                                     onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
                                                 />
                                             ))}
+
+                                            {/* Unlocked Hidden Tickets */}
+                                            {unlockedTickets.length > 0 && (
+                                                <div className="pt-4 mt-4 border-t border-dashed relative">
+                                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs font-medium text-amber-600 flex items-center gap-1">
+                                                        Unlocked Tickets
+                                                    </div>
+                                                    <div className="space-y-4 pt-2">
+                                                        {unlockedTickets.map((ticket) => (
+                                                            <div key={ticket.id} className="relative">
+                                                                <div className="absolute -left-1 top-4 w-1 h-8 bg-amber-500 rounded-r-full" />
+                                                                <TicketCard
+                                                                    ticket={ticket}
+                                                                    quantity={ticketQuantities[ticket.id] || 0}
+                                                                    onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </>
                                     )}
 
@@ -1112,7 +1149,7 @@ export function PublicEventPageContent({
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={handleApplyPromo}
-                                                    disabled={!promoCode.trim() || isValidatingPromo || totalAmount === 0}
+                                                    disabled={!promoCode.trim() || isValidatingPromo}
                                                 >
                                                     {isValidatingPromo ? (
                                                         <Loader2 className="h-4 w-4 animate-spin" />

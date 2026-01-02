@@ -204,6 +204,8 @@ export interface ValidatePromoResult {
     discountValue?: string;
     discountAmount?: string;
     code?: string;
+    revealsHiddenTickets?: boolean;
+    applicableTicketTypeIds?: string[] | null;
 }
 
 export async function validatePromoCode(
@@ -230,5 +232,31 @@ export async function validatePromoCode(
         return data as ValidatePromoResult;
     } catch {
         return { valid: false, message: 'Failed to validate promo code' };
+    }
+}
+
+/**
+ * Fetch hidden tickets that are unlocked by a promo code
+ */
+export async function fetchUnlockedTickets(
+    eventSlug: string,
+    promoCode: string
+): Promise<{ id: string; name: string; description: string | null; price: string; currency: string; type: string; earlyBirdPrice?: string | null; earlyBirdEndDate?: string | null }[]> {
+    try {
+        const response = await fetch(
+            `${API_URL}/api/v1/public/events/${eventSlug}/unlocked-tickets`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ promoCode })
+            }
+        );
+        if (!response.ok) {
+            return [];
+        }
+        const data = await response.json();
+        return data.tickets || [];
+    } catch {
+        return [];
     }
 }
