@@ -620,13 +620,15 @@ export function EventWizard({
 
                 for (const promo of promoCodes) {
                     const code = promo.code.trim();
-                    const discountValue = Number.parseFloat(promo.discountValue);
+                    const discountValue = Number.parseFloat(promo.discountValue) || 0;
+                    const isRevealOnlyCode = promo.revealsHiddenTickets === true;
                     const errors: { code?: string; discountValue?: string } = {};
 
                     if (!code) {
                         errors.code = 'Code is required.';
                     }
-                    if (!Number.isFinite(discountValue) || discountValue <= 0) {
+                    // Only require positive discount for non-reveal codes
+                    if (!isRevealOnlyCode && (!Number.isFinite(discountValue) || discountValue <= 0)) {
                         errors.discountValue = 'Discount must be greater than 0.';
                     }
 

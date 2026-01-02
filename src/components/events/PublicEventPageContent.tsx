@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, startTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
@@ -105,9 +105,16 @@ function TicketCard({
     quantity: number;
     onQuantityChange: (quantity: number) => void;
 }) {
-    const price = formatPrice(ticket.price, ticket.currency);
-    const isFree = ticket.type === 'free' || price === 'Free';
+    const regularPrice = formatPrice(ticket.price, ticket.currency);
+    const isFree = ticket.type === 'free' || regularPrice === 'Free';
     const maxQty = ticket.maxQuantity || 10;
+
+    // Check if early bird pricing is active
+    const earlyBirdPrice = 'earlyBirdPrice' in ticket ? ticket.earlyBirdPrice : null;
+    const earlyBirdEndDate = 'earlyBirdEndDate' in ticket ? ticket.earlyBirdEndDate : null;
+    const now = new Date();
+    const isEarlyBirdActive = !isFree && earlyBirdPrice && earlyBirdEndDate && now < new Date(earlyBirdEndDate);
+    const displayPrice = isEarlyBirdActive ? formatPrice(earlyBirdPrice, ticket.currency) : regularPrice;
 
     return (
         <div className="flex items-center justify-between p-4 border rounded-lg hover:border-primary/50 transition-colors">
@@ -116,9 +123,17 @@ function TicketCard({
                 {ticket.description && (
                     <p className="text-sm text-muted-foreground mt-1">{ticket.description}</p>
                 )}
-                <p className={`font-semibold mt-1 ${isFree ? 'text-green-600' : 'text-primary'}`}>
-                    {price}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                    <p className={`font-semibold ${isFree ? 'text-green-600' : 'text-primary'}`}>
+                        {displayPrice}
+                    </p>
+                    {isEarlyBirdActive && (
+                        <>
+                            <span className="text-sm text-muted-foreground line-through">{regularPrice}</span>
+                            <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">Early Bird</span>
+                        </>
+                    )}
+                </div>
             </div>
             <div className="flex items-center gap-2 ml-4">
                 <Button
@@ -303,6 +318,15 @@ export function PublicEventPageContent({
         setIsCheckoutOpen(true);
     };
 
+    // Helper to get effective price (early bird or regular)
+    const getEffectivePrice = useCallback((t: TicketLike) => {
+        const now = new Date();
+        const earlyBirdPrice = 'earlyBirdPrice' in t ? t.earlyBirdPrice : null;
+        const earlyBirdEndDate = 'earlyBirdEndDate' in t ? t.earlyBirdEndDate : null;
+        const isEarlyBirdActive = earlyBirdPrice && earlyBirdEndDate && now < new Date(earlyBirdEndDate);
+        return isEarlyBirdActive ? parseFloat(earlyBirdPrice) : parseFloat(t.price || '0');
+    }, []);
+
     // Calculate totals
     const cartItems = useMemo(() => {
         return tickets
@@ -310,9 +334,9 @@ export function PublicEventPageContent({
             .map(t => ({
                 ticket: t,
                 quantity: ticketQuantities[t.id] || 0,
-                subtotal: (ticketQuantities[t.id] || 0) * parseFloat(t.price || '0')
+                subtotal: (ticketQuantities[t.id] || 0) * getEffectivePrice(t)
             }));
-    }, [tickets, ticketQuantities]);
+    }, [tickets, ticketQuantities, getEffectivePrice]);
 
     const totalAmount = useMemo(() =>
         cartItems.reduce((sum, item) => sum + item.subtotal, 0)
@@ -324,10 +348,10 @@ export function PublicEventPageContent({
 
     const paidTicketCount = useMemo(() =>
         cartItems.reduce((sum, item) => {
-            const unitPrice = Number.parseFloat(item.ticket.price || '0');
+            const unitPrice = getEffectivePrice(item.ticket);
             return unitPrice > 0 ? sum + item.quantity : sum;
         }, 0),
-        [cartItems]
+        [cartItems, getEffectivePrice]
     );
 
     const customQuestionCount = event?.customQuestions?.length ?? 0;
