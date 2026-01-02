@@ -62,6 +62,8 @@ export interface DraftPromoCode {
   validFrom: string;
   validUntil: string;
   isActive?: boolean;
+  revealsHiddenTickets?: boolean;
+  applicableTicketTypeIds?: string[] | null;
 }
 
 export interface DraftEventInitial {

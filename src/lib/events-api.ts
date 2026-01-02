@@ -71,7 +71,9 @@ export interface TicketRecord {
     visibility: 'public' | 'hidden';
     salesStart: string | null;
     salesEnd: string | null;
-    absorbFee: boolean | null; // null = inherit from event
+    absorbFee: boolean | null;
+    earlyBirdPrice: string | null;
+    earlyBirdEndDate: string | null;
 }
 
 export interface CustomQuestionPayload {
@@ -119,7 +121,9 @@ export interface TicketInputPayload {
     visibility?: 'public' | 'hidden';
     salesStart?: string | null;
     salesEnd?: string | null;
-    absorbFee?: boolean | null; // null = inherit from event
+    absorbFee?: boolean | null;
+    earlyBirdPrice?: number | null;
+    earlyBirdEndDate?: string | null;
 }
 
 export const createEventDraft = async (organizerId: string, payload: UpsertEventPayload) => {
@@ -175,6 +179,8 @@ export interface PromoCodeRecord {
     validFrom: string | null;
     validUntil: string | null;
     isActive: boolean;
+    revealsHiddenTickets: boolean;
+    applicableTicketTypeIds: string[] | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -187,6 +193,8 @@ export interface PromoCodeInput {
     validFrom?: string | null;
     validUntil?: string | null;
     isActive?: boolean;
+    revealsHiddenTickets?: boolean;
+    applicableTicketTypeIds?: string[] | null;
 }
 
 export const fetchEventPromoCodes = async (eventId: string) => {
@@ -264,6 +272,8 @@ export interface PublicTicketRecord {
     type: 'free' | 'paid' | 'donation';
     salesStart: string | null;
     salesEnd: string | null;
+    earlyBirdPrice: string | null;
+    earlyBirdEndDate: string | null;
 }
 
 export const fetchPublicEvents = async (options?: { limit?: number; offset?: number; organizerId?: string }) => {

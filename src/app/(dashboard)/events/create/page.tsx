@@ -188,6 +188,15 @@ const buildTicketPayloads = (tickets: DraftTicketType[], currency: string): Tick
             : undefined;
         const backendId = isUuid(ticket.id) ? ticket.id : undefined;
 
+        // Early bird pricing
+        const parsedEarlyBirdPrice = Number.parseFloat(ticket.earlyBirdPrice || '0');
+        const earlyBirdPriceValue = ticket.hasEarlyBird && Number.isFinite(parsedEarlyBirdPrice) && parsedEarlyBirdPrice > 0
+            ? parsedEarlyBirdPrice
+            : null;
+        const earlyBirdEndDateValue = ticket.hasEarlyBird && ticket.earlyBirdEndDate
+            ? toIsoString(ticket.earlyBirdEndDate, '23:59')
+            : null;
+
         return {
             id: backendId,
             name: ticket.name.trim() || `Ticket ${index + 1}`,
@@ -200,7 +209,9 @@ const buildTicketPayloads = (tickets: DraftTicketType[], currency: string): Tick
             visibility: ticket.visibility,
             salesStart: ticket.salesStart ? toIsoString(ticket.salesStart, '00:00') : null,
             salesEnd: ticket.salesEnd ? toIsoString(ticket.salesEnd, '23:59') : null,
-            absorbFee: ticket.absorbFee, // null = use event default
+            absorbFee: ticket.absorbFee,
+            earlyBirdPrice: earlyBirdPriceValue,
+            earlyBirdEndDate: earlyBirdEndDateValue,
         };
     });
 
@@ -637,8 +648,13 @@ export function EventWizard({
                     const existingIds = new Set(existingPromos.promoCodes.map(p => p.id));
 
                     for (const promo of promoCodes) {
-                        const discountValue = Number.parseFloat(promo.discountValue);
-                        if (!promo.code.trim() || !Number.isFinite(discountValue) || discountValue <= 0) {
+                        const discountValue = Number.parseFloat(promo.discountValue) || 0;
+                        const isRevealOnlyCode = promo.revealsHiddenTickets && discountValue === 0;
+                        // Skip if no code, or if it's a discount code with no valid discount
+                        if (!promo.code.trim()) {
+                            continue;
+                        }
+                        if (!isRevealOnlyCode && (!Number.isFinite(discountValue) || discountValue <= 0)) {
                             continue;
                         }
 
@@ -650,6 +666,8 @@ export function EventWizard({
                             validFrom: promo.validFrom ? `${promo.validFrom}T00:00:00.000Z` : null,
                             validUntil: promo.validUntil ? `${promo.validUntil}T23:59:59.000Z` : null,
                             isActive: promo.isActive !== false,
+                            revealsHiddenTickets: promo.revealsHiddenTickets ?? false,
+                            applicableTicketTypeIds: promo.applicableTicketTypeIds ?? null,
                         };
 
                         if (existingIds.has(promo.id)) {
@@ -1888,64 +1906,187 @@ export function EventWizard({
                                                                             <Trash2 className="h-4 w-4" />
                                                                         </Button>
                                                                     </div>
-                                                                    <div className="grid gap-4 sm:grid-cols-3">
-                                                                        <div className="space-y-2">
-                                                                            <Label className="text-sm">Discount Type</Label>
-                                                                            <Select
-                                                                                value={promo.discountType}
-                                                                                onValueChange={(val) => updatePromoCode(promo.id, 'discountType', val as 'fixed' | 'percentage')}
-                                                                            >
-                                                                                <SelectTrigger className="h-10">
-                                                                                    <SelectValue />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    <SelectItem value="percentage">Percentage (%)</SelectItem>
-                                                                                    <SelectItem value="fixed">Fixed Amount ({getCurrencySymbol(formData.currency)})</SelectItem>
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        </div>
-                                                                        <div className="space-y-2">
-                                                                            <Label className="text-sm">Discount Value</Label>
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    placeholder="10"
-                                                                                    min="0"
-                                                                                    value={promo.discountValue}
-                                                                                    onChange={(e) => {
-                                                                                        const value = e.target.value;
-                                                                                        // Prevent negative values
-                                                                                        if (value === '' || Number(value) >= 0) {
-                                                                                            updatePromoCode(promo.id, 'discountValue', value);
+                                                                    {/* Reveals Hidden Tickets Toggle - First */}
+                                                                    {(() => {
+                                                                        const isExistingPromo = isUuid(promo.id);
+                                                                        const isLocked = isExistingPromo && !promo.revealsHiddenTickets;
+                                                                        return (
+                                                                            <div className={cn(
+                                                                                "flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50",
+                                                                                isLocked && "opacity-60"
+                                                                            )}>
+                                                                                <div className="space-y-0.5">
+                                                                                    <Label className="text-sm font-medium">Unlock Hidden Tickets</Label>
+                                                                                    <p className="text-xs text-muted-foreground">
+                                                                                        {isLocked
+                                                                                            ? "Cannot change type on saved codes - create a new code instead"
+                                                                                            : "This code reveals hidden ticket types"
+                                                                                        }
+                                                                                    </p>
+                                                                                </div>
+                                                                                <Switch
+                                                                                    checked={promo.revealsHiddenTickets ?? false}
+                                                                                    disabled={isLocked}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        updatePromoCode(promo.id, 'revealsHiddenTickets', checked);
+                                                                                        if (checked) {
+                                                                                            updatePromoCode(promo.id, 'discountValue', '0');
                                                                                         }
                                                                                     }}
-                                                                                    className={cn(
-                                                                                        'h-10 pr-8',
-                                                                                        promoError?.discountValue ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                    )}
                                                                                 />
-                                                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                                                                    {promo.discountType === 'percentage' ? '%' : getCurrencySymbol(formData.currency)}
-                                                                                </span>
                                                                             </div>
-                                                                            {promoError?.discountValue ? (
-                                                                                <p className="text-xs text-destructive">{promoError.discountValue}</p>
-                                                                            ) : null}
-                                                                        </div>
+                                                                        );
+                                                                    })()}
+
+                                                                    {/* Show hidden tickets selector when reveal mode is ON */}
+                                                                    {promo.revealsHiddenTickets && (
                                                                         <div className="space-y-2">
-                                                                            <Label className="text-sm">Usage Limit</Label>
-                                                                            <Input
-                                                                                type="number"
-                                                                                placeholder="100"
-                                                                                value={promo.usageLimit || ''}
-                                                                                onChange={(e) => {
-                                                                                    const val = e.target.value.replace(/^0+(?=\d)/, '');
-                                                                                    updatePromoCode(promo.id, 'usageLimit', parseInt(val) || 0);
-                                                                                }}
-                                                                                className="h-10"
-                                                                            />
+                                                                            <Label className="text-sm font-medium">Select Hidden Tickets to Reveal</Label>
+                                                                            <div className="space-y-2">
+                                                                                {tickets.filter(t => t.visibility === 'hidden').length === 0 ? (
+                                                                                    <p className="text-xs text-muted-foreground py-3 text-center">
+                                                                                        No hidden tickets. Create a ticket with visibility set to &quot;Hidden&quot; first.
+                                                                                    </p>
+                                                                                ) : (
+                                                                                    tickets.filter(t => t.visibility === 'hidden').map((ticket) => {
+                                                                                        const isSelected = promo.applicableTicketTypeIds?.includes(ticket.id) ?? false;
+                                                                                        return (
+                                                                                            <div
+                                                                                                key={ticket.id}
+                                                                                                onClick={() => {
+                                                                                                    const current = promo.applicableTicketTypeIds ?? [];
+                                                                                                    const updated = isSelected
+                                                                                                        ? current.filter(id => id !== ticket.id)
+                                                                                                        : [...current, ticket.id];
+                                                                                                    updatePromoCode(promo.id, 'applicableTicketTypeIds', updated.length > 0 ? updated : null);
+                                                                                                }}
+                                                                                                className={cn(
+                                                                                                    "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors",
+                                                                                                    isSelected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                                                                                                )}
+                                                                                            >
+                                                                                                <div className={cn(
+                                                                                                    "h-4 w-4 rounded border flex items-center justify-center",
+                                                                                                    isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
+                                                                                                )}>
+                                                                                                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                                                                                                </div>
+                                                                                                <span className="text-sm">{ticket.name || 'Untitled Ticket'}</span>
+                                                                                                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded ml-auto">Hidden</span>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })
+                                                                                )}
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
+                                                                    )}
+
+                                                                    {/* Discount fields - only show when NOT in reveal mode */}
+                                                                    {!promo.revealsHiddenTickets && (
+                                                                        <>
+                                                                            <div className="grid gap-4 sm:grid-cols-3">
+                                                                                <div className="space-y-2">
+                                                                                    <Label className="text-sm">Discount Type</Label>
+                                                                                    <Select
+                                                                                        value={promo.discountType}
+                                                                                        onValueChange={(val) => updatePromoCode(promo.id, 'discountType', val as 'fixed' | 'percentage')}
+                                                                                    >
+                                                                                        <SelectTrigger className="h-10">
+                                                                                            <SelectValue />
+                                                                                        </SelectTrigger>
+                                                                                        <SelectContent>
+                                                                                            <SelectItem value="percentage">Percentage (%)</SelectItem>
+                                                                                            <SelectItem value="fixed">Fixed Amount ({getCurrencySymbol(formData.currency)})</SelectItem>
+                                                                                        </SelectContent>
+                                                                                    </Select>
+                                                                                </div>
+                                                                                <div className="space-y-2">
+                                                                                    <Label className="text-sm">Discount Value</Label>
+                                                                                    <div className="relative">
+                                                                                        <Input
+                                                                                            type="number"
+                                                                                            placeholder="10"
+                                                                                            min="0"
+                                                                                            value={promo.discountValue}
+                                                                                            onChange={(e) => {
+                                                                                                const value = e.target.value;
+                                                                                                if (value === '' || Number(value) >= 0) {
+                                                                                                    updatePromoCode(promo.id, 'discountValue', value);
+                                                                                                }
+                                                                                            }}
+                                                                                            className={cn(
+                                                                                                'h-10 pr-8',
+                                                                                                promoError?.discountValue ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                            )}
+                                                                                        />
+                                                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                                                                                            {promo.discountType === 'percentage' ? '%' : getCurrencySymbol(formData.currency)}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    {promoError?.discountValue ? (
+                                                                                        <p className="text-xs text-destructive">{promoError.discountValue}</p>
+                                                                                    ) : null}
+                                                                                </div>
+                                                                                <div className="space-y-2">
+                                                                                    <Label className="text-sm">Usage Limit</Label>
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        placeholder="Unlimited"
+                                                                                        value={promo.usageLimit || ''}
+                                                                                        onChange={(e) => {
+                                                                                            const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                                                                            updatePromoCode(promo.id, 'usageLimit', parseInt(val) || 0);
+                                                                                        }}
+                                                                                        className="h-10"
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* Applies to Specific Tickets - only for discount codes */}
+                                                                            {tickets.length > 1 && (
+                                                                                <div className="space-y-2 pt-2">
+                                                                                    <Label className="text-sm font-medium">Applies to Tickets</Label>
+                                                                                    <p className="text-xs text-muted-foreground mb-2">
+                                                                                        Leave empty to apply to all tickets
+                                                                                    </p>
+                                                                                    <div className="space-y-2">
+                                                                                        {tickets.map((ticket) => {
+                                                                                            const isSelected = promo.applicableTicketTypeIds?.includes(ticket.id) ?? false;
+                                                                                            return (
+                                                                                                <div
+                                                                                                    key={ticket.id}
+                                                                                                    onClick={() => {
+                                                                                                        const current = promo.applicableTicketTypeIds ?? [];
+                                                                                                        const updated = isSelected
+                                                                                                            ? current.filter(id => id !== ticket.id)
+                                                                                                            : [...current, ticket.id];
+                                                                                                        updatePromoCode(promo.id, 'applicableTicketTypeIds', updated.length > 0 ? updated : null);
+                                                                                                    }}
+                                                                                                    className={cn(
+                                                                                                        "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors",
+                                                                                                        isSelected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                                                                                                    )}
+                                                                                                >
+                                                                                                    <div className={cn(
+                                                                                                        "h-4 w-4 rounded border flex items-center justify-center",
+                                                                                                        isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
+                                                                                                    )}>
+                                                                                                        {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                                                                                                    </div>
+                                                                                                    <span className="text-sm">{ticket.name || 'Untitled Ticket'}</span>
+                                                                                                    {ticket.visibility === 'hidden' && (
+                                                                                                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Hidden</span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                        </>
+                                                                    )}
+
+                                                                    {/* Valid dates - always shown */}
                                                                     <div className="grid gap-4 sm:grid-cols-2">
                                                                         <div className="space-y-2">
                                                                             <Label className="text-sm">Valid From</Label>

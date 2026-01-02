@@ -19,6 +19,8 @@ export const mapTicketRecordsToDraft = (rows: TicketRecord[]): DraftTicketType[]
     rows.map((ticket, index) => {
         const priceValue = ticket.price ?? '0';
         const isFree = ticket.type === 'free' || Number(priceValue) === 0;
+        // Check if early bird is configured
+        const hasEarlyBird = !!(ticket.earlyBirdPrice && ticket.earlyBirdEndDate);
         return {
             id: ticket.id ?? `ticket-${index}`,
             name: ticket.name ?? `Ticket ${index + 1}`,
@@ -29,11 +31,11 @@ export const mapTicketRecordsToDraft = (rows: TicketRecord[]): DraftTicketType[]
             description: ticket.description ?? '',
             salesStart: isoToDate(ticket.salesStart),
             salesEnd: isoToDate(ticket.salesEnd),
-            hasEarlyBird: false,
-            earlyBirdPrice: '',
-            earlyBirdEndDate: '',
+            hasEarlyBird,
+            earlyBirdPrice: ticket.earlyBirdPrice ?? '',
+            earlyBirdEndDate: isoToDate(ticket.earlyBirdEndDate),
             visibility: ticket.visibility ?? 'public',
-            absorbFee: ticket.absorbFee ?? null, // null = use event default
+            absorbFee: ticket.absorbFee ?? null,
         };
     });
 
@@ -47,6 +49,8 @@ export const mapPromoCodeRecordsToDraft = (rows: PromoCodeRecord[]): DraftPromoC
         validFrom: isoToDate(promo.validFrom),
         validUntil: isoToDate(promo.validUntil),
         isActive: promo.isActive,
+        revealsHiddenTickets: promo.revealsHiddenTickets ?? false,
+        applicableTicketTypeIds: promo.applicableTicketTypeIds ?? null,
     }));
 
 const backendToDraftLocation = (value: EventRecord['locationType']): DraftLocationType => {
