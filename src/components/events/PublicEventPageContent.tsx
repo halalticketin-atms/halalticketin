@@ -46,7 +46,7 @@ import { useMetaPixel } from '@/hooks/useMetaPixel';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, type TicketAttendeePayload } from '@/lib/checkout-api';
 import { showError } from '@/lib/errors';
-import { calculatePlatformFee, getCurrencySymbol, type FeeTier } from '@/lib/fees';
+import { calculateFeePerTicket, getCurrencySymbol, type FeeTier } from '@/lib/fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useOptionalAuth } from '@/context/auth-context';
 import { differenceInYears } from 'date-fns';
@@ -91,6 +91,12 @@ function formatPrice(price: string | null, currency: string): string {
     const num = parseFloat(price);
     const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency;
     return `${symbol}${num.toFixed(2)}`;
+}
+
+function normalizeFeeValue(value?: number | string | null): number | undefined {
+    if (value === null || value === undefined) return undefined;
+    const parsed = typeof value === 'string' ? parseFloat(value) : value;
+    return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 /**
@@ -490,26 +496,49 @@ export function PublicEventPageContent({
         if (!event || paidTicketCount === 0 || finalTotal <= 0) {
             return 0;
         }
+        if (event.absorbFee) {
+            return 0;
+        }
 
         const feeTier = (event.feeTier ?? 'payg') as FeeTier;
-        const rawCustomBookingFee = event.customBookingFee;
-        const customBookingFee =
-            rawCustomBookingFee === null || rawCustomBookingFee === undefined
-                ? undefined
-                : typeof rawCustomBookingFee === 'string'
-                    ? parseFloat(rawCustomBookingFee)
-                    : rawCustomBookingFee;
+        const eventCustomBookingFee = normalizeFeeValue(event.customBookingFee);
 
-        const { totalFee } = calculatePlatformFee({
-            feeTier,
-            ticketCount: paidTicketCount,
-            currency: currencyCode,
-            customBookingFee,
-            exchangeRates: rates
+        return cartItems.reduce((sum, item) => {
+            const unitPrice = getEffectivePrice(item.ticket);
+            if (unitPrice <= 0) {
+                return sum;
+            }
+
+            const ticketCustomFee = 'customFee' in item.ticket
+                ? normalizeFeeValue(item.ticket.customFee)
+                : undefined;
+            const feePerTicket = calculateFeePerTicket(
+                feeTier,
+                item.ticket.currency ?? currencyCode,
+                ticketCustomFee ?? eventCustomBookingFee,
+                rates
+            );
+
+            return sum + feePerTicket * item.quantity;
+        }, 0);
+    }, [event, paidTicketCount, finalTotal, cartItems, getEffectivePrice, currencyCode, rates]);
+
+    const hasCustomFeeOverride = useMemo(() => {
+        if (!event || cartItems.length === 0) {
+            return false;
+        }
+
+        return cartItems.some((item) => {
+            const unitPrice = getEffectivePrice(item.ticket);
+            if (unitPrice <= 0) {
+                return false;
+            }
+            const ticketCustomFee = 'customFee' in item.ticket
+                ? normalizeFeeValue(item.ticket.customFee)
+                : undefined;
+            return ticketCustomFee !== undefined;
         });
-
-        return event.absorbFee ? 0 : totalFee;
-    }, [event, paidTicketCount, currencyCode, rates, finalTotal]);
+    }, [event, cartItems, getEffectivePrice]);
 
     const grandTotal = finalTotal + platformFeeAmount;
 
@@ -1203,7 +1232,7 @@ export function PublicEventPageContent({
                                             )}
                                             {platformFeeAmount > 0 && (
                                                 <div className="flex justify-between text-sm text-muted-foreground">
-                                                    <span>Service fee</span>
+                                                    <span>{hasCustomFeeOverride ? 'Service fee (custom)' : 'Service fee'}</span>
                                                     <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                                 </div>
                                             )}
@@ -1291,7 +1320,7 @@ export function PublicEventPageContent({
 
                                 {platformFeeAmount > 0 && (
                                     <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                        <span>Fees</span>
+                                        <span>{hasCustomFeeOverride ? 'Fees (custom)' : 'Fees'}</span>
                                         <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                     </div>
                                 )}
@@ -1605,7 +1634,7 @@ export function PublicEventPageContent({
                                                         )}
                                                         {platformFeeAmount > 0 && (
                                                             <div className="flex justify-between text-muted-foreground">
-                                                                <span>Service fee</span>
+                                                                <span>{hasCustomFeeOverride ? 'Service fee (custom)' : 'Service fee'}</span>
                                                                 <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                                             </div>
                                                         )}

@@ -41,6 +41,7 @@ export interface DraftTicketType {
   id: string;
   name: string;
   price: string;
+  customFee: string;
   isFree: boolean;
   quantity: number;
   maxPerOrder: number;
@@ -106,6 +107,7 @@ const createDefaultTicket = (): DraftTicketType => ({
   id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   name: 'General Admission',
   price: '',
+  customFee: '',
   isFree: false,
   quantity: 100,
   maxPerOrder: 10,

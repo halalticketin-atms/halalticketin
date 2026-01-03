@@ -72,6 +72,7 @@ export interface TicketRecord {
     salesStart: string | null;
     salesEnd: string | null;
     absorbFee: boolean | null;
+    customFee?: number | null;
     earlyBirdPrice: string | null;
     earlyBirdEndDate: string | null;
 }
@@ -122,6 +123,7 @@ export interface TicketInputPayload {
     salesStart?: string | null;
     salesEnd?: string | null;
     absorbFee?: boolean | null;
+    customFee?: number | null;
     earlyBirdPrice?: number | null;
     earlyBirdEndDate?: string | null;
 }
@@ -273,6 +275,7 @@ export interface PublicTicketRecord {
     type: 'free' | 'paid' | 'donation';
     salesStart: string | null;
     salesEnd: string | null;
+    customFee?: number | null;
     earlyBirdPrice: string | null;
     earlyBirdEndDate: string | null;
 }

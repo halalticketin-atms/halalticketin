@@ -25,6 +25,7 @@ export const mapTicketRecordsToDraft = (rows: TicketRecord[]): DraftTicketType[]
             id: ticket.id ?? `ticket-${index}`,
             name: ticket.name ?? `Ticket ${index + 1}`,
             price: priceValue,
+            customFee: ticket.customFee === null || ticket.customFee === undefined ? '' : String(ticket.customFee),
             isFree,
             quantity: ticket.maxQuantity ?? 0,
             maxPerOrder: ticket.maxPerOrder ?? 1,

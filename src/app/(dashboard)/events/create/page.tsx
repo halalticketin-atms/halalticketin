@@ -85,7 +85,7 @@ import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticke
 import { ApiError } from '@/lib/api';
 import { getBackendErrorDetails } from '@/lib/api-errors';
 import { getUserFriendlyMessage, showWarning } from '@/lib/errors';
-import { PAYG_FEE_GBP, getCurrencySymbol, convertFromGBP } from '@/lib/fees';
+import { getCurrencySymbol } from '@/lib/fees';
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
 import {
@@ -213,6 +213,11 @@ const buildTicketPayloads = (tickets: DraftTicketType[], currency: string): Tick
         const earlyBirdEndDateValue = ticket.hasEarlyBird && ticket.earlyBirdEndDate
             ? toIsoString(ticket.earlyBirdEndDate, '23:59')
             : null;
+        const trimmedCustomFee = ticket.customFee?.trim() ?? '';
+        const parsedCustomFee = Number.parseFloat(trimmedCustomFee);
+        const customFeeValue = !ticket.isFree && priceValue > 0 && trimmedCustomFee && Number.isFinite(parsedCustomFee)
+            ? parsedCustomFee
+            : null;
 
         return {
             id: backendId,
@@ -227,6 +232,7 @@ const buildTicketPayloads = (tickets: DraftTicketType[], currency: string): Tick
             salesStart: ticket.salesStart ? toIsoString(ticket.salesStart, '00:00') : null,
             salesEnd: ticket.salesEnd ? toIsoString(ticket.salesEnd, '23:59') : null,
             absorbFee: ticket.absorbFee,
+            customFee: customFeeValue,
             earlyBirdPrice: earlyBirdPriceValue,
             earlyBirdEndDate: earlyBirdEndDateValue,
         };
@@ -1826,15 +1832,33 @@ export function EventWizard({
                                                                         disabled={ticket.isFree}
                                                                     />
                                                                 </div>
+                                                                {!ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                    <div className="space-y-1.5">
+                                                                        <Label>Custom Fee ({getCurrencySymbol(formData.currency)})</Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            placeholder="0.55"
+                                                                            min="0"
+                                                                            step="0.01"
+                                                                            value={ticket.customFee ?? ''}
+                                                                            onChange={(e) => {
+                                                                                const value = e.target.value;
+                                                                                if (value === '' || Number(value) >= 0) {
+                                                                                    updateTicket(ticket.id, 'customFee', value);
+                                                                                }
+                                                                            }}
+                                                                            className="h-11"
+                                                                        />
+                                                                        <p className="text-xs text-muted-foreground">Optional per-ticket fee override.</p>
+                                                                    </div>
+                                                                )}
 
                                                                 {/* Absorb Fee Toggle - subtle but visible */}
                                                                 {!ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
                                                                     <div className="flex items-center justify-between gap-3 mt-2 p-2 rounded-lg bg-muted/30">
                                                                         <div className="flex items-center gap-2 min-w-0">
                                                                             <span className="text-xs text-muted-foreground">
-                                                                                {ticket.absorbFee
-                                                                                    ? `You absorb ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)} fee`
-                                                                                    : `Customer pays ${getCurrencySymbol(formData.currency)}${convertFromGBP(PAYG_FEE_GBP, formData.currency).toFixed(2)} fee`}
+                                                                                {ticket.absorbFee ? 'You absorb fee' : 'Customer pays fee'}
                                                                             </span>
                                                                         </div>
                                                                         <div className="flex items-center gap-2 shrink-0">

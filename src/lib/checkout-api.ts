@@ -241,7 +241,7 @@ export async function validatePromoCode(
 export async function fetchUnlockedTickets(
     eventSlug: string,
     promoCode: string
-): Promise<{ id: string; name: string; description: string | null; price: string; currency: string; type: string; earlyBirdPrice?: string | null; earlyBirdEndDate?: string | null }[]> {
+): Promise<{ id: string; name: string; description: string | null; price: string; currency: string; type: string; customFee?: number | null; earlyBirdPrice?: string | null; earlyBirdEndDate?: string | null }[]> {
     try {
         const response = await fetch(
             `${API_URL}/api/v1/public/events/${eventSlug}/unlocked-tickets`,

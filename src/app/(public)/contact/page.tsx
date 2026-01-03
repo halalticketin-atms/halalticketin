@@ -112,7 +112,7 @@ export default function ContactPage() {
             <AmbientBackground showNoise={false} />
 
             <div className="container relative z-10 flex items-center justify-center">
-                <div className="w-full max-w-2xl p-6 shadow-2xl md:p-12 glass-surface md:backdrop-blur-2xl border border-white/50 rounded-3xl ring-1 ring-white/60 animate-fade-up">
+                <div className="w-full max-w-2xl p-4 shadow-2xl md:p-12 glass-surface md:backdrop-blur-2xl border border-white/50 rounded-3xl ring-1 ring-white/60 animate-fade-up">
                     <div className="mb-8">
                         <h1 className="mb-2 text-3xl font-bold tracking-tight">Send us a message</h1>
                         <p className="text-muted-foreground">
@@ -207,21 +207,21 @@ export default function ContactPage() {
                             />
                         </div>
 
-                        <div className="flex items-start gap-3 p-4 glass-surface md:backdrop-blur-sm rounded-xl border border-white/30 overflow-hidden">
+                        <div className="grid gap-3 p-3 md:p-4 glass-surface md:backdrop-blur-sm rounded-xl border border-white/30 overflow-hidden">
                             <Checkbox
                                 id="terms"
                                 checked={formData.agreed}
                                 onCheckedChange={(checked) =>
                                     setFormData({ ...formData, agreed: checked as boolean })
                                 }
-                                className="border-slate-400 mt-0.5 flex-shrink-0"
+                                className="border-slate-400 mt-0.5"
                                 required
                             />
                             <Label
                                 htmlFor="terms"
-                                className="text-sm font-medium leading-relaxed cursor-pointer text-muted-foreground flex-1 min-w-0"
+                                className="text-sm font-medium leading-relaxed cursor-pointer text-muted-foreground"
                             >
-                                I agree to the{' '}
+                                I agree to&nbsp;the{' '}
                                 <Link href="/terms" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
                                     Terms of Use
                                 </Link>{' '}

@@ -290,11 +290,14 @@ function normalizeTicket(
 
   const visibility: DraftTicketType['visibility'] =
     raw.visibility === 'hidden' ? 'hidden' : 'public';
+  const customFee =
+    raw.customFee !== undefined && raw.customFee !== null ? String(raw.customFee) : '';
 
   return {
     id: baseId,
     name: raw.name && raw.name.trim().length > 0 ? raw.name : 'Standard Ticket',
     price: raw.price ?? '',
+    customFee,
     isFree: Boolean(raw.isFree),
     quantity,
     maxPerOrder,
