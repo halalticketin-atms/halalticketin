@@ -207,29 +207,33 @@ export default function ContactPage() {
                             />
                         </div>
 
-                        <div className="grid gap-3 p-3 md:p-4 glass-surface md:backdrop-blur-sm rounded-xl border border-white/30 overflow-hidden">
+                        <div className="flex items-start gap-3 p-3 md:p-4 glass-surface md:backdrop-blur-sm rounded-xl border border-white/30 overflow-hidden">
                             <Checkbox
                                 id="terms"
                                 checked={formData.agreed}
                                 onCheckedChange={(checked) =>
                                     setFormData({ ...formData, agreed: checked as boolean })
                                 }
-                                className="border-slate-400 mt-0.5"
+                                className="border-slate-400 mt-1"
                                 required
                             />
                             <Label
                                 htmlFor="terms"
                                 className="text-sm font-medium leading-relaxed cursor-pointer text-muted-foreground"
                             >
-                                I agree to&nbsp;the{' '}
-                                <Link href="/terms" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
-                                    Terms of Use
-                                </Link>{' '}
-                                and{' '}
-                                <Link href="/privacy" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
-                                    Privacy Policy
-                                </Link>
-                                <span className="text-red-500 ml-1">*</span>
+                                <span className="block">
+                                    I agree to&nbsp;the{' '}
+                                    <Link href="/terms" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
+                                        Terms of Use
+                                    </Link>
+                                </span>
+                                <span className="block">
+                                    and{' '}
+                                    <Link href="/privacy" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
+                                        Privacy Policy
+                                    </Link>
+                                    <span className="text-red-500 ml-1">*</span>
+                                </span>
                             </Label>
                         </div>
 
