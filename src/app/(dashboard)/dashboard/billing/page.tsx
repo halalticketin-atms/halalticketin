@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 
 /**
@@ -12,9 +13,18 @@ import { useOrganizers } from '@/context/organizer-context';
 export default function BillingRedirectPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { user, isLoading: isAuthLoading } = useAuth();
     const { organizers, activeOrganizerId, isLoading } = useOrganizers();
 
     useEffect(() => {
+        if (isAuthLoading) return;
+        if (!user) {
+            const nextPath = searchParams.get('credits')
+                ? `/dashboard/billing?credits=${searchParams.get('credits')}`
+                : '/dashboard/billing';
+            router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
+            return;
+        }
         // Wait until we're done loading
         if (isLoading) return;
 
@@ -37,7 +47,7 @@ export default function BillingRedirectPage() {
         // If we have organizers but activeOrganizerId is null, wait a tick for context to potentially set it,
         // or the next render cycle will catch 'orgId' via organizers[0].id
 
-    }, [isLoading, activeOrganizerId, organizers, searchParams, router]);
+    }, [isAuthLoading, user, isLoading, activeOrganizerId, organizers, searchParams, router]);
 
     return (
         <div className="flex items-center justify-center min-h-[400px]">

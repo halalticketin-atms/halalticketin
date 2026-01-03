@@ -4,6 +4,8 @@ import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import api from '@/lib/api';
+import { type OrganizerSummary } from '@/context/organizer-context';
 import { Check, Wand2, Banknote, ShieldCheck, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,7 +27,8 @@ import {
     MIN_PRICE_GBP,
     calculateCreditPrice,
     SUPPORTED_CURRENCIES,
-    type SupportedCurrency
+    type SupportedCurrency,
+    isSupportedCurrency
 } from '@/lib/fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 
@@ -39,12 +42,35 @@ export default function PricingPage() {
     const [credits, setCredits] = useState(500);
     const [passFees, setPassFees] = useState(false);
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, memberships } = useAuth();
     const calculatorRef = useRef<HTMLDivElement | null>(null);
     const [shouldRenderCalculator, setShouldRenderCalculator] = useState(false);
 
     // Use live exchange rates from API
     const { rates, isLoading: isLoadingRates } = useExchangeRates();
+
+    // Default to organizer's currency if logged in
+    useEffect(() => {
+        if (!user || memberships.length === 0) return;
+
+        const setOrganizerCurrency = async () => {
+            try {
+                const response = await api.get<{ organizers: OrganizerSummary[] }>('/api/v1/organizers');
+                // Find the organizer corresponding to the first membership, or fallback to the first one found
+                const orgId = memberships[0].organizerId;
+                const activeOrg = response.organizers.find(o => o.id === orgId) || response.organizers[0];
+
+                if (activeOrg?.defaultCurrency && isSupportedCurrency(activeOrg.defaultCurrency)) {
+                    setCurrency(activeOrg.defaultCurrency as SupportedCurrency);
+                }
+            } catch (error) {
+                // Silently fail and keep default currency
+                console.debug('Failed to load organizer currency preferences', error);
+            }
+        };
+
+        setOrganizerCurrency();
+    }, [user, memberships]);
 
     const enableCalculator = useEffectEvent(() => {
         setShouldRenderCalculator(true);
@@ -405,7 +431,8 @@ export default function PricingPage() {
                                                         router.push(`/dashboard/billing?credits=${creditsValue}`);
                                                     } else {
                                                         // Not logged in - redirect to login, then to dashboard
-                                                        router.push(`/login?returnTo=/dashboard/billing?credits=${creditsValue}`);
+                                                        const nextPath = `/dashboard/billing?credits=${creditsValue}`;
+                                                        router.push(`/login?next=${encodeURIComponent(nextPath)}`);
                                                     }
                                                 }}
                                                 className="w-full mt-8 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-opacity font-bold h-12 shadow-md"

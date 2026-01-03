@@ -69,7 +69,7 @@ const persistOrganizerId = (organizerId: string | null) => {
 export function OrganizerProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
     const [organizers, setOrganizers] = useState<OrganizerSummary[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeOrganizerId, setActiveOrganizerIdState] = useState<string | null>(null);
     const activeIdRef = useRef<string | null>(null);
@@ -112,6 +112,7 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
             setActiveOrganizerId(null, { persist: false });
             activeIdRef.current = null;
             setError(null);
+            setIsLoading(false);
             return;
         }
 
