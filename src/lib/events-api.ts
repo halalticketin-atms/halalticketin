@@ -248,6 +248,7 @@ export interface PublicEventRecord {
     latitude: number | null;
     longitude: number | null;
     currency: string;
+    refundPolicy?: string | null;
     organizerName: string | null;
     organizerAvatarUrl: string | null;
     category: string | null;

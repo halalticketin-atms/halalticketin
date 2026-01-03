@@ -86,6 +86,7 @@ export const buildDraftFromEventRecord = (
         onlineUrl: event.onlineUrl ?? '',
         currency: event.currency ?? 'GBP',
         absorbFee: event.absorbFee ?? false,
+        refundPolicy: event.refundPolicy ?? '',
         attendeeInfoMode: event.attendeeInfoMode ?? 'buyer_choice',
         customQuestions: event.customQuestions ?? [],
     },

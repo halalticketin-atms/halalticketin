@@ -70,6 +70,14 @@ export function useOrganizerEvents(organizerId: string | null) {
                 ...event,
                 displayStatus: classifyEventStatus(event),
             }));
+
+            // Sort events so active ones are always first
+            classified.sort((a, b) => {
+                if (a.displayStatus === 'active' && b.displayStatus !== 'active') return -1;
+                if (a.displayStatus !== 'active' && b.displayStatus === 'active') return 1;
+                return 0;
+            });
+
             setEvents(classified);
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to load events';

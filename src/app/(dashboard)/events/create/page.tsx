@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -113,6 +114,13 @@ const entryContextDefaults: Record<'scratch' | DraftEntrySource, EntryContext> =
     },
 };
 
+const refundPolicyOptions = [
+    { value: 'No refunds within a week', label: 'No refunds within a week' },
+    { value: 'No refunds within two weeks of the event', label: 'No refunds within two weeks of the event' },
+    { value: 'No refunds', label: 'No refunds' },
+    { value: 'Case by case basis', label: 'Case by case basis' },
+];
+
 const isDraftSource = (value: string | null): value is DraftEntrySource =>
     value === 'ai' || value === 'clone' || value === 'draft';
 
@@ -169,7 +177,7 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         country: null,
         onlineUrl: isOnline ? formData.onlineUrl || null : null,
         currency: formData.currency,
-        refundPolicy: null,
+        refundPolicy: formData.refundPolicy.trim() ? formData.refundPolicy.trim() : null,
         isListedPublicly: formData.visibility === 'public',
         category: formData.categories.length > 0 ? formData.categories.join(',') : null,
         // absorbFee removed - now handled per-ticket
@@ -249,6 +257,10 @@ const deriveFieldErrorsFromMessages = (errors: string[]) => {
             mapped.onlineUrl = message;
             matched = true;
         }
+        if (normalized.includes('refund policy')) {
+            mapped.refundPolicy = message;
+            matched = true;
+        }
         if (normalized.includes('ticket type')) {
             mapped.tickets = message;
             matched = true;
@@ -316,6 +328,7 @@ export function EventWizard({
 
     // Location coordinates for map display
     const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
+    const [isCustomRefundPolicy, setIsCustomRefundPolicy] = useState(false);
 
     const router = useRouter();
     const pathname = usePathname();
@@ -405,6 +418,44 @@ export function EventWizard({
             return updated ? next : prev;
         });
     }, []);
+
+    useEffect(() => {
+        const normalized = formData.refundPolicy.trim();
+        const isPreset = refundPolicyOptions.some((option) => option.value === normalized);
+        if (isPreset) {
+            setIsCustomRefundPolicy(false);
+            return;
+        }
+        if (normalized) {
+            setIsCustomRefundPolicy(true);
+        }
+    }, [formData.refundPolicy]);
+
+    const refundPolicySelection = useMemo(() => {
+        const normalized = formData.refundPolicy.trim();
+        if (!normalized) return isCustomRefundPolicy ? 'custom' : '';
+        const preset = refundPolicyOptions.find((option) => option.value === normalized);
+        return preset ? preset.value : 'custom';
+    }, [formData.refundPolicy, isCustomRefundPolicy]);
+
+    const handleRefundPolicyChange = useCallback((value: string) => {
+        if (value === 'custom') {
+            setFormData((prev) => {
+                const isPreset = refundPolicyOptions.some((option) => option.value === prev.refundPolicy.trim());
+                return { ...prev, refundPolicy: isPreset ? '' : prev.refundPolicy };
+            });
+            setIsCustomRefundPolicy(true);
+            clearFieldErrors('refundPolicy');
+            return;
+        }
+
+        setFormData((prev) => ({
+            ...prev,
+            refundPolicy: value,
+        }));
+        setIsCustomRefundPolicy(false);
+        clearFieldErrors('refundPolicy');
+    }, [clearFieldErrors, setFormData, setIsCustomRefundPolicy]);
 
     const updateTicket = useCallback(
         <K extends keyof DraftTicketType>(id: string, field: K, value: DraftTicketType[K]) => {
@@ -763,6 +814,16 @@ export function EventWizard({
             return;
         }
 
+        if (!formData.refundPolicy.trim()) {
+            setFieldErrors((prev) => ({
+                ...prev,
+                refundPolicy: 'Select a refund policy before publishing.',
+            }));
+            setCurrentStep(4);
+            setActionError('Select a refund policy before publishing.');
+            return;
+        }
+
         setActionError(null);
         setActionMessage(null);
         setIsPublishing(true);
@@ -815,7 +876,7 @@ export function EventWizard({
         } finally {
             setIsPublishing(false);
         }
-    }, [activeOrganizerId, formData.visibility, isPublishing, markSnapshotAsSaved, router, saveDraft]);
+    }, [activeOrganizerId, formData.refundPolicy, formData.visibility, isPublishing, markSnapshotAsSaved, router, saveDraft]);
 
     const handlePreviewClick = useCallback(async () => {
         // Save draft before previewing (silent save)
@@ -1602,6 +1663,50 @@ export function EventWizard({
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Refund Policy */}
+                                        <Card className="border-border/50 bg-card/80">
+                                            <CardContent className="p-3 sm:p-4 space-y-3">
+                                                <div className="space-y-0.5">
+                                                    <Label className="text-sm font-medium">Refund Policy</Label>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        This will be shown on the public event page
+                                                    </p>
+                                                </div>
+                                                <Select
+                                                    value={refundPolicySelection || undefined}
+                                                    onValueChange={handleRefundPolicyChange}
+                                                >
+                                                    <SelectTrigger className="h-10">
+                                                        <SelectValue placeholder="Select a refund policy" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {refundPolicyOptions.map((option) => (
+                                                            <SelectItem key={option.value} value={option.value}>
+                                                                {option.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                        <SelectItem value="custom">Custom policy</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {refundPolicySelection === 'custom' && (
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="refundPolicy">Custom policy text</Label>
+                                                        <Textarea
+                                                            id="refundPolicy"
+                                                            name="refundPolicy"
+                                                            placeholder="Describe your refund terms for attendees"
+                                                            value={formData.refundPolicy}
+                                                            onChange={handleFieldChange}
+                                                            className="min-h-[90px] resize-none"
+                                                        />
+                                                    </div>
+                                                )}
+                                                {fieldErrors.refundPolicy ? (
+                                                    <p className="text-xs text-destructive">{fieldErrors.refundPolicy}</p>
+                                                ) : null}
                                             </CardContent>
                                         </Card>
 

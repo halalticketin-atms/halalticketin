@@ -1052,7 +1052,7 @@ export default function EmailAttendeesPage() {
             <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowMobilePreview(true)}
-                className="lg:hidden fixed bottom-6 right-6 h-14 px-6 rounded-full bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] text-white shadow-2xl flex items-center gap-2 font-semibold z-50"
+                className="lg:hidden fixed bottom-24 right-6 h-14 px-6 rounded-full bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] text-white shadow-2xl flex items-center gap-2 font-semibold z-50"
             >
                 <Eye className="h-5 w-5" />
                 Preview

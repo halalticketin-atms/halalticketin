@@ -746,6 +746,7 @@ export function PublicEventPageContent({
 
         return { date, time, endTime };
     }, [startDatetime, endDatetime]);
+    const refundPolicyText = event?.refundPolicy?.trim() ?? '';
 
     // Loading state
     if (isLoading) {
@@ -993,6 +994,28 @@ export function PublicEventPageContent({
                                     No description available for this event.
                                 </p>
                             )}
+                        </motion.div>
+
+                        {/* Refund Policy */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4, delay: 0.25 }}
+                        >
+                            <h2 className="text-xl font-semibold mb-4">Refund policy</h2>
+                            <Card>
+                                <CardContent className="pt-6">
+                                    {refundPolicyText ? (
+                                        <p className="text-muted-foreground whitespace-pre-wrap">
+                                            {refundPolicyText}
+                                        </p>
+                                    ) : (
+                                        <p className="text-muted-foreground italic">
+                                            Refund policy not specified.
+                                        </p>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </motion.div>
 
                         {/* Location Details */}

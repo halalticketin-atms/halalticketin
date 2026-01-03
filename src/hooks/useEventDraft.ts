@@ -32,6 +32,7 @@ export interface DraftFormData {
   onlineUrl: string;
   absorbFee: boolean;
   currency: string;
+  refundPolicy: string;
   attendeeInfoMode: DraftAttendeeInfoMode;
   customQuestions: DraftCustomQuestion[];
 }
@@ -96,6 +97,7 @@ const defaultFormData: DraftFormData = {
   onlineUrl: '',
   absorbFee: false,
   currency: 'GBP',
+  refundPolicy: '',
   attendeeInfoMode: 'buyer_choice',
   customQuestions: [],
 };
