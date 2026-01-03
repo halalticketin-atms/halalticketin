@@ -12,6 +12,7 @@ import {
     ScanLine,
     Users,
     Mail,
+    Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OrganizerSwitcher } from './OrganizerSwitcher';
@@ -38,6 +39,7 @@ const buildNavItems = (organizerId?: string): NavItem[] => {
         { title: 'Team', href: `${base}/team`, icon: Users },
         { title: 'Check-in', href: `${base}/check-in`, icon: ScanLine },
         { title: 'Analytics', href: `${base}/analytics`, icon: BarChart3 },
+        { title: 'Billing', href: `${base}/billing`, icon: Wallet },
     ];
 };
 

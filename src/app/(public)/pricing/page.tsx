@@ -2,6 +2,8 @@
 
 import { useEffect, useEffectEvent, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/auth-context';
 import { Check, Wand2, Banknote, ShieldCheck, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +38,8 @@ export default function PricingPage() {
     const [ticketPrice, setTicketPrice] = useState(20);
     const [credits, setCredits] = useState(500);
     const [passFees, setPassFees] = useState(false);
+    const router = useRouter();
+    const { user } = useAuth();
     const calculatorRef = useRef<HTMLDivElement | null>(null);
     const [shouldRenderCalculator, setShouldRenderCalculator] = useState(false);
 
@@ -392,9 +396,26 @@ export default function PricingPage() {
                                             </div>
                                         </div>
 
-                                        <Button className="w-full mt-8 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-opacity font-bold h-12 shadow-md">
-                                            Get Started
-                                        </Button>
+                                        <div className="space-y-4">
+                                            <Button
+                                                onClick={() => {
+                                                    const creditsValue = Math.round(credits);
+                                                    if (user) {
+                                                        // Redirect to dashboard billing purchase
+                                                        router.push(`/dashboard/o/any/billing/purchase?credits=${creditsValue}`);
+                                                    } else {
+                                                        // Redirect to login with returnTo
+                                                        router.push(`/login?returnTo=/dashboard/o/any/billing/purchase?credits=${creditsValue}`);
+                                                    }
+                                                }}
+                                                className="w-full mt-8 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-opacity font-bold h-12 shadow-md"
+                                            >
+                                                Get Started
+                                            </Button>
+                                            <p className="text-[10px] text-center text-muted-foreground px-4 italic">
+                                                * Requires an organizer profile. You&apos;ll be prompted to sign in or create one.
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

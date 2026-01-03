@@ -16,6 +16,7 @@ import {
     LogOut,
     X,
     Mail,
+    Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { buildDashboardPath } from '@/lib/organizer-path';
@@ -48,6 +49,7 @@ const moreMenuItems = (organizerId?: string): NavItem[] => {
         { title: 'Team', href: `${base}/team`, icon: Users },
         { title: 'Check-in', href: `${base}/check-in`, icon: ScanLine },
         { title: 'Email Attendees', href: `${base}/email-attendees`, icon: Mail },
+        { title: 'Billing', href: `${base}/billing`, icon: Wallet },
         { title: 'Settings', href: '/settings', icon: Settings },
     ];
 };

@@ -38,7 +38,7 @@ export function DesktopQRRedirect({ eventId, eventName, organizerId }: DesktopQR
         <div className="mb-6">
           <Smartphone className="h-16 w-16 mx-auto text-primary mb-4" />
           <h2 className="text-2xl font-bold mb-2">Open Scanner on Your Phone</h2>
-          <p className="text-muted-foreground max-w-md">
+          <p className="text-muted-foreground max-w-md mx-auto">
             Scan this QR code with your phone to open the check-in scanner for{' '}
             <strong>{eventName}</strong>
           </p>
