@@ -93,7 +93,7 @@ export default function BillingPage() {
                     animate={{ opacity: 1, x: 0 }}
                 >
                     <h1 className="text-2xl sm:text-3xl font-bold">Credits</h1>
-                    <p className="text-muted-foreground mt-1">Manage your wallet and available credits</p>
+                    <p className="text-muted-foreground mt-1">Manage your available credits</p>
                 </motion.div>
 
                 <motion.div
@@ -101,13 +101,10 @@ export default function BillingPage() {
                     animate={{ opacity: 1, x: 0 }}
                     className="flex gap-3"
                 >
-                    <Button variant="outline" className="hidden sm:flex">
-                        Manage Payment Methods
-                    </Button>
                     <Button asChild className="rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-md hover:opacity-90 transition-opacity px-6">
                         <Link href={`/dashboard/o/${organizerId}/billing/purchase`} className="flex items-center gap-2">
                             <Plus className="h-4 w-4" />
-                            Top Up Wallet
+                            Buy More Credits
                         </Link>
                     </Button>
                 </motion.div>
