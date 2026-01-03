@@ -6,7 +6,7 @@
  * 
  * Fee structure:
  * - PAYG: £0.55 per ticket (converted to local currency)
- * - Token: Variable based on credits purchased (€0.27-0.55)
+ * - Token: Variable based on credits purchased (£0.23-0.47)
  * - Charity: £0.20 per ticket (requires verified charity status)
  */
 

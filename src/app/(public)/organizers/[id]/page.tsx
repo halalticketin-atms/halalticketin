@@ -109,7 +109,7 @@ function EventCard({
     };
 
     const card = (
-        <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full">
+        <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full p-0">
             <div className="relative aspect-[4/5] overflow-hidden">
                 {event.bannerImageUrl ? (
                     <Image

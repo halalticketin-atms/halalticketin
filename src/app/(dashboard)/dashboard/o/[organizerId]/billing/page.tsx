@@ -2,11 +2,10 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Wallet, Plus, History, Coins, ArrowUpRight } from 'lucide-react';
+import { Wallet, Plus, History, Coins, ArrowUpRight, TrendingUp, RefreshCw } from 'lucide-react';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useAuth } from '@/context/auth-context';
 import { getCreditBalance, CreditBalanceResponse } from '@/lib/credits-api';
-import { StatCard } from '@/components/dashboard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -19,6 +18,8 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { CreditUsageBar, UsageSegment } from '@/components/dashboard/credits/CreditUsageBar';
+import { CreditMetricCard } from '@/components/dashboard/credits/CreditMetricCard';
 
 export default function BillingPage() {
     const organizerId = useOrganizerFromParams();
@@ -56,20 +57,24 @@ export default function BillingPage() {
         }).format(new Date(dateString));
     };
 
-    const stats = useMemo(() => [
-        {
-            title: 'Available Credits',
-            value: data?.balance ?? 0,
-            icon: Wallet,
-            color: 'blue' as const,
-        },
-        {
-            title: 'Total Purchased',
-            value: data?.totalPurchased ?? 0,
-            icon: Coins,
-            color: 'purple' as const,
-        }
-    ], [data]);
+    // Simple Used vs Available based on real data
+    const usageData = useMemo(() => {
+        if (!data) return { total: 0, used: 0, segments: [] };
+
+        const total = data.totalPurchased > 0 ? data.totalPurchased : data.balance;
+        const used = Math.max(0, data.totalPurchased - data.balance);
+
+        const segments: UsageSegment[] = used > 0 ? [
+            {
+                id: 'used',
+                label: 'Credits Used',
+                value: used,
+                color: 'var(--brand-teal, #0d9488)'
+            }
+        ] : [];
+
+        return { total, used, segments };
+    }, [data]);
 
     if (isLoading) {
         return (
@@ -80,35 +85,64 @@ export default function BillingPage() {
     }
 
     return (
-        <div className="container py-8 overflow-x-hidden">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="container py-8 overflow-x-hidden space-y-8">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                 >
                     <h1 className="text-2xl sm:text-3xl font-bold">Credits</h1>
-                    <p className="text-muted-foreground mt-1">Manage your pre-paid credits and view purchase history</p>
+                    <p className="text-muted-foreground mt-1">Manage your wallet and available credits</p>
                 </motion.div>
 
                 <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
+                    className="flex gap-3"
                 >
-                    <Button asChild className="rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-md hover:opacity-90 transition-opacity px-6 h-11">
+                    <Button variant="outline" className="hidden sm:flex">
+                        Manage Payment Methods
+                    </Button>
+                    <Button asChild className="rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-md hover:opacity-90 transition-opacity px-6">
                         <Link href={`/dashboard/o/${organizerId}/billing/purchase`} className="flex items-center gap-2">
-                            <Plus className="h-5 w-5" />
-                            Buy Credits
+                            <Plus className="h-4 w-4" />
+                            Top Up Wallet
                         </Link>
                     </Button>
                 </motion.div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 mb-8">
-                {stats.map((stat, i) => (
-                    <StatCard key={stat.title} {...stat} delay={i * 0.1} />
-                ))}
+            {/* Top Metrics Cards */}
+            <div className="grid gap-4 sm:grid-cols-2">
+                <CreditMetricCard
+                    title="Available Credits"
+                    value={data?.balance?.toLocaleString() ?? 0}
+                    icon={Wallet}
+                    className="border-l-4 border-l-[var(--brand-teal)]"
+                />
+                <CreditMetricCard
+                    title="Total Purchased"
+                    value={data?.totalPurchased?.toLocaleString() ?? 0}
+                    icon={Coins}
+                />
             </div>
 
+            {/* Usage Breakdown Bar */}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-card/30 backdrop-blur-sm border border-border/50 rounded-xl p-6"
+            >
+                <CreditUsageBar
+                    total={usageData.total}
+                    used={usageData.used}
+                    segments={usageData.segments}
+                />
+            </motion.div>
+
+            {/* Transaction History */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -119,10 +153,13 @@ export default function BillingPage() {
                         <div className="space-y-1">
                             <CardTitle className="text-xl flex items-center gap-2">
                                 <History className="h-5 w-5 text-muted-foreground" />
-                                Purchase History
+                                Recent Transactions
                             </CardTitle>
-                            <CardDescription>Your recent credit transactions</CardDescription>
+                            <CardDescription>Your recent credit purchases and usage</CardDescription>
                         </div>
+                        <Button variant="ghost" size="sm" className="hidden sm:flex">
+                            Export CSV
+                        </Button>
                     </CardHeader>
                     <CardContent>
                         {data?.history && data.history.length > 0 ? (
@@ -131,25 +168,34 @@ export default function BillingPage() {
                                     <TableHeader className="bg-muted/50">
                                         <TableRow>
                                             <TableHead>Date</TableHead>
-                                            <TableHead>Credits</TableHead>
-                                            <TableHead>Price/Unit</TableHead>
-                                            <TableHead>Total Paid (excl. VAT)</TableHead>
-                                            <TableHead className="text-right">Action</TableHead>
+                                            <TableHead>Description</TableHead>
+                                            <TableHead>Type</TableHead>
+                                            <TableHead>Amount</TableHead>
+                                            <TableHead>Balance</TableHead>
+                                            <TableHead className="text-right"></TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
+                                        {/* Real History Items (Purchases) */}
                                         {data.history.map((item) => (
                                             <TableRow key={item.id} className="hover:bg-muted/30 transition-colors">
-                                                <TableCell className="font-medium">
+                                                <TableCell className="font-medium whitespace-nowrap">
                                                     {formatDate(item.createdAt)}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant="secondary" className="bg-[var(--brand-mint)] text-[var(--brand-teal)] border-none">
-                                                        +{item.amount.toLocaleString()}
+                                                    Credit Top Up
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20">
+                                                        Top Up
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell>{formatCurrency(item.pricePerCredit, item.currency)}</TableCell>
-                                                <TableCell className="font-semibold">{formatCurrency(item.totalPaid, item.currency)}</TableCell>
+                                                <TableCell className="text-emerald-600 font-medium">
+                                                    +{item.amount.toLocaleString()}
+                                                </TableCell>
+                                                <TableCell className="text-muted-foreground">
+                                                    -
+                                                </TableCell>
                                                 <TableCell className="text-right">
                                                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                                         <ArrowUpRight className="h-4 w-4" />
@@ -157,6 +203,7 @@ export default function BillingPage() {
                                                 </TableCell>
                                             </TableRow>
                                         ))}
+
                                     </TableBody>
                                 </Table>
                             </div>
@@ -173,3 +220,4 @@ export default function BillingPage() {
         </div>
     );
 }
+

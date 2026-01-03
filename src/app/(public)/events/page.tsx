@@ -239,7 +239,7 @@ function BrowseEventsContent() {
                                         transition={{ duration: 0.4, delay: index * 0.03 }}
                                     >
                                         <Link href={`/events/${event.slug || event.id}`} className="block h-full">
-                                            <Card className="group h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-[var(--brand-cyan)]/10 hover:border-[var(--brand-cyan)]/40 bg-card">
+                                            <Card className="group h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-[var(--brand-cyan)]/10 hover:border-[var(--brand-cyan)]/40 bg-card p-0">
                                                 {/* Large Poster Image */}
                                                 <div className="relative aspect-[4/5] overflow-hidden">
                                                     {event.imageUrl ? (

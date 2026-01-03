@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Wallet, Info, CheckCircle2, CreditCard } from 'lucide-react';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
-import { useAuth } from '@/context/auth-context';
+import { useOrganizers } from '@/context/organizer-context';
 import { createCreditPurchaseSession } from '@/lib/credits-api';
-import { calculateCreditPrice } from '@/lib/fees';
+import { calculateCreditPrice, MAX_PRICE_GBP, MIN_PRICE_GBP } from '@/lib/fees';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -18,16 +18,22 @@ import { useSearchParams } from 'next/navigation';
 export default function PurchaseCreditsPage() {
     const organizerId = useOrganizerFromParams();
     const searchParams = useSearchParams();
-    const { user } = useAuth();
+    const { organizers } = useOrganizers();
+    const { rates } = useExchangeRates();
+    const organizer = organizers.find((item) => item.id === organizerId);
+    const organizerCurrency = (organizer?.defaultCurrency || 'GBP').toUpperCase();
+    const exchangeRate = rates[organizerCurrency] ?? 1;
 
     // Initial credits from query param or default
-    const initialCredits = parseInt(searchParams.get('credits') || '1000', 10);
+    const parsedCredits = parseInt(searchParams.get('credits') || '1000', 10);
+    const initialCredits = Number.isFinite(parsedCredits) ? parsedCredits : 1000;
     const [credits, setCredits] = useState(Math.max(100, Math.min(20000, initialCredits)));
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const pricing = useMemo(() => {
-        const pricePerCredit = calculateCreditPrice(credits);
+        const pricePerCreditGBP = calculateCreditPrice(credits);
+        const pricePerCredit = pricePerCreditGBP * exchangeRate;
         const subtotal = credits * pricePerCredit;
         const vatRate = 0.23;
         const vat = subtotal * vatRate;
@@ -38,9 +44,12 @@ export default function PurchaseCreditsPage() {
             subtotal,
             vat,
             total,
-            currency: 'EUR'
+            currency: organizerCurrency
         };
-    }, [credits]);
+    }, [credits, exchangeRate, organizerCurrency]);
+
+    const maxUnitPrice = MAX_PRICE_GBP * exchangeRate;
+    const minUnitPrice = MIN_PRICE_GBP * exchangeRate;
 
     const formatCurrency = (amount: number, currency: string) => {
         return new Intl.NumberFormat('en-IE', {
@@ -147,8 +156,8 @@ export default function PurchaseCreditsPage() {
                                     <div className="space-y-1">
                                         <p className="text-sm font-medium">Tiered Pricing Schedule</p>
                                         <ul className="text-xs text-muted-foreground space-y-1">
-                                            <li>• 100 credits: <span className="font-semibold text-foreground">€0.55</span> per unit</li>
-                                            <li>• 20,000 credits: <span className="font-semibold text-foreground">€0.27</span> per unit</li>
+                                            <li>• 100 credits: <span className="font-semibold text-foreground">{formatCurrency(maxUnitPrice, pricing.currency)}</span> per unit</li>
+                                            <li>• 20,000 credits: <span className="font-semibold text-foreground">{formatCurrency(minUnitPrice, pricing.currency)}</span> per unit</li>
                                             <li>• Currently: <span className="font-semibold text-[var(--brand-teal)]">{formatCurrency(pricing.pricePerCredit, pricing.currency)}</span> per unit</li>
                                         </ul>
                                     </div>

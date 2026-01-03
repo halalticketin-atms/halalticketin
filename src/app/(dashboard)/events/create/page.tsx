@@ -87,6 +87,15 @@ import { getBackendErrorDetails } from '@/lib/api-errors';
 import { getUserFriendlyMessage, showWarning } from '@/lib/errors';
 import { PAYG_FEE_GBP, getCurrencySymbol, convertFromGBP } from '@/lib/fees';
 import { uploadEventBanner } from '@/lib/upload-api';
+import { getCreditBalance } from '@/lib/credits-api';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 export const steps = [
     { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
@@ -355,6 +364,11 @@ export function EventWizard({
     const [ticketErrors, setTicketErrors] = useState<Record<string, { maxPerOrder?: string }>>({});
     const [promoErrors, setPromoErrors] = useState<Record<string, { code?: string; discountValue?: string }>>({});
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+    // Credit warning state
+    const [isWarningOpen, setIsWarningOpen] = useState(false);
+    const [organizerCredits, setOrganizerCredits] = useState<number | null>(null);
+    const [publishCapacity, setPublishCapacity] = useState(0);
 
     // Banner file upload state
     const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -811,24 +825,11 @@ export function EventWizard({
         await saveDraft();
     }, [saveDraft]);
 
-    const handlePublishClick = useCallback(async () => {
-        if (isPublishing) {
-            return;
-        }
-
-        if (!formData.refundPolicy.trim()) {
-            setFieldErrors((prev) => ({
-                ...prev,
-                refundPolicy: 'Select a refund policy before publishing.',
-            }));
-            setCurrentStep(4);
-            setActionError('Select a refund policy before publishing.');
-            return;
-        }
-
+    const executePublish = useCallback(async () => {
         setActionError(null);
         setActionMessage(null);
         setIsPublishing(true);
+        setIsWarningOpen(false); // Close warning if open
 
         try {
             const savedEventId = await saveDraft({ silent: true });
@@ -878,7 +879,43 @@ export function EventWizard({
         } finally {
             setIsPublishing(false);
         }
-    }, [activeOrganizerId, formData.refundPolicy, formData.visibility, isPublishing, markSnapshotAsSaved, router, saveDraft, setCurrentStep]);
+    }, [activeOrganizerId, formData.visibility, markSnapshotAsSaved, router, saveDraft]);
+
+    const handlePublishClick = useCallback(async () => {
+        if (isPublishing) {
+            return;
+        }
+
+        if (!formData.refundPolicy.trim()) {
+            setFieldErrors((prev) => ({
+                ...prev,
+                refundPolicy: 'Select a refund policy before publishing.',
+            }));
+            setCurrentStep(4);
+            setActionError('Select a refund policy before publishing.');
+            return;
+        }
+
+        // Credit check for 'token' fee tier
+        if (currentOrganizer?.feeTier === 'token' && activeOrganizerId) {
+            try {
+                const credits = await getCreditBalance(activeOrganizerId);
+                const totalCapacity = tickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
+
+                if (credits.balance < totalCapacity) {
+                    setOrganizerCredits(credits.balance);
+                    setPublishCapacity(totalCapacity);
+                    setIsWarningOpen(true);
+                    return;
+                }
+            } catch (err) {
+                console.error('Failed to check credits:', err);
+                // Fail safe: assume they can publish, backend will handle or default to PAYG
+            }
+        }
+
+        await executePublish();
+    }, [activeOrganizerId, currentOrganizer, executePublish, formData.refundPolicy, isPublishing, tickets]);
 
     const handlePreviewClick = useCallback(async () => {
         // Save draft before previewing (silent save)
@@ -2524,6 +2561,31 @@ export function EventWizard({
                     </main>
                 </div>
             </div>
+
+            <Dialog open={isWarningOpen} onOpenChange={setIsWarningOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Insufficient Credits</DialogTitle>
+                        <DialogDescription>
+                            Your total ticket capacity ({publishCapacity}) exceeds your available credits ({organizerCredits}).
+                            If you publish now, the 5% platform fee will be charged to the customer instead of using your credits.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => setIsWarningOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="secondary" asChild>
+                            <Link href={`${buildDashboardPath(activeOrganizerId || '')}/billing/purchase`}>
+                                Top Up Credits
+                            </Link>
+                        </Button>
+                        <Button onClick={executePublish}>
+                            Publish Anyway
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
         </div >
     );

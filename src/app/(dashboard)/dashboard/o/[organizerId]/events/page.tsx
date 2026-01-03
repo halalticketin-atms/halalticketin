@@ -107,7 +107,7 @@ function EventCard({ event, index, onDelete }: { event: DashboardEvent; index: n
             transition={{ duration: 0.4, delay: index * 0.1 }}
         >
             <Card
-                className="group relative overflow-hidden border border-border/60 hover:border-primary/20 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
+                className="group relative overflow-hidden border border-border/60 hover:border-primary/20 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer p-0"
                 onClick={handleCardClick}
             >
                 {/* Banner Image - Portrait 4:5 */}
