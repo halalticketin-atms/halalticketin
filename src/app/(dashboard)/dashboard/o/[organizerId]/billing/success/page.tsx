@@ -57,7 +57,7 @@ export default function CreditPurchaseSuccessPage() {
                     <div className="pt-4 space-y-3">
                         <Button asChild className="w-full h-12 rounded-xl bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white font-bold shadow-lg hover:opacity-90 transition-all">
                             <Link href={`/dashboard/o/${organizerId}/billing`} className="flex items-center justify-center gap-2">
-                                Go to Billing Dashboard
+                                Go to Credits Dashboard
                                 <ArrowRight className="h-5 w-5" />
                             </Link>
                         </Button>

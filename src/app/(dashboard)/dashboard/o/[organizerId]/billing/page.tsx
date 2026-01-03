@@ -33,7 +33,7 @@ export default function BillingPage() {
                 const result = await getCreditBalance(organizerId);
                 setData(result);
             } catch (error) {
-                console.error('Failed to fetch billing data:', error);
+                console.error('Failed to fetch credit data:', error);
             } finally {
                 setIsLoading(false);
             }
@@ -86,7 +86,7 @@ export default function BillingPage() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                 >
-                    <h1 className="text-2xl sm:text-3xl font-bold">Billing & Credits</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold">Credits</h1>
                     <p className="text-muted-foreground mt-1">Manage your pre-paid credits and view purchase history</p>
                 </motion.div>
 
