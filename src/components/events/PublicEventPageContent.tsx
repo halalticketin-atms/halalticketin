@@ -996,27 +996,7 @@ export function PublicEventPageContent({
                             )}
                         </motion.div>
 
-                        {/* Refund Policy */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, delay: 0.25 }}
-                        >
-                            <h2 className="text-xl font-semibold mb-4">Refund policy</h2>
-                            <Card>
-                                <CardContent className="pt-6">
-                                    {refundPolicyText ? (
-                                        <p className="text-muted-foreground whitespace-pre-wrap">
-                                            {refundPolicyText}
-                                        </p>
-                                    ) : (
-                                        <p className="text-muted-foreground italic">
-                                            Refund policy not specified.
-                                        </p>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </motion.div>
+
 
                         {/* Location Details */}
                         {event.locationType !== 'online' && (event.venue || event.address) && (
@@ -1078,6 +1058,21 @@ export function PublicEventPageContent({
                                         </Button>
                                     </CardContent>
                                 </Card>
+                            </motion.div>
+                        )}
+
+                        {/* Refund Policy - Subtle Footer */}
+                        {refundPolicyText && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.4, delay: 0.4 }}
+                                className="pt-8 mt-8 border-t border-border/40"
+                            >
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Refund Policy</p>
+                                <p className="text-sm text-muted-foreground/80 leading-relaxed max-w-prose whitespace-pre-wrap">
+                                    {refundPolicyText}
+                                </p>
                             </motion.div>
                         )}
                     </div>

@@ -654,10 +654,12 @@ export function EventWizard({
                     const response = await createEventDraft(activeOrganizerId, payload);
                     nextEventId = response.event.id;
                 } else {
+                    console.log('[DEBUG] Updating event:', nextEventId, 'with payload:', payload);
                     await updateEventDraft(nextEventId, payload);
                 }
 
                 const ticketPayloads = buildTicketPayloads(tickets, formData.currency);
+                console.log('[DEBUG] Saving tickets for event:', nextEventId, 'payload:', ticketPayloads);
                 const ticketResponse = await saveEventTickets(nextEventId, ticketPayloads);
                 let normalizedTickets = tickets;
                 if (ticketResponse.tickets && ticketResponse.tickets.length > 0) {
@@ -876,7 +878,7 @@ export function EventWizard({
         } finally {
             setIsPublishing(false);
         }
-    }, [activeOrganizerId, formData.refundPolicy, formData.visibility, isPublishing, markSnapshotAsSaved, router, saveDraft]);
+    }, [activeOrganizerId, formData.refundPolicy, formData.visibility, isPublishing, markSnapshotAsSaved, router, saveDraft, setCurrentStep]);
 
     const handlePreviewClick = useCallback(async () => {
         // Save draft before previewing (silent save)
