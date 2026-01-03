@@ -401,11 +401,11 @@ export default function PricingPage() {
                                                 onClick={() => {
                                                     const creditsValue = Math.round(credits);
                                                     if (user) {
-                                                        // Redirect to dashboard billing purchase
-                                                        router.push(`/dashboard/o/any/billing/purchase?credits=${creditsValue}`);
+                                                        // Redirect to dashboard billing - dashboard will resolve organizer
+                                                        router.push(`/dashboard/billing?credits=${creditsValue}`);
                                                     } else {
-                                                        // Redirect to login with returnTo
-                                                        router.push(`/login?returnTo=/dashboard/o/any/billing/purchase?credits=${creditsValue}`);
+                                                        // Not logged in - redirect to login, then to dashboard
+                                                        router.push(`/login?returnTo=/dashboard/billing?credits=${creditsValue}`);
                                                     }
                                                 }}
                                                 className="w-full mt-8 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-opacity font-bold h-12 shadow-md"

@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, useMotionValue, useTransform, PanInfo } from 'motion/react';
+import { motion } from 'motion/react';
 import {
     MoreHorizontal,
     Mail,
@@ -96,68 +96,18 @@ export function OrderCard({
     onRefund,
     isResending = false,
 }: OrderCardProps) {
-    const x = useMotionValue(0);
-    const [isDragging, setIsDragging] = useState(false);
+    // Drag logic removed
 
-    // Transform x position to show/hide action buttons
-    const leftActionOpacity = useTransform(x, [0, 100], [0, 1]);
-    const rightActionOpacity = useTransform(x, [0, -100], [0, 1]);
-
-    const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-        setIsDragging(false);
-        const threshold = 80;
-
-        if (info.offset.x > threshold) {
-            // Swiped right - resend email
-            onResendEmail(order.id);
-        } else if (info.offset.x < -threshold && (order.status === 'completed' || order.status === 'partially_refunded')) {
-            // Swiped left - refund
-            onRefund(order);
-        }
-
-        // Reset position
-        x.set(0);
-    };
 
     return (
         <div className="relative overflow-hidden rounded-xl">
-            {/* Background action buttons (visible on swipe) */}
-            <motion.div
-                className="absolute inset-0 flex items-center justify-between px-6 pointer-events-none"
-                style={{ zIndex: 0 }}
-            >
-                {/* Left action - Resend Email */}
-                <motion.div
-                    style={{ opacity: leftActionOpacity }}
-                    className="flex items-center gap-2 text-primary font-medium"
-                >
-                    <Mail className="h-5 w-5" />
-                    <span className="hidden sm:inline">Resend</span>
-                </motion.div>
 
-                {/* Right action - Refund */}
-                {(order.status === 'completed' || order.status === 'partially_refunded') && (
-                    <motion.div
-                        style={{ opacity: rightActionOpacity }}
-                        className="flex items-center gap-2 text-destructive font-medium"
-                    >
-                        <span className="hidden sm:inline">Refund</span>
-                        <RefreshCw className="h-5 w-5" />
-                    </motion.div>
-                )}
-            </motion.div>
 
             {/* Main card content */}
             <motion.div
-                drag="x"
-                dragConstraints={{ left: -150, right: 150 }}
-                dragElastic={0.2}
-                style={{ x, zIndex: 1 }}
-                onDragStart={() => setIsDragging(true)}
-                onDragEnd={handleDragEnd}
                 whileHover={{ y: -4, transition: { duration: 0.2 } }}
                 className="bg-card border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative md:cursor-default"
-                onClick={() => !isDragging && onViewDetails(order)}
+                onClick={() => onViewDetails(order)}
             >
                 {/* Header: Order number and status */}
                 <div className="flex items-start justify-between gap-3 mb-4">
@@ -174,7 +124,7 @@ export function OrderCard({
 
                 {/* Customer info */}
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
+                    <div className="h-10 w-10 rounded-full bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
                         {getInitials(order.attendee.name)}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -257,14 +207,7 @@ export function OrderCard({
                     </div>
                 </div>
 
-                {/* Mobile swipe hint (only visible first few times) */}
-                <div className="md:hidden absolute bottom-2 right-2">
-                    <div className="flex gap-1">
-                        <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-                        <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-                        <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-                    </div>
-                </div>
+
             </motion.div>
         </div>
     );
