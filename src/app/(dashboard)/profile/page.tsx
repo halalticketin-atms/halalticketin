@@ -30,8 +30,6 @@ import { getFavoriteEvents, type FavoriteEvent } from '@/lib/favorites-api';
 import { getFollowedOrganizers, type FollowedOrganizer } from '@/lib/follows-api';
 import { CreateOrganizerDialog } from '@/components/auth/CreateOrganizerDialog';
 import { COUNTRIES } from '@/lib/organizer-options';
-import { toast } from '@/lib/notifications';
-import { ShareDialog } from '@/components/share/ShareDialog';
 
 type ProfileEventCard = {
     id: string;
@@ -61,8 +59,6 @@ export default function ProfilePage() {
 
     // Upgrade to organizer dialog state
     const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
-    const [isShareOpen, setIsShareOpen] = useState(false);
-    const [shareProfileUrl, setShareProfileUrl] = useState('');
 
     const displayName = user?.name || user?.email?.split('@')[0] || 'Guest User';
     const displayEmail = user?.email ?? 'Sign in';
@@ -176,25 +172,9 @@ export default function ProfilePage() {
     const pastEvents = getByStatus('past').map(formatEvent);
     const savedEventCards = savedEvents.map(formatSavedEvent);
 
-    const handleShareProfile = () => {
-        if (!activeOrganizer) {
-            toast.info('Create an organizer profile to share your public page.');
-            return;
-        }
-        const url = `${window.location.origin}/organizers/${activeOrganizer.id}`;
-        setShareProfileUrl(url);
-        setIsShareOpen(true);
-    };
 
     return (
         <div className="relative min-h-screen bg-background -mt-[var(--nav-safe-offset)] overflow-hidden">
-            <ShareDialog
-                open={isShareOpen}
-                onOpenChange={setIsShareOpen}
-                title={activeOrganizer?.name || 'Organizer profile'}
-                text="Organizer profile"
-                url={shareProfileUrl}
-            />
             {/* Background Orbs */}
             <div className="absolute inset-0 bg-noise pointer-events-none opacity-50" />
             <motion.div
@@ -289,7 +269,7 @@ export default function ProfilePage() {
                                 {/* Bio / Description Placeholder */}
                                 <p className="max-w-xl text-sm md:text-base leading-relaxed">
                                     {user
-                                        ? 'Welcome to your profile. Manage your events and tickets here.'
+                                        ? 'Welcome to your profile.'
                                         : 'Sign in to create your HalalTicketin profile and manage events.'}
                                 </p>
 
@@ -316,14 +296,6 @@ export default function ProfilePage() {
 
                             {/* Actions */}
                             <div className="flex gap-3 shrink-0">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="rounded-full px-5 hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all duration-300 active:scale-95"
-                                    onClick={handleShareProfile}
-                                >
-                                    Share
-                                </Button>
                                 <Button variant="outline" size="sm" className="rounded-full px-5 hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all duration-300 active:scale-95" asChild>
                                     <Link href="/settings">Edit Profile</Link>
                                 </Button>

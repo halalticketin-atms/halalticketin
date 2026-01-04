@@ -195,7 +195,11 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
     };
 };
 
-const buildTicketPayloads = (tickets: DraftTicketType[], currency: string): TicketInputPayload[] =>
+const buildTicketPayloads = (
+    tickets: DraftTicketType[],
+    currency: string,
+    options?: { includeIds?: boolean },
+): TicketInputPayload[] =>
     tickets.map((ticket, index) => {
         const parsedPrice = Number.parseFloat(ticket.price || '0');
         const priceValue = Number.isFinite(parsedPrice) ? parsedPrice : 0;
@@ -203,7 +207,8 @@ const buildTicketPayloads = (tickets: DraftTicketType[], currency: string): Tick
         const maxPerOrderValue = Number.isFinite(ticket.maxPerOrder)
             ? Math.max(ticket.maxPerOrder, 1)
             : undefined;
-        const backendId = isUuid(ticket.id) ? ticket.id : undefined;
+        const shouldIncludeIds = options?.includeIds ?? true;
+        const backendId = shouldIncludeIds && isUuid(ticket.id) ? ticket.id : undefined;
 
         // Early bird pricing
         const parsedEarlyBirdPrice = Number.parseFloat(ticket.earlyBirdPrice || '0');
@@ -678,7 +683,9 @@ export function EventWizard({
                     await updateEventDraft(nextEventId, payload);
                 }
 
-                const ticketPayloads = buildTicketPayloads(tickets, formData.currency);
+                const ticketPayloads = buildTicketPayloads(tickets, formData.currency, {
+                    includeIds: Boolean(eventId),
+                });
                 console.log('[DEBUG] Saving tickets for event:', nextEventId, 'payload:', ticketPayloads);
                 const ticketResponse = await saveEventTickets(nextEventId, ticketPayloads);
                 let normalizedTickets = tickets;

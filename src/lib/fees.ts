@@ -151,7 +151,7 @@ export function calculateFeePerTicket(
     customBookingFee?: number,
     rates: Record<string, number> = FALLBACK_EXCHANGE_RATES
 ): number {
-    if (feeTier === 'token' && customBookingFee !== undefined && customBookingFee >= 0) {
+    if (customBookingFee !== undefined && customBookingFee >= 0) {
         return customBookingFee;
     }
 
