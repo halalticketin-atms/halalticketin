@@ -10,7 +10,7 @@ import {
     useState,
 } from 'react';
 
-import api from '@/lib/api';
+import api, { ApiError } from '@/lib/api';
 import { useAuth } from './auth-context';
 import type { EventScope } from '@/types';
 
@@ -67,7 +67,7 @@ const persistOrganizerId = (organizerId: string | null) => {
 };
 
 export function OrganizerProvider({ children }: { children: React.ReactNode }) {
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
     const [organizers, setOrganizers] = useState<OrganizerSummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -125,6 +125,13 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
             const nextOrganizerId = selectDefaultOrganizerId(response.organizers);
             setActiveOrganizerId(nextOrganizerId ?? null);
         } catch (err) {
+            if (err instanceof ApiError && err.status === 401) {
+                signOut();
+                setError(null);
+                setOrganizers([]);
+                setActiveOrganizerId(null, { persist: false });
+                return;
+            }
             const message = err instanceof Error ? err.message : 'Unable to load organisers';
             setError(message);
             setOrganizers([]);
