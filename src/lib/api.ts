@@ -1,12 +1,15 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TOKEN_STORAGE_KEY = 'halal-ticketin-access-token';
+const REFRESH_TOKEN_STORAGE_KEY = 'halal-ticketin-refresh-token';
 
 interface RequestConfig extends RequestInit {
     params?: Record<string, string>;
+    skipAuthRefresh?: boolean;
 }
 
 const isBrowser = typeof window !== 'undefined';
 let inMemoryToken: string | null = null;
+let inMemoryRefreshToken: string | null = null;
 
 const loadToken = () => {
     if (isBrowser) {
@@ -16,6 +19,16 @@ const loadToken = () => {
     }
 
     return inMemoryToken;
+};
+
+const loadRefreshToken = () => {
+    if (isBrowser) {
+        const stored = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+        inMemoryRefreshToken = stored;
+        return stored;
+    }
+
+    return inMemoryRefreshToken;
 };
 
 export const setAuthToken = (token: string | null) => {
@@ -31,6 +44,19 @@ export const setAuthToken = (token: string | null) => {
     }
 };
 
+export const setRefreshToken = (token: string | null) => {
+    inMemoryRefreshToken = token;
+    if (!isBrowser) {
+        return;
+    }
+
+    if (token) {
+        window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
+    } else {
+        window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+    }
+};
+
 export const getAuthToken = () => {
     if (inMemoryToken) {
         return inMemoryToken;
@@ -39,8 +65,21 @@ export const getAuthToken = () => {
     return loadToken();
 };
 
+export const getRefreshToken = () => {
+    if (inMemoryRefreshToken) {
+        return inMemoryRefreshToken;
+    }
+
+    return loadRefreshToken();
+};
+
 export const clearAuthToken = () => {
     setAuthToken(null);
+};
+
+export const clearAuthSession = () => {
+    setAuthToken(null);
+    setRefreshToken(null);
 };
 
 export class ApiError extends Error {
@@ -61,8 +100,59 @@ class ApiClient {
         this.baseUrl = baseUrl;
     }
 
+    private refreshPromise: Promise<string | null> | null = null;
+
+    private async refreshAccessToken(): Promise<string | null> {
+        if (!isBrowser) {
+            return null;
+        }
+
+        const refreshToken = getRefreshToken();
+        if (!refreshToken) {
+            return null;
+        }
+
+        if (this.refreshPromise) {
+            return this.refreshPromise;
+        }
+
+        this.refreshPromise = (async () => {
+            try {
+                const response = await fetch(`${this.baseUrl}/api/v1/auth/refresh`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ refreshToken }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to refresh session');
+                }
+
+                const data = await response.json();
+                if (!data?.accessToken) {
+                    throw new Error('Refresh response missing access token');
+                }
+
+                setAuthToken(data.accessToken);
+                if (data.refreshToken) {
+                    setRefreshToken(data.refreshToken);
+                }
+                return data.accessToken as string;
+            } catch {
+                clearAuthSession();
+                return null;
+            } finally {
+                this.refreshPromise = null;
+            }
+        })();
+
+        return this.refreshPromise;
+    }
+
     private async request<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
-        const { params, ...fetchConfig } = config;
+        const { params, skipAuthRefresh, ...fetchConfig } = config;
 
         let url = `${this.baseUrl}${endpoint}`;
         if (params) {
@@ -86,6 +176,13 @@ class ApiClient {
             ...fetchConfig,
             headers,
         });
+
+        if (response.status === 401 && !skipAuthRefresh) {
+            const refreshedToken = await this.refreshAccessToken();
+            if (refreshedToken) {
+                return this.request<T>(endpoint, { ...config, skipAuthRefresh: true });
+            }
+        }
 
         if (!response.ok) {
             const contentType = response.headers.get('content-type');

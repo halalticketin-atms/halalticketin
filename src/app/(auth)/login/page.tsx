@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getSupabase } from '@/lib/supabase';
-import api, { setAuthToken } from '@/lib/api';
+import api, { setAuthToken, setRefreshToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { toast } from '@/lib/notifications';
 
@@ -116,6 +116,7 @@ function LoginContent() {
             });
 
             setAuthToken(response.accessToken);
+            setRefreshToken(response.refreshToken);
             await refresh();
 
             // Show success toast

@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import api, { ApiError, clearAuthToken, getAuthToken } from '@/lib/api';
+import api, { ApiError, clearAuthSession, getAuthToken } from '@/lib/api';
 import type { EventScope } from '@/types';
 
 interface Membership {
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setError(message);
 
             if (err instanceof ApiError && err.status === 401) {
-                clearAuthToken();
+                clearAuthSession();
                 setProfile(null);
             }
         } finally {
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [fetchProfile]);
 
     const signOut = useCallback(() => {
-        clearAuthToken();
+        clearAuthSession();
         setProfile(null);
         setError(null);
     }, []);

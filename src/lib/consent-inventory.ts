@@ -72,6 +72,13 @@ export const BROWSER_STORAGE_ITEMS: BrowserStorageItem[] = [
         categoryId: 'essential'
     },
     {
+        key: 'halal-ticketin-refresh-token',
+        storage: 'localStorage',
+        purpose: 'Renews your sign-in session when access tokens expire, so you stay signed in without interruptions.',
+        retention: 'Cleared when you sign out or manually clear browser storage.',
+        categoryId: 'essential'
+    },
+    {
         key: 'halal-ticketin:last-organizer-id',
         storage: 'localStorage',
         purpose: 'Remembers the organiser workspace you last selected so dashboards open to the right team.',

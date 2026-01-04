@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
-import { setAuthToken } from '@/lib/api';
+import { setAuthToken, setRefreshToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 
 function CallbackContent() {
@@ -29,6 +29,7 @@ function CallbackContent() {
                 if (session?.access_token) {
                     // Store the access token
                     setAuthToken(session.access_token);
+                    setRefreshToken(session.refresh_token ?? null);
 
                     await refresh();
                     setRedirectPending(true);
