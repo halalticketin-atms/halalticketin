@@ -89,7 +89,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="font-display text-xl font-semibold">Active Events Performance</h2>
                 <Button variant="ghost" size="sm" asChild>
                     <Link href={organizerId ? `/dashboard/o/${organizerId}/events` : '/events'}>
@@ -108,20 +108,22 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                     return (
                         <motion.div
                             key={event.id}
+                            className="min-w-0"
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: index * 0.1 }}
                         >
-                            <Card className="group overflow-hidden border-border/50 hover:border-primary/20 hover:shadow-lg transition-all duration-300">
-                                <div className="grid md:grid-cols-[280px_1fr] gap-0">
-                                    {/* Banner Image - 4:5 aspect ratio for full poster */}
-                                    <div className="relative w-full aspect-[4/5] overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800">
+                            <Card className="group overflow-hidden border-border/50 hover:border-primary/20 hover:shadow-lg transition-all duration-300 w-full max-w-full min-w-0">
+                                <div className="flex min-w-0 flex-col gap-0 md:grid md:grid-cols-[280px_1fr]">
+                                    {/* Banner Image - centered and contained */}
+                                    <div className="relative w-full h-48 sm:h-56 md:h-auto md:aspect-[4/5] overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
                                         {event.bannerImageUrl ? (
                                             <Image
                                                 src={event.bannerImageUrl}
                                                 alt={event.title}
                                                 fill
                                                 className="object-contain"
+                                                sizes="(max-width: 768px) 100vw, 280px"
                                             />
                                         ) : (
                                             <div className="absolute inset-0 flex items-center justify-center">
@@ -136,34 +138,34 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                                         </div>
                                     </div>
 
-                                    {/* Content */}
-                                    <CardContent className="p-6 space-y-4">
+                                    {/* Content - contained within bounds */}
+                                    <CardContent className="min-w-0 p-4 sm:p-6 space-y-4 overflow-hidden w-full max-w-full">
                                         {/* Header */}
                                         <div className="space-y-2">
-                                            <h3 className="font-display text-xl font-semibold leading-tight line-clamp-2">
+                                            <h3 className="font-display text-lg sm:text-xl font-semibold leading-tight line-clamp-2">
                                                 {event.title}
                                             </h3>
-                                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                                                <div className="flex items-center gap-1.5">
-                                                    <Calendar className="h-4 w-4" />
-                                                    <span>{formatDate(event.startDatetime)}</span>
+                                            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-1 sm:gap-x-4 sm:gap-y-1 text-sm text-muted-foreground">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <Calendar className="h-4 w-4 flex-shrink-0" />
+                                                    <span className="truncate">{formatDate(event.startDatetime)}</span>
                                                 </div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <MapPin className="h-4 w-4" />
-                                                    <span>{location}</span>
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <MapPin className="h-4 w-4 flex-shrink-0" />
+                                                    <span className="truncate">{location}</span>
                                                 </div>
                                             </div>
                                         </div>
 
                                         {/* Progress Bar */}
-                                        <div>
-                                            <div className="flex items-center justify-between text-sm mb-2">
-                                                <span className="text-muted-foreground">Capacity</span>
-                                                <span className="font-mono font-bold text-primary">
+                                        <div className="w-full">
+                                            <div className="flex items-center justify-between text-sm mb-2 gap-2">
+                                                <span className="text-muted-foreground flex-shrink-0">Capacity</span>
+                                                <span className="font-mono text-xs sm:text-sm font-bold text-primary truncate">
                                                     {event.ticketsSold}/{event.totalTickets} ({Math.round(percentage)}%)
                                                 </span>
                                             </div>
-                                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                            <div className="h-2 bg-muted rounded-full overflow-hidden w-full">
                                                 <motion.div
                                                     className="h-full bg-gradient-to-r from-primary to-primary/60"
                                                     initial={{ width: 0 }}
@@ -175,16 +177,18 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
 
                                         {/* Revenue Metric */}
                                         <div className="pt-2">
-                                        <div className="text-xs text-muted-foreground mb-1">Net Revenue</div>
-                                            <div className="font-mono text-2xl font-bold text-primary">
+                                            <div className="text-xs text-muted-foreground mb-1">Net Revenue</div>
+                                            <div className="font-mono text-xl sm:text-2xl font-bold text-primary">
                                                 {formatCurrency(event.revenue, event.currency)}
                                             </div>
                                         </div>
 
-                                        {/* Weekly Sales Chart */}
-                                        <div className="border-t pt-4">
+                                        {/* Weekly Sales Chart - contained */}
+                                        <div className="border-t pt-4 w-full overflow-hidden">
                                             <div className="text-xs font-medium text-muted-foreground mb-2">12-Week Sales Trend</div>
-                                            <SalesChart data={event.weeklySales} currency={event.currency} />
+                                            <div className="w-full max-w-full overflow-hidden">
+                                                <SalesChart data={event.weeklySales} currency={event.currency} />
+                                            </div>
                                         </div>
 
                                         {/* Actions */}

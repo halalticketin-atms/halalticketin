@@ -46,7 +46,8 @@ export function SalesChart({ data, currency }: SalesChartProps) {
         }
     }, [chartData.length]);
 
-    const minWidth = Math.max(chartData.length * 60, 600); // Minimum 60px per week or container width
+    // On mobile, use less space per data point to fit better
+    const minWidth = Math.max(chartData.length * 45, 320); // Reduced width per week for mobile
     const maxSales = Math.max(...chartData.map(d => d.sales), 1);
 
     return (
@@ -54,7 +55,7 @@ export function SalesChart({ data, currency }: SalesChartProps) {
             ref={scrollContainerRef}
             className="w-full mt-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-border/50 hover:scrollbar-thumb-border"
         >
-            <div style={{ minWidth: `${minWidth}px`, height: '220px' }}>
+            <div style={{ minWidth: `${minWidth}px` }} className="h-[160px] sm:h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={chartData}
