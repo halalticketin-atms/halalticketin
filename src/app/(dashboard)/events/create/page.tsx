@@ -28,6 +28,7 @@ import {
     Loader2,
     ChevronDown,
     Settings2,
+    X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -896,6 +897,18 @@ export function EventWizard({
 
     const handlePublishClick = useCallback(async () => {
         if (isPublishing) {
+            return;
+        }
+
+        // Validate custom questions: dropdown/checkbox must have options
+        const invalidQuestions = formData.customQuestions.filter(q =>
+            (q.type === 'select' || q.type === 'checkbox') &&
+            (!q.options || q.options.length === 0)
+        );
+        if (invalidQuestions.length > 0) {
+            const questionLabels = invalidQuestions.map(q => q.label || 'Untitled').join(', ');
+            setCurrentStep(5); // Go to Attendee Info step
+            setActionError(`Please add options for: ${questionLabels}`);
             return;
         }
 
@@ -2457,7 +2470,15 @@ export function EventWizard({
                                                                             value={question.type}
                                                                             onValueChange={(value) => {
                                                                                 const updated = [...formData.customQuestions];
-                                                                                updated[index] = { ...updated[index], type: value as 'text' | 'select' | 'checkbox' };
+                                                                                const newType = value as 'text' | 'select' | 'checkbox';
+                                                                                updated[index] = {
+                                                                                    ...updated[index],
+                                                                                    type: newType,
+                                                                                    // Initialize options array when switching to select/checkbox
+                                                                                    options: (newType === 'select' || newType === 'checkbox')
+                                                                                        ? (updated[index].options ?? [])
+                                                                                        : undefined
+                                                                                };
                                                                                 setFormData(prev => ({ ...prev, customQuestions: updated }));
                                                                             }}
                                                                         >
@@ -2484,6 +2505,90 @@ export function EventWizard({
                                                                             Required
                                                                         </label>
                                                                     </div>
+                                                                    {/* Options input for dropdown/checkbox types */}
+                                                                    {(question.type === 'select' || question.type === 'checkbox') && (
+                                                                        <div className="space-y-2 pt-2">
+                                                                            <Label className="text-xs text-muted-foreground">
+                                                                                Options
+                                                                            </Label>
+                                                                            {/* Display existing options as chips */}
+                                                                            {(question.options?.length ?? 0) > 0 && (
+                                                                                <div className="flex flex-wrap gap-1.5">
+                                                                                    {question.options?.map((opt, optIndex) => (
+                                                                                        <div
+                                                                                            key={optIndex}
+                                                                                            className="flex items-center gap-1 pl-2.5 pr-1 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium"
+                                                                                        >
+                                                                                            <span>{opt}</span>
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                onClick={() => {
+                                                                                                    const updated = [...formData.customQuestions];
+                                                                                                    const newOptions = [...(updated[index].options ?? [])];
+                                                                                                    newOptions.splice(optIndex, 1);
+                                                                                                    updated[index] = { ...updated[index], options: newOptions };
+                                                                                                    setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                                                }}
+                                                                                                className="p-0.5 hover:bg-primary/20 rounded-full transition-colors"
+                                                                                            >
+                                                                                                <X className="h-3 w-3" />
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                            {/* Add new option input */}
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Input
+                                                                                    placeholder="Type an option and press Enter"
+                                                                                    className="h-8 text-sm flex-1"
+                                                                                    onKeyDown={(e) => {
+                                                                                        if (e.key === 'Enter') {
+                                                                                            e.preventDefault();
+                                                                                            const input = e.currentTarget;
+                                                                                            const value = input.value.trim();
+                                                                                            if (value) {
+                                                                                                const updated = [...formData.customQuestions];
+                                                                                                const currentOptions = updated[index].options ?? [];
+                                                                                                if (!currentOptions.includes(value)) {
+                                                                                                    updated[index] = { ...updated[index], options: [...currentOptions, value] };
+                                                                                                    setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                                                }
+                                                                                                input.value = '';
+                                                                                            }
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    className="h-8 px-3"
+                                                                                    onClick={(e) => {
+                                                                                        const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                                                                                        const value = input?.value?.trim();
+                                                                                        if (value) {
+                                                                                            const updated = [...formData.customQuestions];
+                                                                                            const currentOptions = updated[index].options ?? [];
+                                                                                            if (!currentOptions.includes(value)) {
+                                                                                                updated[index] = { ...updated[index], options: [...currentOptions, value] };
+                                                                                                setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                                            }
+                                                                                            input.value = '';
+                                                                                        }
+                                                                                    }}
+                                                                                >
+                                                                                    <Plus className="h-3.5 w-3.5 mr-1" />
+                                                                                    Add
+                                                                                </Button>
+                                                                            </div>
+                                                                            {(question.options?.length ?? 0) === 0 && (
+                                                                                <p className="text-xs text-amber-600">
+                                                                                    Add at least one option for attendees to choose from
+                                                                                </p>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                                 <Button
                                                                     variant="ghost"

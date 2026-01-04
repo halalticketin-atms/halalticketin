@@ -1562,7 +1562,39 @@ export function PublicEventPageContent({
                                                                         className="h-10 bg-muted/30"
                                                                     />
                                                                 )}
-                                                                {q.type === 'checkbox' && (
+                                                                {q.type === 'checkbox' && q.options && q.options.length > 0 ? (
+                                                                    <div className="space-y-2">
+                                                                        {q.options.map((opt) => {
+                                                                            const currentAnswers = (ticketAttendees[currentTicketIndex].customAnswers[q.id] || '').split(',').filter(Boolean);
+                                                                            const isChecked = currentAnswers.includes(opt);
+                                                                            return (
+                                                                                <label key={opt} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={isChecked}
+                                                                                        onChange={(e) => {
+                                                                                            const updated = [...ticketAttendees];
+                                                                                            let newAnswers: string[];
+                                                                                            if (e.target.checked) {
+                                                                                                newAnswers = [...currentAnswers, opt];
+                                                                                            } else {
+                                                                                                newAnswers = currentAnswers.filter(a => a !== opt);
+                                                                                            }
+                                                                                            updated[currentTicketIndex] = {
+                                                                                                ...updated[currentTicketIndex],
+                                                                                                customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: newAnswers.join(',') }
+                                                                                            };
+                                                                                            setTicketAttendees(updated);
+                                                                                        }}
+                                                                                        disabled={isProcessing}
+                                                                                        className="h-4 w-4 rounded border-border"
+                                                                                    />
+                                                                                    {opt}
+                                                                                </label>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                ) : q.type === 'checkbox' && (
                                                                     <label className="flex items-center gap-2 text-sm text-foreground">
                                                                         <input
                                                                             type="checkbox"

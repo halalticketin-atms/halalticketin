@@ -59,6 +59,24 @@ interface OrderItem {
     unitPrice: number;
 }
 
+interface CustomQuestion {
+    id: string;
+    label: string;
+    type: 'text' | 'select' | 'checkbox';
+    required: boolean;
+    options?: string[];
+}
+
+interface OrderTicket {
+    id: string;
+    ticketCode: string;
+    ticketType: string | null;
+    attendeeName: string | null;
+    attendeeEmail: string | null;
+    status: string;
+    customAnswers: Record<string, string>;
+}
+
 interface OrderResponse {
     id: string;
     orderNumber: string;
@@ -80,6 +98,15 @@ interface OrderResponse {
     status: OrderStatus;
     items: OrderItem[];
     paymentMethod?: string | null;
+}
+
+interface OrderDetailResponse extends OrderResponse {
+    event: {
+        id: string;
+        name: string | null;
+        customQuestions: CustomQuestion[];
+    };
+    tickets: OrderTicket[];
 }
 
 interface OrdersResponse {
@@ -126,6 +153,8 @@ export default function OrdersPage() {
     const [refundError, setRefundError] = useState<string | null>(null);
     const [isResending, setIsResending] = useState(false);
     const [emailCooldowns, setEmailCooldowns] = useState<Map<string, number>>(new Map());
+    const [orderDetail, setOrderDetail] = useState<OrderDetailResponse | null>(null);
+    const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
     // Export state
     const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -322,14 +351,26 @@ export default function OrdersPage() {
         return matchesSearch && matchesStatus && matchesEvent;
     });
 
-    const openOrderDetails = (order: OrderResponse) => {
+    const openOrderDetails = async (order: OrderResponse) => {
         setSelectedOrder(order);
+        setOrderDetail(null);
         setActiveTab('details');
         setRefundType('full');
         setPartialAmount('');
         setSelectedTicketIds(new Set());
         setRefundError(null);
         setIsDialogOpen(true);
+
+        // Fetch detailed order info with tickets
+        setIsLoadingDetail(true);
+        try {
+            const detail = await api.get<OrderDetailResponse>(`/api/v1/orders/${order.id}`);
+            setOrderDetail(detail);
+        } catch (err) {
+            console.error('Failed to fetch order details:', err);
+        } finally {
+            setIsLoadingDetail(false);
+        }
     };
 
     const { totalOrders, paidOrders, revenueTotal } = useMemo(() => {
@@ -464,7 +505,7 @@ export default function OrdersPage() {
                                         <SelectItem value="partially_refunded">Partial Refund</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                
+
                                 {/* Event Filter Dropdown */}
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -477,7 +518,7 @@ export default function OrdersPage() {
                                     <DropdownMenuContent align="start" className="w-56">
                                         <div className="p-2 space-y-2 max-h-64 overflow-y-auto">
                                             {/* All Events Option */}
-                                            <div 
+                                            <div
                                                 className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer border-b pb-2 mb-2"
                                                 onClick={() => setEventFilter([])}
                                             >
@@ -495,12 +536,12 @@ export default function OrdersPage() {
                                             </div>
 
                                             {Array.from(new Set(orders.map(o => ({ id: o.event.id, name: o.event.name }))))
-                                                .filter((event, index, self) => 
+                                                .filter((event, index, self) =>
                                                     index === self.findIndex(e => e.id === event.id)
                                                 )
                                                 .map((event) => (
-                                                    <div 
-                                                        key={event.id} 
+                                                    <div
+                                                        key={event.id}
                                                         className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer"
                                                         onClick={() => {
                                                             if (eventFilter.includes(event.id)) {
@@ -552,35 +593,35 @@ export default function OrdersPage() {
                     </CardContent>
                 </Card>
 
-                  {/* Event Filter Chips */}
-                  {eventFilter.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-4">
-                          {eventFilter.map(eventId => {
-                              const event = orders.find(o => o.event.id === eventId)?.event;
-                              return (
-                                  <Badge
-                                      key={eventId}
-                                      variant="secondary"
-                                      className="px-3 py-1.5 cursor-pointer hover:bg-secondary/80"
-                                      onClick={() => setEventFilter(eventFilter.filter(id => id !== eventId))}
-                                  >
-                                      {event?.name || "Event"}
-                                      <X className="h-3 w-3 ml-1.5" />
-                                  </Badge>
-                              );
-                          })}
-                          {eventFilter.length > 1 && (
-                              <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs"
-                                  onClick={() => setEventFilter([])}
-                              >
-                                  Clear all
-                              </Button>
-                          )}
-                      </div>
-                  )}
+                {/* Event Filter Chips */}
+                {eventFilter.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {eventFilter.map(eventId => {
+                            const event = orders.find(o => o.event.id === eventId)?.event;
+                            return (
+                                <Badge
+                                    key={eventId}
+                                    variant="secondary"
+                                    className="px-3 py-1.5 cursor-pointer hover:bg-secondary/80"
+                                    onClick={() => setEventFilter(eventFilter.filter(id => id !== eventId))}
+                                >
+                                    {event?.name || "Event"}
+                                    <X className="h-3 w-3 ml-1.5" />
+                                </Badge>
+                            );
+                        })}
+                        {eventFilter.length > 1 && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => setEventFilter([])}
+                            >
+                                Clear all
+                            </Button>
+                        )}
+                    </div>
+                )}
 
 
                 {/* Orders Grid */}
@@ -720,6 +761,56 @@ export default function OrdersPage() {
                                                         ))}
                                                     </div>
                                                 </div>
+
+                                                {/* Attendee Details with Custom Answers */}
+                                                {isLoadingDetail ? (
+                                                    <div className="flex items-center justify-center py-4">
+                                                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-r-transparent" />
+                                                        <span className="ml-2 text-sm text-muted-foreground">Loading attendee details...</span>
+                                                    </div>
+                                                ) : orderDetail?.tickets && orderDetail.tickets.length > 0 && (
+                                                    <div>
+                                                        <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                                                            <Users className="h-4 w-4" /> Attendee Details
+                                                        </h4>
+                                                        <div className="space-y-3">
+                                                            {orderDetail.tickets.map((ticket, index) => (
+                                                                <div key={ticket.id} className="bg-muted/50 rounded-lg p-3">
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <span className="text-sm font-medium">
+                                                                            Ticket {index + 1}: {ticket.ticketType || 'General'}
+                                                                        </span>
+                                                                        <Badge variant="outline" className="text-xs font-mono">
+                                                                            {ticket.ticketCode.slice(0, 8)}...
+                                                                        </Badge>
+                                                                    </div>
+                                                                    <div className="text-sm text-muted-foreground space-y-1">
+                                                                        <p><span className="font-medium text-foreground">Name:</span> {ticket.attendeeName || selectedOrder.attendee.name || 'N/A'}</p>
+                                                                        <p><span className="font-medium text-foreground">Email:</span> {ticket.attendeeEmail || selectedOrder.attendee.email}</p>
+                                                                    </div>
+                                                                    {/* Custom Answers */}
+                                                                    {orderDetail.event.customQuestions.length > 0 && Object.keys(ticket.customAnswers).length > 0 && (
+                                                                        <div className="mt-2 pt-2 border-t border-border/50">
+                                                                            <p className="text-xs font-medium text-muted-foreground mb-1">Custom Answers:</p>
+                                                                            <div className="space-y-0.5">
+                                                                                {orderDetail.event.customQuestions.map((q) => {
+                                                                                    const answer = ticket.customAnswers[q.id];
+                                                                                    if (!answer) return null;
+                                                                                    return (
+                                                                                        <p key={q.id} className="text-xs">
+                                                                                            <span className="text-muted-foreground">{q.label}:</span>{' '}
+                                                                                            <span className="text-foreground">{answer}</span>
+                                                                                        </p>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 <Separator />
 
