@@ -338,7 +338,7 @@ export default function AnalyticsPage() {
                                 <CardHeader className="pb-4">
                                     <div className="flex items-center justify-between flex-wrap gap-4">
                                         <CardTitle className="text-lg font-semibold">
-                                            {chartView === 'revenue' ? 'Revenue' : 'Tickets'} Over Time
+                                            {chartView === 'revenue' ? 'Net Revenue' : 'Tickets'} Over Time
                                         </CardTitle>
                                         <div className="flex gap-2 flex-wrap">
                                             {/* Period Toggle */}
@@ -392,7 +392,7 @@ export default function AnalyticsPage() {
                                                     className="h-7 px-3"
                                                 >
                                                     <DollarSign className="h-3.5 w-3.5 mr-1.5" />
-                                                    Revenue
+                                                    Net Revenue
                                                 </Button>
                                                 <Button
                                                     variant={chartView === 'tickets' ? 'default' : 'ghost'}
@@ -565,7 +565,7 @@ export default function AnalyticsPage() {
                                                 className="h-7 text-xs"
                                             >
                                                 <DollarSign className="h-3 w-3 mr-1" />
-                                                Revenue
+                                                Net Revenue
                                             </Button>
                                             <Button
                                                 variant={eventSortBy === 'tickets' ? 'default' : 'ghost'}
@@ -725,7 +725,7 @@ export default function AnalyticsPage() {
                         >
                             <Card className="border-border/50">
                                 <CardContent className="p-4 sm:p-6">
-                                    <p className="text-sm font-medium text-muted-foreground mb-2 truncate">Revenue Growth</p>
+                                    <p className="text-sm font-medium text-muted-foreground mb-2 truncate">Net Revenue Growth</p>
                                     {derivedMetrics.growth ? (
                                         <>
                                             <div className="flex items-center gap-2">

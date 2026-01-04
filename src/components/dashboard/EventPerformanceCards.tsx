@@ -175,7 +175,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
 
                                         {/* Revenue Metric */}
                                         <div className="pt-2">
-                                            <div className="text-xs text-muted-foreground mb-1">Revenue</div>
+                                        <div className="text-xs text-muted-foreground mb-1">Net Revenue</div>
                                             <div className="font-mono text-2xl font-bold text-primary">
                                                 {formatCurrency(event.revenue, event.currency)}
                                             </div>

@@ -127,7 +127,7 @@ export default function DashboardPage() {
     const stats = useMemo(
         () => [
             {
-                title: 'Total Revenue',
+                title: 'Net Revenue',
                 value: formatCurrency(analyticsStats?.netRevenue ?? analyticsStats?.totalRevenue ?? 0, analyticsStats?.currency ?? 'GBP'),
                 icon: DollarSign,
                 color: 'green' as const

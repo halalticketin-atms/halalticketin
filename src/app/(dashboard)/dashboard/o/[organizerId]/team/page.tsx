@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { motion } from 'motion/react';
 import {
     ArrowLeft,
     Users,
@@ -12,6 +13,11 @@ import {
     AlertTriangle,
     Loader2,
     Trash2,
+    MoreVertical,
+    UserPlus,
+    Clock,
+    ChevronDown,
+    ChevronUp,
 } from 'lucide-react';
 import {
     fetchTeamMemberships,
@@ -28,20 +34,11 @@ import {
 import type { EventScope, TeamInvitation, TeamMember } from '@/types';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { buildDashboardPath } from '@/lib/organizer-path';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import {
     Dialog,
     DialogContent,
@@ -52,12 +49,18 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const ROLE_OPTIONS = [
-    { value: 'admin', label: 'Admin', description: 'Full access except payouts' },
-    { value: 'editor', label: 'Editor', description: 'Manage events and tickets' },
-    { value: 'check_in', label: 'Check-in', description: 'Access check-in tools only' },
-    { value: 'viewer', label: 'Viewer', description: 'Read-only analytics' },
+    { value: 'admin', label: 'Admin', description: 'Full access except payouts', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' },
+    { value: 'editor', label: 'Editor', description: 'Manage events and tickets', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+    { value: 'check_in', label: 'Check-in', description: 'Access check-in tools only', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+    { value: 'viewer', label: 'Viewer', description: 'Read-only analytics', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
 ];
 
 const STATUS_OPTIONS = [
@@ -107,13 +110,13 @@ function EventScopeSelector({ value, onChange, disabled, events }: EventScopeSel
                             No events found for this organizer yet. Create an event first to limit access.
                         </p>
                     ) : (
-                        <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
+                        <div className="max-h-48 overflow-y-auto space-y-1">
                             {events.map((event) => {
                                 const checked = value.eventIds?.includes(event.id);
                                 return (
                                     <label
                                         key={event.id}
-                                        className="flex items-center gap-3 rounded-md border border-transparent p-2 hover:bg-muted/50"
+                                        className="flex items-center gap-3 rounded-md p-2 hover:bg-muted/50 cursor-pointer"
                                     >
                                         <Checkbox
                                             checked={checked}
@@ -129,21 +132,21 @@ function EventScopeSelector({ value, onChange, disabled, events }: EventScopeSel
                                             disabled={disabled}
                                         />
                                         {event.bannerImageUrl ? (
-                                            <div className="relative h-8 w-8 overflow-hidden rounded">
+                                            <div className="relative h-6 w-6 overflow-hidden rounded">
                                                 <Image
                                                     src={event.bannerImageUrl}
                                                     alt=""
                                                     fill
-                                                    sizes="32px"
+                                                    sizes="24px"
                                                     className="object-cover"
                                                 />
                                             </div>
                                         ) : (
-                                            <div className="h-8 w-8 rounded bg-muted/60 flex items-center justify-center text-xs text-muted-foreground">
+                                            <div className="h-6 w-6 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">
                                                 {event.name.charAt(0).toUpperCase()}
                                             </div>
                                         )}
-                                        <span className="text-sm">{event.name}</span>
+                                        <span className="text-sm truncate">{event.name}</span>
                                     </label>
                                 );
                             })}
@@ -155,31 +158,120 @@ function EventScopeSelector({ value, onChange, disabled, events }: EventScopeSel
     );
 }
 
-const EventScopeBadge = ({
-    scope,
+function getRoleColor(role: string) {
+    return ROLE_OPTIONS.find(r => r.value === role)?.color ?? 'bg-gray-100 text-gray-700';
+}
+
+function getRoleLabel(role: string) {
+    return ROLE_OPTIONS.find(r => r.value === role)?.label ?? role.replace('_', ' ');
+}
+
+// Compact member card component
+function MemberCard({
+    member,
     eventsMap,
+    onManage,
 }: {
-    scope: EventScope;
+    member: TeamMember;
     eventsMap: Map<string, OrganizerEventOption>;
-}) => {
-    if (scope.mode === 'all') {
-        return <Badge variant="outline">All events</Badge>;
-    }
+    onManage: () => void;
+}) {
+    const isOwner = member.role === 'owner';
+    const scopeLabel = member.eventScope.mode === 'all'
+        ? 'All events'
+        : `${member.eventScope.eventIds.length} event${member.eventScope.eventIds.length !== 1 ? 's' : ''}`;
 
     return (
-        <div className="flex flex-wrap gap-1">
-            <Badge variant="secondary">Limited access ({scope.eventIds.length})</Badge>
-            {scope.eventIds.map((eventId) => {
-                const event = eventsMap.get(eventId);
-                return (
-                    <Badge key={eventId} variant="outline">
-                        {event?.name ?? eventId.slice(0, 6)}
-                    </Badge>
-                );
-            })}
+        <div className="flex items-center gap-4 p-4 rounded-lg border border-border/60 bg-card hover:border-border transition-colors">
+            <Avatar className="h-10 w-10 shrink-0">
+                <AvatarImage src={member.user.avatarUrl ?? undefined} />
+                <AvatarFallback className="text-sm font-medium">
+                    {member.user.name?.charAt(0).toUpperCase() ?? member.user.email.charAt(0).toUpperCase()}
+                </AvatarFallback>
+            </Avatar>
+
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm truncate">
+                        {member.user.name ?? member.user.email.split('@')[0]}
+                    </p>
+                    {member.status === 'suspended' && (
+                        <Badge variant="outline" className="text-xs bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
+                            Suspended
+                        </Badge>
+                    )}
+                </div>
+                <p className="text-xs text-muted-foreground truncate">{member.user.email}</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+                <Badge className={`text-xs font-medium ${getRoleColor(member.role)} border-0`}>
+                    {isOwner ? 'Owner' : getRoleLabel(member.role)}
+                </Badge>
+                <span className="hidden md:inline text-xs text-muted-foreground">{scopeLabel}</span>
+            </div>
+
+            {!isOwner && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                            <MoreVertical className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={onManage}>
+                            Manage access
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
         </div>
     );
-};
+}
+
+// Compact pending invite card
+function InviteCard({
+    invite,
+    eventsMap,
+    onRevoke,
+}: {
+    invite: TeamInvitation;
+    eventsMap: Map<string, OrganizerEventOption>;
+    onRevoke: () => void;
+}) {
+    const scopeLabel = invite.eventScope.mode === 'all'
+        ? 'All events'
+        : `${invite.eventScope.eventIds.length} event${invite.eventScope.eventIds.length !== 1 ? 's' : ''}`;
+
+    return (
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-900/10">
+            <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                <Mail className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
+
+            <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{invite.email}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{getRoleLabel(invite.role)}</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Expires {new Date(invite.expiresAt).toLocaleDateString()}
+                    </span>
+                </div>
+            </div>
+
+            <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                onClick={onRevoke}
+            >
+                <Trash2 className="h-4 w-4" />
+            </Button>
+        </div>
+    );
+}
 
 export default function OrganizerTeamPage() {
     const router = useRouter();
@@ -188,10 +280,20 @@ export default function OrganizerTeamPage() {
     const [invitations, setInvitations] = useState<TeamInvitation[]>([]);
     const [events, setEvents] = useState<OrganizerEventOption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isInviting, setIsInviting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Invite dialog
+    const [isInviteOpen, setIsInviteOpen] = useState(false);
+    const [isInviting, setIsInviting] = useState(false);
     const [inviteError, setInviteError] = useState<string | null>(null);
     const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+    const [inviteForm, setInviteForm] = useState<CreateInvitationPayload & { eventScope: EventScopeInput }>({
+        email: '',
+        role: 'viewer',
+        eventScope: defaultEventScope,
+    });
+
+    // Edit dialog
     const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
     const [editSaving, setEditSaving] = useState(false);
     const [editForm, setEditForm] = useState<{
@@ -199,18 +301,14 @@ export default function OrganizerTeamPage() {
         status: string;
         eventScope: EventScopeInput;
     } | null>(null);
-    const [inviteForm, setInviteForm] = useState<CreateInvitationPayload & { eventScope: EventScopeInput }>({
-        email: '',
-        role: 'viewer',
-        eventScope: defaultEventScope,
-    });
+
+    // Pending invites section
+    const [showPendingInvites, setShowPendingInvites] = useState(true);
 
     const eventsMap = useMemo(() => new Map(events.map((evt) => [evt.id, evt])), [events]);
 
     const loadTeamData = useCallback(async () => {
-        if (!organizerId) {
-            return;
-        }
+        if (!organizerId) return;
 
         setIsLoading(true);
         try {
@@ -230,9 +328,7 @@ export default function OrganizerTeamPage() {
     }, [organizerId]);
 
     const loadEvents = useCallback(async () => {
-        if (!organizerId) {
-            return;
-        }
+        if (!organizerId) return;
         try {
             const eventOptions = await fetchOrganizerEventOptions(organizerId);
             setEvents(eventOptions);
@@ -253,12 +349,12 @@ export default function OrganizerTeamPage() {
 
     const handleInviteSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!organizerId) {
-            return;
-        }
+        if (!organizerId) return;
+
         setIsInviting(true);
         setInviteError(null);
         setInviteSuccess(null);
+
         try {
             const payload: CreateInvitationPayload = {
                 email: inviteForm.email,
@@ -276,9 +372,9 @@ export default function OrganizerTeamPage() {
             const response = await createTeamInvitation(organizerId, payload);
             setInviteSuccess(
                 response.emailSent
-                    ? 'Invitation sent via email.'
+                    ? 'Invitation sent!'
                     : response.token
-                        ? `Send this link manually: ${response.acceptUrl}`
+                        ? `Send this link: ${response.acceptUrl}`
                         : 'Invitation created.'
             );
             setInviteForm({
@@ -287,6 +383,7 @@ export default function OrganizerTeamPage() {
                 eventScope: defaultEventScope,
             });
             await loadTeamData();
+            setTimeout(() => setIsInviteOpen(false), 1500);
         } catch (err) {
             console.error(err);
             setInviteError(err instanceof Error ? err.message : 'Failed to create invitation');
@@ -296,17 +393,13 @@ export default function OrganizerTeamPage() {
     };
 
     const handleRevokeInvitation = async (invitationId: string) => {
-        if (!organizerId) {
-            return;
-        }
+        if (!organizerId) return;
         await revokeTeamInvitation(organizerId, invitationId);
         await loadTeamData();
     };
 
     const openEditDialog = (member: TeamMember) => {
-        if (member.role === 'owner') {
-            return;
-        }
+        if (member.role === 'owner') return;
         setEditingMember(member);
         setEditForm({
             role: member.role,
@@ -322,9 +415,8 @@ export default function OrganizerTeamPage() {
     };
 
     const handleSaveMembership = async () => {
-        if (!organizerId || !editingMember || !editForm) {
-            return;
-        }
+        if (!organizerId || !editingMember || !editForm) return;
+
         setEditSaving(true);
         try {
             const payload = {
@@ -349,277 +441,235 @@ export default function OrganizerTeamPage() {
         return (
             <div className="min-h-screen bg-muted/30">
                 <div className="container py-16">
-                    <Card>
-                        <CardContent className="py-12 text-center space-y-3">
-                            <Users className="h-12 w-12 mx-auto text-muted-foreground" />
-                            <h2 className="text-xl font-semibold">Select an organizer first</h2>
-                            <p className="text-muted-foreground">
-                                Use the organiser switcher to choose which team you want to manage.
-                            </p>
-                            <Button asChild>
-                                <Link href="/dashboard">Go to dashboard</Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    <div className="max-w-md mx-auto text-center space-y-4">
+                        <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                            <Users className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <h2 className="text-xl font-semibold">Select an organizer first</h2>
+                        <p className="text-muted-foreground">
+                            Use the organizer switcher to choose which team you want to manage.
+                        </p>
+                        <Button asChild>
+                            <Link href="/dashboard">Go to dashboard</Link>
+                        </Button>
+                    </div>
                 </div>
             </div>
         );
     }
 
     const pendingInvites = invitations.filter((invite) => invite.status === 'pending');
-    const inactiveInvites = invitations.filter((invite) => invite.status !== 'pending');
 
     return (
         <div className="min-h-screen bg-muted/30">
-            <div className="container py-8 space-y-8">
-                <div className="flex flex-col gap-2">
+            <div className="container py-8">
+                {/* Header */}
+                <div className="mb-8">
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="w-fit"
+                        className="mb-4 -ml-2"
                         onClick={() => router.push(buildDashboardPath(organizerId))}
                     >
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to overview
+                        Back
                     </Button>
-                    <div>
-                        <h1 className="font-display text-2xl font-bold">Team & Permissions</h1>
-                        <p className="text-muted-foreground">
-                            Control who can access this organizer and limit access to specific events.
-                        </p>
+
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h1 className="font-display text-2xl font-bold">Team</h1>
+                            <p className="text-muted-foreground text-sm mt-1">
+                                Manage who can access this organizer
+                            </p>
+                        </div>
+                        <Button
+                            onClick={() => setIsInviteOpen(true)}
+                            className="bg-gradient-to-r from-primary to-[var(--brand-teal)] hover:opacity-90 transition-opacity"
+                        >
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            Invite
+                        </Button>
                     </div>
-                </div>
 
-                {error && (
-                    <Card className="border-destructive/40 bg-destructive/5">
-                        <CardContent className="py-4 flex items-center gap-3">
-                            <AlertTriangle className="h-5 w-5 text-destructive" />
-                            <p className="text-sm text-destructive">{error}</p>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Invite Form */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Mail className="h-5 w-5 text-primary" />
-                            Invite a team member
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form className="grid gap-4 md:grid-cols-2" onSubmit={handleInviteSubmit}>
-                            <div className="space-y-2">
-                                <Label htmlFor="invite-email">Email address</Label>
-                                <Input
-                                    id="invite-email"
-                                    type="email"
-                                    placeholder="team@company.com"
-                                    value={inviteForm.email}
-                                    onChange={(event) => setInviteForm((prev) => ({ ...prev, email: event.target.value }))}
-                                    required
-                                />
+                    {/* Stats row */}
+                    <div className="flex items-center gap-6 mt-6 text-sm">
+                        <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Users className="h-4 w-4 text-primary" />
                             </div>
-
-                            <div className="space-y-2">
-                                <Label>Role</Label>
-                                <Select
-                                    value={inviteForm.role}
-                                    onValueChange={(role) => setInviteForm((prev) => ({ ...prev, role: role as CreateInvitationPayload['role'] }))}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select role" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {ROLE_OPTIONS.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                                <div>
-                                                    <p className="font-medium">{option.label}</p>
-                                                    <p className="text-xs text-muted-foreground">{option.description}</p>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            <div>
+                                <p className="font-semibold">{memberships.length}</p>
+                                <p className="text-xs text-muted-foreground">Members</p>
                             </div>
-
-                            <div className="md:col-span-2">
-                                <EventScopeSelector
-                                    value={inviteForm.eventScope}
-                                    onChange={(scope) => setInviteForm((prev) => ({ ...prev, eventScope: scope }))}
-                                    events={events}
-                                />
-                            </div>
-
-                            <div className="md:col-span-2 flex flex-col gap-2">
-                                <Button type="submit" className="w-full md:w-auto" disabled={isInviting}>
-                                    {isInviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Send invitation
-                                </Button>
-                                {inviteError && <p className="text-sm text-destructive">{inviteError}</p>}
-                                {inviteSuccess && <p className="text-sm text-emerald-600">{inviteSuccess}</p>}
-                            </div>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                {/* Current Team */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Users className="h-5 w-5 text-primary" />
-                            Current team ({memberships.length})
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <div className="py-12 flex flex-col items-center gap-3 text-muted-foreground">
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                                Loading team members...
-                            </div>
-                        ) : memberships.length === 0 ? (
-                            <div className="py-12 text-center space-y-2">
-                                <p className="text-muted-foreground">No team members yet.</p>
-                                <p className="text-sm text-muted-foreground">
-                                    Invite your first collaborator using the form above.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Member</TableHead>
-                                            <TableHead>Role</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Scope</TableHead>
-                                            <TableHead />
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {memberships.map((member) => (
-                                            <TableRow key={member.id}>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-3">
-                                                        <Avatar>
-                                                            <AvatarImage src={member.user.avatarUrl ?? undefined} />
-                                                            <AvatarFallback>
-                                                                {member.user.name?.charAt(0).toUpperCase() ??
-                                                                    member.user.email.charAt(0).toUpperCase()}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <div>
-                                                            <p className="font-medium">{member.user.name ?? member.user.email}</p>
-                                                            <p className="text-xs text-muted-foreground">{member.user.email}</p>
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="capitalize">
-                                                        {member.role.replace('_', ' ')}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        variant={member.status === 'active' ? 'secondary' : 'outline'}
-                                                        className="capitalize"
-                                                    >
-                                                        {member.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <EventScopeBadge scope={member.eventScope} eventsMap={eventsMap} />
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => openEditDialog(member)}
-                                                        disabled={member.role === 'owner'}
-                                                    >
-                                                        Manage
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Invitations */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Pending invitations</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        {pendingInvites.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">No pending invites.</p>
-                        ) : (
-                            <div className="space-y-4">
-                                {pendingInvites.map((invite) => (
-                                    <div
-                                        key={invite.id}
-                                        className="flex flex-col gap-2 rounded-lg border border-border/60 p-4 md:flex-row md:items-center md:justify-between"
-                                    >
-                                        <div>
-                                            <p className="font-medium">{invite.email}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                                Role: {invite.role.replace('_', ' ')} • Expires{' '}
-                                                {new Date(invite.expiresAt).toLocaleDateString()}
-                                            </p>
-                                            <EventScopeBadge scope={invite.eventScope} eventsMap={eventsMap} />
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="text-destructive hover:text-destructive"
-                                                onClick={() => handleRevokeInvitation(invite.id)}
-                                            >
-                                                <Trash2 className="h-4 w-4 mr-1" />
-                                                Revoke
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {inactiveInvites.length > 0 && (
-                            <div className="space-y-2">
-                                <p className="text-sm font-medium">Completed invitations</p>
-                                <div className="grid gap-2">
-                                    {inactiveInvites.map((invite) => (
-                                        <div
-                                            key={invite.id}
-                                            className="flex items-center justify-between rounded-md border border-dashed border-border/60 px-3 py-2 text-sm"
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                                                <span>{invite.email}</span>
-                                            </div>
-                                            <Badge variant="outline" className="capitalize">
-                                                {invite.status}
-                                            </Badge>
-                                        </div>
-                                    ))}
+                        </div>
+                        {pendingInvites.length > 0 && (
+                            <div className="flex items-center gap-2">
+                                <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                                    <Mail className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold">{pendingInvites.length}</p>
+                                    <p className="text-xs text-muted-foreground">Pending</p>
                                 </div>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
+
+                {/* Error */}
+                {error && (
+                    <div className="mb-6 p-4 rounded-lg border border-destructive/40 bg-destructive/5 flex items-center gap-3">
+                        <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+                        <p className="text-sm text-destructive">{error}</p>
+                    </div>
+                )}
+
+                {/* Members List */}
+                <div className="space-y-3">
+                    <h2 className="text-sm font-medium text-muted-foreground">Members</h2>
+
+                    {isLoading ? (
+                        <div className="py-12 flex flex-col items-center gap-3 text-muted-foreground">
+                            <Loader2 className="h-6 w-6 animate-spin" />
+                            <p className="text-sm">Loading team...</p>
+                        </div>
+                    ) : memberships.length === 0 ? (
+                        <div className="py-12 text-center border-2 border-dashed rounded-lg">
+                            <Users className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                            <p className="text-muted-foreground">No team members yet</p>
+                            <p className="text-sm text-muted-foreground/70">
+                                Invite your first collaborator
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {memberships.map((member, index) => (
+                                <motion.div
+                                    key={member.id}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.05, duration: 0.2 }}
+                                >
+                                    <MemberCard
+                                        member={member}
+                                        eventsMap={eventsMap}
+                                        onManage={() => openEditDialog(member)}
+                                    />
+                                </motion.div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Pending Invitations */}
+                {pendingInvites.length > 0 && (
+                    <div className="mt-8 space-y-3">
+                        <button
+                            type="button"
+                            onClick={() => setShowPendingInvites(!showPendingInvites)}
+                            className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            {showPendingInvites ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            Pending invitations ({pendingInvites.length})
+                        </button>
+
+                        {showPendingInvites && (
+                            <div className="space-y-2">
+                                {pendingInvites.map((invite, index) => (
+                                    <motion.div
+                                        key={invite.id}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: index * 0.05, duration: 0.2 }}
+                                    >
+                                        <InviteCard
+                                            invite={invite}
+                                            eventsMap={eventsMap}
+                                            onRevoke={() => handleRevokeInvitation(invite.id)}
+                                        />
+                                    </motion.div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
+            {/* Invite Dialog */}
+            <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Invite team member</DialogTitle>
+                        <DialogDescription>
+                            Send an invitation to join your team
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleInviteSubmit} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="invite-email">Email address</Label>
+                            <Input
+                                id="invite-email"
+                                type="email"
+                                placeholder="team@company.com"
+                                value={inviteForm.email}
+                                onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Role</Label>
+                            <Select
+                                value={inviteForm.role}
+                                onValueChange={(role) => setInviteForm((prev) => ({ ...prev, role: role as CreateInvitationPayload['role'] }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {ROLE_OPTIONS.map((option) => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                            <div>
+                                                <p className="font-medium">{option.label}</p>
+                                                <p className="text-xs text-muted-foreground">{option.description}</p>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <EventScopeSelector
+                            value={inviteForm.eventScope}
+                            onChange={(scope) => setInviteForm((prev) => ({ ...prev, eventScope: scope }))}
+                            events={events}
+                        />
+
+                        {inviteError && <p className="text-sm text-destructive">{inviteError}</p>}
+                        {inviteSuccess && <p className="text-sm text-emerald-600">{inviteSuccess}</p>}
+
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsInviteOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={isInviting}>
+                                {isInviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Send invitation
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Member Dialog */}
             <Dialog open={Boolean(editingMember)} onOpenChange={(open) => !open && closeEditDialog()}>
                 {editingMember && editForm && (
-                    <DialogContent className="max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] overflow-y-auto">
+                    <DialogContent className="max-w-md">
                         <DialogHeader>
-                            <DialogTitle>Manage access for {editingMember.user.name ?? editingMember.user.email}</DialogTitle>
+                            <DialogTitle>Manage access</DialogTitle>
                             <DialogDescription>
-                                Update their role, status, or limit them to specific events.
+                                Update {editingMember.user.name ?? editingMember.user.email}'s permissions
                             </DialogDescription>
                         </DialogHeader>
 
@@ -675,7 +725,7 @@ export default function OrganizerTeamPage() {
                             />
                         </div>
 
-                        <DialogFooter className="mt-6">
+                        <DialogFooter>
                             <Button variant="outline" onClick={closeEditDialog}>
                                 Cancel
                             </Button>

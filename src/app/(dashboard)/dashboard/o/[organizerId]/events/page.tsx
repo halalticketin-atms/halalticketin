@@ -34,6 +34,7 @@ import { SUPPORTED_CURRENCIES } from '@/lib/fees'; // Added import
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents, DashboardEvent, DashboardEventStatus } from '@/hooks/useOrganizerEvents';
 import { DeleteEventDialog } from '@/components/dashboard/DeleteEventDialog';
+import { useOrganizers } from '@/context/organizer-context';
 
 const statusConfig: Record<DashboardEventStatus, { label: string; color: string; icon: typeof Clock }> = {
     active: { label: 'Active', color: 'bg-green-100 text-green-700', icon: Calendar },
@@ -80,11 +81,22 @@ function getLocationDisplay(event: DashboardEvent): string {
     return 'Location TBD';
 }
 
-function EventCard({ event, index, onDelete }: { event: DashboardEvent; index: number; onDelete: (id: string, title: string) => void }) {
+function EventCard({
+    event,
+    index,
+    onDelete,
+    revenueCurrency,
+}: {
+    event: DashboardEvent;
+    index: number;
+    onDelete: (id: string, title: string) => void;
+    revenueCurrency?: string;
+}) {
     const router = useRouter();
     const config = statusConfig[event.displayStatus];
     const { date, time } = formatEventDateTime(event);
     const location = getLocationDisplay(event);
+    const currency = revenueCurrency ?? event.currency;
 
     // Use actual data from backend
     const ticketsSold = event.ticketsSold || 0;
@@ -210,8 +222,8 @@ function EventCard({ event, index, onDelete }: { event: DashboardEvent; index: n
                                 <p className="font-bold text-primary">{ticketsSold}/{totalTickets || '∞'}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Revenue</p>
-                                <p className="font-semibold text-primary">{SUPPORTED_CURRENCIES[event.currency as keyof typeof SUPPORTED_CURRENCIES]?.symbol || event.currency}{revenue.toFixed(2)}</p>
+                                <p className="text-xs text-muted-foreground">Net Revenue</p>
+                                <p className="font-semibold text-primary">{SUPPORTED_CURRENCIES[currency as keyof typeof SUPPORTED_CURRENCIES]?.symbol || currency}{revenue.toFixed(2)}</p>
                             </div>
                         </div>
                         {/* Progress Bar - Enhanced */}
@@ -234,6 +246,7 @@ export default function MyEventsPage() {
     const router = useRouter();
     const organizerId = useOrganizerFromParams();
     const { events, isLoading, error, counts } = useOrganizerEvents(organizerId);
+    const { organizers } = useOrganizers();
     const [activeTab, setActiveTab] = useState('all');
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string }>({
         open: false,
@@ -254,6 +267,7 @@ export default function MyEventsPage() {
         if (status === 'all') return events;
         return events.filter(e => e.displayStatus === status);
     };
+    const revenueCurrency = organizers.find((org) => org.id === organizerId)?.defaultCurrency;
 
     if (isLoading) {
         return (
@@ -345,6 +359,7 @@ export default function MyEventsPage() {
                                             event={event}
                                             index={i}
                                             onDelete={(id, title) => setDeleteDialog({ open: true, eventId: id, eventTitle: title })}
+                                            revenueCurrency={revenueCurrency}
                                         />
                                     ))}
                                 </div>
