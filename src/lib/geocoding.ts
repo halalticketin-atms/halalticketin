@@ -1,7 +1,10 @@
-const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
+// Location search via backend proxy to LocationIQ
+// This keeps the API key secure on the server
 
-export interface NominatimResult {
-    place_id: number;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+export interface LocationIQResult {
+    place_id: string;
     display_name: string;
     lat: string;
     lon: string;
@@ -31,8 +34,8 @@ export interface LocationSearchResult {
 }
 
 /**
- * Search for locations using Nominatim geocoding API
- * Rate limit: 1 request per second
+ * Search for locations using our backend proxy to LocationIQ
+ * Free tier: 5,000 requests/day (no credit card required)
  */
 export async function searchLocations(query: string): Promise<LocationSearchResult[]> {
     if (!query || query.trim().length < 3) {
@@ -42,39 +45,34 @@ export async function searchLocations(query: string): Promise<LocationSearchResu
     try {
         const params = new URLSearchParams({
             q: query.trim(),
-            format: 'json',
-            addressdetails: '1',
-            limit: '5',
         });
 
-        const response = await fetch(`${NOMINATIM_BASE_URL}/search?${params}`, {
-            headers: {
-                'User-Agent': 'HalalTicketing/1.0 (Event Management Platform)',
-            },
-        });
+        const response = await fetch(`${API_BASE_URL}/api/v1/locations/search?${params}`);
 
         if (!response.ok) {
-            throw new Error(`Nominatim API error: ${response.statusText}`);
+            const errorText = await response.text();
+            console.error(`Location search error (${response.status}):`, errorText);
+            throw new Error(`Location search error: ${response.status} ${response.statusText}`);
         }
 
-        const data: NominatimResult[] = await response.json();
+        const data: LocationIQResult[] = await response.json();
 
         return data.map((result) => {
             // Extract venue name: prioritize first part of display_name (before first comma)
             // This gets "Convention Centre Dublin" from "Convention Centre Dublin, North Wall Quay..."
             const displayParts = result.display_name.split(',').map(s => s.trim());
-            const venueName = result.address.name || displayParts[0] || result.address.road || '';
+            const venueName = result.address?.name || displayParts[0] || result.address?.road || '';
 
             return {
-                id: result.place_id,
+                id: parseInt(result.place_id, 10) || 0,
                 displayName: result.display_name,
                 venue: venueName,
                 address: [
-                    result.address.house_number,
-                    result.address.road,
+                    result.address?.house_number,
+                    result.address?.road,
                 ].filter(Boolean).join(' ') || '',
-                city: result.address.city || result.address.town || result.address.village || '',
-                country: result.address.country || '',
+                city: result.address?.city || result.address?.town || result.address?.village || '',
+                country: result.address?.country || '',
                 lat: parseFloat(result.lat),
                 lon: parseFloat(result.lon),
             };
@@ -93,32 +91,26 @@ export async function reverseGeocode(lat: number, lon: number): Promise<Location
         const params = new URLSearchParams({
             lat: lat.toString(),
             lon: lon.toString(),
-            format: 'json',
-            addressdetails: '1',
         });
 
-        const response = await fetch(`${NOMINATIM_BASE_URL}/reverse?${params}`, {
-            headers: {
-                'User-Agent': 'HalalTicketing/1.0 (Event Management Platform)',
-            },
-        });
+        const response = await fetch(`${API_BASE_URL}/api/v1/locations/reverse?${params}`);
 
         if (!response.ok) {
             return null;
         }
 
-        const result: NominatimResult = await response.json();
+        const result: LocationIQResult = await response.json();
 
         return {
-            id: result.place_id,
+            id: parseInt(result.place_id, 10) || 0,
             displayName: result.display_name,
-            venue: result.address.name || result.address.road || '',
+            venue: result.address?.name || result.address?.road || '',
             address: [
-                result.address.house_number,
-                result.address.road,
+                result.address?.house_number,
+                result.address?.road,
             ].filter(Boolean).join(' ') || '',
-            city: result.address.city || result.address.town || result.address.village || '',
-            country: result.address.country || '',
+            city: result.address?.city || result.address?.town || result.address?.village || '',
+            country: result.address?.country || '',
             lat: parseFloat(result.lat),
             lon: parseFloat(result.lon),
         };

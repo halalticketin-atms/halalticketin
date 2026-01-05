@@ -54,6 +54,7 @@ type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
 
 interface OrderItem {
     id: string;
+    ticketTypeId: string;
     name: string | null;
     quantity: number;
     unitPrice: number;
@@ -70,10 +71,12 @@ interface CustomQuestion {
 interface OrderTicket {
     id: string;
     ticketCode: string;
+    ticketTypeId: string | null;
     ticketType: string | null;
     attendeeName: string | null;
     attendeeEmail: string | null;
     status: string;
+    unitPrice?: number | null;
     customAnswers: Record<string, string>;
 }
 
@@ -93,7 +96,10 @@ interface OrderResponse {
     totals: {
         subtotal: number;
         total: number;
+        net?: number;
         currency: string;
+        netCurrency?: string;
+        remainingRefundable?: number;
     };
     status: OrderStatus;
     items: OrderItem[];
@@ -111,6 +117,35 @@ interface OrderDetailResponse extends OrderResponse {
 
 interface OrdersResponse {
     orders: OrderResponse[];
+}
+
+interface TicketBreakdownItem {
+    ticketTypeId: string;
+    name: string;
+    quantity: number;
+    revenue: number;
+}
+
+interface EventBreakdown {
+    eventId: string;
+    eventName: string;
+    isActive: boolean;
+    tickets: TicketBreakdownItem[];
+    total: { quantity: number; revenue: number };
+}
+
+interface TicketBreakdownResponse {
+    events: EventBreakdown[];
+    currency: string;
+}
+
+interface RefundResponse {
+    success: boolean;
+    orderId: string;
+    status: OrderStatus;
+    refundAmount: number;
+    ticketsRevoked: number;
+    isPartialRefund: boolean;
 }
 
 const statusBadges: Record<OrderStatus, string> = {
@@ -163,6 +198,12 @@ export default function OrdersPage() {
     const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
     const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
     const [includeAllEvents, setIncludeAllEvents] = useState(true);
+
+    // Ticket breakdown state
+    const [eventBreakdowns, setEventBreakdowns] = useState<EventBreakdown[]>([]);
+    const [breakdownCurrency, setBreakdownCurrency] = useState('GBP');
+    const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
+    const [showAllBreakdown, setShowAllBreakdown] = useState(false);
 
     const EMAIL_COOLDOWN_SECONDS = 60;
 
@@ -341,6 +382,35 @@ export default function OrdersPage() {
         };
     }, [organizerId]);
 
+    // Fetch ticket breakdown
+    useEffect(() => {
+        let isMounted = true;
+        const fetchBreakdown = async () => {
+            if (!organizerId) {
+                setEventBreakdowns([]);
+                return;
+            }
+            setIsLoadingBreakdown(true);
+            try {
+                const response = await api.get<TicketBreakdownResponse>('/api/v1/orders/ticket-breakdown', {
+                    params: { organizerId },
+                });
+                if (!isMounted) return;
+                setEventBreakdowns(response.events);
+                setBreakdownCurrency(response.currency);
+            } catch (err) {
+                console.error('Failed to fetch ticket breakdown:', err);
+            } finally {
+                if (isMounted) setIsLoadingBreakdown(false);
+            }
+        };
+
+        void fetchBreakdown();
+        return () => {
+            isMounted = false;
+        };
+    }, [organizerId]);
+
     const filteredOrders = orders.filter(order => {
         const matchesSearch =
             order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -351,10 +421,13 @@ export default function OrdersPage() {
         return matchesSearch && matchesStatus && matchesEvent;
     });
 
-    const openOrderDetails = async (order: OrderResponse) => {
+    const openOrderDetails = async (
+        order: OrderResponse,
+        options?: { initialTab?: 'details' | 'refund' }
+    ) => {
         setSelectedOrder(order);
         setOrderDetail(null);
-        setActiveTab('details');
+        setActiveTab(options?.initialTab ?? 'details');
         setRefundType('full');
         setPartialAmount('');
         setSelectedTicketIds(new Set());
@@ -373,20 +446,58 @@ export default function OrdersPage() {
         }
     };
 
-    const { totalOrders, paidOrders, revenueTotal } = useMemo(() => {
+    const estimatedTicketRefund = useMemo(() => {
+        if (!selectedOrder || !orderDetail?.tickets?.length) return 0;
+        const refundableTotal = selectedOrder.totals.remainingRefundable ?? selectedOrder.totals.total;
+        if (!selectedOrder.totals.subtotal || selectedOrder.totals.subtotal <= 0 || refundableTotal <= 0) {
+            return 0;
+        }
+
+        const unitPriceMap = new Map<string, number>();
+        for (const item of selectedOrder.items) {
+            unitPriceMap.set(item.ticketTypeId, item.unitPrice);
+        }
+
+        const getTicketUnitPrice = (ticket: OrderTicket) => {
+            if (typeof ticket.unitPrice === 'number') return ticket.unitPrice;
+            if (!ticket.ticketTypeId) return 0;
+            return unitPriceMap.get(ticket.ticketTypeId) ?? 0;
+        };
+
+        const refundableTickets = orderDetail.tickets.filter(
+            (ticket) => ticket.status === 'valid' || ticket.status === 'checked_in'
+        );
+        const refundableSubtotal = refundableTickets.reduce((sum, ticket) => sum + getTicketUnitPrice(ticket), 0);
+        if (refundableSubtotal <= 0) return 0;
+
+        const ticketLookup = new Map(orderDetail.tickets.map((ticket) => [ticket.id, ticket]));
+        const selectedValue = Array.from(selectedTicketIds).reduce((sum, ticketId) => {
+            const ticket = ticketLookup.get(ticketId);
+            if (!ticket) return sum;
+            return sum + getTicketUnitPrice(ticket);
+        }, 0);
+
+        return (selectedValue / refundableSubtotal) * refundableTotal;
+    }, [orderDetail, selectedOrder, selectedTicketIds]);
+
+    const { totalOrders, paidOrders, revenueTotal, revenueCurrency } = useMemo(() => {
         const totals = orders.reduce(
             (acc, order) => {
                 acc.totalOrders += 1;
-                if (order.status === 'completed') {
+                if (order.status === 'completed' || order.status === 'partially_refunded') {
                     acc.paidOrders += 1;
-                    acc.revenueTotal += order.totals.total;
+                    acc.revenueTotal += order.totals.net ?? order.totals.total;
                 }
                 return acc;
             },
             { totalOrders: 0, paidOrders: 0, revenueTotal: 0 }
         );
-        return totals;
+        const currency = orders[0]?.totals.netCurrency ?? orders[0]?.totals.currency ?? 'GBP';
+        return { ...totals, revenueCurrency: currency };
     }, [orders]);
+
+    const remainingRefundable =
+        selectedOrder?.totals.remainingRefundable ?? selectedOrder?.totals.total ?? 0;
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -459,7 +570,7 @@ export default function OrdersPage() {
                                         <div>
                                             <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
                                             <p className="text-2xl font-bold">
-                                                {formatCurrency(revenueTotal, orders[0]?.totals.currency ?? 'GBP')}
+                                                {formatCurrency(revenueTotal, revenueCurrency)}
                                             </p>
                                         </div>
                                     </div>
@@ -468,6 +579,118 @@ export default function OrdersPage() {
                         </motion.div>
                     </div>
                 </div>
+
+                {/* Ticket Breakdown Section - Per Event */}
+                {eventBreakdowns.length > 0 && (() => {
+                    const activeEvents = eventBreakdowns.filter(e => e.isActive);
+                    const hasMoreActiveEvents = activeEvents.length > 2;
+                    const hasPastEvents = eventBreakdowns.some(e => !e.isActive);
+                    const showSeeAll = hasMoreActiveEvents || hasPastEvents;
+
+                    // Show first 2 active events, or all if showAllBreakdown is true
+                    const eventsToDisplay = showAllBreakdown
+                        ? eventBreakdowns
+                        : activeEvents.slice(0, 2);
+
+                    if (eventsToDisplay.length === 0 && !showAllBreakdown) {
+                        return null;
+                    }
+
+                    return (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4 }}
+                            className="mb-8"
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg">
+                                        <Ticket className="h-5 w-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-lg">Ticket Sales by Event</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            {showAllBreakdown ? 'All events' : 'Active events'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                {eventsToDisplay.map((event, eventIndex) => (
+                                    <Card
+                                        key={event.eventId}
+                                        className={`bg-gradient-to-br ${event.isActive
+                                            ? 'from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-100 dark:border-violet-900'
+                                            : 'from-gray-50/50 to-slate-50/50 dark:from-gray-950/20 dark:to-slate-950/20 border-gray-200 dark:border-gray-800'
+                                            }`}
+                                    >
+                                        <CardContent className="pt-4 pb-4">
+                                            <div className="mb-3 flex items-start justify-between gap-2">
+                                                <div className="min-w-0 flex-1">
+                                                    <h4 className="font-semibold text-sm truncate">{event.eventName}</h4>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {event.total.quantity} tickets • {formatCurrency(event.total.revenue, breakdownCurrency)}
+                                                    </p>
+                                                </div>
+                                                {!event.isActive && (
+                                                    <Badge variant="secondary" className="text-[10px] shrink-0">Past</Badge>
+                                                )}
+                                            </div>
+                                            <div className="space-y-2">
+                                                {event.tickets.map((ticket, ticketIndex) => {
+                                                    const percentage = event.total.quantity > 0
+                                                        ? (ticket.quantity / event.total.quantity) * 100
+                                                        : 0;
+                                                    return (
+                                                        <div key={ticket.ticketTypeId || ticketIndex} className="space-y-1">
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <span className="font-medium truncate flex-1 mr-2">{ticket.name}</span>
+                                                                <div className="flex items-center gap-2 text-right shrink-0">
+                                                                    <span className="text-muted-foreground">{ticket.quantity}</span>
+                                                                    <span className="font-medium min-w-[60px]">
+                                                                        {formatCurrency(ticket.revenue, breakdownCurrency)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                                                <motion.div
+                                                                    initial={{ width: 0 }}
+                                                                    animate={{ width: `${percentage}%` }}
+                                                                    transition={{ delay: 0.3 + eventIndex * 0.1 + ticketIndex * 0.05, duration: 0.4 }}
+                                                                    className={`h-full rounded-full ${event.isActive
+                                                                        ? 'bg-gradient-to-r from-violet-500 to-purple-500'
+                                                                        : 'bg-gradient-to-r from-gray-400 to-slate-400'
+                                                                        }`}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                            {showSeeAll && (
+                                <div className="mt-4 text-center">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setShowAllBreakdown(!showAllBreakdown)}
+                                        className="text-violet-600 hover:text-violet-700 dark:text-violet-400"
+                                    >
+                                        {showAllBreakdown
+                                            ? 'Show Less'
+                                            : `See All (${eventBreakdowns.length} events)`
+                                        }
+                                        <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${showAllBreakdown ? 'rotate-180' : ''}`} />
+                                    </Button>
+                                </div>
+                            )}
+                        </motion.div>
+                    );
+                })()}
 
                 {/* Filters & Search with gradient background */}
                 <Card className="mb-6 bg-gradient-to-br from-indigo-50/50 via-purple-50/30 to-pink-50/50 dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-pink-950/20 border-indigo-100/50 dark:border-indigo-900/50">
@@ -668,13 +891,7 @@ export default function OrdersPage() {
                                         onViewDetails={openOrderDetails}
                                         onResendEmail={handleResendEmail}
                                         onRefund={(order) => {
-                                            setSelectedOrder(order);
-                                            setActiveTab('refund');
-                                            setRefundType('full');
-                                            setPartialAmount('');
-                                            setSelectedTicketIds(new Set());
-                                            setRefundError(null);
-                                            setIsDialogOpen(true);
+                                            void openOrderDetails(order, { initialTab: 'refund' });
                                         }}
                                         isResending={isResending}
                                     />
@@ -885,7 +1102,7 @@ export default function OrdersPage() {
                                                 {refundType === 'full' && (
                                                     <div className="bg-muted/50 rounded-lg p-4 text-center">
                                                         <p className="text-sm text-muted-foreground">Full refund amount</p>
-                                                        <p className="text-2xl font-bold">{formatCurrency(selectedOrder.totals.total, selectedOrder.totals.currency)}</p>
+                                                        <p className="text-2xl font-bold">{formatCurrency(remainingRefundable, selectedOrder.totals.currency)}</p>
                                                         <p className="text-xs text-muted-foreground mt-1">All tickets will be revoked</p>
                                                     </div>
                                                 )}
@@ -903,11 +1120,11 @@ export default function OrdersPage() {
                                                                 type="number"
                                                                 step="0.01"
                                                                 min="0.01"
-                                                                max={selectedOrder.totals.total}
+                                                                max={remainingRefundable}
                                                                 value={partialAmount}
                                                                 onChange={(e) => setPartialAmount(e.target.value)}
                                                                 className="pl-8"
-                                                                placeholder={`Max: ${selectedOrder.totals.total.toFixed(2)}`}
+                                                                placeholder={`Max: ${remainingRefundable.toFixed(2)}`}
                                                             />
                                                         </div>
                                                         <p className="text-xs text-muted-foreground">Tickets remain valid after partial refund</p>
@@ -919,47 +1136,56 @@ export default function OrdersPage() {
                                                     <div className="space-y-3">
                                                         <Label>Select Tickets to Refund</Label>
                                                         <div className="max-h-40 overflow-y-auto space-y-2 border rounded-lg p-2">
-                                                            {selectedOrder.items.flatMap((item) =>
-                                                                Array.from({ length: item.quantity }, (_, i) => {
-                                                                    const ticketId = `${item.id}-${i}`;
-                                                                    return (
-                                                                        <div
-                                                                            key={ticketId}
-                                                                            className="flex items-center justify-between p-2 rounded hover:bg-muted/50 cursor-pointer"
-                                                                            onClick={() => {
-                                                                                setSelectedTicketIds((prev) => {
-                                                                                    const next = new Set(prev);
-                                                                                    if (next.has(ticketId)) next.delete(ticketId);
-                                                                                    else next.add(ticketId);
-                                                                                    return next;
-                                                                                });
-                                                                            }}
-                                                                        >
-                                                                            <div className="flex items-center gap-3">
-                                                                                <Checkbox checked={selectedTicketIds.has(ticketId)} />
-                                                                                <span className="text-sm">{item.name || 'Ticket'}</span>
-                                                                            </div>
-                                                                            <span className="text-sm font-medium">
-                                                                                {formatCurrency(item.unitPrice, selectedOrder.totals.currency)}
-                                                                            </span>
-                                                                        </div>
-                                                                    );
-                                                                })
+                                                            {isLoadingDetail && (
+                                                                <div className="text-sm text-muted-foreground px-2 py-1">
+                                                                    Loading tickets...
+                                                                </div>
                                                             )}
+                                                            {!isLoadingDetail && (!orderDetail?.tickets || orderDetail.tickets.length === 0) && (
+                                                                <div className="text-sm text-muted-foreground px-2 py-1">
+                                                                    No tickets available for this order.
+                                                                </div>
+                                                            )}
+                                                            {orderDetail?.tickets?.map((ticket, index) => {
+                                                                const isRefundable = ticket.status === 'valid' || ticket.status === 'checked_in';
+                                                                return (
+                                                                    <div
+                                                                        key={ticket.id}
+                                                                        className={`flex items-center justify-between p-2 rounded ${isRefundable ? 'hover:bg-muted/50 cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
+                                                                        onClick={() => {
+                                                                            if (!isRefundable) return;
+                                                                            setSelectedTicketIds((prev) => {
+                                                                                const next = new Set(prev);
+                                                                                if (next.has(ticket.id)) next.delete(ticket.id);
+                                                                                else next.add(ticket.id);
+                                                                                return next;
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <div className="flex items-center gap-3">
+                                                                            <Checkbox checked={selectedTicketIds.has(ticket.id)} disabled={!isRefundable} />
+                                                                            <span className="text-sm">{ticket.ticketType ?? 'Ticket'} #{index + 1}</span>
+                                                                            {!isRefundable && (
+                                                                                <span className="text-xs text-muted-foreground capitalize">{ticket.status}</span>
+                                                                            )}
+                                                                        </div>
+                                                                    <span className="text-sm font-medium">
+                                                                        {formatCurrency(
+                                                                            typeof ticket.unitPrice === 'number'
+                                                                                ? ticket.unitPrice
+                                                                                : selectedOrder.items.find((item) => item.ticketTypeId === ticket.ticketTypeId)?.unitPrice ?? 0,
+                                                                            selectedOrder.totals.currency
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
                                                         </div>
                                                         {selectedTicketIds.size > 0 && (
                                                             <div className="flex justify-between text-sm font-medium">
                                                                 <span>{selectedTicketIds.size} ticket(s)</span>
                                                                 <span>
-                                                                    {formatCurrency(
-                                                                        selectedOrder.items.reduce((sum, item) => {
-                                                                            const count = Array.from({ length: item.quantity }).filter((_, i) =>
-                                                                                selectedTicketIds.has(`${item.id}-${i}`)
-                                                                            ).length;
-                                                                            return sum + count * item.unitPrice;
-                                                                        }, 0),
-                                                                        selectedOrder.totals.currency
-                                                                    )}
+                                                                    {formatCurrency(estimatedTicketRefund, selectedOrder.totals.currency)}
                                                                 </span>
                                                             </div>
                                                         )}
@@ -976,30 +1202,92 @@ export default function OrdersPage() {
                                                 <Button
                                                     variant="destructive"
                                                     className="w-full"
-                                                    disabled={isProcessing || (refundType === 'partial' && (!partialAmount || parseFloat(partialAmount) <= 0))}
+                                                    disabled={
+                                                        isProcessing ||
+                                                        (refundType === 'partial' && (!partialAmount || parseFloat(partialAmount) <= 0)) ||
+                                                        (refundType === 'tickets' && selectedTicketIds.size === 0)
+                                                    }
                                                     onClick={async () => {
                                                         setIsProcessing(true);
                                                         setRefundError(null);
                                                         try {
-                                                            const body: { amount?: number } = {};
+                                                            const body: { amount?: number; ticketIds?: string[] } = {};
+                                                            let requestedRefundAmount: number | null = null;
                                                             if (refundType === 'partial') {
-                                                                body.amount = parseFloat(partialAmount);
+                                                                const parsedAmount = parseFloat(partialAmount);
+                                                                if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+                                                                    setRefundError('Refund amount must be greater than 0.');
+                                                                    setIsProcessing(false);
+                                                                    return;
+                                                                }
+                                                                if (parsedAmount > remainingRefundable) {
+                                                                    setRefundError('Refund amount exceeds remaining refundable total.');
+                                                                    setIsProcessing(false);
+                                                                    return;
+                                                                }
+                                                                body.amount = parsedAmount;
+                                                                requestedRefundAmount = parsedAmount;
                                                             } else if (refundType === 'tickets') {
-                                                                body.amount = selectedOrder.items.reduce((sum, item) => {
-                                                                    const count = Array.from({ length: item.quantity }).filter((_, i) =>
-                                                                        selectedTicketIds.has(`${item.id}-${i}`)
-                                                                    ).length;
-                                                                    return sum + count * item.unitPrice;
-                                                                }, 0);
+                                                                if (selectedTicketIds.size === 0) {
+                                                                    setRefundError('Select at least one ticket to refund.');
+                                                                    setIsProcessing(false);
+                                                                    return;
+                                                                }
+                                                                body.ticketIds = Array.from(selectedTicketIds);
                                                             }
-                                                            await api.post(`/api/v1/orders/${selectedOrder.id}/refund`, body);
+                                                            const refundResult = await api.post<RefundResponse>(
+                                                                `/api/v1/orders/${selectedOrder.id}/refund`,
+                                                                body
+                                                            );
+                                                            const nextStatus = refundResult.status ?? (refundType === 'full' ? 'refunded' : 'partially_refunded');
+                                                            const refundedAmount =
+                                                                Number.isFinite(refundResult.refundAmount)
+                                                                    ? refundResult.refundAmount
+                                                                    : requestedRefundAmount ?? 0;
+                                                            const nextRemaining =
+                                                                nextStatus === 'refunded'
+                                                                    ? 0
+                                                                    : Math.max(0, Math.round((remainingRefundable - refundedAmount) * 100) / 100);
                                                             setOrders((prev) =>
                                                                 prev.map((o) =>
                                                                     o.id === selectedOrder.id
-                                                                        ? { ...o, status: (refundType === 'full' ? 'refunded' : 'partially_refunded') as OrderStatus }
+                                                                        ? {
+                                                                              ...o,
+                                                                              status: nextStatus,
+                                                                              totals: {
+                                                                                  ...o.totals,
+                                                                                  remainingRefundable: nextRemaining
+                                                                              }
+                                                                          }
                                                                         : o
                                                                 )
                                                             );
+                                                            setSelectedOrder((prev) =>
+                                                                prev
+                                                                    ? {
+                                                                          ...prev,
+                                                                          status: nextStatus,
+                                                                          totals: {
+                                                                              ...prev.totals,
+                                                                              remainingRefundable: nextRemaining
+                                                                          }
+                                                                      }
+                                                                    : prev
+                                                            );
+                                                            if (refundType === 'tickets') {
+                                                                setOrderDetail((prev) =>
+                                                                    prev
+                                                                        ? {
+                                                                              ...prev,
+                                                                              tickets: prev.tickets.map((ticket) =>
+                                                                                  selectedTicketIds.has(ticket.id)
+                                                                                      ? { ...ticket, status: 'refunded' }
+                                                                                      : ticket
+                                                                              )
+                                                                          }
+                                                                        : prev
+                                                                );
+                                                            }
                                                             setIsDialogOpen(false);
                                                         } catch (err) {
                                                             setRefundError(err instanceof Error ? err.message : 'Failed to process refund');

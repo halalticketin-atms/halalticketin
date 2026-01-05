@@ -123,7 +123,13 @@ export function LocationAutocomplete({
 
             {/* Dropdown Results */}
             {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[300px] overflow-y-auto">
+                <div
+                    className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-[300px] overflow-y-auto"
+                    onMouseDown={(e) => {
+                        // Prevent the input from losing focus when clicking inside the dropdown or scrollbar
+                        e.preventDefault();
+                    }}
+                >
                     {error && (
                         <div className="py-6 text-center text-sm text-destructive px-4">
                             {error}
@@ -156,7 +162,7 @@ export function LocationAutocomplete({
 
                     {/* Attribution */}
                     <div className="border-t px-3 py-2 text-xs text-muted-foreground bg-muted/30">
-                        Powered by <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">OpenStreetMap</a>
+                        Powered by <a href="https://locationiq.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">LocationIQ</a>
                     </div>
                 </div>
             )}

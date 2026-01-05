@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { PAYG_FEE_GBP, CHARITY_FEE_GBP } from '@/lib/fees';
+import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
 
 
 interface FeeBreakdownProps {
@@ -42,20 +43,24 @@ export function FeeBreakdown({
 
         const platformFee = feePerTicket * ticketCount;
 
+        const baseCharge = absorbFee ? subtotal : subtotal + platformFee;
+        const processingFee = calculateStripeProcessingFee(baseCharge, currency);
+
         // What customer pays
-        const customerPays = absorbFee ? subtotal : subtotal + platformFee;
+        const customerPays = baseCharge + processingFee;
 
         // What organizer receives
-        const organizerReceives = subtotal - platformFee;
+        const organizerReceives = absorbFee ? subtotal - platformFee : subtotal;
 
         return {
             subtotal,
             platformFee,
             customerPays,
             organizerReceives,
-            feePerTicket
+            feePerTicket,
+            processingFee
         };
-    }, [ticketPrice, ticketCount, feeTier, absorbFee, customBookingFee]);
+    }, [ticketPrice, ticketCount, feeTier, absorbFee, customBookingFee, currency]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-GB', {
@@ -108,6 +113,12 @@ export function FeeBreakdown({
                             {absorbFee ? '-' : '+'}{formatCurrency(breakdown.platformFee)}
                         </span>
                     </div>
+                    {breakdown.processingFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Processing fee</span>
+                            <span>{formatCurrency(breakdown.processingFee)}</span>
+                        </div>
+                    )}
 
                     <div className="border-t pt-2 mt-2">
                         <div className="flex justify-between font-medium">
@@ -131,6 +142,8 @@ export function FeeBreakdown({
                                 ? 'Using your purchased credits for reduced fees'
                                 : `Standard rate: £${PAYG_FEE_GBP.toFixed(2)} per ticket. Buy credits to reduce fees.`
                         }
+                        {' '}
+                        Payment processing fees are paid by the customer.
                     </span>
                 </div>
             </CardContent>

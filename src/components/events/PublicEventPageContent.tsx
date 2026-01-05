@@ -47,6 +47,7 @@ import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord }
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, type TicketAttendeePayload } from '@/lib/checkout-api';
 import { showError } from '@/lib/errors';
 import { calculateFeePerTicket, getCurrencySymbol, type FeeTier } from '@/lib/fees';
+import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useOptionalAuth } from '@/context/auth-context';
 import { differenceInYears } from 'date-fns';
@@ -496,9 +497,6 @@ export function PublicEventPageContent({
         if (!event || paidTicketCount === 0 || finalTotal <= 0) {
             return 0;
         }
-        if (event.absorbFee) {
-            return 0;
-        }
 
         const feeTier = (event.feeTier ?? 'payg') as FeeTier;
         const eventCustomBookingFee = normalizeFeeValue(event.customBookingFee);
@@ -506,6 +504,12 @@ export function PublicEventPageContent({
         return cartItems.reduce((sum, item) => {
             const unitPrice = getEffectivePrice(item.ticket);
             if (unitPrice <= 0) {
+                return sum;
+            }
+            const ticketAbsorbFee = 'absorbFee' in item.ticket
+                ? item.ticket.absorbFee ?? false
+                : event.absorbFee ?? false;
+            if (ticketAbsorbFee) {
                 return sum;
             }
 
@@ -540,7 +544,15 @@ export function PublicEventPageContent({
         });
     }, [event, cartItems, getEffectivePrice]);
 
-    const grandTotal = finalTotal + platformFeeAmount;
+    const processingFeeAmount = useMemo(() => {
+        const base = finalTotal + platformFeeAmount;
+        if (base <= 0) {
+            return 0;
+        }
+        return calculateStripeProcessingFee(base, currencyCode);
+    }, [finalTotal, platformFeeAmount, currencyCode]);
+
+    const grandTotal = finalTotal + platformFeeAmount + processingFeeAmount;
 
     // Step-based checkout: Step 0 = Buyer, Step 1..N = Tickets (if per-ticket), Final = Confirm
     const totalCheckoutSteps = requiresPerTicket ? 1 + totalTickets + 1 : 2;
@@ -676,7 +688,7 @@ export function PublicEventPageContent({
 
         if (eventPixelId && totalTickets > 0) {
             track(eventPixelId, 'InitiateCheckout', {
-                value: Number(finalTotal.toFixed(2)),
+                value: Number(grandTotal.toFixed(2)),
                 currency: currencyCode,
                 num_items: totalTickets,
                 content_ids: event?.id ? [event.id] : undefined,
@@ -1236,14 +1248,25 @@ export function PublicEventPageContent({
                                                     <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                                 </div>
                                             )}
+                                            {processingFeeAmount > 0 && (
+                                                <div className="flex justify-between text-sm text-muted-foreground">
+                                                    <span>Processing fee</span>
+                                                    <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
+                                                </div>
+                                            )}
                                             <Separator />
                                             <div className="flex justify-between font-semibold">
                                                 <span>Total</span>
                                                 <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
                                             </div>
-                                            {event?.absorbFee && finalTotal > 0 && (
+                                            {finalTotal > 0 && platformFeeAmount === 0 && processingFeeAmount === 0 && (
                                                 <p className="text-xs text-muted-foreground text-center">
                                                     No additional fees! 🎉
+                                                </p>
+                                            )}
+                                            {finalTotal > 0 && platformFeeAmount === 0 && processingFeeAmount > 0 && (
+                                                <p className="text-xs text-muted-foreground text-center">
+                                                    Platform fee absorbed; processing fee applies.
                                                 </p>
                                             )}
                                         </div>
@@ -1322,6 +1345,12 @@ export function PublicEventPageContent({
                                     <div className="flex justify-between items-center text-sm text-muted-foreground">
                                         <span>{hasCustomFeeOverride ? 'Fees (custom)' : 'Fees'}</span>
                                         <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
+                                    </div>
+                                )}
+                                {processingFeeAmount > 0 && (
+                                    <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                        <span>Processing fee</span>
+                                        <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
                                     </div>
                                 )}
 
@@ -1668,6 +1697,12 @@ export function PublicEventPageContent({
                                                             <div className="flex justify-between text-muted-foreground">
                                                                 <span>{hasCustomFeeOverride ? 'Service fee (custom)' : 'Service fee'}</span>
                                                                 <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
+                                                            </div>
+                                                        )}
+                                                        {processingFeeAmount > 0 && (
+                                                            <div className="flex justify-between text-muted-foreground">
+                                                                <span>Processing fee</span>
+                                                                <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
                                                             </div>
                                                         )}
                                                     </div>
