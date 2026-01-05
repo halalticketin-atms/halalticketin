@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
 import { Calendar, Ticket, DollarSign } from 'lucide-react';
 
 import { StatCard, EventPerformanceCards } from '@/components/dashboard';
 
 import { useAuth } from '@/context/auth-context';
+import { useOrganizers } from '@/context/organizer-context';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
+import { buildDashboardPath } from '@/lib/organizer-path';
 import api from '@/lib/api';
 
 interface AnalyticsStats {
@@ -65,11 +68,24 @@ const formatCurrency = (amount: number, currency: string) => {
 };
 
 export default function DashboardPage() {
+    const router = useRouter();
     const organizerId = useOrganizerFromParams();
     const { user } = useAuth();
+    const { organizers } = useOrganizers();
     const [analyticsStats, setAnalyticsStats] = useState<AnalyticsStats | null>(null);
     const [eventsPerformance, setEventsPerformance] = useState<EventPerformanceData[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Get the current user's role for this organizer
+    const activeOrganizer = organizers.find((org) => org.id === organizerId);
+    const userRole = activeOrganizer?.role;
+
+    // Redirect check-in users to the check-in page
+    useEffect(() => {
+        if (organizerId && userRole === 'check_in') {
+            router.replace(`${buildDashboardPath(organizerId)}/check-in`);
+        }
+    }, [organizerId, userRole, router]);
 
     const fetchData = useEffectEvent(async (currentOrganizerId: string | null) => {
         if (!currentOrganizerId) {

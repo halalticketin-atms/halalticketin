@@ -48,7 +48,12 @@ function AcceptInvitationContent() {
                 setStatus('success');
                 setMessage('Invitation accepted! Redirecting you to the dashboard...');
                 setTimeout(() => {
-                    router.push(buildDashboardPath(response.membership.organizerId));
+                    // Redirect check-in users to check-in page, others to overview
+                    const basePath = buildDashboardPath(response.membership.organizerId);
+                    const redirectPath = response.membership.role === 'check_in'
+                        ? `${basePath}/check-in`
+                        : basePath;
+                    router.push(redirectPath);
                 }, 1200);
             } catch (err) {
                 console.error(err);
