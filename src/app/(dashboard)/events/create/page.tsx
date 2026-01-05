@@ -1852,9 +1852,9 @@ export function EventWizard({
                                                                         disabled={ticket.isFree}
                                                                     />
                                                                 </div>
-                                                                {!ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                {currentOrganizer?.feeTier === 'token' && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
                                                                     <div className="space-y-1.5">
-                                                                        <Label>Custom Fee ({getCurrencySymbol(formData.currency)})</Label>
+                                                                        <Label>Organizer Fee ({getCurrencySymbol(formData.currency)})</Label>
                                                                         <Input
                                                                             type="number"
                                                                             placeholder="0.55"
@@ -1869,12 +1869,12 @@ export function EventWizard({
                                                                             }}
                                                                             className="h-11"
                                                                         />
-                                                                        <p className="text-xs text-muted-foreground">Optional per-ticket fee override.</p>
+                                                                        <p className="text-xs text-muted-foreground">Optional per-ticket organizer fee (paid to you).</p>
                                                                     </div>
                                                                 )}
 
                                                                 {/* Absorb Fee Toggle - subtle but visible */}
-                                                                {!ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                {currentOrganizer?.feeTier !== 'token' && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
                                                                     <div className="flex items-center justify-between gap-3 mt-2 p-2 rounded-lg bg-muted/30">
                                                                         <div className="flex items-center gap-2 min-w-0">
                                                                             <span className="text-xs text-muted-foreground">

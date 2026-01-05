@@ -58,6 +58,40 @@ export interface CheckoutErrorResponse {
 
 export type CheckoutResponse = CheckoutSuccessResponse | CheckoutErrorResponse;
 
+export interface CheckoutQuoteResponse {
+    success: true;
+    currency: string;
+    subtotal: number;
+    discount: number;
+    organizerFee: number;
+    platformFee: number;
+    processingFee: number;
+    total: number;
+    useCreditsApplied: boolean;
+    promoCodeApplied: boolean;
+}
+
+export async function getCheckoutQuote(
+    eventId: string,
+    request: { items: CartItem[]; promoCode?: string }
+): Promise<CheckoutQuoteResponse | null> {
+    try {
+        const response = await fetch(`${API_URL}/api/v1/events/${eventId}/checkout/quote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(request)
+        });
+
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+            return null;
+        }
+        return data as CheckoutQuoteResponse;
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Create a checkout session for an event
  */

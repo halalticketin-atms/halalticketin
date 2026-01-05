@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/select";
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
-import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, type TicketAttendeePayload } from '@/lib/checkout-api';
+import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, type TicketAttendeePayload, getCheckoutQuote, type CheckoutQuoteResponse } from '@/lib/checkout-api';
 import { showError } from '@/lib/errors';
 import { calculateFeePerTicket, getCurrencySymbol, type FeeTier } from '@/lib/fees';
 import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
@@ -206,6 +206,7 @@ export function PublicEventPageContent({
     const [isProcessing, setIsProcessing] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [checkoutStep, setCheckoutStep] = useState(0);
+    const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuoteResponse | null>(null);
 
     // Autofill user details
     useEffect(() => {
@@ -494,12 +495,17 @@ export function PublicEventPageContent({
     }, [eventPixelId, event?.id, event?.title, currencyCode, track]);
 
     const platformFeeAmount = useMemo(() => {
+        if (checkoutQuote) {
+            return checkoutQuote.platformFee;
+        }
         if (!event || paidTicketCount === 0 || finalTotal <= 0) {
             return 0;
         }
 
         const feeTier = (event.feeTier ?? 'payg') as FeeTier;
-        const eventCustomBookingFee = normalizeFeeValue(event.customBookingFee);
+        if (feeTier === 'token') {
+            return 0;
+        }
 
         return cartItems.reduce((sum, item) => {
             const unitPrice = getEffectivePrice(item.ticket);
@@ -513,22 +519,56 @@ export function PublicEventPageContent({
                 return sum;
             }
 
-            const ticketCustomFee = 'customFee' in item.ticket
-                ? normalizeFeeValue(item.ticket.customFee)
-                : undefined;
             const feePerTicket = calculateFeePerTicket(
                 feeTier,
                 item.ticket.currency ?? currencyCode,
-                ticketCustomFee ?? eventCustomBookingFee,
                 rates
             );
 
             return sum + feePerTicket * item.quantity;
         }, 0);
-    }, [event, paidTicketCount, finalTotal, cartItems, getEffectivePrice, currencyCode, rates]);
+    }, [event, paidTicketCount, finalTotal, cartItems, getEffectivePrice, currencyCode, rates, checkoutQuote]);
 
-    const hasCustomFeeOverride = useMemo(() => {
+    const organizerFeeAmount = useMemo(() => {
+        if (checkoutQuote) {
+            return checkoutQuote.organizerFee;
+        }
+        if (!event || paidTicketCount === 0 || finalTotal <= 0) {
+            return 0;
+        }
+
+        const feeTier = (event.feeTier ?? 'payg') as FeeTier;
+        if (feeTier !== 'token') {
+            return 0;
+        }
+
+        const eventOrganizerFee = normalizeFeeValue(event.customBookingFee) ?? 0;
+
+        return cartItems.reduce((sum, item) => {
+            const unitPrice = getEffectivePrice(item.ticket);
+            if (unitPrice <= 0) {
+                return sum;
+            }
+
+            const ticketOrganizerFee = 'customFee' in item.ticket
+                ? normalizeFeeValue(item.ticket.customFee)
+                : undefined;
+            const resolvedFee = ticketOrganizerFee ?? eventOrganizerFee;
+            if (!resolvedFee || resolvedFee <= 0) {
+                return sum;
+            }
+
+            return sum + resolvedFee * item.quantity;
+        }, 0);
+    }, [event, paidTicketCount, finalTotal, cartItems, getEffectivePrice, checkoutQuote]);
+
+    const hasOrganizerFeeOverride = useMemo(() => {
         if (!event || cartItems.length === 0) {
+            return false;
+        }
+
+        const feeTier = (event.feeTier ?? 'payg') as FeeTier;
+        if (feeTier !== 'token') {
             return false;
         }
 
@@ -545,14 +585,46 @@ export function PublicEventPageContent({
     }, [event, cartItems, getEffectivePrice]);
 
     const processingFeeAmount = useMemo(() => {
-        const base = finalTotal + platformFeeAmount;
+        if (checkoutQuote) {
+            return checkoutQuote.processingFee;
+        }
+        const base = finalTotal + platformFeeAmount + organizerFeeAmount;
         if (base <= 0) {
             return 0;
         }
         return calculateStripeProcessingFee(base, currencyCode);
-    }, [finalTotal, platformFeeAmount, currencyCode]);
+    }, [finalTotal, platformFeeAmount, organizerFeeAmount, currencyCode, checkoutQuote]);
 
-    const grandTotal = finalTotal + platformFeeAmount + processingFeeAmount;
+    const grandTotal = checkoutQuote ? checkoutQuote.total : finalTotal + platformFeeAmount + organizerFeeAmount + processingFeeAmount;
+
+    useEffect(() => {
+        if (!event?.id) {
+            setCheckoutQuote(null);
+            return;
+        }
+
+        const feeTier = (event.feeTier ?? 'payg') as FeeTier;
+        if (feeTier !== 'token' || cartItems.length === 0) {
+            setCheckoutQuote(null);
+            return;
+        }
+
+        let cancelled = false;
+            const timer = window.setTimeout(async () => {
+            const quote = await getCheckoutQuote(event.id, {
+                items: cartItems.map((item) => ({ ticketTypeId: item.ticket.id, quantity: item.quantity })),
+                promoCode: appliedPromo?.code
+            });
+            if (!cancelled) {
+                setCheckoutQuote(quote);
+            }
+        }, 150);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [event?.id, event?.feeTier, cartItems, appliedPromo?.code]);
 
     // Step-based checkout: Step 0 = Buyer, Step 1..N = Tickets (if per-ticket), Final = Confirm
     const totalCheckoutSteps = requiresPerTicket ? 1 + totalTickets + 1 : 2;
@@ -1242,9 +1314,15 @@ export function PublicEventPageContent({
                                                     <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
                                                 </div>
                                             )}
+                                            {organizerFeeAmount > 0 && (
+                                                <div className="flex justify-between text-sm text-muted-foreground">
+                                                    <span>{hasOrganizerFeeOverride ? 'Organizer fee (custom)' : 'Organizer fee'}</span>
+                                                    <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
+                                                </div>
+                                            )}
                                             {platformFeeAmount > 0 && (
                                                 <div className="flex justify-between text-sm text-muted-foreground">
-                                                    <span>{hasCustomFeeOverride ? 'Service fee (custom)' : 'Service fee'}</span>
+                                                    <span>Platform fee</span>
                                                     <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                                 </div>
                                             )}
@@ -1259,14 +1337,19 @@ export function PublicEventPageContent({
                                                 <span>Total</span>
                                                 <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
                                             </div>
-                                            {finalTotal > 0 && platformFeeAmount === 0 && processingFeeAmount === 0 && (
+                                            {finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount === 0 && (
                                                 <p className="text-xs text-muted-foreground text-center">
                                                     No additional fees! 🎉
                                                 </p>
                                             )}
-                                            {finalTotal > 0 && platformFeeAmount === 0 && processingFeeAmount > 0 && (
+                                            {finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount > 0 && (
                                                 <p className="text-xs text-muted-foreground text-center">
-                                                    Platform fee absorbed; processing fee applies.
+                                                    Processing fee applies.
+                                                </p>
+                                            )}
+                                            {finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount > 0 && processingFeeAmount > 0 && (
+                                                <p className="text-xs text-muted-foreground text-center">
+                                                    Organizer fee and processing fee apply.
                                                 </p>
                                             )}
                                         </div>
@@ -1341,9 +1424,15 @@ export function PublicEventPageContent({
                                 {/* Fees & Discounts */}
                                 <Separator className="my-3 bg-primary/10" />
 
+                                {organizerFeeAmount > 0 && (
+                                    <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                        <span>{hasOrganizerFeeOverride ? 'Organizer fee (custom)' : 'Organizer fee'}</span>
+                                        <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
+                                    </div>
+                                )}
                                 {platformFeeAmount > 0 && (
                                     <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                        <span>{hasCustomFeeOverride ? 'Fees (custom)' : 'Fees'}</span>
+                                        <span>Platform fee</span>
                                         <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                     </div>
                                 )}
@@ -1693,9 +1782,15 @@ export function PublicEventPageContent({
                                                                 <span>−{currencySymbol}{discountAmount.toFixed(2)}</span>
                                                             </div>
                                                         )}
+                                                        {organizerFeeAmount > 0 && (
+                                                            <div className="flex justify-between text-muted-foreground">
+                                                                <span>{hasOrganizerFeeOverride ? 'Organizer fee (custom)' : 'Organizer fee'}</span>
+                                                                <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
+                                                            </div>
+                                                        )}
                                                         {platformFeeAmount > 0 && (
                                                             <div className="flex justify-between text-muted-foreground">
-                                                                <span>{hasCustomFeeOverride ? 'Service fee (custom)' : 'Service fee'}</span>
+                                                                <span>Platform fee</span>
                                                                 <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                                             </div>
                                                         )}

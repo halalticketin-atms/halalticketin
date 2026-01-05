@@ -27,6 +27,7 @@ export interface OrderItem {
     name: string | null;
     quantity: number;
     unitPrice: number;
+    organizerFee?: number;
 }
 
 export interface OrderResponse {
@@ -46,6 +47,7 @@ export interface OrderResponse {
         subtotal: number;
         total: number;
         currency: string;
+        remainingRefundable?: number;
     };
     status: OrderStatus;
     items: OrderItem[];

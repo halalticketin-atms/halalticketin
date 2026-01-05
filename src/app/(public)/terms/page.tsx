@@ -41,7 +41,7 @@ const sections: Section[] = [
   {
     title: '6. Fees and Payment',
     body:
-      'Organisers may be charged a per-ticket service fee, which can be absorbed by the Organiser or passed to the Consumer. Payments are processed via Stripe. By using the Services, you agree to the payment processor’s terms.',
+      'Organisers may be charged a per-ticket platform fee, which can be absorbed by the Organiser or passed to the Consumer. Payments are processed via Stripe. By using the Services, you agree to the payment processor’s terms.',
   },
   {
     title: '7. Data and Privacy',

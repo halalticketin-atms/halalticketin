@@ -31,33 +31,37 @@ export function FeeBreakdown({
     const breakdown = useMemo(() => {
         const subtotal = ticketPrice * ticketCount;
 
-        // Calculate fee based on tier
-        let feePerTicket: number;
-        if (feeTier === 'token' && customBookingFee !== undefined) {
-            feePerTicket = customBookingFee;
-        } else if (feeTier === 'charity') {
-            feePerTicket = CHARITY_FEE_GBP;
-        } else {
-            feePerTicket = PAYG_FEE_GBP;
-        }
+        const organizerFeePerTicket = feeTier === 'token' && customBookingFee !== undefined && customBookingFee >= 0
+            ? customBookingFee
+            : 0;
+        const organizerFee = organizerFeePerTicket * ticketCount;
 
-        const platformFee = feePerTicket * ticketCount;
+        // Platform fee is waived when using credits (token tier)
+        const platformFeePerTicket =
+            feeTier === 'token'
+                ? 0
+                : feeTier === 'charity'
+                    ? CHARITY_FEE_GBP
+                    : PAYG_FEE_GBP;
+        const platformFee = platformFeePerTicket * ticketCount;
 
-        const baseCharge = absorbFee ? subtotal : subtotal + platformFee;
+        const baseCharge = subtotal + organizerFee + (absorbFee ? 0 : platformFee);
         const processingFee = calculateStripeProcessingFee(baseCharge, currency);
 
         // What customer pays
         const customerPays = baseCharge + processingFee;
 
         // What organizer receives
-        const organizerReceives = absorbFee ? subtotal - platformFee : subtotal;
+        const organizerReceives = subtotal + organizerFee - (absorbFee ? platformFee : 0);
 
         return {
             subtotal,
             platformFee,
             customerPays,
             organizerReceives,
-            feePerTicket,
+            organizerFee,
+            organizerFeePerTicket,
+            platformFeePerTicket,
             processingFee
         };
     }, [ticketPrice, ticketCount, feeTier, absorbFee, customBookingFee, currency]);
@@ -78,24 +82,26 @@ export function FeeBreakdown({
         <Card className="bg-muted/50 border-dashed">
             <CardContent className="p-4 space-y-4">
                 {/* Fee Toggle */}
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="absorb-fee" className="text-sm font-medium cursor-pointer">
-                            Absorb platform fee
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
-                            {absorbFee
-                                ? 'You pay the fee – customers see the ticket price only'
-                                : 'Customers pay the fee on top of ticket price'
-                            }
-                        </p>
+                {feeTier !== 'token' && breakdown.platformFee > 0 && (
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="absorb-fee" className="text-sm font-medium cursor-pointer">
+                                Absorb platform fee
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                                {absorbFee
+                                    ? 'You pay the fee – customers see the ticket price only'
+                                    : 'Customers pay the fee on top of ticket price'
+                                }
+                            </p>
+                        </div>
+                        <Switch
+                            id="absorb-fee"
+                            checked={absorbFee}
+                            onCheckedChange={onAbsorbFeeChange}
+                        />
                     </div>
-                    <Switch
-                        id="absorb-fee"
-                        checked={absorbFee}
-                        onCheckedChange={onAbsorbFeeChange}
-                    />
-                </div>
+                )}
 
                 {/* Fee Breakdown Table */}
                 <div className="space-y-2 pt-2 border-t">
@@ -104,15 +110,26 @@ export function FeeBreakdown({
                         <span>{formatCurrency(breakdown.subtotal)}</span>
                     </div>
 
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground flex items-center gap-1">
-                            Platform fee
-                            <span className="text-xs">({formatCurrency(breakdown.feePerTicket)}/ticket)</span>
-                        </span>
-                        <span className={absorbFee ? 'text-destructive' : ''}>
-                            {absorbFee ? '-' : '+'}{formatCurrency(breakdown.platformFee)}
-                        </span>
-                    </div>
+                    {breakdown.organizerFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                                Organizer fee
+                                <span className="text-xs">({formatCurrency(breakdown.organizerFeePerTicket)}/ticket)</span>
+                            </span>
+                            <span>+{formatCurrency(breakdown.organizerFee)}</span>
+                        </div>
+                    )}
+                    {breakdown.platformFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                                Platform fee
+                                <span className="text-xs">({formatCurrency(breakdown.platformFeePerTicket)}/ticket)</span>
+                            </span>
+                            <span className={absorbFee ? 'text-destructive' : ''}>
+                                {absorbFee ? '-' : '+'}{formatCurrency(breakdown.platformFee)}
+                            </span>
+                        </div>
+                    )}
                     {breakdown.processingFee > 0 && (
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Processing fee</span>
@@ -139,7 +156,7 @@ export function FeeBreakdown({
                         {feeTier === 'charity'
                             ? `Charity rate: £${CHARITY_FEE_GBP.toFixed(2)} per ticket (requires verified charity status)`
                             : feeTier === 'token'
-                                ? 'Using your purchased credits for reduced fees'
+                                ? 'Using credits: platform fees are waived. Optional organizer fee is paid directly to the organizer.'
                                 : `Standard rate: £${PAYG_FEE_GBP.toFixed(2)} per ticket. Buy credits to reduce fees.`
                         }
                         {' '}

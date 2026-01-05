@@ -148,11 +148,10 @@ export interface FeeCalculationResult {
 export function calculateFeePerTicket(
     feeTier: FeeTier,
     currency: string,
-    customBookingFee?: number,
     rates: Record<string, number> = FALLBACK_EXCHANGE_RATES
 ): number {
-    if (customBookingFee !== undefined && customBookingFee >= 0) {
-        return customBookingFee;
+    if (feeTier === 'token') {
+        return 0;
     }
 
     if (feeTier === 'charity') {
@@ -170,7 +169,6 @@ export function calculatePlatformFee(params: FeeCalculationParams): FeeCalculati
         feeTier,
         ticketCount,
         currency,
-        customBookingFee,
         creditsAvailable = 0,
         exchangeRates = FALLBACK_EXCHANGE_RATES
     } = params;
@@ -186,34 +184,15 @@ export function calculatePlatformFee(params: FeeCalculationParams): FeeCalculati
         };
     }
 
-    if (feeTier === 'token' && creditsAvailable > 0) {
+    if (feeTier === 'token') {
         const ticketsUsingCredits = Math.min(creditsAvailable, ticketCount);
         const ticketsUsingPayg = ticketCount - ticketsUsingCredits;
-
-        const creditFeePerTicket = customBookingFee !== undefined
-            ? customBookingFee
-            : convertFromGBP(PAYG_FEE_GBP, currency, exchangeRates);
-        const paygFeePerTicket = convertFromGBP(PAYG_FEE_GBP, currency, exchangeRates);
-
-        const totalFee = (ticketsUsingCredits * creditFeePerTicket) +
-            (ticketsUsingPayg * paygFeePerTicket);
-
-        const feePerTicket = ticketCount > 0 ? totalFee / ticketCount : 0;
-
-        let feeDescription: string;
-        if (ticketsUsingPayg === 0) {
-            feeDescription = `${getCurrencySymbol(currency)}${creditFeePerTicket.toFixed(2)}/ticket (using credits)`;
-        } else {
-            feeDescription = `${getCurrencySymbol(currency)}${creditFeePerTicket.toFixed(2)}/ticket for first ${ticketsUsingCredits}, then ${getCurrencySymbol(currency)}${paygFeePerTicket.toFixed(2)}/ticket`;
-        }
-
         return {
-            feePerTicket,
-            totalFee,
+            feePerTicket: 0,
+            totalFee: 0,
             ticketsUsingCredits,
             ticketsUsingPayg,
-            creditFeePerTicket,
-            feeDescription
+            feeDescription: 'No platform fee (credits applied)'
         };
     }
 

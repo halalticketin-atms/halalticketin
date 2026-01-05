@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import Image from 'next/image';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search,
     Filter,
@@ -17,6 +18,7 @@ import {
     RefreshCw,
     ChevronDown,
     Users,
+    Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +43,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -78,6 +86,7 @@ interface TicketBreakdownItem {
 interface EventBreakdown {
     eventId: string;
     eventName: string;
+    bannerImageUrl?: string;
     isActive: boolean;
     tickets: TicketBreakdownItem[];
     total: { quantity: number; revenue: number };
@@ -107,6 +116,9 @@ const formatCurrency = (amount: number, currency: string) => {
         return `£${amount.toFixed(2)}`;
     }
 };
+
+const getEffectiveUnitPrice = (item: Pick<OrderItem, 'unitPrice' | 'organizerFee'>) =>
+    item.unitPrice + (item.organizerFee ?? 0);
 
 export default function OrdersPage() {
     const organizerId = useOrganizerFromParams();
@@ -519,9 +531,6 @@ export default function OrdersPage() {
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-lg">
-                                            <Ticket className="h-5 w-5 text-white" />
-                                        </div>
                                         <div>
                                             <h3 className="font-semibold text-lg">Ticket Sales by Event</h3>
                                             <p className="text-sm text-muted-foreground">
@@ -544,64 +553,116 @@ export default function OrdersPage() {
                                         </Button>
                                     )}
                                 </div>
-                                <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-4 grid-cols-1">
                                     {(showAllBreakdown ? eventBreakdowns : eventBreakdowns.filter(e => e.isActive).slice(0, 4)).map((event, eventIndex) => (
-                                        <Card
+                                        <motion.div
                                             key={event.eventId}
-                                            className={`bg-gradient-to-br ${event.isActive
-                                                ? 'from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-100 dark:border-violet-900'
-                                                : 'from-gray-50/50 to-slate-50/50 dark:from-gray-950/20 dark:to-slate-950/20 border-gray-200 dark:border-gray-800'
-                                                }`}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            whileHover={{ scale: 1.01 }}
+                                            transition={{ duration: 0.2 }}
                                         >
-                                            <CardContent className="pt-4 pb-4">
-                                                <div className="mb-3 flex items-start justify-between gap-2">
-                                                    <div className="min-w-0 flex-1">
-                                                        <h4 className="font-semibold text-sm truncate">{event.eventName}</h4>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {event.total.quantity} tickets • {formatCurrency(event.total.revenue, breakdownCurrency)}
-                                                        </p>
-                                                    </div>
-                                                    {!event.isActive && (
-                                                        <Badge variant="secondary" className="text-[10px] shrink-0">Past</Badge>
-                                                    )}
-                                                </div>
-                                                <div className="space-y-2">
-                                                    {event.tickets.map((ticket, ticketIndex) => {
-                                                        const percentage = event.total.quantity > 0
-                                                            ? (ticket.quantity / event.total.quantity) * 100
-                                                            : 0;
-
-                                                        const colorKey = ticketTypeColors[ticketIndex % ticketTypeColors.length];
-                                                        const colorClass = progressColorMap[colorKey];
-
-                                                        return (
-                                                            <div key={ticket.ticketTypeId || ticketIndex} className="space-y-1">
-                                                                <div className="flex items-center justify-between text-xs">
-                                                                    <span className="font-medium truncate flex-1 mr-2">{ticket.name}</span>
-                                                                    <div className="flex items-center gap-2 text-right shrink-0">
-                                                                        <span className="text-muted-foreground">{ticket.quantity}</span>
-                                                                        <span className="font-medium min-w-[60px]">
-                                                                            {formatCurrency(ticket.revenue, breakdownCurrency)}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                                                                    <motion.div
-                                                                        initial={{ width: 0 }}
-                                                                        animate={{ width: `${percentage}%` }}
-                                                                        transition={{ delay: 0.3 + eventIndex * 0.1 + ticketIndex * 0.05, duration: 0.4 }}
-                                                                        className={`h-full rounded-full ${event.isActive
-                                                                            ? colorClass
-                                                                            : 'bg-linear-to-r from-gray-400 to-slate-400'
-                                                                            }`}
-                                                                    />
-                                                                </div>
+                                            <Card
+                                                className={`bg-gradient-to-br ${event.isActive
+                                                    ? 'from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-100 dark:border-violet-900'
+                                                    : 'from-gray-50/50 to-slate-50/50 dark:from-gray-950/20 dark:to-slate-950/20 border-gray-200 dark:border-gray-800'
+                                                    }`}
+                                            >
+                                                <CardContent className="pt-4 pb-4">
+                                                    <div className="flex gap-4 mb-4">
+                                                        <div className="h-16 w-12 shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center relative shadow-sm border border-border/10">
+                                                            {event.bannerImageUrl ? (
+                                                                <Image
+                                                                    src={event.bannerImageUrl}
+                                                                    alt={event.eventName}
+                                                                    fill
+                                                                    className="object-cover"
+                                                                />
+                                                            ) : (
+                                                                <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+                                                            )}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-start justify-between gap-2">
+                                                                <h4 className="font-semibold text-sm truncate">{event.eventName}</h4>
+                                                                {!event.isActive && (
+                                                                    <Badge variant="secondary" className="text-[10px] shrink-0">Past</Badge>
+                                                                )}
                                                             </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                                {event.total.quantity} tickets • {formatCurrency(event.total.revenue, breakdownCurrency)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-4">
+                                                        {event.tickets.map((ticket, ticketIndex) => {
+                                                            const percentage = event.total.quantity > 0
+                                                                ? (ticket.quantity / event.total.quantity) * 100
+                                                                : 0;
+
+                                                            const colorKey = ticketTypeColors[ticketIndex % ticketTypeColors.length];
+                                                            const colorClass = progressColorMap[colorKey];
+
+                                                            // Extract the solid color from the gradient class for the tooltip border/bg
+                                                            // This is a bit of a hack since we're using tailwind classes
+                                                            // improved approach: define explicit hex/tailwnd colors map
+                                                            const tooltipStyles = {
+                                                                primary: 'bg-violet-500 border-violet-500 text-white',
+                                                                emerald: 'bg-emerald-500 border-emerald-500 text-white',
+                                                                violet: 'bg-violet-500 border-violet-500 text-white',
+                                                                amber: 'bg-amber-500 border-amber-500 text-white',
+                                                                rose: 'bg-rose-500 border-rose-500 text-white',
+                                                                sky: 'bg-sky-500 border-sky-500 text-white',
+                                                                lime: 'bg-lime-500 border-lime-500 text-white',
+                                                                fuchsia: 'bg-fuchsia-500 border-fuchsia-500 text-white',
+                                                            }[colorKey] || 'bg-slate-800 border-slate-800 text-white';
+
+                                                            return (
+                                                                <div key={ticket.ticketTypeId || ticketIndex} className="space-y-1.5">
+                                                                    <div className="flex items-center justify-between text-xs">
+                                                                        <span className="font-medium truncate flex-1 mr-2">{ticket.name}</span>
+                                                                        <div className="flex items-center gap-2 text-right shrink-0">
+                                                                            <span className="text-muted-foreground">{ticket.quantity}</span>
+                                                                            <span className="font-medium min-w-[60px]">
+                                                                                {formatCurrency(ticket.revenue, breakdownCurrency)}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <TooltipProvider>
+                                                                        <Tooltip delayDuration={0}>
+                                                                            <TooltipTrigger asChild>
+                                                                                <div className="h-4 bg-muted/50 rounded-full overflow-hidden cursor-pointer">
+                                                                                    <motion.div
+                                                                                        initial={{ width: 0 }}
+                                                                                        animate={{ width: `${percentage}%` }}
+                                                                                        whileHover={{ opacity: 0.8 }}
+                                                                                        transition={{ delay: 0.3 + eventIndex * 0.1 + ticketIndex * 0.05, duration: 0.4 }}
+                                                                                        className={`h-full rounded-full ${event.isActive
+                                                                                            ? colorClass
+                                                                                            : 'bg-linear-to-r from-gray-400 to-slate-400'
+                                                                                            }`}
+                                                                                    />
+                                                                                </div>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent
+                                                                                showArrow={false}
+                                                                                side="top"
+                                                                                className={`border-2 ${event.isActive ? tooltipStyles : 'bg-gray-500 border-gray-500 text-white'}`}
+                                                                            >
+                                                                                <p className="font-medium">{ticket.name}</p>
+                                                                                <p className="text-xs opacity-90">
+                                                                                    {ticket.quantity} sold ({percentage.toFixed(1)}%)
+                                                                                </p>
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+                                                                    </TooltipProvider>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </motion.div>
                                     ))}
                                 </div>
                             </div>
@@ -899,7 +960,7 @@ export default function OrdersPage() {
                                                                 <div key={item.id} className="flex justify-between text-sm">
                                                                     <span>{item.quantity}x {item.name ?? 'Ticket'}</span>
                                                                     <span className="font-medium">
-                                                                        {formatCurrency(item.unitPrice * item.quantity, selectedOrder.totals.currency)}
+                                                                        {formatCurrency(getEffectiveUnitPrice(item) * item.quantity, selectedOrder.totals.currency)}
                                                                     </span>
                                                                 </div>
                                                             ))}
@@ -1034,7 +1095,7 @@ export default function OrdersPage() {
                                                                                     <span className="text-sm">{item.name || 'Ticket'}</span>
                                                                                 </div>
                                                                                 <span className="text-sm font-medium">
-                                                                                    {formatCurrency(item.unitPrice, selectedOrder.totals.currency)}
+                                                                                    {formatCurrency(getEffectiveUnitPrice(item), selectedOrder.totals.currency)}
                                                                                 </span>
                                                                             </div>
                                                                         );
@@ -1050,7 +1111,7 @@ export default function OrdersPage() {
                                                                                 const count = Array.from({ length: item.quantity }).filter((_, i) =>
                                                                                     selectedTicketIds.has(`${item.id}-${i}`)
                                                                                 ).length;
-                                                                                return sum + count * item.unitPrice;
+                                                                                return sum + count * getEffectiveUnitPrice(item);
                                                                             }, 0),
                                                                             selectedOrder.totals.currency
                                                                         )}
@@ -1083,7 +1144,7 @@ export default function OrdersPage() {
                                                                         const count = Array.from({ length: item.quantity }).filter((_, i) =>
                                                                             selectedTicketIds.has(`${item.id}-${i}`)
                                                                         ).length;
-                                                                        return sum + count * item.unitPrice;
+                                                                        return sum + count * getEffectiveUnitPrice(item);
                                                                     }, 0);
                                                                 }
                                                                 await api.post(`/api/v1/orders/${selectedOrder.id}/refund`, body);
