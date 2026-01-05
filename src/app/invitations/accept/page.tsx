@@ -26,6 +26,12 @@ function AcceptInvitationContent() {
         return `/login?next=${encodeURIComponent(destination)}`;
     }, [token]);
 
+    const nextRegisterUrl = useMemo(() => {
+        if (!token) return '/register';
+        const destination = `/invitations/accept?token=${encodeURIComponent(token)}`;
+        return `/register?next=${encodeURIComponent(destination)}`;
+    }, [token]);
+
     useEffect(() => {
         if (!token || !user || status === 'processing' || status === 'success') {
             return;
@@ -78,6 +84,12 @@ function AcceptInvitationContent() {
                             <Button asChild className="w-full">
                                 <Link href={nextLoginUrl}>Sign in to continue</Link>
                             </Button>
+                            <p className="text-sm text-muted-foreground">
+                                Don&apos;t have an account?{' '}
+                                <Link href={nextRegisterUrl} className="text-primary hover:underline font-medium">
+                                    Sign up
+                                </Link>
+                            </p>
                         </div>
                     ) : (
                         <div className="space-y-4 text-center">

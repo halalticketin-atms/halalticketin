@@ -148,6 +148,15 @@ export interface CollaborationsResponse {
     partnerCollaborations: PartnerCollaboration[];
 }
 
+export interface CollaborationDecisionResponse {
+    collaborator: {
+        id: string;
+        status: 'pending' | 'accepted' | 'declined';
+        acceptedAt?: string | null;
+        declinedAt?: string | null;
+    };
+}
+
 export const fetchOrganizerCollaborations = async (organizerId: string) => {
     return api.get<CollaborationsResponse>(`/api/v1/organizers/${organizerId}/collaborations`);
 };
@@ -161,6 +170,17 @@ export const invitePartnerOrg = async (eventId: string, partnerOrgId: string, ac
 
 export const removeCollaboration = async (eventId: string, collaboratorId: string) => {
     return api.delete<{ success: boolean }>(`/api/v1/events/${eventId}/collaborators/${collaboratorId}`);
+};
+
+export const updateCollaborationStatus = async (
+    eventId: string,
+    collaboratorId: string,
+    status: 'accepted' | 'declined'
+) => {
+    return api.patch<CollaborationDecisionResponse>(
+        `/api/v1/events/${eventId}/collaborators/${collaboratorId}`,
+        { status }
+    );
 };
 
 // ============================================================================

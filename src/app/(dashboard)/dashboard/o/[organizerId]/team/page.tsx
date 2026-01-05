@@ -30,6 +30,7 @@ import {
     fetchOrganizerEventOptions,
     fetchOrganizerCollaborations,
     removeCollaboration,
+    updateCollaborationStatus,
     eventScopeToInput,
     type CreateInvitationPayload,
     type EventScopeInput,
@@ -40,6 +41,7 @@ import {
 import type { EventScope, TeamInvitation, TeamMember } from '@/types';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { buildDashboardPath } from '@/lib/organizer-path';
+import { useOrganizers } from '@/context/organizer-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -339,6 +341,16 @@ export default function OrganizerTeamPage() {
     const [hostedCollabs, setHostedCollabs] = useState<HostedCollaboration[]>([]);
     const [partnerCollabs, setPartnerCollabs] = useState<PartnerCollaboration[]>([]);
     const [showCollabs, setShowCollabs] = useState(true);
+    const [collabActionId, setCollabActionId] = useState<string | null>(null);
+
+    const { organizers } = useOrganizers();
+    const activeRole = organizers.find((org) => org.id === organizerId)?.role;
+    const canManageCollaborations = activeRole
+        ? ['owner', 'co_owner', 'admin', 'editor'].includes(activeRole)
+        : false;
+    const canRespondToCollaborations = activeRole
+        ? ['owner', 'co_owner', 'admin'].includes(activeRole)
+        : false;
 
     const eventsMap = useMemo(() => new Map(events.map((evt) => [evt.id, evt])), [events]);
 
@@ -434,6 +446,29 @@ export default function OrganizerTeamPage() {
         if (!organizerId) return;
         await revokeTeamInvitation(organizerId, invitationId);
         await loadTeamData();
+    };
+
+    const handleCollaborationDecision = async (
+        collaboration: PartnerCollaboration,
+        status: 'accepted' | 'declined'
+    ) => {
+        setCollabActionId(collaboration.id);
+        try {
+            await updateCollaborationStatus(collaboration.eventId, collaboration.id, status);
+            await loadTeamData();
+        } finally {
+            setCollabActionId(null);
+        }
+    };
+
+    const handleRemoveCollaboration = async (collaboration: HostedCollaboration) => {
+        setCollabActionId(collaboration.id);
+        try {
+            await removeCollaboration(collaboration.eventId, collaboration.id);
+            await loadTeamData();
+        } finally {
+            setCollabActionId(null);
+        }
     };
 
     const openEditDialog = (member: TeamMember) => {
@@ -681,6 +716,17 @@ export default function OrganizerTeamPage() {
                                                     <Badge variant="outline" className="text-xs">
                                                         {collab.accessLevel}
                                                     </Badge>
+                                                    {canManageCollaborations && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleRemoveCollaboration(collab)}
+                                                            disabled={collabActionId === collab.id}
+                                                            className="text-destructive hover:text-destructive"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </motion.div>
                                         ))}
@@ -721,6 +767,25 @@ export default function OrganizerTeamPage() {
                                                     <Badge variant="outline" className="text-xs">
                                                         {collab.accessLevel}
                                                     </Badge>
+                                                    {collab.status === 'pending' && canRespondToCollaborations && (
+                                                        <div className="flex items-center gap-2">
+                                                            <Button
+                                                                size="sm"
+                                                                onClick={() => handleCollaborationDecision(collab, 'accepted')}
+                                                                disabled={collabActionId === collab.id}
+                                                            >
+                                                                Accept
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleCollaborationDecision(collab, 'declined')}
+                                                                disabled={collabActionId === collab.id}
+                                                            >
+                                                                Decline
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </motion.div>
                                         ))}
