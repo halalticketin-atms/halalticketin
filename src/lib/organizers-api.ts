@@ -29,14 +29,14 @@ export interface TeamInvitationsResponse {
 }
 
 export interface UpdateMembershipPayload {
-    role?: Extract<OrganizerRole, 'admin' | 'editor' | 'check_in' | 'viewer'>;
+    role?: Extract<OrganizerRole, 'co_owner' | 'admin' | 'editor' | 'check_in'>;
     status?: 'active' | 'suspended';
     eventScope?: EventScopeInput;
 }
 
 export interface CreateInvitationPayload {
     email: string;
-    role: Extract<OrganizerRole, 'admin' | 'editor' | 'check_in' | 'viewer'>;
+    role: Extract<OrganizerRole, 'co_owner' | 'admin' | 'editor' | 'check_in'>;
     eventScope?: EventScopeInput;
 }
 
@@ -111,6 +111,56 @@ export const fetchOrganizerEventOptions = async (organizerId: string) => {
         { params: { organizerId } }
     );
     return response.filters.events;
+};
+
+// ============================================================================
+// Collaborations API
+// ============================================================================
+
+export interface CollaboratingOrg {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+}
+
+export interface HostedCollaboration {
+    id: string;
+    eventId: string;
+    eventTitle: string;
+    partnerOrg: CollaboratingOrg;
+    accessLevel: string;
+    status: 'pending' | 'accepted' | 'declined';
+    createdAt: string;
+}
+
+export interface PartnerCollaboration {
+    id: string;
+    eventId: string;
+    eventTitle: string;
+    hostOrg: CollaboratingOrg;
+    accessLevel: string;
+    status: 'pending' | 'accepted' | 'declined';
+    createdAt: string;
+}
+
+export interface CollaborationsResponse {
+    hostedCollaborations: HostedCollaboration[];
+    partnerCollaborations: PartnerCollaboration[];
+}
+
+export const fetchOrganizerCollaborations = async (organizerId: string) => {
+    return api.get<CollaborationsResponse>(`/api/v1/organizers/${organizerId}/collaborations`);
+};
+
+export const invitePartnerOrg = async (eventId: string, partnerOrgId: string, accessLevel: string = 'editor') => {
+    return api.post<{ collaborator: HostedCollaboration }>(
+        `/api/v1/events/${eventId}/collaborators`,
+        { partnerOrgId, accessLevel }
+    );
+};
+
+export const removeCollaboration = async (eventId: string, collaboratorId: string) => {
+    return api.delete<{ success: boolean }>(`/api/v1/events/${eventId}/collaborators/${collaboratorId}`);
 };
 
 // ============================================================================

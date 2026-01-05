@@ -19,6 +19,7 @@ import { ScanResultOverlay } from '@/components/check-in/ScanResultOverlay';
 import { AttendeeCard } from '@/components/check-in/AttendeeCard';
 import { QRScanner } from '@/components/check-in/QRScanner';
 import { CheckInHeader } from '@/components/check-in/CheckInHeader';
+import { TempStaffDialog } from '@/components/check-in/TempStaffDialog';
 import { useCheckInTickets, transformCheckInTicket } from '@/hooks/useCheckInTickets';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents } from '@/hooks/useOrganizerEvents';
@@ -233,7 +234,10 @@ function CheckInContent() {
             isEventLoading={eventsLoading}
           />
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            {selectedEvent && selectedEventData && (
+              <TempStaffDialog eventId={selectedEvent} eventName={selectedEventData.name} />
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -322,7 +326,10 @@ function CheckInContent() {
             isEventLoading={eventsLoading}
           />
 
-          <div className="flex justify-end mb-4">
+          <div className="flex justify-end gap-2 mb-4">
+            {selectedEvent && selectedEventData && (
+              <TempStaffDialog eventId={selectedEvent} eventName={selectedEventData.name} />
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -336,7 +343,7 @@ function CheckInContent() {
             <DesktopQRRedirect
               eventId={selectedEvent}
               eventName={selectedEventData?.name || ''}
-              organizerId={organizerId}
+              organizerId={organizerId || ''}
             />
           </Card>
         </div>

@@ -1,75 +1,102 @@
-import { motion } from 'motion/react';
-import { Check } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+'use client';
+
+import { User, CheckCircle, Clock, Undo2, Loader2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import type { CheckInTicket } from '@/types';
 
 interface AttendeeCardProps {
-  ticket: CheckInTicket;
-  onCheckIn: (id: string) => void;
-  onUndo: (id: string) => void;
-  isUpdating?: boolean;
+    ticket: CheckInTicket;
+    isUpdating?: boolean;
+    onCheckIn?: (ticketId: string) => void;
+    onUndo?: (ticketId: string) => void;
 }
 
-export function AttendeeCard({ ticket, onCheckIn, onUndo, isUpdating }: AttendeeCardProps) {
-  const isCheckedIn = ticket.checkInStatus === 'checked_in';
-  const checkedInTime =
-    ticket.checkedInAt?.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    }) ?? null;
+export function AttendeeCard({ ticket, isUpdating, onCheckIn, onUndo }: AttendeeCardProps) {
+    const isCheckedIn = ticket.checkInStatus === 'checked_in';
 
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="p-4 bg-card rounded-xl border flex items-center gap-4"
-    >
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold truncate">{ticket.attendeeName}</p>
-        <p className="text-sm text-muted-foreground truncate">{ticket.attendeeEmail}</p>
-        <div className="flex items-center gap-2 mt-1">
-          <Badge variant="outline" className="text-xs">
-            {ticket.ticketType}
-          </Badge>
-          {ticket.groupSize > 1 && (
-            <Badge variant="secondary" className="text-xs">
-              {ticket.groupCheckedIn}/{ticket.groupSize} in group
-            </Badge>
-          )}
-        </div>
-        {isCheckedIn && (
-          <p className="text-xs text-muted-foreground mt-1">
-            Checked in
-            {checkedInTime ? ` at ${checkedInTime}` : ''}
-            {ticket.checkedInByName ? ` by ${ticket.checkedInByName}` : ''}
-          </p>
-        )}
-      </div>
-      <div>
-        {isCheckedIn ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isUpdating}
-            onClick={() => onUndo(ticket.id)}
-            className="text-amber-600 border-amber-200 hover:bg-amber-50"
-          >
-            Undo
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            disabled={isUpdating}
-            onClick={() => onCheckIn(ticket.id)}
-            className="bg-green-600 hover:bg-green-700 text-white min-w-[100px]"
-          >
-            <Check className="h-4 w-4 mr-1" />
-            Check In
-          </Button>
-        )}
-      </div>
-    </motion.div>
-  );
+    return (
+        <Card className={cn(
+            'transition-all',
+            isCheckedIn && 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+        )}>
+            <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className={cn(
+                            'h-10 w-10 rounded-full flex items-center justify-center shrink-0',
+                            isCheckedIn
+                                ? 'bg-green-100 dark:bg-green-900'
+                                : 'bg-muted'
+                        )}>
+                            {isCheckedIn ? (
+                                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            ) : (
+                                <User className="h-5 w-5 text-muted-foreground" />
+                            )}
+                        </div>
+                        <div className="min-w-0">
+                            <p className="font-medium truncate">{ticket.attendeeName}</p>
+                            <p className="text-sm text-muted-foreground truncate">{ticket.attendeeEmail}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="secondary" className="text-xs">
+                                    {ticket.ticketType}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                    #{ticket.orderNumber}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                        {isCheckedIn ? (
+                            <>
+                                <div className="text-right hidden sm:block">
+                                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">Checked in</p>
+                                    {ticket.checkedInAt && (
+                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            {new Date(ticket.checkedInAt).toLocaleTimeString()}
+                                        </p>
+                                    )}
+                                </div>
+                                {onUndo && (
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => onUndo(ticket.id)}
+                                        disabled={isUpdating}
+                                    >
+                                        {isUpdating ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Undo2 className="h-4 w-4" />
+                                        )}
+                                    </Button>
+                                )}
+                            </>
+                        ) : (
+                            onCheckIn && (
+                                <Button
+                                    size="sm"
+                                    onClick={() => onCheckIn(ticket.id)}
+                                    disabled={isUpdating}
+                                >
+                                    {isUpdating ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                    ) : (
+                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                    )}
+                                    Check In
+                                </Button>
+                            )
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
 }

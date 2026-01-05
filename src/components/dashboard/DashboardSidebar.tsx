@@ -13,33 +13,86 @@ import {
     Users,
     Mail,
     Wallet,
+    Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OrganizerSwitcher } from './OrganizerSwitcher';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import { useAuth } from '@/context/auth-context';
+import { useOrganizers } from '@/context/organizer-context';
+import type { OrganizerRole } from '@/types';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface NavItem {
     title: string;
     href: string;
     icon: React.ElementType;
+    // Roles that can access this item (empty = all roles)
+    allowedRoles?: OrganizerRole[];
 }
 
 interface DashboardSidebarProps {
     organizerId?: string;
 }
 
+// Define which roles can access which nav items
+// Empty array means all roles can access
 const buildNavItems = (organizerId?: string): NavItem[] => {
     const base = organizerId ? buildDashboardPath(organizerId) : '/dashboard';
     return [
-        { title: 'Overview', href: base, icon: LayoutDashboard },
-        { title: 'My Events', href: `${base}/events`, icon: Calendar },
-        { title: 'Orders', href: `${base}/orders`, icon: Receipt },
-        { title: 'Email Attendees', href: `${base}/email-attendees`, icon: Mail },
-        { title: 'Team', href: `${base}/team`, icon: Users },
-        { title: 'Check-in', href: `${base}/check-in`, icon: ScanLine },
-        { title: 'Analytics', href: `${base}/analytics`, icon: BarChart3 },
-        { title: 'Credits', href: `${base}/billing`, icon: Wallet },
+        {
+            title: 'Overview',
+            href: base,
+            icon: LayoutDashboard,
+            allowedRoles: ['owner', 'co_owner', 'admin', 'editor'] // check_in excluded
+        },
+        {
+            title: 'My Events',
+            href: `${base}/events`,
+            icon: Calendar,
+            allowedRoles: ['owner', 'co_owner', 'admin', 'editor'] // check_in excluded
+        },
+        {
+            title: 'Orders',
+            href: `${base}/orders`,
+            icon: Receipt,
+            allowedRoles: ['owner', 'co_owner', 'admin', 'editor'] // check_in excluded
+        },
+        {
+            title: 'Email Attendees',
+            href: `${base}/email-attendees`,
+            icon: Mail,
+            allowedRoles: ['owner', 'co_owner', 'admin', 'editor'] // check_in excluded
+        },
+        {
+            title: 'Team',
+            href: `${base}/team`,
+            icon: Users,
+            allowedRoles: ['owner', 'co_owner', 'admin'] // editor, check_in excluded
+        },
+        {
+            title: 'Check-in',
+            href: `${base}/check-in`,
+            icon: ScanLine,
+            // All roles can access check-in
+        },
+        {
+            title: 'Analytics',
+            href: `${base}/analytics`,
+            icon: BarChart3,
+            allowedRoles: ['owner', 'co_owner', 'admin', 'editor'] // check_in excluded
+        },
+        {
+            title: 'Credits',
+            href: `${base}/billing`,
+            icon: Wallet,
+            allowedRoles: ['owner', 'co_owner'] // admin, editor, check_in excluded
+        },
     ];
 };
 
@@ -48,7 +101,12 @@ const bottomNavItems: NavItem[] = [{ title: 'Settings', href: '/settings', icon:
 export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
     const pathname = usePathname();
     const { signOut } = useAuth();
+    const { organizers, activeOrganizerId } = useOrganizers();
     const mainNavItems = buildNavItems(organizerId);
+
+    // Get the current user's role for the active organizer
+    const activeOrganizer = organizers.find((org) => org.id === (organizerId || activeOrganizerId));
+    const userRole = (activeOrganizer?.role as OrganizerRole) || 'check_in';
 
     const isActive = (href: string) => {
         const overviewHref = organizerId ? buildDashboardPath(organizerId) : '/dashboard';
@@ -61,20 +119,57 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
         return pathname.startsWith(href);
     };
 
-    const NavLink = ({ item }: { item: NavItem }) => (
-        <Link
-            href={item.href}
-            className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium',
-                isActive(item.href)
-                    ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            )}
-        >
-            <item.icon className="h-5 w-5 shrink-0" />
-            <span>{item.title}</span>
-        </Link>
-    );
+    const canAccessItem = (item: NavItem): boolean => {
+        // If no allowedRoles specified, all roles can access
+        if (!item.allowedRoles || item.allowedRoles.length === 0) {
+            return true;
+        }
+        return item.allowedRoles.includes(userRole);
+    };
+
+    const NavLink = ({ item }: { item: NavItem }) => {
+        const hasAccess = canAccessItem(item);
+
+        if (!hasAccess) {
+            // Render as disabled with tooltip
+            return (
+                <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div
+                                className={cn(
+                                    'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium cursor-not-allowed',
+                                    'text-muted-foreground/50'
+                                )}
+                            >
+                                <item.icon className="h-5 w-5 shrink-0" />
+                                <span className="flex-1">{item.title}</span>
+                                <Lock className="h-3.5 w-3.5 text-muted-foreground/40" />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">
+                            You don't have access to this feature
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            );
+        }
+
+        return (
+            <Link
+                href={item.href}
+                className={cn(
+                    'flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium',
+                    isActive(item.href)
+                        ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                )}
+            >
+                <item.icon className="h-5 w-5 shrink-0" />
+                <span>{item.title}</span>
+            </Link>
+        );
+    };
 
     return (
         <>

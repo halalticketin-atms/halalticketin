@@ -1,14 +1,14 @@
 export type EventScope =
     | {
-          mode: 'all';
-          eventIds: [];
-      }
+        mode: 'all';
+        eventIds: [];
+    }
     | {
-          mode: 'limited';
-          eventIds: string[];
-      };
+        mode: 'limited';
+        eventIds: string[];
+    };
 
-export type OrganizerRole = 'owner' | 'admin' | 'editor' | 'check_in' | 'viewer';
+export type OrganizerRole = 'owner' | 'co_owner' | 'admin' | 'editor' | 'check_in';
 export type MembershipStatus = 'pending' | 'active' | 'suspended';
 
 export interface TeamMember {

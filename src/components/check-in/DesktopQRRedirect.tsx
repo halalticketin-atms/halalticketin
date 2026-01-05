@@ -1,61 +1,54 @@
-import { motion } from 'motion/react';
-import { Smartphone } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
-import { Card } from '@/components/ui/card';
+'use client';
+
+import { QrCode, Smartphone } from 'lucide-react';
+import { CardContent } from '@/components/ui/card';
+import { buildDashboardPath } from '@/lib/organizer-path';
 
 interface DesktopQRRedirectProps {
-  eventId: string;
-  eventName: string;
-  organizerId?: string | null;
+    eventId: string;
+    eventName: string;
+    organizerId: string;
 }
 
 export function DesktopQRRedirect({ eventId, eventName, organizerId }: DesktopQRRedirectProps) {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const scannerUrl = origin
-    ? organizerId
-      ? `${origin}/dashboard/o/${organizerId}/check-in?event=${eventId}&mode=scan`
-      : `${origin}/dashboard`
-    : '';
+    // Generate the full check-in URL for mobile
+    const checkInUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}${buildDashboardPath(organizerId)}/check-in?event=${eventId}&mode=scan`
+        : '';
 
-  if (!origin) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
-        <div className="text-center">
-          <Smartphone className="h-16 w-16 mx-auto text-primary mb-4 animate-pulse" />
-          <p className="text-muted-foreground">Loading scanner...</p>
-        </div>
-      </div>
+        <CardContent className="py-12">
+            <div className="text-center space-y-6">
+                <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-primary/10 mx-auto">
+                    <Smartphone className="h-10 w-10 text-primary" />
+                </div>
+
+                <div className="space-y-2">
+                    <h2 className="text-xl font-semibold">Use your phone to scan tickets</h2>
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                        For the best check-in experience, open this page on your phone or tablet.
+                        The camera will be used to scan QR codes.
+                    </p>
+                </div>
+
+                {/* QR Code to scan on mobile */}
+                {checkInUrl && (
+                    <div className="space-y-4">
+                        <div className="inline-block p-4 bg-white rounded-xl shadow-sm border">
+                            <div className="h-40 w-40 bg-muted rounded flex items-center justify-center">
+                                <QrCode className="h-20 w-20 text-muted-foreground" />
+                            </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Scan this QR code with your phone to open the check-in scanner
+                        </p>
+                    </div>
+                )}
+
+                <div className="text-xs text-muted-foreground">
+                    Currently viewing: <span className="font-medium">{eventName}</span>
+                </div>
+            </div>
+        </CardContent>
     );
-  }
-
-  return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="text-center"
-      >
-        <div className="mb-6">
-          <Smartphone className="h-16 w-16 mx-auto text-primary mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Open Scanner on Your Phone</h2>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            Scan this QR code with your phone to open the check-in scanner for{' '}
-            <strong>{eventName}</strong>
-          </p>
-        </div>
-
-        <Card className="inline-block p-6 bg-white">
-          <QRCodeSVG value={scannerUrl} size={200} level="H" includeMargin />
-        </Card>
-
-        <p className="mt-6 text-sm text-muted-foreground">
-          Or open this URL on your phone:
-          <br />
-          <code className="text-xs bg-muted px-2 py-1 rounded mt-1 inline-block">
-            {scannerUrl}
-          </code>
-        </p>
-      </motion.div>
-    </div>
-  );
 }

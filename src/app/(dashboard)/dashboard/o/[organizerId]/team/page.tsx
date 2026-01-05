@@ -18,6 +18,8 @@ import {
     Clock,
     ChevronDown,
     ChevronUp,
+    Building2,
+    Calendar,
 } from 'lucide-react';
 import {
     fetchTeamMemberships,
@@ -26,10 +28,14 @@ import {
     revokeTeamInvitation,
     updateTeamMembership,
     fetchOrganizerEventOptions,
+    fetchOrganizerCollaborations,
+    removeCollaboration,
     eventScopeToInput,
     type CreateInvitationPayload,
     type EventScopeInput,
     type OrganizerEventOption,
+    type HostedCollaboration,
+    type PartnerCollaboration,
 } from '@/lib/organizers-api';
 import type { EventScope, TeamInvitation, TeamMember } from '@/types';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
@@ -57,10 +63,34 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const ROLE_OPTIONS = [
-    { value: 'admin', label: 'Admin', description: 'Full access except payouts', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' },
-    { value: 'editor', label: 'Editor', description: 'Manage events and tickets', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-    { value: 'check_in', label: 'Check-in', description: 'Access check-in tools only', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
-    { value: 'viewer', label: 'Viewer', description: 'Read-only analytics', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
+    {
+        value: 'co_owner',
+        label: 'Co-owner',
+        description: 'Full access to everything, same as the owner. Can manage billing, payouts, and all team settings.',
+        shortDesc: 'Full access like owner',
+        color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+    },
+    {
+        value: 'admin',
+        label: 'Admin',
+        description: 'Full access except payment settings. Can manage team, refunds, and all events.',
+        shortDesc: 'Full access except payouts',
+        color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+    },
+    {
+        value: 'editor',
+        label: 'Editor',
+        description: 'Create and edit events, manage tickets. Cannot issue refunds or manage team members.',
+        shortDesc: 'Manage events and tickets',
+        color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+    },
+    {
+        value: 'check_in',
+        label: 'Check-in',
+        description: 'Access check-in tools only. Perfect for door staff and volunteers.',
+        shortDesc: 'Check-in access only',
+        color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+    },
 ];
 
 const STATUS_OPTIONS = [
@@ -289,7 +319,7 @@ export default function OrganizerTeamPage() {
     const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
     const [inviteForm, setInviteForm] = useState<CreateInvitationPayload & { eventScope: EventScopeInput }>({
         email: '',
-        role: 'viewer',
+        role: 'check_in',
         eventScope: defaultEventScope,
     });
 
@@ -305,6 +335,11 @@ export default function OrganizerTeamPage() {
     // Pending invites section
     const [showPendingInvites, setShowPendingInvites] = useState(true);
 
+    // Collaborations
+    const [hostedCollabs, setHostedCollabs] = useState<HostedCollaboration[]>([]);
+    const [partnerCollabs, setPartnerCollabs] = useState<PartnerCollaboration[]>([]);
+    const [showCollabs, setShowCollabs] = useState(true);
+
     const eventsMap = useMemo(() => new Map(events.map((evt) => [evt.id, evt])), [events]);
 
     const loadTeamData = useCallback(async () => {
@@ -312,12 +347,15 @@ export default function OrganizerTeamPage() {
 
         setIsLoading(true);
         try {
-            const [membersResponse, invitationsResponse] = await Promise.all([
+            const [membersResponse, invitationsResponse, collabsResponse] = await Promise.all([
                 fetchTeamMemberships(organizerId),
                 fetchTeamInvitations(organizerId),
+                fetchOrganizerCollaborations(organizerId),
             ]);
             setMemberships(membersResponse.memberships);
             setInvitations(invitationsResponse.invitations);
+            setHostedCollabs(collabsResponse.hostedCollaborations);
+            setPartnerCollabs(collabsResponse.partnerCollaborations);
             setError(null);
         } catch (err) {
             console.error(err);
@@ -379,7 +417,7 @@ export default function OrganizerTeamPage() {
             );
             setInviteForm({
                 email: '',
-                role: 'viewer',
+                role: 'check_in',
                 eventScope: defaultEventScope,
             });
             await loadTeamData();
@@ -589,6 +627,105 @@ export default function OrganizerTeamPage() {
                                         />
                                     </motion.div>
                                 ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Collaborating Organizations */}
+                {(hostedCollabs.length > 0 || partnerCollabs.length > 0) && (
+                    <div className="mt-8 space-y-3">
+                        <button
+                            type="button"
+                            onClick={() => setShowCollabs(!showCollabs)}
+                            className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            {showCollabs ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            <Building2 className="h-4 w-4" />
+                            Collaborating Organizations ({hostedCollabs.length + partnerCollabs.length})
+                        </button>
+
+                        {showCollabs && (
+                            <div className="space-y-4">
+                                {/* Partner orgs collaborating on OUR events */}
+                                {hostedCollabs.length > 0 && (
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
+                                            Partners on your events
+                                        </p>
+                                        {hostedCollabs.map((collab, index) => (
+                                            <motion.div
+                                                key={collab.id}
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: index * 0.05, duration: 0.2 }}
+                                                className="flex items-center gap-3 p-3 rounded-lg border bg-card"
+                                            >
+                                                <Avatar className="h-10 w-10">
+                                                    <AvatarImage src={collab.partnerOrg.avatarUrl || undefined} />
+                                                    <AvatarFallback className="bg-primary/10 text-primary">
+                                                        {collab.partnerOrg.name.slice(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium truncate">{collab.partnerOrg.name}</p>
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                        <Calendar className="h-3 w-3" />
+                                                        <span className="truncate">{collab.eventTitle}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <Badge variant={collab.status === 'accepted' ? 'default' : 'secondary'} className="text-xs">
+                                                        {collab.status}
+                                                    </Badge>
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {collab.accessLevel}
+                                                    </Badge>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Events where WE are a partner */}
+                                {partnerCollabs.length > 0 && (
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
+                                            Events you're collaborating on
+                                        </p>
+                                        {partnerCollabs.map((collab, index) => (
+                                            <motion.div
+                                                key={collab.id}
+                                                initial={{ opacity: 0, y: 8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: index * 0.05, duration: 0.2 }}
+                                                className="flex items-center gap-3 p-3 rounded-lg border bg-card"
+                                            >
+                                                <Avatar className="h-10 w-10">
+                                                    <AvatarImage src={collab.hostOrg.avatarUrl || undefined} />
+                                                    <AvatarFallback className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                                                        {collab.hostOrg.name.slice(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium truncate">{collab.eventTitle}</p>
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                        <span>Hosted by</span>
+                                                        <span className="font-medium text-foreground">{collab.hostOrg.name}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <Badge variant={collab.status === 'accepted' ? 'default' : 'secondary'} className="text-xs">
+                                                        {collab.status}
+                                                    </Badge>
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {collab.accessLevel}
+                                                    </Badge>
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

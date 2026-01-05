@@ -1,98 +1,106 @@
-import { AnimatePresence, motion } from 'motion/react';
-import { Check, X, AlertCircle } from 'lucide-react';
+'use client';
+
+import { useEffect, useCallback } from 'react';
+import { CheckCircle, XCircle, AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { CheckInResult } from '@/types';
 
 interface ScanResultOverlayProps {
-  result: CheckInResult | null;
-  onClose: () => void;
+    result: CheckInResult | null;
+    onClose: () => void;
 }
 
 export function ScanResultOverlay({ result, onClose }: ScanResultOverlayProps) {
-  if (!result) return null;
+    // Auto-close after delay for success
+    useEffect(() => {
+        if (!result) return;
 
-  const isSuccess = result.status === 'success';
-  const isAlreadyIn = result.status === 'already_checked_in';
-  const isInvalid = result.status === 'invalid';
+        const delay = result.status === 'success' ? 2000 : 4000;
+        const timer = setTimeout(onClose, delay);
 
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        onClick={onClose}
-      >
-        <div
-          className={`absolute inset-0 ${
-            isSuccess
-              ? 'bg-green-500/20'
-              : isAlreadyIn
-              ? 'bg-amber-500/20'
-              : 'bg-red-500/20'
-          }`}
-        />
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.8, opacity: 0 }}
-          role="alertdialog"
-          aria-modal="true"
-          tabIndex={-1}
-          onKeyDown={(e) => {
+        return () => clearTimeout(timer);
+    }, [result, onClose]);
+
+    // Close on escape key
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
-          }}
-          className={`relative z-10 p-8 rounded-2xl text-center max-w-sm w-full ${
-            isSuccess
-              ? 'bg-green-500 text-white'
-              : isAlreadyIn
-              ? 'bg-amber-500 text-white'
-              : 'bg-red-500 text-white'
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="mb-4">
-            {isSuccess && <Check className="h-16 w-16 mx-auto" />}
-            {isAlreadyIn && <AlertCircle className="h-16 w-16 mx-auto" />}
-            {isInvalid && <X className="h-16 w-16 mx-auto" />}
-          </div>
+        };
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [onClose]);
 
-          <h3 className="text-xl font-bold mb-2">
-            {isSuccess && 'Checked In!'}
-            {isAlreadyIn && 'Already Checked In'}
-            {isInvalid && 'Invalid Ticket'}
-          </h3>
+    if (!result) return null;
 
-          {(isSuccess || isAlreadyIn) && (
-            <>
-              <p className="text-lg font-medium">{result.ticket.attendeeName}</p>
-              <p className="text-sm opacity-80">{result.ticket.ticketType}</p>
-              {isAlreadyIn && (
-                <p className="text-sm opacity-80 mt-2">
-                  Checked in at {result.checkedInAt.toLocaleTimeString()}
-                </p>
-              )}
-              {result.ticket.checkedInByName && (
-                <p className="text-sm opacity-80 mt-1">
-                  Scanned by {result.ticket.checkedInByName}
-                </p>
-              )}
-            </>
-          )}
+    const getStatusConfig = () => {
+        switch (result.status) {
+            case 'success':
+                return {
+                    icon: CheckCircle,
+                    bg: 'bg-green-500',
+                    title: 'Checked In!',
+                };
+            case 'already_checked_in':
+                return {
+                    icon: AlertTriangle,
+                    bg: 'bg-amber-500',
+                    title: 'Already Checked In',
+                };
+            case 'invalid':
+            default:
+                return {
+                    icon: XCircle,
+                    bg: 'bg-red-500',
+                    title: 'Invalid Ticket',
+                };
+        }
+    };
 
-          {isInvalid && <p className="text-sm opacity-80">{result.message}</p>}
+    const config = getStatusConfig();
+    const Icon = config.icon;
 
-          <Button
-            variant="secondary"
-            className="mt-6"
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
             onClick={onClose}
-            autoFocus
-          >
-            Continue Scanning
-          </Button>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
+        >
+            <div
+                className={cn(
+                    'relative w-full max-w-sm mx-4 rounded-2xl p-8 text-white text-center',
+                    config.bg
+                )}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 text-white/80 hover:text-white hover:bg-white/20"
+                    onClick={onClose}
+                >
+                    <X className="h-5 w-5" />
+                </Button>
+
+                <Icon className="h-16 w-16 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold mb-2">{config.title}</h2>
+
+                {(result.status === 'success' || result.status === 'already_checked_in') && (
+                    <div className="space-y-1 mb-4">
+                        <p className="font-medium">{result.ticket.attendeeName}</p>
+                        <p className="text-sm opacity-80">{result.ticket.ticketType}</p>
+                    </div>
+                )}
+
+                {result.status === 'invalid' && (
+                    <p className="text-sm opacity-80">{result.message}</p>
+                )}
+
+                {result.status === 'already_checked_in' && (
+                    <p className="text-sm opacity-80 mt-2">
+                        Checked in at {new Date(result.checkedInAt).toLocaleTimeString()}
+                    </p>
+                )}
+            </div>
+        </div>
+    );
 }
