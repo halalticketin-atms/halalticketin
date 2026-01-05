@@ -7,10 +7,19 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SalesChart } from './SalesChart';
+import { CircularProgress, ticketTypeColors } from './CircularProgress';
 
 interface WeeklySalesData {
     weekStart: string;
     ticketsSold: number;
+    revenue: number;
+}
+
+interface TicketTypeBreakdown {
+    id: string;
+    name: string;
+    sold: number;
+    total: number;
     revenue: number;
 }
 
@@ -30,6 +39,7 @@ interface EventPerformanceData {
     salesTrend: number[];
     trendPercentage: number;
     weeklySales: WeeklySalesData[];
+    ticketTypeBreakdown: TicketTypeBreakdown[];
 }
 
 interface EventPerformanceCardsProps {
@@ -157,8 +167,16 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                                             </div>
                                         </div>
 
-                                        {/* Progress Bar */}
-                                        <div className="w-full">
+                                        {/* Revenue Metric */}
+                                        <div>
+                                            <div className="text-xs text-muted-foreground mb-1">Net Revenue</div>
+                                            <div className="font-mono text-xl sm:text-2xl font-bold text-primary">
+                                                {formatCurrency(event.revenue, event.currency)}
+                                            </div>
+                                        </div>
+
+                                        {/* Capacity Bar */}
+                                        <div className="w-full pt-2">
                                             <div className="flex items-center justify-between text-sm mb-2 gap-2">
                                                 <span className="text-muted-foreground flex-shrink-0">Capacity</span>
                                                 <span className="font-mono text-xs sm:text-sm font-bold text-primary truncate">
@@ -175,13 +193,38 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                                             </div>
                                         </div>
 
-                                        {/* Revenue Metric */}
-                                        <div className="pt-2">
-                                            <div className="text-xs text-muted-foreground mb-1">Net Revenue</div>
-                                            <div className="font-mono text-xl sm:text-2xl font-bold text-primary">
-                                                {formatCurrency(event.revenue, event.currency)}
+                                        {/* Ticket Type Breakdown - Circular with Distinct Colors */}
+                                        {event.ticketTypeBreakdown && event.ticketTypeBreakdown.length > 0 && (
+                                            <div className="border-t pt-5">
+                                                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
+                                                    Sales by Ticket Type
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    {event.ticketTypeBreakdown.map((ticketType, ttIndex) => {
+                                                        const ttPercentage = ticketType.total > 0
+                                                            ? (ticketType.sold / ticketType.total) * 100
+                                                            : (ticketType.sold > 0 ? 100 : 0);
+                                                        const colorVariant = ticketTypeColors[ttIndex % ticketTypeColors.length];
+                                                        return (
+                                                            <motion.div
+                                                                key={ticketType.id}
+                                                                initial={{ opacity: 0, y: 10 }}
+                                                                animate={{ opacity: 1, y: 0 }}
+                                                                transition={{ duration: 0.5, delay: index * 0.05 + ttIndex * 0.1 }}
+                                                            >
+                                                                <CircularProgress
+                                                                    percentage={ttPercentage}
+                                                                    size="md"
+                                                                    colorVariant={colorVariant}
+                                                                    label={ticketType.name}
+                                                                    sublabel={`${ticketType.sold}${ticketType.total > 0 ? ` / ${ticketType.total}` : ' sold'}`}
+                                                                />
+                                                            </motion.div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
 
                                         {/* Weekly Sales Chart - contained */}
                                         <div className="border-t pt-4 w-full overflow-hidden">

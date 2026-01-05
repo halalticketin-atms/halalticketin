@@ -43,6 +43,13 @@ interface EventPerformanceData {
         ticketsSold: number;
         revenue: number;
     }>;
+    ticketTypeBreakdown: Array<{
+        id: string;
+        name: string;
+        sold: number;
+        total: number;
+        revenue: number;
+    }>;
 }
 
 interface EventsPerformanceResponse {

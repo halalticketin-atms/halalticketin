@@ -23,6 +23,7 @@ type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
 
 interface OrderItem {
     id: string;
+    ticketTypeId: string;
     name: string | null;
     quantity: number;
     unitPrice: number;

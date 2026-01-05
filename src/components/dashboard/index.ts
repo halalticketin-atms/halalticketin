@@ -7,3 +7,4 @@ export { MobileBottomNav } from './MobileBottomNav';
 export { EventPerformanceCards } from './EventPerformanceCards';
 export { Sparkline } from './Sparkline';
 export { SalesChart } from './SalesChart';
+export { CircularProgress } from './CircularProgress';
