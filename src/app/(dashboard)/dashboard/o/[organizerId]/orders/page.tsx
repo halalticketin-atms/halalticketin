@@ -48,39 +48,21 @@ import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
 import { toast } from '@/lib/notifications';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
-import { OrderCard } from '@/components/orders/OrderCard';
+import { OrderCard, type OrderResponse, type OrderItem, type OrderStatus } from '@/components/orders/OrderCard';
+import { ticketTypeColors } from '@/components/dashboard/CircularProgress';
 
-type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
+const progressColorMap: Record<string, string> = {
+    primary: 'bg-linear-to-r from-violet-500 to-purple-500',
+    emerald: 'bg-linear-to-r from-emerald-500 to-teal-500',
+    violet: 'bg-linear-to-r from-violet-500 to-purple-500',
+    amber: 'bg-linear-to-r from-amber-500 to-orange-500',
+    rose: 'bg-linear-to-r from-rose-500 to-pink-500',
+    sky: 'bg-linear-to-r from-sky-500 to-blue-500',
+    lime: 'bg-linear-to-r from-lime-500 to-green-500',
+    fuchsia: 'bg-linear-to-r from-fuchsia-500 to-pink-500',
+};
 
-interface OrderItem {
-    id: string;
-    name: string | null;
-    quantity: number;
-    unitPrice: number;
-}
 
-interface OrderResponse {
-    id: string;
-    orderNumber: string;
-    createdAt: string;
-    attendee: {
-        name: string | null;
-        email: string;
-        phone?: string | null;
-    };
-    event: {
-        id: string;
-        name: string | null;
-    };
-    totals: {
-        subtotal: number;
-        total: number;
-        currency: string;
-    };
-    status: OrderStatus;
-    items: OrderItem[];
-    paymentMethod?: string | null;
-}
 
 interface OrdersResponse {
     orders: OrderResponse[];
@@ -125,18 +107,6 @@ const formatCurrency = (amount: number, currency: string) => {
         return `£${amount.toFixed(2)}`;
     }
 };
-
-// Gradient colors for ticket types to match the circular progress theme
-const ticketTypeGradients = [
-    'from-emerald-500 to-teal-500',
-    'from-violet-500 to-purple-500',
-    'from-amber-500 to-orange-500',
-    'from-rose-500 to-pink-500',
-    'from-sky-500 to-blue-500',
-    'from-lime-500 to-green-500',
-    'from-fuchsia-500 to-pink-500',
-    'from-indigo-500 to-blue-500',
-];
 
 export default function OrdersPage() {
     const organizerId = useOrganizerFromParams();
@@ -430,6 +400,32 @@ export default function OrdersPage() {
                     <p className="text-muted-foreground mt-1">Manage purchases and process refunds</p>
                 </motion.div>
 
+                {/* Orders / Tickets Toggle */}
+                <div className="mb-6">
+                    <div className="inline-flex p-1 bg-muted/80 rounded-xl">
+                        <button
+                            onClick={() => setPageTab('orders')}
+                            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pageTab === 'orders'
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            <Receipt className="inline-block h-4 w-4 mr-2" />
+                            Orders
+                        </button>
+                        <button
+                            onClick={() => setPageTab('tickets')}
+                            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pageTab === 'tickets'
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            <Ticket className="inline-block h-4 w-4 mr-2" />
+                            Tickets
+                        </button>
+                    </div>
+                </div>
+
                 {/* Stats Cards - Horizontal scroll on mobile */}
                 <div className="mb-8 -mx-4 px-4 md:mx-0 md:px-0">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -498,31 +494,7 @@ export default function OrdersPage() {
                     </div>
                 </div>
 
-                {/* Orders / Tickets Toggle */}
-                <div className="mb-6">
-                    <div className="inline-flex p-1 bg-muted/80 rounded-xl">
-                        <button
-                            onClick={() => setPageTab('orders')}
-                            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pageTab === 'orders'
-                                ? 'bg-background text-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            <Receipt className="inline-block h-4 w-4 mr-2" />
-                            Orders
-                        </button>
-                        <button
-                            onClick={() => setPageTab('tickets')}
-                            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pageTab === 'tickets'
-                                ? 'bg-background text-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            <Ticket className="inline-block h-4 w-4 mr-2" />
-                            Tickets
-                        </button>
-                    </div>
-                </div>
+
 
                 {/* Tickets Tab - Ticket Breakdown Section */}
                 {pageTab === 'tickets' && (
@@ -598,6 +570,10 @@ export default function OrdersPage() {
                                                         const percentage = event.total.quantity > 0
                                                             ? (ticket.quantity / event.total.quantity) * 100
                                                             : 0;
+
+                                                        const colorKey = ticketTypeColors[ticketIndex % ticketTypeColors.length];
+                                                        const colorClass = progressColorMap[colorKey];
+
                                                         return (
                                                             <div key={ticket.ticketTypeId || ticketIndex} className="space-y-1">
                                                                 <div className="flex items-center justify-between text-xs">
@@ -615,7 +591,7 @@ export default function OrdersPage() {
                                                                         animate={{ width: `${percentage}%` }}
                                                                         transition={{ delay: 0.3 + eventIndex * 0.1 + ticketIndex * 0.05, duration: 0.4 }}
                                                                         className={`h-full rounded-full ${event.isActive
-                                                                            ? `bg-linear-to-r ${ticketTypeGradients[ticketIndex % ticketTypeGradients.length]}`
+                                                                            ? colorClass
                                                                             : 'bg-linear-to-r from-gray-400 to-slate-400'
                                                                             }`}
                                                                     />
@@ -637,7 +613,7 @@ export default function OrdersPage() {
                 {pageTab === 'orders' && (
                     <>
                         {/* Filters & Search with gradient background */}
-                        <Card className="mb-6 bg-gradient-to-br from-indigo-50/50 via-purple-50/30 to-pink-50/50 dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-pink-950/20 border-indigo-100/50 dark:border-indigo-900/50">
+                        <Card className="mb-6 bg-linear-to-br from-indigo-50/50 via-purple-50/30 to-pink-50/50 dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-pink-950/20 border-indigo-100/50 dark:border-indigo-900/50">
                             <CardContent className="py-4">
                                 <div className="flex flex-col gap-4">
                                     <div className="relative flex-1">

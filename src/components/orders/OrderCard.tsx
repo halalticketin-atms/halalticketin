@@ -19,9 +19,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
 
-type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
+export type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
 
-interface OrderItem {
+export interface OrderItem {
     id: string;
     ticketTypeId: string;
     name: string | null;
@@ -29,7 +29,7 @@ interface OrderItem {
     unitPrice: number;
 }
 
-interface OrderResponse {
+export interface OrderResponse {
     id: string;
     orderNumber: string;
     createdAt: string;
