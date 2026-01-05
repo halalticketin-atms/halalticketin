@@ -94,6 +94,15 @@ export const revokeTeamInvitation = async (organizerId: string, invitationId: st
     );
 };
 
+export interface InvitationInfoResponse {
+    email: string;
+    expiresAt: string;
+}
+
+export const fetchInvitationInfo = async (token: string) => {
+    return api.get<InvitationInfoResponse>(`/api/v1/invitations/${token}/info`);
+};
+
 export const acceptInvitationToken = async (token: string) => {
     return api.post<AcceptInvitationResponse>(`/api/v1/invitations/${token}/accept`);
 };

@@ -16,15 +16,20 @@ const SignupOnboardingDialog = dynamic(
 function RegisterPageContent() {
     const [dialogOpen, setDialogOpen] = useState(true);
     const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+    const [inviteEmail, setInviteEmail] = useState<string | undefined>(undefined);
     const isCompletingRef = useRef(false);
     const userClosedRef = useRef(false);
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, isLoading } = useAuth();
 
-    // Get default role from URL query param
+    // Get params from URL
     const roleParam = searchParams.get('role');
     const defaultRole = roleParam === 'organizer' ? 'organizer' : undefined;
+    const nextParam = searchParams.get('next');
+    const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
+    const redirectPath = safeNextParam ?? '/dashboard';
+    const inviteToken = searchParams.get('inviteToken');
 
     const markInitialLoadComplete = useEffectEvent(() => {
         setInitialLoadComplete(true);
@@ -37,13 +42,29 @@ function RegisterPageContent() {
         }
     }, [isLoading]);
 
+    // Fetch invite email if token is present
+    useEffect(() => {
+        if (!inviteToken) return;
+
+        const fetchEmail = async () => {
+            try {
+                const { fetchInvitationInfo } = await import('@/lib/organizers-api');
+                const info = await fetchInvitationInfo(inviteToken);
+                setInviteEmail(info.email);
+            } catch (err) {
+                console.warn('Could not fetch invite info:', err);
+            }
+        };
+        void fetchEmail();
+    }, [inviteToken]);
+
     // If already logged in AND not in the middle of onboarding, redirect to dashboard
     // Only check this on initial load, not during the signup flow
     useEffect(() => {
         if (initialLoadComplete && user && !dialogOpen && !isCompletingRef.current && !userClosedRef.current) {
-            router.push('/dashboard');
+            router.push(redirectPath);
         }
-    }, [user, initialLoadComplete, router, dialogOpen]);
+    }, [user, initialLoadComplete, router, dialogOpen, redirectPath]);
 
     const handleDialogClose = (open: boolean) => {
         setDialogOpen(open);
@@ -77,6 +98,8 @@ function RegisterPageContent() {
                 onOpenChange={handleDialogClose}
                 onComplete={handleComplete}
                 defaultRole={defaultRole}
+                redirectAfterComplete={safeNextParam ?? undefined}
+                inviteEmail={inviteEmail}
             />
         </div>
     );

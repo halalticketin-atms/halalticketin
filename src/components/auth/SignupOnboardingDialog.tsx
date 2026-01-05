@@ -65,12 +65,20 @@ const ORGANIZER_STEPS = [
     { id: 'stripe', title: 'Payments', description: 'Get paid', icon: CreditCard },
 ];
 
+// Simplified flow for users joining via invitation - no org creation needed
+const INVITE_STEPS = [
+    { id: 'credentials', title: 'Account', description: 'Create your account', icon: User },
+    { id: 'profile', title: 'Profile', description: 'About you', icon: MapPin },
+];
+
 interface SignupOnboardingDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     defaultRole?: 'buyer' | 'organizer';
     redirectAfterComplete?: string;
     onComplete?: (redirectTo: string) => void;
+    /** Pre-fill and lock email for invitation flow */
+    inviteEmail?: string;
 }
 
 interface LoginResponse {
@@ -148,12 +156,19 @@ export function SignupOnboardingDialog({
     defaultRole,
     redirectAfterComplete,
     onComplete,
+    inviteEmail,
 }: SignupOnboardingDialogProps) {
-    const [step, setStep] = useState<Step>('intent');
+    // Invite mode: user is joining an existing org via invitation
+    const isInviteFlow = Boolean(inviteEmail);
+
+    // In invite mode, start at credentials step (skip role selection)
+    const [step, setStep] = useState<Step>(isInviteFlow ? 'credentials' : 'intent');
     const [direction, setDirection] = useState(1);
     const [formData, setFormData] = useState<FormData>({
         ...initialFormData,
         role: defaultRole ?? 'buyer',
+        // Pre-fill email from invitation
+        email: inviteEmail ?? '',
     });
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -169,7 +184,10 @@ export function SignupOnboardingDialog({
     const router = useRouter();
     const { refresh } = useAuth();
 
-    const steps = formData.role === 'organizer' ? ORGANIZER_STEPS : BUYER_STEPS;
+    // Use simplified steps for invite flow (no org creation needed)
+    const steps = isInviteFlow
+        ? INVITE_STEPS
+        : (formData.role === 'organizer' ? ORGANIZER_STEPS : BUYER_STEPS);
     const currentStepIndex = steps.findIndex(s => s.id === step);
 
     const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
@@ -295,7 +313,8 @@ export function SignupOnboardingDialog({
             if (resolvedHomeCountry) payload.homeCountry = resolvedHomeCountry;
             if (resolvedHomeCity) payload.homeCity = resolvedHomeCity;
 
-            if (isOrganizer) {
+            // Skip organizer creation for invite flow - they're joining an existing org
+            if (isOrganizer && !isInviteFlow) {
                 payload.organizer = {
                     name: organizerName || undefined,
                     type: formData.organizerType,
@@ -334,7 +353,10 @@ export function SignupOnboardingDialog({
             }
 
             setDirection(1);
-            if (formData.role === 'organizer') {
+            // Invite flow: skip Stripe step (they're joining, not creating an org)
+            if (isInviteFlow) {
+                setStep('complete');
+            } else if (formData.role === 'organizer') {
                 setStep('stripe');
             } else {
                 setStep('complete');
@@ -670,6 +692,11 @@ export function SignupOnboardingDialog({
                                             <Label htmlFor="email" className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                                                 <Mail className="h-4 w-4 text-slate-400" />
                                                 Email Address <span className="text-rose-500">*</span>
+                                                {isInviteFlow && (
+                                                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-normal">
+                                                        (from invitation)
+                                                    </span>
+                                                )}
                                             </Label>
                                             <Input
                                                 id="email"
@@ -677,7 +704,11 @@ export function SignupOnboardingDialog({
                                                 placeholder="you@example.com"
                                                 value={formData.email}
                                                 onChange={(e) => updateField('email', e.target.value)}
-                                                className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all"
+                                                disabled={isInviteFlow}
+                                                className={cn(
+                                                    "h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all",
+                                                    isInviteFlow && "bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-80"
+                                                )}
                                                 required
                                             />
                                         </motion.div>

@@ -29,7 +29,8 @@ function AcceptInvitationContent() {
     const nextRegisterUrl = useMemo(() => {
         if (!token) return '/register';
         const destination = `/invitations/accept?token=${encodeURIComponent(token)}`;
-        return `/register?next=${encodeURIComponent(destination)}`;
+        // Pass both the token (for email pre-fill) and redirection path
+        return `/register?inviteToken=${encodeURIComponent(token)}&next=${encodeURIComponent(destination)}`;
     }, [token]);
 
     useEffect(() => {
