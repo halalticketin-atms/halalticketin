@@ -96,7 +96,7 @@ export default function DashboardPage() {
     }, [organizerId, userRole, router]);
 
     const fetchStats = useEffectEvent(async (currentOrganizerId: string | null) => {
-        if (!currentOrganizerId) {
+        if (!currentOrganizerId || userRole === 'check_in') {
             setAnalyticsStats(null);
             return;
         }
@@ -121,7 +121,7 @@ export default function DashboardPage() {
     }, [organizerId]);
 
     const fetchEventsPerformance = useEffectEvent(async (currentOrganizerId: string | null) => {
-        if (!currentOrganizerId) {
+        if (!currentOrganizerId || userRole === 'check_in') {
             setEventsPerformance([]);
             setHasLoadedEvents(true);
             return;
