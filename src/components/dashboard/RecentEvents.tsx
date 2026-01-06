@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion'; // Changed from 'motion/react' to 'framer-motion' based on common usage and the diff's implied context
+import { motion } from 'motion/react';
 import { Calendar, MapPin, MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DeleteEventDialog } from './DeleteEventDialog';
+import { useOptimizedAnimation } from '@/hooks/useOptimizedAnimation';
 
 interface Event {
     id: string;
@@ -44,6 +45,7 @@ const statusLabels = {
 
 export function RecentEvents({ events, organizerId }: RecentEventsProps) {
     const router = useRouter();
+    const anim = useOptimizedAnimation();
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string }>({
         open: false,
         eventId: '',
@@ -94,9 +96,9 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
                             {events.map((event, index) => (
                                 <motion.div
                                     key={event.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                                    initial={anim.initial}
+                                    animate={anim.animate}
+                                    transition={{ ...anim.transition, delay: index * anim.staggerDelay }}
                                 >
                                     <Card
                                         className="group relative overflow-hidden border border-border/60 hover:border-primary/20 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"

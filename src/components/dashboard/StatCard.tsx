@@ -3,6 +3,7 @@
 import { motion } from 'motion/react';
 import { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { useOptimizedAnimation } from '@/hooks/useOptimizedAnimation';
 
 interface StatCardProps {
     title: string;
@@ -37,12 +38,13 @@ const colorStyles = {
 
 export function StatCard({ title, value, icon: Icon, trend, delay = 0, color = 'default' }: StatCardProps) {
     const styles = colorStyles[color];
+    const anim = useOptimizedAnimation();
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay }}
+            initial={anim.initial}
+            animate={anim.animate}
+            transition={{ ...anim.transition, delay: delay * anim.staggerDelay * 3 }}
         >
             <Card className={`${styles.card} transition-colors`}>
                 <CardContent className="p-4 sm:p-6">
@@ -65,3 +67,4 @@ export function StatCard({ title, value, icon: Icon, trend, delay = 0, color = '
         </motion.div>
     );
 }
+

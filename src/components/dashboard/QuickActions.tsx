@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { motion } from 'motion/react';
 import { LucideIcon, Plus, BarChart3, Ticket, Settings } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useOptimizedAnimation } from '@/hooks/useOptimizedAnimation';
 
 interface QuickAction {
     title: string;
@@ -51,6 +52,8 @@ interface QuickActionsProps {
 
 export function QuickActions({ actions, organizerId }: QuickActionsProps) {
     const resolvedActions = actions ?? defaultActions(organizerId);
+    const anim = useOptimizedAnimation();
+
     return (
         <Card className="border-border/50 overflow-hidden">
             <CardHeader>
@@ -61,13 +64,13 @@ export function QuickActions({ actions, organizerId }: QuickActionsProps) {
                     {resolvedActions.map((action, index) => (
                         <motion.div
                             key={action.title}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.3, delay: index * 0.1 }}
+                            initial={anim.initial}
+                            animate={anim.animate}
+                            transition={{ ...anim.transition, delay: index * anim.staggerDelay }}
                         >
                             <Link
                                 href={action.href}
-                                className="flex items-center gap-3 p-3 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-muted/50 transition-all group"
+                                className="flex items-center gap-3 p-3 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-muted/50 transition-all duration-150 group active:scale-[0.98]"
                             >
                                 <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${action.color}`}>
                                     <action.icon className="h-5 w-5" />

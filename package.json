@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "vitest run",
+    "test": "vitest run --project unit",
+    "test:unit": "vitest run --project unit",
+    "test:storybook": "VITEST_STORYBOOK=1 vitest run --project storybook",
+    "test:all": "VITEST_STORYBOOK=1 vitest run",
     "lint": "eslint",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
