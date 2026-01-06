@@ -89,14 +89,24 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
             return;
         }
 
-        if ('requestIdleCallback' in window) {
-            const idleId = window.requestIdleCallback(() => setRenderCharts(true));
-            return () => window.cancelIdleCallback?.(idleId);
+        const idleCallback = (globalThis as typeof globalThis & {
+            requestIdleCallback?: (callback: IdleRequestCallback) => number;
+        }).requestIdleCallback;
+        const cancelIdleCallback = (globalThis as typeof globalThis & {
+            cancelIdleCallback?: (id: number) => void;
+        }).cancelIdleCallback;
+
+        // Use requestIdleCallback if available, otherwise fall back to setTimeout
+        if (typeof idleCallback === 'function') {
+            const idleId = idleCallback(() => setRenderCharts(true));
+            return () => cancelIdleCallback?.(idleId);
         }
 
-        const timeoutId = window.setTimeout(() => setRenderCharts(true), 0);
-        return () => window.clearTimeout(timeoutId);
+        // Fallback to setTimeout
+        const timeoutId = setTimeout(() => setRenderCharts(true), 0);
+        return () => clearTimeout(timeoutId);
     }, []);
+
 
     if (events.length === 0) {
         return (
