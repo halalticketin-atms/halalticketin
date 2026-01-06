@@ -10,6 +10,10 @@ import {
     TrendingUp,
     TrendingDown,
     Check,
+    Crown,
+    Medal,
+    Award,
+    Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -25,6 +29,7 @@ import {
 import api from "@/lib/api";
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { buildDashboardPath } from '@/lib/organizer-path';
+import { useOptimizedAnimation } from '@/hooks/useOptimizedAnimation';
 
 interface AnalyticsEvent {
     id: string;
@@ -73,6 +78,26 @@ const formatCurrency = (amount: number, currency: string) => {
     }
 };
 
+// Ranking badge component for top performers
+const RankBadge = ({ rank }: { rank: number }) => {
+    const badges = [
+        { icon: Crown, gradient: 'from-amber-400 to-yellow-500', shadow: 'shadow-amber-200/50' },
+        { icon: Medal, gradient: 'from-slate-300 to-slate-400', shadow: 'shadow-slate-200/50' },
+        { icon: Award, gradient: 'from-amber-600 to-orange-500', shadow: 'shadow-orange-200/50' },
+    ];
+
+    if (rank > 3) return null;
+
+    const badge = badges[rank - 1];
+    const Icon = badge.icon;
+
+    return (
+        <div className={`flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br ${badge.gradient} ${badge.shadow} shadow-lg`}>
+            <Icon className="w-4 h-4 text-white" />
+        </div>
+    );
+};
+
 export default function AnalyticsPage() {
     const organizerId = useOrganizerFromParams();
     const [selectedEvent, setSelectedEvent] = useState('all');
@@ -84,6 +109,7 @@ export default function AnalyticsPage() {
     const [selectedYear, setSelectedYear] = useState<number>(2025);
     const [eventSortBy, setEventSortBy] = useState<'revenue' | 'tickets'>('revenue');
     const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
+    const anim = useOptimizedAnimation();
 
     const fetchAnalytics = useCallback(
         async (eventId?: string) => {
@@ -142,29 +168,33 @@ export default function AnalyticsPage() {
                 title: 'Net Revenue',
                 value: formatCurrency(analytics.stats.netRevenue, analytics.stats.currency),
                 icon: DollarSign,
-                cardClass: 'bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900',
-                iconClass: 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg',
+                gradient: 'from-emerald-500 to-teal-500',
+                bgGradient: 'from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40',
+                borderColor: 'border-emerald-200/60 dark:border-emerald-800/40',
             },
             {
                 title: 'Tickets Sold',
                 value: analytics.stats.ticketsSold.toLocaleString(),
                 icon: Ticket,
-                cardClass: 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900',
-                iconClass: 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg',
+                gradient: 'from-[var(--brand-cyan)] to-[var(--brand-teal)]',
+                bgGradient: 'from-cyan-50 to-teal-50 dark:from-cyan-950/40 dark:to-teal-950/40',
+                borderColor: 'border-cyan-200/60 dark:border-cyan-800/40',
             },
             {
                 title: 'Paid Orders',
                 value: analytics.stats.paidOrders.toLocaleString(),
                 icon: Check,
-                cardClass: 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900',
-                iconClass: 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-lg',
+                gradient: 'from-[var(--brand-mint)] to-emerald-500',
+                bgGradient: 'from-emerald-50 to-green-50 dark:from-emerald-950/40 dark:to-green-950/40',
+                borderColor: 'border-emerald-200/60 dark:border-emerald-800/40',
             },
             {
                 title: 'Total Events',
                 value: analytics.stats.totalEvents.toString(),
                 icon: Calendar,
-                cardClass: 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900',
-                iconClass: 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg',
+                gradient: 'from-[var(--brand-teal)] to-[var(--brand-cyan)]',
+                bgGradient: 'from-teal-50 to-cyan-50 dark:from-teal-950/40 dark:to-cyan-950/40',
+                borderColor: 'border-teal-200/60 dark:border-teal-800/40',
             },
         ];
     }, [analytics]);
@@ -231,24 +261,32 @@ export default function AnalyticsPage() {
         setSelectedEvent(value);
     };
 
+    // Chart colors based on view
+    const chartColors = chartView === 'revenue'
+        ? { primary: 'var(--brand-teal)', secondary: 'var(--brand-cyan)', hex: '#0d9488' }
+        : { primary: 'var(--brand-cyan)', secondary: 'var(--brand-mint)', hex: '#06b6d4' };
+
     return (
         <div className="min-h-screen bg-muted/30">
             <div className="container py-8 max-w-7xl">
                 {/* Header */}
                 <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={anim.initial}
+                    animate={anim.animate}
+                    transition={anim.transition}
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8"
                 >
                     <div>
-                        <Button variant="ghost" size="sm" className="mb-2" asChild>
+                        <Button variant="ghost" size="sm" className="mb-2 -ml-2 text-muted-foreground hover:text-foreground" asChild>
                             <Link href={organizerId ? buildDashboardPath(organizerId) : '/dashboard'}>
                                 <ArrowLeft className="h-4 w-4 mr-2" />
                                 Dashboard
                             </Link>
                         </Button>
-                        <h1 className="font-display text-2xl sm:text-3xl font-bold">Analytics</h1>
-                        <p className="text-muted-foreground">Track performance and insights</p>
+                        <h1 className="font-display text-2xl sm:text-3xl font-bold bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text">
+                            Analytics
+                        </h1>
+                        <p className="text-muted-foreground mt-1">Track performance and insights</p>
                         {selectedEventMeta && (
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
                                 Viewing data for {selectedEventMeta.name}
@@ -260,7 +298,7 @@ export default function AnalyticsPage() {
                     <div className="flex items-center gap-3">
                         {mounted ? (
                             <Select value={selectedEvent} onValueChange={handleEventChange}>
-                                <SelectTrigger className="w-full sm:w-[280px] h-12 bg-background">
+                                <SelectTrigger className="w-full sm:w-[280px] h-11 bg-background border-border/60 shadow-sm hover:border-primary/40 transition-colors">
                                     <SelectValue placeholder="Select event" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -286,36 +324,36 @@ export default function AnalyticsPage() {
                                 </SelectContent>
                             </Select>
                         ) : (
-                            <div className="w-full sm:w-[280px] h-12 bg-background rounded-md border border-input" />
+                            <div className="w-full sm:w-[280px] h-11 bg-background rounded-lg border border-input animate-pulse" />
                         )}
                     </div>
                 </motion.div>
 
-                {/* Enhanced KPI Cards with consistent styling */}
+                {/* Enhanced KPI Cards */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
                     {stats.length === 0 && isLoading && (
                         <>
                             {[...Array(4)].map((_, i) => (
-                                <Card key={i} className="h-32 animate-pulse" />
+                                <Card key={i} className="h-28 animate-pulse bg-muted/50" />
                             ))}
                         </>
                     )}
                     {stats.map((stat, i) => (
                         <motion.div
                             key={stat.title}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.1 }}
+                            initial={anim.initial}
+                            animate={anim.animate}
+                            transition={{ ...anim.transition, delay: i * anim.staggerDelay }}
                         >
-                            <Card className={stat.cardClass}>
-                                <CardContent className="p-4 sm:p-6">
+                            <Card className={`bg-gradient-to-br ${stat.bgGradient} ${stat.borderColor} overflow-hidden group hover:shadow-md transition-shadow`}>
+                                <CardContent className="p-5">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-muted-foreground mb-1 truncate">{stat.title}</p>
-                                            <p className="text-2xl sm:text-3xl font-bold break-words">{stat.value}</p>
+                                            <p className="text-sm font-medium text-muted-foreground mb-1.5">{stat.title}</p>
+                                            <p className="text-2xl sm:text-3xl font-bold tracking-tight">{stat.value}</p>
                                         </div>
-                                        <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${stat.iconClass}`}>
-                                            <stat.icon className="h-6 w-6" />
+                                        <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${stat.gradient} text-white shadow-lg group-hover:scale-105 transition-transform`}>
+                                            <stat.icon className="h-5 w-5" />
                                         </div>
                                     </div>
                                 </CardContent>
@@ -330,24 +368,30 @@ export default function AnalyticsPage() {
                     <div className="lg:col-span-2 space-y-6">
                         {/* Revenue/Tickets Chart with Toggle */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
+                            initial={anim.initial}
+                            animate={anim.animate}
+                            transition={{ ...anim.transition, delay: anim.staggerDelay * 2 }}
                         >
-                            <Card className="border-border/50">
-                                <CardHeader className="pb-4">
+                            <Card className="border-border/40 shadow-sm overflow-hidden">
+                                <CardHeader className="pb-4 bg-gradient-to-r from-transparent via-muted/30 to-transparent">
                                     <div className="flex items-center justify-between flex-wrap gap-4">
-                                        <CardTitle className="text-lg font-semibold">
-                                            {chartView === 'revenue' ? 'Net Revenue' : 'Tickets'} Over Time
-                                        </CardTitle>
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles className="h-4 w-4 text-primary/60" />
+                                            <CardTitle className="text-lg font-semibold">
+                                                {chartView === 'revenue' ? 'Net Revenue' : 'Tickets'} Over Time
+                                            </CardTitle>
+                                        </div>
                                         <div className="flex gap-2 flex-wrap">
                                             {/* Period Toggle */}
-                                            <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                            <div className="flex gap-0.5 bg-muted/80 rounded-lg p-1 shadow-inner">
                                                 <Button
                                                     variant={periodView === '6months' ? 'default' : 'ghost'}
                                                     size="sm"
                                                     onClick={() => setPeriodView('6months')}
-                                                    className="h-7 text-xs px-3"
+                                                    className={`h-7 text-xs px-3 rounded-md transition-all ${periodView === '6months'
+                                                            ? 'bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-md'
+                                                            : 'hover:bg-background/60'
+                                                        }`}
                                                 >
                                                     6 Months
                                                 </Button>
@@ -355,7 +399,10 @@ export default function AnalyticsPage() {
                                                     variant={periodView === 'yearly' ? 'default' : 'ghost'}
                                                     size="sm"
                                                     onClick={() => setPeriodView('yearly')}
-                                                    className="h-7 text-xs px-3"
+                                                    className={`h-7 text-xs px-3 rounded-md transition-all ${periodView === 'yearly'
+                                                            ? 'bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-md'
+                                                            : 'hover:bg-background/60'
+                                                        }`}
                                                 >
                                                     Yearly
                                                 </Button>
@@ -363,12 +410,15 @@ export default function AnalyticsPage() {
 
                                             {/* Year Selector - Only show for yearly view */}
                                             {periodView === 'yearly' && (
-                                                <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                                <div className="flex gap-0.5 bg-muted/80 rounded-lg p-1 shadow-inner">
                                                     <Button
                                                         variant={selectedYear === 2025 ? 'default' : 'ghost'}
                                                         size="sm"
                                                         onClick={() => setSelectedYear(2025)}
-                                                        className="h-7 text-xs px-3"
+                                                        className={`h-7 text-xs px-3 rounded-md transition-all ${selectedYear === 2025
+                                                                ? 'bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-md'
+                                                                : 'hover:bg-background/60'
+                                                            }`}
                                                     >
                                                         2025
                                                     </Button>
@@ -376,7 +426,10 @@ export default function AnalyticsPage() {
                                                         variant={selectedYear === 2026 ? 'default' : 'ghost'}
                                                         size="sm"
                                                         onClick={() => setSelectedYear(2026)}
-                                                        className="h-7 text-xs px-3"
+                                                        className={`h-7 text-xs px-3 rounded-md transition-all ${selectedYear === 2026
+                                                                ? 'bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-md'
+                                                                : 'hover:bg-background/60'
+                                                            }`}
                                                     >
                                                         2026
                                                     </Button>
@@ -384,30 +437,36 @@ export default function AnalyticsPage() {
                                             )}
 
                                             {/* Chart Type Toggle */}
-                                            <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                            <div className="flex gap-0.5 bg-muted/80 rounded-lg p-1 shadow-inner">
                                                 <Button
                                                     variant={chartView === 'revenue' ? 'default' : 'ghost'}
                                                     size="sm"
                                                     onClick={() => setChartView('revenue')}
-                                                    className="h-7 px-3"
+                                                    className={`h-7 px-3 rounded-md transition-all ${chartView === 'revenue'
+                                                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md'
+                                                            : 'hover:bg-background/60'
+                                                        }`}
                                                 >
                                                     <DollarSign className="h-3.5 w-3.5 mr-1.5" />
-                                                    Net Revenue
+                                                    <span className="text-xs">Revenue</span>
                                                 </Button>
                                                 <Button
                                                     variant={chartView === 'tickets' ? 'default' : 'ghost'}
                                                     size="sm"
                                                     onClick={() => setChartView('tickets')}
-                                                    className="h-7 px-3"
+                                                    className={`h-7 px-3 rounded-md transition-all ${chartView === 'tickets'
+                                                            ? 'bg-gradient-to-r from-cyan-500 to-teal-500 text-white shadow-md'
+                                                            : 'hover:bg-background/60'
+                                                        }`}
                                                 >
                                                     <Ticket className="h-3.5 w-3.5 mr-1.5" />
-                                                    Tickets
+                                                    <span className="text-xs">Tickets</span>
                                                 </Button>
                                             </div>
                                         </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="pt-2">
                                     <div className="h-64 relative pb-6">
                                         <AnimatePresence mode="wait">
                                             <motion.svg
@@ -420,7 +479,7 @@ export default function AnalyticsPage() {
                                                 exit={{ opacity: 0 }}
                                                 transition={{ duration: 0.3 }}
                                             >
-                                                {/* Grid lines */}
+                                                {/* Grid lines - more subtle */}
                                                 {[0, 1, 2, 3, 4].map((i) => (
                                                     <line
                                                         key={i}
@@ -429,25 +488,48 @@ export default function AnalyticsPage() {
                                                         x2="600"
                                                         y2={5 + i * 50}
                                                         stroke="currentColor"
-                                                        strokeOpacity="0.1"
+                                                        strokeOpacity="0.06"
+                                                        strokeDasharray="4 4"
                                                         className="text-muted-foreground"
                                                     />
                                                 ))}
 
-                                                {/* Gradient fill */}
+                                                {/* Gradient definitions */}
                                                 <defs>
                                                     <linearGradient id={`${chartView}Gradient`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                                        <stop offset="0%" stopColor={chartView === 'revenue' ? '#10b981' : '#3b82f6'} stopOpacity="0.3" />
-                                                        <stop offset="100%" stopColor={chartView === 'revenue' ? '#10b981' : '#3b82f6'} stopOpacity="0.05" />
+                                                        <stop offset="0%" stopColor={chartColors.hex} stopOpacity="0.25" />
+                                                        <stop offset="50%" stopColor={chartColors.hex} stopOpacity="0.1" />
+                                                        <stop offset="100%" stopColor={chartColors.hex} stopOpacity="0.02" />
                                                     </linearGradient>
                                                     <linearGradient id={`${chartView}LineGradient`} x1="0%" y1="0%" x2="100%" y2="0%">
-                                                        <stop offset="0%" stopColor={chartView === 'revenue' ? '#10b981' : '#3b82f6'} />
-                                                        <stop offset="100%" stopColor={chartView === 'revenue' ? '#059669' : '#2563eb'} />
+                                                        <stop offset="0%" stopColor={chartView === 'revenue' ? '#059669' : '#0891b2'} />
+                                                        <stop offset="50%" stopColor={chartColors.hex} />
+                                                        <stop offset="100%" stopColor={chartView === 'revenue' ? '#0d9488' : '#14b8a6'} />
                                                     </linearGradient>
+                                                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                                                        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                                                        <feMerge>
+                                                            <feMergeNode in="coloredBlur" />
+                                                            <feMergeNode in="SourceGraphic" />
+                                                        </feMerge>
+                                                    </filter>
                                                 </defs>
 
                                                 {currentSeries.length > 0 && (
                                                     <>
+                                                        {/* Fill area */}
+                                                        <motion.path
+                                                            d={`${currentSeries.map((point, i) => {
+                                                                const x = (i / (currentSeries.length - 1)) * 600;
+                                                                const y = 10 + (1 - point.value / maxValue) * 190;
+                                                                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+                                                            }).join(' ')} L 600 210 L 0 210 Z`}
+                                                            fill={`url(#${chartView}Gradient)`}
+                                                            initial={{ opacity: 0 }}
+                                                            animate={{ opacity: 1 }}
+                                                            transition={{ duration: 0.8, delay: 0.3 }}
+                                                        />
+
                                                         {/* Line path */}
                                                         <motion.path
                                                             d={currentSeries.map((point, i) => {
@@ -462,49 +544,51 @@ export default function AnalyticsPage() {
                                                             strokeLinejoin="round"
                                                             initial={{ pathLength: 0 }}
                                                             animate={{ pathLength: 1 }}
-                                                            transition={{ duration: 1.5, ease: "easeInOut" }}
-                                                        />
-
-                                                        {/* Fill area */}
-                                                        <motion.path
-                                                            d={`${currentSeries.map((point, i) => {
-                                                                const x = (i / (currentSeries.length - 1)) * 600;
-                                                                const y = 10 + (1 - point.value / maxValue) * 190;
-                                                                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-                                                            }).join(' ')} L 600 210 L 0 210 Z`}
-                                                            fill={`url(#${chartView}Gradient)`}
-                                                            initial={{ opacity: 0 }}
-                                                            animate={{ opacity: 1 }}
-                                                            transition={{ duration: 1, delay: 0.5 }}
+                                                            transition={{ duration: 1.2, ease: "easeInOut" }}
                                                         />
 
                                                         {/* Interactive data points */}
                                                         {currentSeries.map((point, i) => {
                                                             const x = (i / (currentSeries.length - 1)) * 600;
                                                             const y = 10 + (1 - point.value / maxValue) * 190;
+                                                            const isHovered = hoveredPoint === i;
                                                             return (
                                                                 <g key={i}>
                                                                     {/* Invisible larger hit area */}
                                                                     <circle
                                                                         cx={x}
                                                                         cy={y}
-                                                                        r="15"
+                                                                        r="20"
                                                                         fill="transparent"
                                                                         className="cursor-pointer"
                                                                         onMouseEnter={() => setHoveredPoint(i)}
                                                                         onMouseLeave={() => setHoveredPoint(null)}
                                                                     />
+                                                                    {/* Outer glow on hover */}
+                                                                    {isHovered && (
+                                                                        <motion.circle
+                                                                            cx={x}
+                                                                            cy={y}
+                                                                            r="12"
+                                                                            fill={chartColors.hex}
+                                                                            opacity="0.2"
+                                                                            initial={{ scale: 0 }}
+                                                                            animate={{ scale: 1 }}
+                                                                            transition={{ duration: 0.2 }}
+                                                                        />
+                                                                    )}
                                                                     {/* Visible point */}
                                                                     <motion.circle
                                                                         cx={x}
                                                                         cy={y}
-                                                                        r={hoveredPoint === i ? "7" : "5"}
-                                                                        fill={chartView === 'revenue' ? '#10b981' : '#3b82f6'}
+                                                                        r={isHovered ? "7" : "5"}
+                                                                        fill={chartColors.hex}
                                                                         stroke="white"
-                                                                        strokeWidth="2"
+                                                                        strokeWidth="2.5"
+                                                                        filter={isHovered ? "url(#glow)" : undefined}
                                                                         initial={{ scale: 0 }}
                                                                         animate={{ scale: 1 }}
-                                                                        transition={{ duration: 0.3, delay: 0.5 + (i * 0.1) }}
+                                                                        transition={{ duration: 0.3, delay: 0.4 + (i * 0.08) }}
                                                                         className="pointer-events-none"
                                                                     />
                                                                 </g>
@@ -515,29 +599,36 @@ export default function AnalyticsPage() {
                                             </motion.svg>
                                         </AnimatePresence>
 
-                                        {/* Tooltip */}
+                                        {/* Enhanced Tooltip */}
                                         <AnimatePresence>
                                             {hoveredPoint !== null && currentSeries[hoveredPoint] && (
                                                 <motion.div
-                                                    initial={{ opacity: 0, y: -10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0 }}
-                                                    className="absolute top-0 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-3 py-2 rounded-lg shadow-lg border z-10"
+                                                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    exit={{ opacity: 0, scale: 0.95 }}
+                                                    transition={{ duration: 0.15 }}
+                                                    className="absolute top-2 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-md text-foreground px-4 py-2.5 rounded-xl shadow-xl border border-border/50 z-10"
                                                 >
-                                                    <div className="text-xs font-medium">{currentSeries[hoveredPoint].label}</div>
-                                                    <div className="text-sm font-bold">
+                                                    <div className="text-xs font-medium text-muted-foreground">{currentSeries[hoveredPoint].label}</div>
+                                                    <div className="text-base font-bold mt-0.5" style={{ color: chartColors.hex }}>
                                                         {chartView === 'revenue'
                                                             ? formatCurrency(currentSeries[hoveredPoint].value, analytics?.stats.currency ?? 'GBP')
-                                                            : currentSeries[hoveredPoint].value.toLocaleString()}
+                                                            : `${currentSeries[hoveredPoint].value.toLocaleString()} tickets`}
                                                     </div>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
 
                                         {/* X-axis labels */}
-                                        <div className="absolute bottom-0 left-0 right-0 flex justify-between px-2">
+                                        <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1">
                                             {currentSeries.map((point, i) => (
-                                                <span key={i} className="text-xs text-muted-foreground truncate">
+                                                <span
+                                                    key={i}
+                                                    className={`text-[10px] sm:text-xs transition-colors ${hoveredPoint === i
+                                                            ? 'text-foreground font-medium'
+                                                            : 'text-muted-foreground'
+                                                        }`}
+                                                >
                                                     {point.label}
                                                 </span>
                                             ))}
@@ -549,29 +640,38 @@ export default function AnalyticsPage() {
 
                         {/* Top Events Performance */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.4 }}
+                            initial={anim.initial}
+                            animate={anim.animate}
+                            transition={{ ...anim.transition, delay: anim.staggerDelay * 4 }}
                         >
-                            <Card className="border-border/50">
-                                <CardHeader>
+                            <Card className="border-border/40 shadow-sm overflow-hidden">
+                                <CardHeader className="bg-gradient-to-r from-transparent via-muted/30 to-transparent">
                                     <div className="flex items-center justify-between flex-wrap gap-4">
-                                        <CardTitle className="text-lg font-semibold">Top Performing Events</CardTitle>
-                                        <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                        <div className="flex items-center gap-2">
+                                            <Crown className="h-4 w-4 text-amber-500" />
+                                            <CardTitle className="text-lg font-semibold">Top Performing Events</CardTitle>
+                                        </div>
+                                        <div className="flex gap-0.5 bg-muted/80 rounded-lg p-1 shadow-inner">
                                             <Button
                                                 variant={eventSortBy === 'revenue' ? 'default' : 'ghost'}
                                                 size="sm"
                                                 onClick={() => setEventSortBy('revenue')}
-                                                className="h-7 text-xs"
+                                                className={`h-7 text-xs px-3 rounded-md transition-all ${eventSortBy === 'revenue'
+                                                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md'
+                                                        : 'hover:bg-background/60'
+                                                    }`}
                                             >
                                                 <DollarSign className="h-3 w-3 mr-1" />
-                                                Net Revenue
+                                                Revenue
                                             </Button>
                                             <Button
                                                 variant={eventSortBy === 'tickets' ? 'default' : 'ghost'}
                                                 size="sm"
                                                 onClick={() => setEventSortBy('tickets')}
-                                                className="h-7 text-xs"
+                                                className={`h-7 text-xs px-3 rounded-md transition-all ${eventSortBy === 'tickets'
+                                                        ? 'bg-gradient-to-r from-cyan-500 to-teal-500 text-white shadow-md'
+                                                        : 'hover:bg-background/60'
+                                                    }`}
                                             >
                                                 <Ticket className="h-3 w-3 mr-1" />
                                                 Tickets
@@ -579,25 +679,41 @@ export default function AnalyticsPage() {
                                         </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="pt-2">
                                     {topEvents.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">No event data available</p>
+                                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                                            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                                                <Calendar className="h-8 w-8 text-muted-foreground/50" />
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">No event data available yet</p>
+                                            <p className="text-xs text-muted-foreground/70 mt-1">Create and publish events to see performance data</p>
+                                        </div>
                                     ) : (
-                                        <div className="space-y-6">
+                                        <div className="space-y-5">
                                             {topEvents.map((event, i) => {
                                                 const currentValue = eventSortBy === 'revenue' ? event.revenue : event.ticketsSold;
                                                 const percentage = (currentValue / maxEventValue) * 100;
+                                                const rank = i + 1;
                                                 return (
                                                     <motion.div
                                                         key={event.id}
                                                         initial={{ opacity: 0, x: -20 }}
                                                         animate={{ opacity: 1, x: 0 }}
-                                                        transition={{ delay: 0.4 + (i * 0.1) }}
-                                                        className="space-y-2"
+                                                        transition={{ delay: 0.3 + (i * 0.08) }}
+                                                        className="group"
                                                     >
-                                                        <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-3 mb-2.5">
+                                                            {/* Rank Badge */}
+                                                            <RankBadge rank={rank} />
+                                                            {rank > 3 && (
+                                                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground text-sm font-semibold">
+                                                                    {rank}
+                                                                </div>
+                                                            )}
+
+                                                            {/* Event Image */}
                                                             {event.bannerImageUrl ? (
-                                                                <div className="relative h-12 w-16 rounded-lg overflow-hidden flex-shrink-0">
+                                                                <div className="relative h-11 w-16 rounded-lg overflow-hidden flex-shrink-0 shadow-sm group-hover:shadow-md transition-shadow">
                                                                     <Image
                                                                         src={event.bannerImageUrl}
                                                                         alt=""
@@ -607,40 +723,38 @@ export default function AnalyticsPage() {
                                                                     />
                                                                 </div>
                                                             ) : (
-                                                                <div className="h-12 w-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                                                                    <Calendar className="h-6 w-6 text-muted-foreground" />
+                                                                <div className="h-11 w-16 rounded-lg bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                                                    <Calendar className="h-5 w-5 text-muted-foreground/60" />
                                                                 </div>
                                                             )}
-                                                            <p className="text-sm font-medium flex-1 min-w-0 truncate">{event.name}</p>
+
+                                                            {/* Event Name */}
+                                                            <p className="text-sm font-medium flex-1 min-w-0 truncate group-hover:text-primary transition-colors">
+                                                                {event.name}
+                                                            </p>
                                                         </div>
 
-                                                        {/* Progress bar with value on right */}
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                                                        {/* Progress bar with value */}
+                                                        <div className="flex items-center gap-3 pl-11">
+                                                            <div className="flex-1 h-2.5 bg-muted/60 rounded-full overflow-hidden shadow-inner">
                                                                 <motion.div
-                                                                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
+                                                                    className="h-full bg-gradient-to-r from-[var(--brand-mint)] via-[var(--brand-cyan)] to-[var(--brand-teal)] rounded-full shadow-sm"
                                                                     initial={{ width: 0 }}
                                                                     animate={{ width: `${percentage}%` }}
-                                                                    transition={{ duration: 1, delay: 0.6 + (i * 0.1) }}
+                                                                    transition={{ duration: 0.8, delay: 0.5 + (i * 0.08), ease: "easeOut" }}
                                                                 />
                                                             </div>
 
-                                                            {/* Value at end of bar */}
-                                                            <div className="flex items-center gap-1.5 text-sm whitespace-nowrap">
+                                                            {/* Value */}
+                                                            <div className="flex items-center gap-1.5 text-sm whitespace-nowrap min-w-[80px] justify-end">
                                                                 {eventSortBy === 'revenue' ? (
-                                                                    <>
-                                                                        <DollarSign className="h-3.5 w-3.5 text-blue-500" />
-                                                                        <span className="font-semibold">
-                                                                            {formatCurrency(event.revenue, analytics?.stats.currency ?? 'GBP')}
-                                                                        </span>
-                                                                    </>
+                                                                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                                                        {formatCurrency(event.revenue, analytics?.stats.currency ?? 'GBP')}
+                                                                    </span>
                                                                 ) : (
-                                                                    <>
-                                                                        <Ticket className="h-3.5 w-3.5 text-indigo-500" />
-                                                                        <span className="font-semibold">
-                                                                            {event.ticketsSold}
-                                                                        </span>
-                                                                    </>
+                                                                    <span className="font-semibold text-cyan-600 dark:text-cyan-400">
+                                                                        {event.ticketsSold} <span className="text-muted-foreground text-xs font-normal">sold</span>
+                                                                    </span>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -654,95 +768,134 @@ export default function AnalyticsPage() {
                         </motion.div>
                     </div>
 
-                    {/* Right Column - Derived Metrics (1/3 width on desktop) */}
-                    <div className="space-y-6">
+                    {/* Right Column - Derived Metrics */}
+                    <div className="space-y-4">
                         {/* Average Ticket Price */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
+                            initial={anim.initial}
+                            animate={anim.animate}
+                            transition={{ ...anim.transition, delay: anim.staggerDelay * 3 }}
                         >
-                            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
-                                <CardContent className="p-4 sm:p-6">
-                                    <p className="text-sm font-medium text-muted-foreground mb-2 truncate">Average Ticket Price</p>
-                                    <p className="text-2xl sm:text-3xl font-bold break-words">
-                                        {analytics
-                                            ? formatCurrency(derivedMetrics.avgTicketPrice, analytics.stats.currency)
-                                            : '—'}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-2">Live calculation</p>
+                            <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-emerald-200/50 dark:border-emerald-800/30 overflow-hidden">
+                                <CardContent className="p-5">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-muted-foreground mb-1">Average Ticket Price</p>
+                                            <p className="text-2xl sm:text-3xl font-bold tracking-tight">
+                                                {analytics
+                                                    ? formatCurrency(derivedMetrics.avgTicketPrice, analytics.stats.currency)
+                                                    : '—'}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground mt-2">Live calculation</p>
+                                        </div>
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
+                                            <DollarSign className="h-5 w-5 text-white" />
+                                        </div>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </motion.div>
 
                         {/* Average Order Value */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.35 }}
+                            initial={anim.initial}
+                            animate={anim.animate}
+                            transition={{ ...anim.transition, delay: anim.staggerDelay * 3.5 }}
                         >
-                            <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
-                                <CardContent className="p-4 sm:p-6">
-                                    <p className="text-sm font-medium text-muted-foreground mb-2 truncate">Average Order Value</p>
-                                    <p className="text-2xl sm:text-3xl font-bold break-words">
-                                        {analytics
-                                            ? formatCurrency(derivedMetrics.avgOrderValue, analytics.stats.currency)
-                                            : '—'}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mt-2">Per paid order</p>
+                            <Card className="bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-950/40 dark:to-teal-950/40 border-cyan-200/50 dark:border-cyan-800/30 overflow-hidden">
+                                <CardContent className="p-5">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-muted-foreground mb-1">Average Order Value</p>
+                                            <p className="text-2xl sm:text-3xl font-bold tracking-tight">
+                                                {analytics
+                                                    ? formatCurrency(derivedMetrics.avgOrderValue, analytics.stats.currency)
+                                                    : '—'}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground mt-2">Per paid order</p>
+                                        </div>
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center shadow-lg">
+                                            <Ticket className="h-5 w-5 text-white" />
+                                        </div>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </motion.div>
 
                         {/* Peak Sales Month */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.4 }}
+                            initial={anim.initial}
+                            animate={anim.animate}
+                            transition={{ ...anim.transition, delay: anim.staggerDelay * 4 }}
                         >
-                            <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900">
-                                <CardContent className="p-4 sm:p-6">
-                                    <p className="text-sm font-medium text-muted-foreground mb-2 truncate">Peak Sales Month</p>
-                                    {derivedMetrics.peakMonth ? (
-                                        <>
-                                            <p className="text-2xl sm:text-3xl font-bold">{derivedMetrics.peakMonth.label}</p>
-                                            <p className="text-sm text-muted-foreground mt-2 break-words">
-                                                {formatCurrency(derivedMetrics.peakMonth.value, analytics?.stats.currency ?? 'GBP')}
-                                            </p>
-                                        </>
-                                    ) : (
-                                        <p className="text-3xl font-bold text-muted-foreground">—</p>
-                                    )}
+                            <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border-amber-200/50 dark:border-amber-800/30 overflow-hidden">
+                                <CardContent className="p-5">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-muted-foreground mb-1">Peak Sales Month</p>
+                                            {derivedMetrics.peakMonth ? (
+                                                <>
+                                                    <p className="text-2xl sm:text-3xl font-bold tracking-tight">{derivedMetrics.peakMonth.label}</p>
+                                                    <p className="text-sm text-amber-600 dark:text-amber-400 mt-2 font-medium">
+                                                        {formatCurrency(derivedMetrics.peakMonth.value, analytics?.stats.currency ?? 'GBP')}
+                                                    </p>
+                                                </>
+                                            ) : (
+                                                <p className="text-3xl font-bold text-muted-foreground">—</p>
+                                            )}
+                                        </div>
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                                            <Crown className="h-5 w-5 text-white" />
+                                        </div>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </motion.div>
 
                         {/* Monthly Growth */}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.5 }}
+                            initial={anim.initial}
+                            animate={anim.animate}
+                            transition={{ ...anim.transition, delay: anim.staggerDelay * 5 }}
                         >
-                            <Card className="border-border/50">
-                                <CardContent className="p-4 sm:p-6">
-                                    <p className="text-sm font-medium text-muted-foreground mb-2 truncate">Net Revenue Growth</p>
-                                    {derivedMetrics.growth ? (
-                                        <>
-                                            <div className="flex items-center gap-2">
-                                                <p className={`text-2xl sm:text-3xl font-bold ${derivedMetrics.growth.isPositive ? 'text-emerald-500' : 'text-red-500'}`}>
-                                                    {derivedMetrics.growth.isPositive ? '+' : ''}{derivedMetrics.growth.percentage.toFixed(1)}%
-                                                </p>
-                                                {derivedMetrics.growth.isPositive ? (
-                                                    <TrendingUp className="h-6 w-6 text-emerald-500" />
-                                                ) : (
-                                                    <TrendingDown className="h-6 w-6 text-red-500" />
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-muted-foreground mt-2">Month over month</p>
-                                        </>
-                                    ) : (
-                                        <p className="text-3xl font-bold text-muted-foreground">—</p>
-                                    )}
+                            <Card className={`overflow-hidden ${derivedMetrics.growth?.isPositive
+                                    ? 'bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/40 dark:to-green-950/40 border-emerald-200/50 dark:border-emerald-800/30'
+                                    : derivedMetrics.growth && !derivedMetrics.growth.isPositive
+                                        ? 'bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/40 dark:to-rose-950/40 border-red-200/50 dark:border-red-800/30'
+                                        : 'border-border/40'
+                                }`}>
+                                <CardContent className="p-5">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-muted-foreground mb-1">Revenue Growth</p>
+                                            {derivedMetrics.growth ? (
+                                                <>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className={`text-2xl sm:text-3xl font-bold tracking-tight ${derivedMetrics.growth.isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                                            {derivedMetrics.growth.isPositive ? '+' : ''}{derivedMetrics.growth.percentage.toFixed(1)}%
+                                                        </p>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-2">Month over month</p>
+                                                </>
+                                            ) : (
+                                                <p className="text-3xl font-bold text-muted-foreground">—</p>
+                                            )}
+                                        </div>
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-lg ${derivedMetrics.growth?.isPositive
+                                                ? 'bg-gradient-to-br from-emerald-500 to-green-500'
+                                                : derivedMetrics.growth && !derivedMetrics.growth.isPositive
+                                                    ? 'bg-gradient-to-br from-red-500 to-rose-500'
+                                                    : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                                            }`}>
+                                            {derivedMetrics.growth?.isPositive ? (
+                                                <TrendingUp className="h-5 w-5 text-white" />
+                                            ) : derivedMetrics.growth && !derivedMetrics.growth.isPositive ? (
+                                                <TrendingDown className="h-5 w-5 text-white" />
+                                            ) : (
+                                                <TrendingUp className="h-5 w-5 text-white" />
+                                            )}
+                                        </div>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </motion.div>
