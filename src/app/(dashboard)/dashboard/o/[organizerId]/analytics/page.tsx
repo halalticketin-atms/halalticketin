@@ -73,6 +73,30 @@ const formatCurrency = (amount: number, currency: string) => {
     }
 };
 
+// Format large numbers for Y-axis
+const formatAxisValue = (value: number, isRevenue: boolean, currency: string) => {
+    if (isRevenue) {
+        if (value >= 1000) {
+            return `${(value / 1000).toFixed(1)}k`;
+        }
+        return formatCurrency(value, currency).replace(/\.00$/, '');
+    }
+    if (value >= 1000) {
+        return `${(value / 1000).toFixed(1)}k`;
+    }
+    return value.toString();
+};
+
+// Generate path with straight lines between points
+const generateSmoothPath = (points: { x: number; y: number }[]): string => {
+    if (points.length === 0) return '';
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+    return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+};
+
+
+
 export default function AnalyticsPage() {
     const organizerId = useOrganizerFromParams();
     const [selectedEvent, setSelectedEvent] = useState('all');
@@ -80,8 +104,6 @@ export default function AnalyticsPage() {
     const [mounted, setMounted] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [chartView, setChartView] = useState<'revenue' | 'tickets'>('revenue');
-    const [periodView, setPeriodView] = useState<'6months' | 'yearly'>('6months');
-    const [selectedYear, setSelectedYear] = useState<number>(2025);
     const [eventSortBy, setEventSortBy] = useState<'revenue' | 'tickets'>('revenue');
     const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
@@ -96,9 +118,6 @@ export default function AnalyticsPage() {
                 if (eventId) {
                     params.eventId = eventId;
                 }
-                if (periodView === 'yearly') {
-                    params.year = selectedYear.toString();
-                }
 
                 const response = await api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
                     params,
@@ -112,7 +131,7 @@ export default function AnalyticsPage() {
                 setIsLoading(false);
             }
         },
-        [organizerId, periodView, selectedYear]
+        [organizerId]
     );
 
     useEffect(() => {
@@ -131,7 +150,7 @@ export default function AnalyticsPage() {
     const eventOptions = analytics?.filters.events ?? [];
     const selectedEventMeta = selectedEvent === 'all' ? null : eventOptions.find(event => event.id === selectedEvent);
 
-    // KPI stats with original card styling (consistent with dashboard)
+    // KPI stats with original card styling
     const stats = useMemo(() => {
         if (!analytics) {
             return [];
@@ -198,21 +217,35 @@ export default function AnalyticsPage() {
         return { avgTicketPrice, peakMonth, growth, avgOrderValue };
     }, [analytics]);
 
+    // Get current month + 5 months before (rolling 6-month window)
     const currentSeries = useMemo(() => {
         if (!analytics) return [];
 
-        if (periodView === 'yearly') {
-            return chartView === 'revenue'
-                ? analytics.charts.revenueYearly
-                : analytics.charts.ticketsYearly;
-        }
-
-        return chartView === 'revenue'
+        const sourceData = chartView === 'revenue'
             ? analytics.charts.revenueMonthly
             : analytics.charts.ticketsMonthly;
-    }, [analytics, chartView, periodView]);
 
-    const maxValue = Math.max(1, ...currentSeries.map(point => point.value));
+        // Take the last 6 months (current + 5 before)
+        return sourceData.slice(-6);
+    }, [analytics, chartView]);
+
+    // Calculate max value with a minimum floor to avoid division issues
+    const maxValue = useMemo(() => {
+        const max = Math.max(1, ...currentSeries.map(point => point.value));
+        // Round up to a nice number for the scale
+        const magnitude = Math.pow(10, Math.floor(Math.log10(max)));
+        return Math.ceil(max / magnitude) * magnitude || 100;
+    }, [currentSeries]);
+
+    // Generate Y-axis scale values (5 steps)
+    const yAxisValues = useMemo(() => {
+        const steps = 5;
+        const values: number[] = [];
+        for (let i = 0; i <= steps; i++) {
+            values.push(Math.round((maxValue / steps) * (steps - i)));
+        }
+        return values;
+    }, [maxValue]);
 
     const topEvents = useMemo(() => {
         if (!analytics) return [];
@@ -231,6 +264,40 @@ export default function AnalyticsPage() {
 
     // Chart color - single consistent color
     const chartColor = chartView === 'revenue' ? '#10b981' : '#3b82f6';
+
+    // Chart dimensions - fixed for consistency
+    const chartWidth = 560;
+    const chartHeight = 200;
+    const chartPadding = { top: 20, right: 20, bottom: 30, left: 50 };
+    const plotWidth = chartWidth - chartPadding.left - chartPadding.right;
+    const plotHeight = chartHeight - chartPadding.top - chartPadding.bottom;
+
+    // Calculate chart points
+    const chartPoints = useMemo(() => {
+        if (currentSeries.length === 0) return [];
+
+        return currentSeries.map((point, i) => ({
+            x: currentSeries.length === 1
+                ? plotWidth / 2
+                : (i / (currentSeries.length - 1)) * plotWidth,
+            y: plotHeight - (point.value / maxValue) * plotHeight,
+            label: point.label,
+            value: point.value,
+        }));
+    }, [currentSeries, maxValue, plotWidth, plotHeight]);
+
+    // Generate smooth curve path
+    const curvePath = useMemo(() => {
+        if (chartPoints.length === 0) return '';
+        return generateSmoothPath(chartPoints);
+    }, [chartPoints]);
+
+    // Generate fill path (curve + bottom edge)
+    const fillPath = useMemo(() => {
+        if (chartPoints.length === 0) return '';
+        const curve = curvePath;
+        return `${curve} L ${chartPoints[chartPoints.length - 1].x} ${plotHeight} L ${chartPoints[0].x} ${plotHeight} Z`;
+    }, [curvePath, chartPoints, plotHeight]);
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -292,7 +359,7 @@ export default function AnalyticsPage() {
                     </div>
                 </motion.div>
 
-                {/* KPI Cards - Original styling */}
+                {/* KPI Cards */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
                     {stats.length === 0 && isLoading && (
                         <>
@@ -327,7 +394,7 @@ export default function AnalyticsPage() {
 
                 {/* Main Content Grid */}
                 <div className="grid gap-6 lg:grid-cols-3 mb-6">
-                    {/* Left Column - Charts (2/3 width) */}
+                    {/* Left Column - Charts */}
                     <div className="lg:col-span-2 space-y-6">
                         {/* Revenue/Tickets Chart */}
                         <motion.div
@@ -339,101 +406,69 @@ export default function AnalyticsPage() {
                                 <CardHeader className="pb-4">
                                     <div className="flex items-center justify-between flex-wrap gap-4">
                                         <CardTitle className="text-lg font-semibold">
-                                            {chartView === 'revenue' ? 'Net Revenue' : 'Tickets'} Over Time
+                                            {chartView === 'revenue' ? 'Net Revenue' : 'Tickets Sold'} — Last 6 Months
                                         </CardTitle>
-                                        <div className="flex gap-2 flex-wrap">
-                                            {/* Period Toggle */}
-                                            <div className="flex gap-1 bg-muted rounded-lg p-1">
-                                                <Button
-                                                    variant={periodView === '6months' ? 'default' : 'ghost'}
-                                                    size="sm"
-                                                    onClick={() => setPeriodView('6months')}
-                                                    className="h-7 text-xs px-3"
-                                                >
-                                                    6 Months
-                                                </Button>
-                                                <Button
-                                                    variant={periodView === 'yearly' ? 'default' : 'ghost'}
-                                                    size="sm"
-                                                    onClick={() => setPeriodView('yearly')}
-                                                    className="h-7 text-xs px-3"
-                                                >
-                                                    Yearly
-                                                </Button>
-                                            </div>
-
-                                            {/* Year Selector */}
-                                            {periodView === 'yearly' && (
-                                                <div className="flex gap-1 bg-muted rounded-lg p-1">
-                                                    <Button
-                                                        variant={selectedYear === 2025 ? 'default' : 'ghost'}
-                                                        size="sm"
-                                                        onClick={() => setSelectedYear(2025)}
-                                                        className="h-7 text-xs px-3"
-                                                    >
-                                                        2025
-                                                    </Button>
-                                                    <Button
-                                                        variant={selectedYear === 2026 ? 'default' : 'ghost'}
-                                                        size="sm"
-                                                        onClick={() => setSelectedYear(2026)}
-                                                        className="h-7 text-xs px-3"
-                                                    >
-                                                        2026
-                                                    </Button>
-                                                </div>
-                                            )}
-
-                                            {/* Chart Type Toggle */}
-                                            <div className="flex gap-1 bg-muted rounded-lg p-1">
-                                                <Button
-                                                    variant={chartView === 'revenue' ? 'default' : 'ghost'}
-                                                    size="sm"
-                                                    onClick={() => setChartView('revenue')}
-                                                    className="h-7 px-3"
-                                                >
-                                                    <DollarSign className="h-3.5 w-3.5 mr-1.5" />
-                                                    Net Revenue
-                                                </Button>
-                                                <Button
-                                                    variant={chartView === 'tickets' ? 'default' : 'ghost'}
-                                                    size="sm"
-                                                    onClick={() => setChartView('tickets')}
-                                                    className="h-7 px-3"
-                                                >
-                                                    <Ticket className="h-3.5 w-3.5 mr-1.5" />
-                                                    Tickets
-                                                </Button>
-                                            </div>
+                                        {/* Revenue vs Tickets Toggle */}
+                                        <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                            <Button
+                                                variant={chartView === 'revenue' ? 'default' : 'ghost'}
+                                                size="sm"
+                                                onClick={() => setChartView('revenue')}
+                                                className="h-7 px-3"
+                                            >
+                                                <DollarSign className="h-3.5 w-3.5 mr-1.5" />
+                                                Revenue
+                                            </Button>
+                                            <Button
+                                                variant={chartView === 'tickets' ? 'default' : 'ghost'}
+                                                size="sm"
+                                                onClick={() => setChartView('tickets')}
+                                                className="h-7 px-3"
+                                            >
+                                                <Ticket className="h-3.5 w-3.5 mr-1.5" />
+                                                Tickets
+                                            </Button>
                                         </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
                                     {/* Fixed height chart container */}
                                     <div className="h-[280px] relative">
-                                        {/* Chart SVG with proper padding */}
                                         <svg
                                             className="w-full h-full"
-                                            viewBox="0 0 640 240"
+                                            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
                                             preserveAspectRatio="xMidYMid meet"
                                         >
                                             {/* Chart area with padding */}
-                                            <g transform="translate(20, 10)">
-                                                {/* Grid lines */}
-                                                {[0, 1, 2, 3, 4].map((i) => (
+                                            <g transform={`translate(${chartPadding.left}, ${chartPadding.top})`}>
+                                                {/* Horizontal grid lines */}
+                                                {yAxisValues.map((_, i) => (
                                                     <line
                                                         key={i}
                                                         x1="0"
-                                                        y1={i * 45}
-                                                        x2="600"
-                                                        y2={i * 45}
+                                                        y1={(i / (yAxisValues.length - 1)) * plotHeight}
+                                                        x2={plotWidth}
+                                                        y2={(i / (yAxisValues.length - 1)) * plotHeight}
                                                         stroke="currentColor"
                                                         strokeOpacity="0.08"
                                                         className="text-muted-foreground"
                                                     />
                                                 ))}
 
-                                                {/* Gradient definitions */}
+                                                {/* Y-axis labels */}
+                                                {yAxisValues.map((value, i) => (
+                                                    <text
+                                                        key={i}
+                                                        x="-10"
+                                                        y={(i / (yAxisValues.length - 1)) * plotHeight + 4}
+                                                        textAnchor="end"
+                                                        className="fill-muted-foreground text-[10px]"
+                                                    >
+                                                        {formatAxisValue(value, chartView === 'revenue', analytics?.stats.currency ?? 'GBP')}
+                                                    </text>
+                                                ))}
+
+                                                {/* Gradient definition */}
                                                 <defs>
                                                     <linearGradient id="chartFill" x1="0%" y1="0%" x2="0%" y2="100%">
                                                         <stop offset="0%" stopColor={chartColor} stopOpacity="0.2" />
@@ -441,36 +476,24 @@ export default function AnalyticsPage() {
                                                     </linearGradient>
                                                 </defs>
 
-                                                {currentSeries.length > 0 && (
+                                                {chartPoints.length > 0 && (
                                                     <AnimatePresence mode="wait">
                                                         <motion.g
-                                                            key={`${chartView}-${periodView}`}
+                                                            key={chartView}
                                                             initial={{ opacity: 0 }}
                                                             animate={{ opacity: 1 }}
                                                             exit={{ opacity: 0 }}
                                                             transition={{ duration: 0.2 }}
                                                         >
-                                                            {/* Area fill */}
+                                                            {/* Area fill with smooth curve */}
                                                             <path
-                                                                d={`${currentSeries.map((point, i) => {
-                                                                    const x = currentSeries.length === 1
-                                                                        ? 300
-                                                                        : (i / (currentSeries.length - 1)) * 600;
-                                                                    const y = 10 + (1 - point.value / maxValue) * 170;
-                                                                    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-                                                                }).join(' ')} L ${currentSeries.length === 1 ? 300 : 600} 190 L 0 190 Z`}
+                                                                d={fillPath}
                                                                 fill="url(#chartFill)"
                                                             />
 
-                                                            {/* Line */}
+                                                            {/* Smooth curve line */}
                                                             <motion.path
-                                                                d={currentSeries.map((point, i) => {
-                                                                    const x = currentSeries.length === 1
-                                                                        ? 300
-                                                                        : (i / (currentSeries.length - 1)) * 600;
-                                                                    const y = 10 + (1 - point.value / maxValue) * 170;
-                                                                    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-                                                                }).join(' ')}
+                                                                d={curvePath}
                                                                 fill="none"
                                                                 stroke={chartColor}
                                                                 strokeWidth="2.5"
@@ -482,18 +505,14 @@ export default function AnalyticsPage() {
                                                             />
 
                                                             {/* Data points */}
-                                                            {currentSeries.map((point, i) => {
-                                                                const x = currentSeries.length === 1
-                                                                    ? 300
-                                                                    : (i / (currentSeries.length - 1)) * 600;
-                                                                const y = 10 + (1 - point.value / maxValue) * 170;
+                                                            {chartPoints.map((point, i) => {
                                                                 const isHovered = hoveredPoint === i;
                                                                 return (
                                                                     <g key={i}>
                                                                         {/* Hit area */}
                                                                         <circle
-                                                                            cx={x}
-                                                                            cy={y}
+                                                                            cx={point.x}
+                                                                            cy={point.y}
                                                                             r="16"
                                                                             fill="transparent"
                                                                             className="cursor-pointer"
@@ -502,8 +521,8 @@ export default function AnalyticsPage() {
                                                                         />
                                                                         {/* Visible point */}
                                                                         <motion.circle
-                                                                            cx={x}
-                                                                            cy={y}
+                                                                            cx={point.x}
+                                                                            cy={point.y}
                                                                             r={isHovered ? 6 : 4}
                                                                             fill={chartColor}
                                                                             stroke="white"
@@ -517,22 +536,17 @@ export default function AnalyticsPage() {
                                                             })}
 
                                                             {/* X-axis labels */}
-                                                            {currentSeries.map((point, i) => {
-                                                                const x = currentSeries.length === 1
-                                                                    ? 300
-                                                                    : (i / (currentSeries.length - 1)) * 600;
-                                                                return (
-                                                                    <text
-                                                                        key={i}
-                                                                        x={x}
-                                                                        y={215}
-                                                                        textAnchor="middle"
-                                                                        className="fill-muted-foreground text-[11px]"
-                                                                    >
-                                                                        {point.label}
-                                                                    </text>
-                                                                );
-                                                            })}
+                                                            {chartPoints.map((point, i) => (
+                                                                <text
+                                                                    key={i}
+                                                                    x={point.x}
+                                                                    y={plotHeight + 20}
+                                                                    textAnchor="middle"
+                                                                    className="fill-muted-foreground text-[11px]"
+                                                                >
+                                                                    {point.label}
+                                                                </text>
+                                                            ))}
                                                         </motion.g>
                                                     </AnimatePresence>
                                                 )}
@@ -541,18 +555,18 @@ export default function AnalyticsPage() {
 
                                         {/* Tooltip */}
                                         <AnimatePresence>
-                                            {hoveredPoint !== null && currentSeries[hoveredPoint] && (
+                                            {hoveredPoint !== null && chartPoints[hoveredPoint] && (
                                                 <motion.div
                                                     initial={{ opacity: 0, y: -5 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     exit={{ opacity: 0 }}
                                                     className="absolute top-4 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-3 py-2 rounded-lg shadow-lg border text-center z-10"
                                                 >
-                                                    <div className="text-xs text-muted-foreground">{currentSeries[hoveredPoint].label}</div>
+                                                    <div className="text-xs text-muted-foreground">{chartPoints[hoveredPoint].label}</div>
                                                     <div className="text-sm font-semibold">
                                                         {chartView === 'revenue'
-                                                            ? formatCurrency(currentSeries[hoveredPoint].value, analytics?.stats.currency ?? 'GBP')
-                                                            : currentSeries[hoveredPoint].value.toLocaleString()}
+                                                            ? formatCurrency(chartPoints[hoveredPoint].value, analytics?.stats.currency ?? 'GBP')
+                                                            : chartPoints[hoveredPoint].value.toLocaleString()}
                                                     </div>
                                                 </motion.div>
                                             )}
@@ -580,7 +594,7 @@ export default function AnalyticsPage() {
                                                 className="h-7 text-xs"
                                             >
                                                 <DollarSign className="h-3 w-3 mr-1" />
-                                                Net Revenue
+                                                Revenue
                                             </Button>
                                             <Button
                                                 variant={eventSortBy === 'tickets' ? 'default' : 'ghost'}

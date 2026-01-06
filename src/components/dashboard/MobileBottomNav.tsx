@@ -2,8 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useMemo, useState } from 'react';
 import {
     LayoutDashboard,
     Calendar,
@@ -59,11 +58,11 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
     const router = useRouter();
     const [moreOpen, setMoreOpen] = useState(false);
     const { signOut } = useAuth();
-    const mainNavItems = buildNavItems(organizerId);
-    const moreItems = moreMenuItems(organizerId);
+    const mainNavItems = useMemo(() => buildNavItems(organizerId), [organizerId]);
+    const moreItems = useMemo(() => moreMenuItems(organizerId), [organizerId]);
 
-    // Lock body scroll when more menu is open
-    useBodyScrollLock(moreOpen);
+    // Lock body scroll when more menu is open (avoid on mobile to reduce layout work)
+    useBodyScrollLock(false);
 
     const handleSignOut = () => {
         signOut();
@@ -144,32 +143,30 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
             </nav>
 
             {/* More Menu Modal */}
-            <AnimatePresence>
-                {moreOpen && (
-                    <>
-                        {/* Backdrop */}
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.15 }}
-                            className="fixed inset-0 bg-black/50 z-50 lg:hidden overscroll-contain touch-none"
-                            onClick={() => setMoreOpen(false)}
-                        />
+            <>
+                {/* Backdrop */}
+                <div
+                    className={cn(
+                        'fixed inset-0 bg-black/50 z-50 lg:hidden overscroll-contain touch-none transition-opacity duration-150',
+                        moreOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+                    )}
+                    onClick={() => setMoreOpen(false)}
+                    aria-hidden={!moreOpen}
+                />
 
-                        {/* More Menu Sheet */}
-                        <motion.div
-                            initial={{ y: '100%' }}
-                            animate={{ y: 0 }}
-                            exit={{ y: '100%' }}
-                            transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
-                            className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white rounded-t-3xl shadow-2xl transform-gpu will-change-transform"
-                            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-                        >
-                            {/* Handle */}
-                            <div className="flex justify-center pt-3 pb-2">
-                                <div className="w-10 h-1 bg-gray-300 rounded-full" />
-                            </div>
+                {/* More Menu Sheet */}
+                <div
+                    className={cn(
+                        'fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white rounded-t-3xl shadow-2xl transform-gpu will-change-transform transition-transform duration-200',
+                        moreOpen ? 'translate-y-0 pointer-events-auto' : 'translate-y-full pointer-events-none'
+                    )}
+                    style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+                    aria-hidden={!moreOpen}
+                >
+                        {/* Handle */}
+                        <div className="flex justify-center pt-3 pb-2">
+                            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+                        </div>
 
                             {/* Header */}
                             <div className="flex items-center justify-between px-5 pb-3 border-b border-border">
@@ -219,10 +216,8 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
                                     <span className="text-sm font-medium">Sign Out</span>
                                 </button>
                             </div>
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
+                </div>
+            </>
         </>
     );
 }
