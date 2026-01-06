@@ -78,6 +78,15 @@ export const updateTeamMembership = async (
     );
 };
 
+export const deleteTeamMembership = async (
+    organizerId: string,
+    membershipId: string
+) => {
+    return api.delete<{ success: boolean }>(
+        `/api/v1/organizers/${organizerId}/memberships/${membershipId}`
+    );
+};
+
 export const fetchTeamInvitations = async (organizerId: string) => {
     return api.get<TeamInvitationsResponse>(`/api/v1/organizers/${organizerId}/invitations`);
 };

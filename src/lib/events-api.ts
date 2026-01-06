@@ -29,6 +29,9 @@ export interface EventRecord {
     description: string | null;
     bannerImageUrl: string | null;
     status: 'draft' | 'published' | 'cancelled' | 'archived';
+    cancelledAt: string | null;
+    cancellationReason: string | null;
+    cancellationNotes: string | null;
     startDatetime: string | null;
     endDatetime: string | null;
     timezone: string;
@@ -148,6 +151,19 @@ export const publishEvent = async (eventId: string, visibility: EventVisibility)
     return api.post<{ event: EventRecord }>(`/api/v1/events/${eventId}/publish`, {
         visibility,
     });
+};
+
+export const archiveEvent = async (eventId: string) => {
+    assertValidEventId(eventId);
+    return api.post<{ event: EventRecord }>(`/api/v1/events/${eventId}/archive`);
+};
+
+export const cancelEvent = async (
+    eventId: string,
+    data: { reason: string; notes?: string | null },
+) => {
+    assertValidEventId(eventId);
+    return api.post<{ event: EventRecord; refunds?: unknown }>(`/api/v1/events/${eventId}/cancel`, data);
 };
 
 export const fetchEventDetails = async (eventId: string) => {

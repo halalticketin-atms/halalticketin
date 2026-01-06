@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Calendar, MapPin, MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
+import { Archive, Calendar, MapPin, MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,10 +46,11 @@ const statusLabels = {
 export function RecentEvents({ events, organizerId }: RecentEventsProps) {
     const router = useRouter();
     const anim = useOptimizedAnimation();
-    const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string }>({
+    const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string; eventStatus?: string | null }>({
         open: false,
         eventId: '',
         eventTitle: '',
+        eventStatus: null,
     });
 
     const handleCardClick = (eventId: string, e: React.MouseEvent) => {
@@ -160,20 +161,30 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
                                                             </Link>
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            className="text-destructive focus:text-destructive"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setDeleteDialog({
-                                                                    open: true,
-                                                                    eventId: event.id,
-                                                                    eventTitle: event.title,
-                                                                });
-                                                            }}
-                                                        >
+                                                <DropdownMenuItem
+                                                    className={event.status === 'draft' ? 'text-destructive focus:text-destructive' : undefined}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setDeleteDialog({
+                                                            open: true,
+                                                            eventId: event.id,
+                                                            eventTitle: event.title,
+                                                            eventStatus: event.status,
+                                                        });
+                                                    }}
+                                                >
+                                                    {event.status === 'draft' ? (
+                                                        <>
                                                             <Trash2 className="h-4 w-4 mr-2" />
                                                             Delete
-                                                        </DropdownMenuItem>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Archive className="h-4 w-4 mr-2" />
+                                                            Archive
+                                                        </>
+                                                    )}
+                                                </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </div>
@@ -229,6 +240,7 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
             <DeleteEventDialog
                 eventId={deleteDialog.eventId}
                 eventTitle={deleteDialog.eventTitle}
+                eventStatus={deleteDialog.eventStatus}
                 open={deleteDialog.open}
                 onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
                 onSuccess={handleDeleteSuccess}

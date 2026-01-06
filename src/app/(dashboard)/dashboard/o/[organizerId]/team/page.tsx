@@ -35,6 +35,7 @@ import {
     createTeamInvitation,
     revokeTeamInvitation,
     updateTeamMembership,
+    deleteTeamMembership,
     fetchOrganizerEventOptions,
     fetchOrganizerCollaborations,
     removeCollaboration,
@@ -516,6 +517,27 @@ export default function OrganizerTeamPage() {
             console.error(err);
             setEditSaving(false);
             setError(err instanceof Error ? err.message : 'Failed to update membership');
+        }
+    };
+
+    const handleRemoveMember = async () => {
+        if (!organizerId || !editingMember) return;
+
+        const memberName = editingMember.user.name || editingMember.user.email;
+        const confirmed = confirm(
+            `Remove ${memberName} from the team?\n\nThis cannot be undone. They will need to be re-invited to regain access.`
+        );
+        if (!confirmed) return;
+
+        setEditSaving(true);
+        try {
+            await deleteTeamMembership(organizerId, editingMember.id);
+            await loadTeamData();
+            closeEditDialog();
+        } catch (err) {
+            console.error(err);
+            setEditSaving(false);
+            setError(err instanceof Error ? err.message : 'Failed to remove member');
         }
     };
 
@@ -1024,14 +1046,25 @@ export default function OrganizerTeamPage() {
                             />
                         </div>
 
-                        <DialogFooter>
-                            <Button variant="outline" onClick={closeEditDialog}>
-                                Cancel
+                        <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between gap-2">
+                            <Button
+                                variant="ghost"
+                                onClick={() => void handleRemoveMember()}
+                                disabled={editSaving}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Remove from team
                             </Button>
-                            <Button onClick={() => void handleSaveMembership()} disabled={editSaving}>
-                                {editSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Save changes
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button variant="outline" onClick={closeEditDialog}>
+                                    Cancel
+                                </Button>
+                                <Button onClick={() => void handleSaveMembership()} disabled={editSaving}>
+                                    {editSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Save changes
+                                </Button>
+                            </div>
                         </DialogFooter>
                     </DialogContent>
                 )}

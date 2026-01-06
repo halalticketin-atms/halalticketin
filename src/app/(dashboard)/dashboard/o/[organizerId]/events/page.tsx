@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/dialog';
 import { SUPPORTED_CURRENCIES } from '@/lib/fees'; // Added import
 import api from '@/lib/api';
+import { archiveEvent } from '@/lib/events-api';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents, DashboardEvent, DashboardEventStatus } from '@/hooks/useOrganizerEvents';
 import { DeleteEventDialog } from '@/components/dashboard/DeleteEventDialog';
@@ -101,7 +102,7 @@ function EventCard({
 }: {
     event: DashboardEvent;
     index: number;
-    onDelete: (id: string, title: string) => void;
+    onDelete: (event: DashboardEvent) => void;
     revenueCurrency?: string;
     isSelected: boolean;
     onToggleSelect: (id: string, selected: boolean) => void;
@@ -207,16 +208,28 @@ function EventCard({
                                         Edit
                                     </Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDelete(event.id, event.title || 'Untitled Event');
-                                    }}
-                                >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
-                                </DropdownMenuItem>
+                                {event.status === 'draft' ? (
+                                    <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDelete(event);
+                                        }}
+                                    >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete draft
+                                    </DropdownMenuItem>
+                                ) : (
+                                    <DropdownMenuItem
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDelete(event);
+                                        }}
+                                    >
+                                        <Archive className="h-4 w-4 mr-2" />
+                                        Archive
+                                    </DropdownMenuItem>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
@@ -276,14 +289,18 @@ export default function MyEventsPage() {
     const { organizers } = useOrganizers();
     const [activeTab, setActiveTab] = useState('all');
     const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
-    const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string }>({
+    const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string; eventStatus?: string | null }>({
         open: false,
         eventId: '',
         eventTitle: '',
+        eventStatus: null,
     });
     const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
     const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
     const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+    const [bulkArchiveDialogOpen, setBulkArchiveDialogOpen] = useState(false);
+    const [bulkArchiveError, setBulkArchiveError] = useState<string | null>(null);
+    const [isBulkArchiving, setIsBulkArchiving] = useState(false);
 
     const selectedEvents = events.filter((event) => selectedEventIds.has(event.id));
     const nonDraftSelected = selectedEvents.filter((event) => event.status !== 'draft');
@@ -321,9 +338,7 @@ export default function MyEventsPage() {
     const revenueCurrency = organizers.find((org) => org.id === organizerId)?.defaultCurrency;
     const hasSelectedEvents = selectedEventIds.size > 0;
     const hasNonDraftSelected = nonDraftSelected.length > 0;
-    const bulkGuardMessage = hasNonDraftSelected
-        ? 'Active or past events cannot be deleted. Remove them from the selection.'
-        : null;
+    const hasDraftSelected = draftSelected.length > 0;
 
     const toggleSelectedEvent = (id: string, selected: boolean) => {
         setSelectedEventIds((prev) => {
@@ -351,10 +366,7 @@ export default function MyEventsPage() {
     };
 
     const handleBulkDeleteClick = () => {
-        if (!hasSelectedEvents) {
-            return;
-        }
-        if (hasNonDraftSelected) {
+        if (!hasDraftSelected) {
             return;
         }
         setBulkDeleteError(null);
@@ -380,6 +392,36 @@ export default function MyEventsPage() {
             setBulkDeleteError(message);
         } finally {
             setIsBulkDeleting(false);
+        }
+    };
+
+    const handleBulkArchiveClick = () => {
+        if (!hasNonDraftSelected) {
+            return;
+        }
+        setBulkArchiveError(null);
+        setBulkArchiveDialogOpen(true);
+    };
+
+    const handleBulkArchiveConfirm = async () => {
+        if (nonDraftSelected.length === 0) {
+            return;
+        }
+        setIsBulkArchiving(true);
+        setBulkArchiveError(null);
+        try {
+            await Promise.all(
+                nonDraftSelected.map((event) => archiveEvent(event.id))
+            );
+            setBulkArchiveDialogOpen(false);
+            setSelectedEventIds(new Set());
+            refreshEvents();
+            router.refresh();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to archive selected events';
+            setBulkArchiveError(message);
+        } finally {
+            setIsBulkArchiving(false);
         }
     };
 
@@ -494,17 +536,26 @@ export default function MyEventsPage() {
                                             </div>
                                             {hasSelectedEvents && (
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    {bulkGuardMessage && (
-                                                        <span className="text-xs text-destructive">{bulkGuardMessage}</span>
+                                                    {hasNonDraftSelected && (
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            onClick={handleBulkArchiveClick}
+                                                            disabled={isBulkArchiving}
+                                                        >
+                                                            Archive selected
+                                                        </Button>
                                                     )}
-                                                    <Button
-                                                        variant="destructive"
-                                                        size="sm"
-                                                        onClick={handleBulkDeleteClick}
-                                                        disabled={isBulkDeleting || hasNonDraftSelected}
-                                                    >
-                                                        Delete selected
-                                                    </Button>
+                                                    {hasDraftSelected && (
+                                                        <Button
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            onClick={handleBulkDeleteClick}
+                                                            disabled={isBulkDeleting}
+                                                        >
+                                                            Delete drafts
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -514,7 +565,14 @@ export default function MyEventsPage() {
                                                     key={event.id}
                                                     event={event}
                                                     index={i}
-                                                    onDelete={(id, title) => setDeleteDialog({ open: true, eventId: id, eventTitle: title })}
+                                                    onDelete={(selectedEvent) =>
+                                                        setDeleteDialog({
+                                                            open: true,
+                                                            eventId: selectedEvent.id,
+                                                            eventTitle: selectedEvent.title || 'Untitled Event',
+                                                            eventStatus: selectedEvent.status,
+                                                        })
+                                                    }
                                                     revenueCurrency={revenueCurrency}
                                                     isSelected={selectedEventIds.has(event.id)}
                                                     onToggleSelect={toggleSelectedEvent}
@@ -533,6 +591,7 @@ export default function MyEventsPage() {
             <DeleteEventDialog
                 eventId={deleteDialog.eventId}
                 eventTitle={deleteDialog.eventTitle}
+                eventStatus={deleteDialog.eventStatus}
                 open={deleteDialog.open}
                 onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
                 onSuccess={handleDeleteSuccess}
@@ -552,6 +611,11 @@ export default function MyEventsPage() {
                                     You are about to delete {draftSelected.length} draft
                                     {draftSelected.length === 1 ? '' : 's'}. This cannot be undone.
                                 </p>
+                                {hasNonDraftSelected && (
+                                    <p className="text-xs text-muted-foreground">
+                                        Active or past events in your selection will not be deleted.
+                                    </p>
+                                )}
                                 {bulkDeleteError && (
                                     <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
                                         {bulkDeleteError}
@@ -576,6 +640,50 @@ export default function MyEventsPage() {
                             disabled={isBulkDeleting}
                         >
                             {isBulkDeleting ? 'Deleting...' : 'Delete drafts'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Bulk Archive Confirmation Dialog */}
+            <Dialog open={bulkArchiveDialogOpen} onOpenChange={setBulkArchiveDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-foreground">
+                            <Archive className="h-5 w-5" />
+                            Archive selected events
+                        </DialogTitle>
+                        <DialogDescription asChild>
+                            <div className="text-sm text-muted-foreground space-y-3 pt-2">
+                                <p>
+                                    You are about to archive {nonDraftSelected.length} event
+                                    {nonDraftSelected.length === 1 ? '' : 's'}. Archived events are hidden from public
+                                    listings and checkout.
+                                </p>
+                                {bulkArchiveError && (
+                                    <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
+                                        {bulkArchiveError}
+                                    </p>
+                                )}
+                            </div>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setBulkArchiveDialogOpen(false)}
+                            disabled={isBulkArchiving}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleBulkArchiveConfirm}
+                            disabled={isBulkArchiving}
+                        >
+                            {isBulkArchiving ? 'Archiving...' : 'Archive events'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

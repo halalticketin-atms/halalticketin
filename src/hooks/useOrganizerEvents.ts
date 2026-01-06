@@ -22,6 +22,10 @@ function classifyEventStatus(event: EventRecord): DashboardEventStatus {
         return 'draft';
     }
 
+    if (event.status === 'archived' || event.status === 'cancelled') {
+        return 'past';
+    }
+
     // For published/archived/cancelled events, classify by end date
     const now = new Date();
     const end = event.endDatetime ? new Date(event.endDatetime) : null;
