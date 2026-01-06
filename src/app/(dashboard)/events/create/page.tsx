@@ -87,6 +87,7 @@ import { ApiError } from '@/lib/api';
 import { getBackendErrorDetails } from '@/lib/api-errors';
 import { getUserFriendlyMessage, showWarning } from '@/lib/errors';
 import { getCurrencySymbol } from '@/lib/fees';
+import { toUtcIsoString } from '@/lib/timezone';
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
 import {
@@ -139,6 +140,26 @@ type EntryContext = {
     description?: string;
 };
 
+type TicketFieldErrors = {
+    name?: string;
+    maxPerOrder?: string;
+    price?: string;
+    quantity?: string;
+    customFee?: string;
+    earlyBirdPrice?: string;
+    earlyBirdEndDate?: string;
+};
+
+type PromoFieldErrors = {
+    code?: string;
+    discountValue?: string;
+    usageLimit?: string;
+    validFrom?: string;
+    validUntil?: string;
+    applicableTicketTypeIds?: string;
+    discountType?: string;
+};
+
 
 const UUID_REGEX =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -178,23 +199,13 @@ const locationTypeMap: Record<DraftLocationType, 'in_person' | 'online' | 'hybri
 
 const mapLocationType = (value: DraftLocationType) => locationTypeMap[value] ?? 'in_person';
 
-const toIsoString = (date?: string, time?: string | null) => {
-    if (!date) {
-        return null;
-    }
-
-    const safeTime = time && time.trim().length > 0 ? time : '00:00';
-    const isoCandidate = new Date(`${date}T${safeTime}`);
-    if (Number.isNaN(isoCandidate.getTime())) {
-        return null;
-    }
-    return isoCandidate.toISOString();
-};
+const toIsoString = (date?: string, time?: string | null, timeZone?: string) =>
+    toUtcIsoString(date, time, timeZone);
 
 const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
-    const start = toIsoString(formData.date, formData.startTime);
+    const start = toIsoString(formData.date, formData.startTime, formData.timezone);
     const inferredEndDate = formData.isMultiDay ? formData.endDate || formData.date : formData.date;
-    const end = toIsoString(inferredEndDate, formData.endTime || formData.startTime);
+    const end = toIsoString(inferredEndDate, formData.endTime || formData.startTime, formData.timezone);
     const locationType = mapLocationType(formData.locationType);
     const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
     const isOnline = locationType === 'online' || locationType === 'hybrid';
@@ -225,6 +236,7 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
 const buildTicketPayloads = (
     tickets: DraftTicketType[],
     currency: string,
+    timeZone: string,
     options?: { includeIds?: boolean },
 ): TicketInputPayload[] =>
     tickets.map((ticket, index) => {
@@ -244,7 +256,7 @@ const buildTicketPayloads = (
             ? parsedEarlyBirdPrice
             : null;
         const earlyBirdEndDateValue = ticket.hasEarlyBird && ticket.earlyBirdEndDate
-            ? toIsoString(ticket.earlyBirdEndDate, '23:59')
+            ? toIsoString(ticket.earlyBirdEndDate, '23:59', timeZone)
             : null;
         const trimmedCustomFee = ticket.customFee?.trim() ?? '';
         const parsedCustomFee = Number.parseFloat(trimmedCustomFee);
@@ -262,8 +274,8 @@ const buildTicketPayloads = (
             maxQuantity: quantityValue,
             maxPerOrder: maxPerOrderValue,
             visibility: ticket.visibility,
-            salesStart: ticket.salesStart ? toIsoString(ticket.salesStart, '00:00') : null,
-            salesEnd: ticket.salesEnd ? toIsoString(ticket.salesEnd, '23:59') : null,
+            salesStart: ticket.salesStart ? toIsoString(ticket.salesStart, '00:00', timeZone) : null,
+            salesEnd: ticket.salesEnd ? toIsoString(ticket.salesEnd, '23:59', timeZone) : null,
             absorbFee: ticket.absorbFee,
             customFee: customFeeValue,
             earlyBirdPrice: earlyBirdPriceValue,
@@ -297,16 +309,16 @@ const buildDuplicateTicketNameErrors = (tickets: DraftTicketType[]) => {
 };
 
 const mergeTicketNameErrors = (
-    previous: Record<string, { maxPerOrder?: string; name?: string }>,
+    previous: Record<string, TicketFieldErrors>,
     nameErrors: Record<string, { name: string }>,
     activeTickets?: DraftTicketType[]
 ) => {
     const validIds = activeTickets ? new Set(activeTickets.map((ticket) => ticket.id)) : null;
-    const next: Record<string, { maxPerOrder?: string; name?: string }> = {};
+    const next: Record<string, TicketFieldErrors> = {};
 
     Object.entries(previous).forEach(([id, errors]) => {
-        if (errors.maxPerOrder && (!validIds || validIds.has(id))) {
-            next[id] = { ...next[id], maxPerOrder: errors.maxPerOrder };
+        if (!validIds || validIds.has(id)) {
+            next[id] = { ...errors };
         }
     });
 
@@ -357,6 +369,14 @@ const deriveFieldErrorsFromMessages = (errors: string[]) => {
             mapped.refundPolicy = message;
             matched = true;
         }
+        if (normalized.includes('currency is required')) {
+            mapped.currency = message;
+            matched = true;
+        }
+        if (normalized.includes('stripe') && normalized.includes('payment setup')) {
+            mapped.tickets = message;
+            matched = true;
+        }
         if (normalized.includes('ticket type')) {
             mapped.tickets = message;
             matched = true;
@@ -368,6 +388,81 @@ const deriveFieldErrorsFromMessages = (errors: string[]) => {
     });
 
     return { fieldErrors: mapped, unmatched };
+};
+
+const getStepForFieldErrors = (errors: Record<string, string>) => {
+    const keys = new Set(Object.keys(errors));
+    const stepFields: Array<{ step: number; fields: string[] }> = [
+        { step: 1, fields: ['title', 'description', 'bannerImageDataUrl', 'categories', 'visibility'] },
+        { step: 2, fields: ['date', 'startTime', 'endDate', 'endTime', 'timezone'] },
+        { step: 3, fields: ['locationType', 'venue', 'address', 'city', 'onlineUrl'] },
+        { step: 4, fields: ['tickets', 'currency', 'refundPolicy'] },
+        { step: 5, fields: ['attendeeInfoMode', 'customQuestions'] },
+    ];
+
+    for (const entry of stepFields) {
+        if (entry.fields.some((field) => keys.has(field))) {
+            return entry.step;
+        }
+    }
+
+    return null;
+};
+
+const validatePublishForm = (formData: DraftFormData, tickets: DraftTicketType[]) => {
+    const errors: Record<string, string> = {};
+    const locationType = mapLocationType(formData.locationType);
+    const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
+    const isOnline = locationType === 'online' || locationType === 'hybrid';
+
+    if (!formData.title.trim()) {
+        errors.title = 'Title is required before publishing.';
+    }
+
+    if (!formData.currency) {
+        errors.currency = 'Currency is required.';
+    }
+
+    if (!formData.date.trim()) {
+        errors.date = 'Start date is required.';
+    }
+
+    if (!formData.startTime.trim()) {
+        errors.startTime = 'Start time is required.';
+    }
+
+    if (formData.isMultiDay && !formData.endDate.trim()) {
+        errors.endDate = 'End date is required for multi-day events.';
+    }
+
+    if (!formData.endTime.trim()) {
+        errors.endTime = 'End time is required.';
+    }
+
+    const start = toIsoString(formData.date, formData.startTime, formData.timezone);
+    const inferredEndDate = formData.isMultiDay ? formData.endDate || formData.date : formData.date;
+    const end = toIsoString(inferredEndDate, formData.endTime, formData.timezone);
+    if (start && end && new Date(end) <= new Date(start)) {
+        errors.endTime = 'End time must be after the start time.';
+    }
+
+    if (isInPerson && !formData.venue.trim()) {
+        errors.venue = 'Venue is required for in-person or hybrid events.';
+    }
+
+    if (isOnline && !formData.onlineUrl.trim()) {
+        errors.onlineUrl = 'Online URL is required for online or hybrid events.';
+    }
+
+    if (tickets.length < 1) {
+        errors.tickets = 'At least one ticket type must be configured before publishing.';
+    }
+
+    if (!formData.refundPolicy.trim()) {
+        errors.refundPolicy = 'Select a refund policy before publishing.';
+    }
+
+    return errors;
 };
 
 export function EventWizard({
@@ -448,9 +543,10 @@ export function EventWizard({
     const [actionError, setActionError] = useState<string | null>(null);
     const [publishErrors, setPublishErrors] = useState<string[]>([]);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-    const [ticketErrors, setTicketErrors] = useState<Record<string, { maxPerOrder?: string; name?: string }>>({});
-    const [promoErrors, setPromoErrors] = useState<Record<string, { code?: string; discountValue?: string }>>({});
+    const [ticketErrors, setTicketErrors] = useState<Record<string, TicketFieldErrors>>({});
+    const [promoErrors, setPromoErrors] = useState<Record<string, PromoFieldErrors>>({});
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+    const [ticketAdvancedOpen, setTicketAdvancedOpen] = useState<Record<string, boolean>>({});
 
     // Credit warning state
     const [isWarningOpen, setIsWarningOpen] = useState(false);
@@ -582,7 +678,7 @@ export function EventWizard({
         [clearFieldErrors, removeTicketBase, tickets],
     );
 
-    const clearTicketError = useCallback((id: string, field?: 'maxPerOrder' | 'name') => {
+    const clearTicketError = useCallback((id: string, field?: keyof TicketFieldErrors) => {
         setTicketErrors((prev) => {
             if (!prev[id]) {
                 return prev;
@@ -599,7 +695,7 @@ export function EventWizard({
                 [id]: { ...prev[id], [field]: undefined },
             };
 
-            if (!next[id].maxPerOrder && !next[id].name) {
+            if (Object.values(next[id]).every((value) => !value)) {
                 delete next[id];
                 return next;
             }
@@ -608,7 +704,7 @@ export function EventWizard({
         });
     }, []);
 
-    const clearPromoError = useCallback((id: string, field?: 'code' | 'discountValue') => {
+    const clearPromoError = useCallback((id: string, field?: keyof PromoFieldErrors) => {
         setPromoErrors((prev) => {
             if (!prev[id]) {
                 return prev;
@@ -625,7 +721,7 @@ export function EventWizard({
                 [id]: { ...prev[id], [field]: undefined },
             };
 
-            if (!next[id].code && !next[id].discountValue) {
+            if (Object.values(next[id]).every((value) => !value)) {
                 delete next[id];
                 return next;
             }
@@ -637,7 +733,7 @@ export function EventWizard({
     const updatePromoCode = useCallback(
         <K extends keyof DraftPromoCode>(id: string, field: K, value: DraftPromoCode[K]) => {
             updatePromoCodeBase(id, field, value);
-            if (field === 'code' || field === 'discountValue') {
+            if (field === 'code' || field === 'discountValue' || field === 'usageLimit' || field === 'validFrom' || field === 'validUntil' || field === 'applicableTicketTypeIds' || field === 'discountType') {
                 clearPromoError(id, field);
             }
         },
@@ -764,7 +860,7 @@ export function EventWizard({
                     await updateEventDraft(nextEventId, payload);
                 }
 
-                const ticketPayloads = buildTicketPayloads(tickets, formData.currency, {
+                const ticketPayloads = buildTicketPayloads(tickets, formData.currency, formData.timezone, {
                     includeIds: Boolean(nextEventId),
                 });
                 console.log('[DEBUG] Saving tickets for event:', nextEventId, 'payload:', ticketPayloads);
@@ -772,7 +868,7 @@ export function EventWizard({
                 let normalizedTickets = tickets;
                 const ticketIdMap = new Map<string, string>();
                 if (ticketResponse.tickets && ticketResponse.tickets.length > 0) {
-                    normalizedTickets = mapTicketRecordsToDraft(ticketResponse.tickets);
+                    normalizedTickets = mapTicketRecordsToDraft(ticketResponse.tickets, formData.timezone);
                     setTickets(normalizedTickets);
                     const limit = Math.min(tickets.length, ticketResponse.tickets.length);
                     for (let i = 0; i < limit; i += 1) {
@@ -790,7 +886,10 @@ export function EventWizard({
                     normalizedPromoCodes = mapPromoTicketTypeIds(promoCodes, ticketIdMap);
                     setPromoCodes(normalizedPromoCodes);
                 }
-                const nextPromoErrors: Record<string, { code?: string; discountValue?: string }> = {};
+                const nextPromoErrors: Record<string, PromoFieldErrors> = {};
+                const promoApiErrors: Record<string, PromoFieldErrors> = {};
+                let hasPromoApiErrors = false;
+                let promoErrorMessage: string | null = null;
 
                 for (const promo of normalizedPromoCodes) {
                     const code = promo.code.trim();
@@ -846,25 +945,82 @@ export function EventWizard({
                             applicableTicketTypeIds: promo.applicableTicketTypeIds ?? null,
                         };
 
-                        if (existingIds.has(promo.id)) {
-                            await updatePromoCodeApi(nextEventId, promo.id, promoInput);
+                        try {
+                            if (existingIds.has(promo.id)) {
+                                await updatePromoCodeApi(nextEventId, promo.id, promoInput);
+                            } else {
+                                await createPromoCode(nextEventId, promoInput);
+                            }
+                        } catch (error) {
+                            hasPromoApiErrors = true;
+                            const details = error instanceof ApiError
+                                ? getBackendErrorDetails<{
+                                    fieldErrors?: Record<string, string[]>;
+                                    formErrors?: string[];
+                                }>(error.payload)
+                                : undefined;
+                            const fieldErrors = details?.fieldErrors ?? null;
+                            const mapped: PromoFieldErrors = {};
+                            if (fieldErrors) {
+                                const fieldMap: Record<string, keyof PromoFieldErrors> = {
+                                    code: 'code',
+                                    discountValue: 'discountValue',
+                                    usageLimit: 'usageLimit',
+                                    validFrom: 'validFrom',
+                                    validUntil: 'validUntil',
+                                    applicableTicketTypeIds: 'applicableTicketTypeIds',
+                                    discountType: 'discountType',
+                                };
+                                Object.entries(fieldErrors).forEach(([field, messages]) => {
+                                    const message = messages?.[0];
+                                    const mappedField = fieldMap[field];
+                                    if (message && mappedField) {
+                                        mapped[mappedField] = message;
+                                    }
+                                });
+                            }
+
+                            if (Object.keys(mapped).length === 0) {
+                                const fallback = getUserFriendlyMessage(error);
+                                mapped.code = fallback || 'Unable to save promo code.';
+                            }
+
+                            promoApiErrors[promo.id] = mapped;
+                            if (!promoErrorMessage) {
+                                promoErrorMessage = details?.formErrors?.[0] || getUserFriendlyMessage(error);
+                            }
+                        }
+                    }
+
+                    if (hasPromoApiErrors) {
+                        setPromoErrors((prev) => ({ ...prev, ...promoApiErrors }));
+                        setActionError(promoErrorMessage ?? 'Fix promo code errors before saving.');
+                        setCurrentStep(4);
+                    } else {
+                        // Delete removed promo codes
+                        const currentIds = new Set(normalizedPromoCodes.map(p => p.id));
+                        for (const existing of existingPromos.promoCodes) {
+                            if (!currentIds.has(existing.id)) {
+                                try {
+                                    await deletePromoCode(nextEventId, existing.id);
+                                } catch (error) {
+                                    hasPromoApiErrors = true;
+                                    promoErrorMessage = promoErrorMessage ?? getUserFriendlyMessage(error);
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (hasPromoApiErrors) {
+                            setActionError(promoErrorMessage ?? 'Unable to update promo codes.');
+                            setCurrentStep(4);
                         } else {
-                            await createPromoCode(nextEventId, promoInput);
+                            // Refresh promo codes
+                            const refreshed = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
+                            normalizedPromoCodes = mapPromoCodeRecordsToDraft(refreshed.promoCodes);
+                            setPromoCodes(normalizedPromoCodes);
                         }
                     }
-
-                    // Delete removed promo codes
-                    const currentIds = new Set(normalizedPromoCodes.map(p => p.id));
-                    for (const existing of existingPromos.promoCodes) {
-                        if (!currentIds.has(existing.id)) {
-                            await deletePromoCode(nextEventId, existing.id);
-                        }
-                    }
-
-                    // Refresh promo codes
-                    const refreshed = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
-                    normalizedPromoCodes = mapPromoCodeRecordsToDraft(refreshed.promoCodes);
-                    setPromoCodes(normalizedPromoCodes);
                 }
 
                 // Upload banner image if a new file was selected
@@ -879,7 +1035,7 @@ export function EventWizard({
                 }
 
                 setEventId(nextEventId);
-                if (!hasPromoValidationErrors) {
+                if (!hasPromoValidationErrors && !hasPromoApiErrors) {
                     markSnapshotAsSaved({ tickets: normalizedTickets, promoCodes: normalizedPromoCodes });
                     setFieldErrors({});
                     setPublishErrors([]);
@@ -904,8 +1060,49 @@ export function EventWizard({
                     if (details?.fieldErrors) {
                         // Map Zod field errors to our fieldErrors state
                         const mappedErrors: Record<string, string> = {};
-                        const nextTicketErrors: Record<string, { name?: string; maxPerOrder?: string }> = {};
+                        const nextTicketErrors: Record<string, TicketFieldErrors> = {};
                         let firstMessage: string | null = null;
+                        const ticketFieldMap: Record<string, keyof TicketFieldErrors> = {
+                            name: 'name',
+                            maxPerOrder: 'maxPerOrder',
+                            price: 'price',
+                            maxQuantity: 'quantity',
+                            customFee: 'customFee',
+                            earlyBirdPrice: 'earlyBirdPrice',
+                            earlyBirdEndDate: 'earlyBirdEndDate',
+                        };
+
+                        const mapFieldError = (field: string, message: string) => {
+                            if (field === 'startDatetime') {
+                                mappedErrors.date = message;
+                                mappedErrors.startTime = message;
+                                return;
+                            }
+                            if (field === 'endDatetime') {
+                                mappedErrors.endDate = message;
+                                mappedErrors.endTime = message;
+                                return;
+                            }
+
+                            const directFields = new Set([
+                                'title',
+                                'description',
+                                'venue',
+                                'address',
+                                'city',
+                                'onlineUrl',
+                                'currency',
+                                'refundPolicy',
+                                'timezone',
+                            ]);
+
+                            if (directFields.has(field)) {
+                                mappedErrors[field] = message;
+                                return;
+                            }
+
+                            mappedErrors[field] = message;
+                        };
 
                         for (const [field, messages] of Object.entries(details.fieldErrors)) {
                             if (!Array.isArray(messages) || messages.length === 0) {
@@ -929,17 +1126,16 @@ export function EventWizard({
                                 const ticketId = tickets[index]?.id;
                                 if (ticketId) {
                                     const current = nextTicketErrors[ticketId] ?? {};
-                                    if (fieldName === 'name') {
-                                        current.name = message;
-                                    } else if (fieldName === 'maxPerOrder') {
-                                        current.maxPerOrder = message;
+                                    const mappedField = ticketFieldMap[fieldName];
+                                    if (mappedField) {
+                                        current[mappedField] = message;
                                     }
                                     nextTicketErrors[ticketId] = current;
                                     continue;
                                 }
                             }
 
-                            mappedErrors[field] = message;
+                            mapFieldError(field, message);
                         }
 
                         if (Object.keys(nextTicketErrors).length > 0) {
@@ -959,13 +1155,9 @@ export function EventWizard({
 
                         if (Object.keys(mappedErrors).length > 0) {
                             setFieldErrors(mappedErrors);
-                            // Navigate to step with first error
-                            if (mappedErrors.title || mappedErrors.description) {
-                                setCurrentStep(1);
-                            } else if (mappedErrors.date || mappedErrors.venue || mappedErrors.startTime || mappedErrors.endTime) {
-                                setCurrentStep(2);
-                            } else if (mappedErrors.tickets) {
-                                setCurrentStep(4);
+                            const nextStep = getStepForFieldErrors(mappedErrors);
+                            if (nextStep) {
+                                setCurrentStep(nextStep);
                             }
                             if (!overrideMessage && firstMessage) {
                                 overrideMessage = firstMessage;
@@ -1014,27 +1206,75 @@ export function EventWizard({
             router.push(destination);
         } catch (error) {
             if (error instanceof ApiError) {
-                // Backend sends { error: { code, message, details? } } format
-                const serverPayload = error.payload as { error?: { details?: string[] } } | null;
-                const payloadErrors = Array.isArray(serverPayload?.error?.details)
-                    ? serverPayload.error.details
-                    : [];
-                if (payloadErrors.length > 0) {
-                    const { fieldErrors: mapped, unmatched } = deriveFieldErrorsFromMessages(payloadErrors);
+                const details = getBackendErrorDetails<{
+                    fieldErrors?: Record<string, string[]>;
+                    formErrors?: string[];
+                } | string[]>(error.payload);
+                const errorMessage = getUserFriendlyMessage(error) || 'Unable to publish event.';
+                const normalizedMessage = errorMessage.toLowerCase();
+
+                if (Array.isArray(details) && details.length > 0) {
+                    const { fieldErrors: mapped, unmatched } = deriveFieldErrorsFromMessages(details);
                     setFieldErrors(mapped);
                     setPublishErrors(unmatched);
+                    const nextStep = getStepForFieldErrors(mapped);
+                    if (nextStep) {
+                        setCurrentStep(nextStep);
+                    } else if (normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')) {
+                        setCurrentStep(4);
+                    }
                     const fallbackMessage =
-                        unmatched.length === 0 && payloadErrors.length > 0
+                        unmatched.length === 0 && details.length > 0
                             ? 'Fix the highlighted fields below.'
                             : 'Unable to publish event.';
                     setActionError(
                         unmatched.length > 0 ? unmatched.join(' ') : fallbackMessage,
                     );
+                } else if (details && !Array.isArray(details) && details.fieldErrors) {
+                    const mappedErrors: Record<string, string> = {};
+                    let firstMessage: string | null = null;
+                    Object.entries(details.fieldErrors).forEach(([field, messages]) => {
+                        if (!Array.isArray(messages) || messages.length === 0) {
+                            return;
+                        }
+                        const message = messages[0];
+                        if (!firstMessage) {
+                            firstMessage = message;
+                        }
+                        if (field === 'startDatetime') {
+                            mappedErrors.date = message;
+                            mappedErrors.startTime = message;
+                            return;
+                        }
+                        if (field === 'endDatetime') {
+                            mappedErrors.endDate = message;
+                            mappedErrors.endTime = message;
+                            return;
+                        }
+                        if (field === 'tickets') {
+                            mappedErrors.tickets = message;
+                            return;
+                        }
+                        mappedErrors[field] = message;
+                    });
+                    setFieldErrors(mappedErrors);
+                    setPublishErrors(details.formErrors ?? []);
+                    const nextStep = getStepForFieldErrors(mappedErrors);
+                    if (nextStep) {
+                        setCurrentStep(nextStep);
+                    } else if (normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')) {
+                        setCurrentStep(4);
+                    }
+                    setActionError(firstMessage ?? details.formErrors?.[0] ?? errorMessage);
                 } else {
                     setFieldErrors({});
-                    setPublishErrors([]);
-                    const message = getUserFriendlyMessage(error) || 'Unable to publish event.';
-                    setActionError(message);
+                    setPublishErrors(normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')
+                        ? [errorMessage]
+                        : []);
+                    if (normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')) {
+                        setCurrentStep(4);
+                    }
+                    setActionError(errorMessage);
                 }
             } else {
                 setFieldErrors({});
@@ -1063,14 +1303,16 @@ export function EventWizard({
             setActionError(`Please add options for: ${questionLabels}`);
             return;
         }
-
-        if (!formData.refundPolicy.trim()) {
-            setFieldErrors((prev) => ({
-                ...prev,
-                refundPolicy: 'Select a refund policy before publishing.',
-            }));
-            setCurrentStep(4);
-            setActionError('Select a refund policy before publishing.');
+        const publishFieldErrors = validatePublishForm(formData, tickets);
+        if (Object.keys(publishFieldErrors).length > 0) {
+            setFieldErrors(publishFieldErrors);
+            setPublishErrors([]);
+            const nextStep = getStepForFieldErrors(publishFieldErrors);
+            if (nextStep) {
+                setCurrentStep(nextStep);
+            }
+            const firstMessage = Object.values(publishFieldErrors)[0];
+            setActionError(firstMessage ?? 'Fix the highlighted fields below.');
             return;
         }
 
@@ -1093,7 +1335,7 @@ export function EventWizard({
         }
 
         await executePublish();
-    }, [activeOrganizerId, currentOrganizer, executePublish, formData.refundPolicy, isPublishing, tickets]);
+    }, [activeOrganizerId, currentOrganizer, executePublish, formData, isPublishing, tickets]);
 
     const handlePreviewClick = useCallback(async () => {
         // Save draft before previewing (silent save)
@@ -1647,9 +1889,17 @@ export function EventWizard({
                                                     <Label>Timezone</Label>
                                                     <Select
                                                         value={formData.timezone}
-                                                        onValueChange={(value) => setFormData({ ...formData, timezone: value })}
+                                                        onValueChange={(value) => {
+                                                            setFormData({ ...formData, timezone: value });
+                                                            clearFieldErrors('timezone');
+                                                        }}
                                                     >
-                                                        <SelectTrigger className="h-11">
+                                                        <SelectTrigger
+                                                            className={cn(
+                                                                'h-11',
+                                                                fieldErrors.timezone ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                            )}
+                                                        >
                                                             <SelectValue placeholder="Select timezone" />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -1665,6 +1915,9 @@ export function EventWizard({
                                                             <SelectItem value="Australia/Sydney">🇦🇺 Sydney (AEDT)</SelectItem>
                                                         </SelectContent>
                                                     </Select>
+                                                    {fieldErrors.timezone ? (
+                                                        <p className="text-xs text-destructive">{fieldErrors.timezone}</p>
+                                                    ) : null}
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -1849,14 +2102,20 @@ export function EventWizard({
                                                     </div>
                                                     <Select
                                                         value={formData.currency}
-                                                        onValueChange={(value) =>
+                                                        onValueChange={(value) => {
                                                             setFormData((prev) => ({
                                                                 ...prev,
                                                                 currency: value,
-                                                            }))
-                                                        }
+                                                            }));
+                                                            clearFieldErrors('currency');
+                                                        }}
                                                     >
-                                                        <SelectTrigger className="w-[180px] h-10">
+                                                        <SelectTrigger
+                                                            className={cn(
+                                                                'w-[180px] h-10',
+                                                                fieldErrors.currency ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                            )}
+                                                        >
                                                             <SelectValue placeholder="Select currency" />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -1879,6 +2138,9 @@ export function EventWizard({
                                                             <SelectItem value="BDT">🇧🇩 BDT (৳)</SelectItem>
                                                         </SelectContent>
                                                     </Select>
+                                                    {fieldErrors.currency ? (
+                                                        <p className="text-xs text-destructive">{fieldErrors.currency}</p>
+                                                    ) : null}
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -1929,8 +2191,16 @@ export function EventWizard({
 
                                         {/* Ticket Cards */}
                                         <div className="space-y-3">
-                                            {tickets.map((ticket, index) => (
-                                                <Card key={ticket.id} className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+                                            {tickets.map((ticket, index) => {
+                                                const hasAdvancedErrors = Boolean(
+                                                    ticketErrors[ticket.id]?.maxPerOrder
+                                                    || ticketErrors[ticket.id]?.earlyBirdPrice
+                                                    || ticketErrors[ticket.id]?.earlyBirdEndDate,
+                                                );
+                                                const isAdvancedOpen = hasAdvancedErrors || ticketAdvancedOpen[ticket.id];
+
+                                                return (
+                                                    <Card key={ticket.id} className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
                                                     <CardContent className="p-3 sm:p-4 lg:p-5">
                                                         <div className="flex items-center justify-between mb-4">
                                                             <div className="flex items-center gap-2 text-primary">
@@ -1971,6 +2241,7 @@ export function EventWizard({
                                                                         value={ticket.name}
                                                                         onChange={(e) => {
                                                                             const value = e.target.value;
+                                                                            clearTicketError(ticket.id, 'name');
                                                                             updateTicket(ticket.id, 'name', value);
                                                                             const nextTickets = tickets.map((current) =>
                                                                                 current.id === ticket.id
@@ -2000,6 +2271,7 @@ export function EventWizard({
                                                                                 id={`free-${ticket.id}`}
                                                                                 checked={ticket.isFree}
                                                                                 onCheckedChange={(checked) => {
+                                                                                    clearTicketError(ticket.id, 'price');
                                                                                     updateTicket(ticket.id, 'isFree', checked);
                                                                                     if (checked) updateTicket(ticket.id, 'price', '0');
                                                                                 }}
@@ -2015,33 +2287,47 @@ export function EventWizard({
                                                                             const value = e.target.value;
                                                                             // Prevent negative values
                                                                             if (value === '' || Number(value) >= 0) {
+                                                                                clearTicketError(ticket.id, 'price');
                                                                                 updateTicket(ticket.id, 'price', value);
                                                                             }
                                                                         }}
-                                                                        className="h-11"
+                                                                        className={cn(
+                                                                            'h-11',
+                                                                            ticketErrors[ticket.id]?.price ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                        )}
                                                                         disabled={ticket.isFree}
                                                                     />
+                                                                    {ticketErrors[ticket.id]?.price ? (
+                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.price}</p>
+                                                                    ) : null}
                                                                 </div>
                                                                 {currentOrganizer?.feeTier === 'token' && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
                                                                     <div className="space-y-1.5">
                                                                         <Label>Organizer Fee ({getCurrencySymbol(formData.currency)})</Label>
-                                                                        <Input
-                                                                            type="number"
-                                                                            placeholder="0.55"
-                                                                            min="0"
-                                                                            step="0.01"
-                                                                            value={ticket.customFee ?? ''}
-                                                                            onChange={(e) => {
-                                                                                const value = e.target.value;
-                                                                                if (value === '' || Number(value) >= 0) {
-                                                                                    updateTicket(ticket.id, 'customFee', value);
-                                                                                }
-                                                                            }}
-                                                                            className="h-11"
-                                                                        />
-                                                                        <p className="text-xs text-muted-foreground">Optional per-ticket organizer fee (paid to you).</p>
-                                                                    </div>
-                                                                )}
+                                                                    <Input
+                                                                        type="number"
+                                                                        placeholder="0.55"
+                                                                        min="0"
+                                                                        step="0.01"
+                                                                        value={ticket.customFee ?? ''}
+                                                                        onChange={(e) => {
+                                                                            const value = e.target.value;
+                                                                            if (value === '' || Number(value) >= 0) {
+                                                                                clearTicketError(ticket.id, 'customFee');
+                                                                                updateTicket(ticket.id, 'customFee', value);
+                                                                            }
+                                                                        }}
+                                                                        className={cn(
+                                                                            'h-11',
+                                                                            ticketErrors[ticket.id]?.customFee ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                        )}
+                                                                    />
+                                                                    {ticketErrors[ticket.id]?.customFee ? (
+                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.customFee}</p>
+                                                                    ) : null}
+                                                                    <p className="text-xs text-muted-foreground">Optional per-ticket organizer fee (paid to you).</p>
+                                                                </div>
+                                                            )}
 
                                                                 {/* Absorb Fee Toggle - subtle but visible */}
                                                                 {currentOrganizer?.feeTier !== 'token' && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
@@ -2072,7 +2358,10 @@ export function EventWizard({
                                                                         variant="outline"
                                                                         size="icon"
                                                                         className="h-10 w-10 shrink-0"
-                                                                        onClick={() => updateTicket(ticket.id, 'quantity', Math.max(1, ticket.quantity - 10))}
+                                                                        onClick={() => {
+                                                                            clearTicketError(ticket.id, 'quantity');
+                                                                            updateTicket(ticket.id, 'quantity', Math.max(1, ticket.quantity - 10));
+                                                                        }}
                                                                     >
                                                                         <Minus className="h-3.5 w-3.5" />
                                                                     </Button>
@@ -2081,23 +2370,41 @@ export function EventWizard({
                                                                         value={ticket.quantity || ''}
                                                                         onChange={(e) => {
                                                                             const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                                                            clearTicketError(ticket.id, 'quantity');
                                                                             updateTicket(ticket.id, 'quantity', parseInt(val) || 0);
                                                                         }}
-                                                                        className="h-10 text-center font-semibold"
+                                                                        className={cn(
+                                                                            'h-10 text-center font-semibold',
+                                                                            ticketErrors[ticket.id]?.quantity ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                        )}
                                                                     />
                                                                     <Button
                                                                         variant="outline"
                                                                         size="icon"
                                                                         className="h-10 w-10 shrink-0"
-                                                                        onClick={() => updateTicket(ticket.id, 'quantity', ticket.quantity + 10)}
+                                                                        onClick={() => {
+                                                                            clearTicketError(ticket.id, 'quantity');
+                                                                            updateTicket(ticket.id, 'quantity', ticket.quantity + 10);
+                                                                        }}
                                                                     >
                                                                         <Plus className="h-3.5 w-3.5" />
                                                                     </Button>
-                                                                </div>
                                                             </div>
+                                                            {ticketErrors[ticket.id]?.quantity ? (
+                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.quantity}</p>
+                                                            ) : null}
+                                                        </div>
 
                                                             {/* Advanced Options Accordion */}
-                                                            <Collapsible>
+                                                            <Collapsible
+                                                                open={isAdvancedOpen}
+                                                                onOpenChange={(open) =>
+                                                                    setTicketAdvancedOpen((prev) => ({
+                                                                        ...prev,
+                                                                        [ticket.id]: open,
+                                                                    }))
+                                                                }
+                                                            >
                                                                 <CollapsibleTrigger asChild>
                                                                     <Button
                                                                         variant="ghost"
@@ -2146,7 +2453,10 @@ export function EventWizard({
                                                                                     }));
                                                                                 }
                                                                             }}
-                                                                            className="h-9"
+                                                                            className={cn(
+                                                                                'h-9',
+                                                                                ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                            )}
                                                                             min={1}
                                                                             max={Math.max(ticket.quantity, 1)}
                                                                         />
@@ -2164,7 +2474,13 @@ export function EventWizard({
                                                                             </div>
                                                                             <Switch
                                                                                 checked={ticket.hasEarlyBird}
-                                                                                onCheckedChange={(checked) => updateTicket(ticket.id, 'hasEarlyBird', checked)}
+                                                                                onCheckedChange={(checked) => {
+                                                                                    updateTicket(ticket.id, 'hasEarlyBird', checked);
+                                                                                    if (!checked) {
+                                                                                        clearTicketError(ticket.id, 'earlyBirdPrice');
+                                                                                        clearTicketError(ticket.id, 'earlyBirdEndDate');
+                                                                                    }
+                                                                                }}
                                                                             />
                                                                         </div>
                                                                         {ticket.hasEarlyBird && (
@@ -2179,20 +2495,36 @@ export function EventWizard({
                                                                                         onChange={(e) => {
                                                                                             const value = e.target.value;
                                                                                             if (value === '' || Number(value) >= 0) {
+                                                                                                clearTicketError(ticket.id, 'earlyBirdPrice');
                                                                                                 updateTicket(ticket.id, 'earlyBirdPrice', value);
                                                                                             }
                                                                                         }}
-                                                                                        className="h-9"
+                                                                                        className={cn(
+                                                                                            'h-9',
+                                                                                            ticketErrors[ticket.id]?.earlyBirdPrice ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                        )}
                                                                                     />
+                                                                                    {ticketErrors[ticket.id]?.earlyBirdPrice ? (
+                                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdPrice}</p>
+                                                                                    ) : null}
                                                                                 </div>
                                                                                 <div className="space-y-1.5">
                                                                                     <Label className="text-xs">Ends On</Label>
                                                                                     <Input
                                                                                         type="date"
                                                                                         value={ticket.earlyBirdEndDate}
-                                                                                        onChange={(e) => updateTicket(ticket.id, 'earlyBirdEndDate', e.target.value)}
-                                                                                        className="h-9"
+                                                                                        onChange={(e) => {
+                                                                                            clearTicketError(ticket.id, 'earlyBirdEndDate');
+                                                                                            updateTicket(ticket.id, 'earlyBirdEndDate', e.target.value);
+                                                                                        }}
+                                                                                        className={cn(
+                                                                                            'h-9',
+                                                                                            ticketErrors[ticket.id]?.earlyBirdEndDate ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                        )}
                                                                                     />
+                                                                                    {ticketErrors[ticket.id]?.earlyBirdEndDate ? (
+                                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdEndDate}</p>
+                                                                                    ) : null}
                                                                                 </div>
                                                                             </div>
                                                                         )}
@@ -2202,7 +2534,8 @@ export function EventWizard({
                                                         </div>
                                                     </CardContent>
                                                 </Card>
-                                            ))}
+                                            );
+                                            })}
                                         </div>
 
                                         {/* Add Ticket Button */}
@@ -2302,7 +2635,14 @@ export function EventWizard({
                                                                     {promo.revealsHiddenTickets && (
                                                                         <div className="space-y-2">
                                                                             <Label className="text-sm font-medium">Select Hidden Tickets to Reveal</Label>
-                                                                            <div className="space-y-2">
+                                                                            <div
+                                                                                className={cn(
+                                                                                    'space-y-2 rounded-lg border p-2',
+                                                                                    promoError?.applicableTicketTypeIds
+                                                                                        ? 'border-destructive'
+                                                                                        : 'border-transparent',
+                                                                                )}
+                                                                            >
                                                                                 {tickets.filter(t => t.visibility === 'hidden').length === 0 ? (
                                                                                     <p className="text-xs text-muted-foreground py-3 text-center">
                                                                                         No hidden tickets. Create a ticket with visibility set to &quot;Hidden&quot; first.
@@ -2338,6 +2678,9 @@ export function EventWizard({
                                                                                     })
                                                                                 )}
                                                                             </div>
+                                                                            {promoError?.applicableTicketTypeIds ? (
+                                                                                <p className="text-xs text-destructive">{promoError.applicableTicketTypeIds}</p>
+                                                                            ) : null}
                                                                         </div>
                                                                     )}
 
@@ -2351,7 +2694,12 @@ export function EventWizard({
                                                                                         value={promo.discountType}
                                                                                         onValueChange={(val) => updatePromoCode(promo.id, 'discountType', val as 'fixed' | 'percentage')}
                                                                                     >
-                                                                                        <SelectTrigger className="h-10">
+                                                                                        <SelectTrigger
+                                                                                            className={cn(
+                                                                                                'h-10',
+                                                                                                promoError?.discountType ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                            )}
+                                                                                        >
                                                                                             <SelectValue />
                                                                                         </SelectTrigger>
                                                                                         <SelectContent>
@@ -2359,6 +2707,9 @@ export function EventWizard({
                                                                                             <SelectItem value="fixed">Fixed Amount ({getCurrencySymbol(formData.currency)})</SelectItem>
                                                                                         </SelectContent>
                                                                                     </Select>
+                                                                                    {promoError?.discountType ? (
+                                                                                        <p className="text-xs text-destructive">{promoError.discountType}</p>
+                                                                                    ) : null}
                                                                                 </div>
                                                                                 <div className="space-y-2">
                                                                                     <Label className="text-sm">Discount Value</Label>
@@ -2397,8 +2748,14 @@ export function EventWizard({
                                                                                             const val = e.target.value.replace(/^0+(?=\d)/, '');
                                                                                             updatePromoCode(promo.id, 'usageLimit', parseInt(val) || 0);
                                                                                         }}
-                                                                                        className="h-10"
+                                                                                        className={cn(
+                                                                                            'h-10',
+                                                                                            promoError?.usageLimit ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                        )}
                                                                                     />
+                                                                                    {promoError?.usageLimit ? (
+                                                                                        <p className="text-xs text-destructive">{promoError.usageLimit}</p>
+                                                                                    ) : null}
                                                                                 </div>
                                                                             </div>
 
@@ -2409,7 +2766,14 @@ export function EventWizard({
                                                                                     <p className="text-xs text-muted-foreground mb-2">
                                                                                         Leave empty to apply to all tickets
                                                                                     </p>
-                                                                                    <div className="space-y-2">
+                                                                                    <div
+                                                                                        className={cn(
+                                                                                            'space-y-2 rounded-lg border p-2',
+                                                                                            promoError?.applicableTicketTypeIds
+                                                                                                ? 'border-destructive'
+                                                                                                : 'border-transparent',
+                                                                                        )}
+                                                                                    >
                                                                                         {tickets.map((ticket) => {
                                                                                             const isSelected = promo.applicableTicketTypeIds?.includes(ticket.id) ?? false;
                                                                                             return (
@@ -2441,6 +2805,9 @@ export function EventWizard({
                                                                                             );
                                                                                         })}
                                                                                     </div>
+                                                                                    {promoError?.applicableTicketTypeIds ? (
+                                                                                        <p className="text-xs text-destructive">{promoError.applicableTicketTypeIds}</p>
+                                                                                    ) : null}
                                                                                 </div>
                                                                             )}
                                                                         </>
@@ -2454,8 +2821,14 @@ export function EventWizard({
                                                                                 type="date"
                                                                                 value={promo.validFrom}
                                                                                 onChange={(e) => updatePromoCode(promo.id, 'validFrom', e.target.value)}
-                                                                                className="h-10"
+                                                                                className={cn(
+                                                                                    'h-10',
+                                                                                    promoError?.validFrom ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                )}
                                                                             />
+                                                                            {promoError?.validFrom ? (
+                                                                                <p className="text-xs text-destructive">{promoError.validFrom}</p>
+                                                                            ) : null}
                                                                         </div>
                                                                         <div className="space-y-2">
                                                                             <Label className="text-sm">Valid Until</Label>
@@ -2463,8 +2836,14 @@ export function EventWizard({
                                                                                 type="date"
                                                                                 value={promo.validUntil}
                                                                                 onChange={(e) => updatePromoCode(promo.id, 'validUntil', e.target.value)}
-                                                                                className="h-10"
+                                                                                className={cn(
+                                                                                    'h-10',
+                                                                                    promoError?.validUntil ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                )}
                                                                             />
+                                                                            {promoError?.validUntil ? (
+                                                                                <p className="text-xs text-destructive">{promoError.validUntil}</p>
+                                                                            ) : null}
                                                                         </div>
                                                                     </div>
                                                                 </div>

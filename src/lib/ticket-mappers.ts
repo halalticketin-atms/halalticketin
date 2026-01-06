@@ -1,21 +1,17 @@
 import type { DraftEventInitial, DraftLocationType, DraftPromoCode, DraftTicketType } from '@/hooks/useEventDraft';
 import type { EventRecord, PromoCodeRecord, TicketRecord } from '@/lib/events-api';
+import { formatDateInTimeZone, formatTimeInTimeZone } from '@/lib/timezone';
 
-const isoToDate = (iso?: string | null) => {
-    if (!iso) return '';
-    const parsed = new Date(iso);
-    if (Number.isNaN(parsed.getTime())) return '';
-    return parsed.toISOString().split('T')[0] ?? '';
-};
+const isoToDate = (iso?: string | null, timeZone?: string) =>
+    formatDateInTimeZone(iso, timeZone);
 
-const isoToTime = (iso?: string | null) => {
-    if (!iso) return '';
-    const parsed = new Date(iso);
-    if (Number.isNaN(parsed.getTime())) return '';
-    return parsed.toISOString().split('T')[1]?.slice(0, 5) ?? '';
-};
+const isoToTime = (iso?: string | null, timeZone?: string) =>
+    formatTimeInTimeZone(iso, timeZone);
 
-export const mapTicketRecordsToDraft = (rows: TicketRecord[]): DraftTicketType[] =>
+export const mapTicketRecordsToDraft = (
+    rows: TicketRecord[],
+    timeZone?: string,
+): DraftTicketType[] =>
     rows.map((ticket, index) => {
         const priceValue = ticket.price ?? '0';
         const isFree = ticket.type === 'free' || Number(priceValue) === 0;
@@ -30,11 +26,11 @@ export const mapTicketRecordsToDraft = (rows: TicketRecord[]): DraftTicketType[]
             quantity: ticket.maxQuantity ?? 0,
             maxPerOrder: ticket.maxPerOrder ?? 1,
             description: ticket.description ?? '',
-            salesStart: isoToDate(ticket.salesStart),
-            salesEnd: isoToDate(ticket.salesEnd),
+            salesStart: isoToDate(ticket.salesStart, timeZone),
+            salesEnd: isoToDate(ticket.salesEnd, timeZone),
             hasEarlyBird,
             earlyBirdPrice: ticket.earlyBirdPrice ?? '',
-            earlyBirdEndDate: isoToDate(ticket.earlyBirdEndDate),
+            earlyBirdEndDate: isoToDate(ticket.earlyBirdEndDate, timeZone),
             visibility: ticket.visibility ?? 'public',
             absorbFee: ticket.absorbFee ?? null,
         };
@@ -74,11 +70,11 @@ export const buildDraftFromEventRecord = (
         bannerImageDataUrl: event.bannerImageUrl ?? '', // FIX: Populate from backend's bannerImageUrl
         categories: event.category ? event.category.split(',').map((c) => c.trim()) : [],
         visibility: event.isListedPublicly ? 'public' : 'private',
-        date: isoToDate(event.startDatetime),
-        endDate: isoToDate(event.endDatetime),
+        date: isoToDate(event.startDatetime, event.timezone),
+        endDate: isoToDate(event.endDatetime, event.timezone),
         isMultiDay: event.isMultiDay,
-        startTime: isoToTime(event.startDatetime),
-        endTime: isoToTime(event.endDatetime),
+        startTime: isoToTime(event.startDatetime, event.timezone),
+        endTime: isoToTime(event.endDatetime, event.timezone),
         timezone: event.timezone ?? 'UTC',
         locationType: backendToDraftLocation(event.locationType),
         venue: event.venue ?? '',
@@ -91,7 +87,7 @@ export const buildDraftFromEventRecord = (
         attendeeInfoMode: event.attendeeInfoMode ?? 'buyer_choice',
         customQuestions: event.customQuestions ?? [],
     },
-    tickets: tickets.length > 0 ? mapTicketRecordsToDraft(tickets) : undefined,
+    tickets: tickets.length > 0 ? mapTicketRecordsToDraft(tickets, event.timezone) : undefined,
     promoCodes: promoCodes.length > 0 ? mapPromoCodeRecordsToDraft(promoCodes) : [],
     currentStep: 1,
 });
