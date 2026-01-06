@@ -271,6 +271,54 @@ const buildTicketPayloads = (
         };
     });
 
+const buildDuplicateTicketNameErrors = (tickets: DraftTicketType[]) => {
+    const nameToIds = new Map<string, string[]>();
+
+    tickets.forEach((ticket) => {
+        const normalized = ticket.name.trim().toLowerCase();
+        if (!normalized) {
+            return;
+        }
+        const ids = nameToIds.get(normalized) ?? [];
+        ids.push(ticket.id);
+        nameToIds.set(normalized, ids);
+    });
+
+    const errors: Record<string, { name: string }> = {};
+    nameToIds.forEach((ids) => {
+        if (ids.length > 1) {
+            ids.forEach((id) => {
+                errors[id] = { name: 'Ticket name must be unique' };
+            });
+        }
+    });
+
+    return errors;
+};
+
+const mergeTicketNameErrors = (
+    previous: Record<string, { maxPerOrder?: string; name?: string }>,
+    nameErrors: Record<string, { name: string }>,
+    activeTickets?: DraftTicketType[]
+) => {
+    const validIds = activeTickets ? new Set(activeTickets.map((ticket) => ticket.id)) : null;
+    const next: Record<string, { maxPerOrder?: string; name?: string }> = {};
+
+    Object.entries(previous).forEach(([id, errors]) => {
+        if (errors.maxPerOrder && (!validIds || validIds.has(id))) {
+            next[id] = { ...next[id], maxPerOrder: errors.maxPerOrder };
+        }
+    });
+
+    Object.entries(nameErrors).forEach(([id, errors]) => {
+        if (!validIds || validIds.has(id)) {
+            next[id] = { ...next[id], ...errors };
+        }
+    });
+
+    return next;
+};
+
 const deriveFieldErrorsFromMessages = (errors: string[]) => {
     const mapped: Record<string, string> = {};
     const unmatched: string[] = [];
@@ -400,7 +448,7 @@ export function EventWizard({
     const [actionError, setActionError] = useState<string | null>(null);
     const [publishErrors, setPublishErrors] = useState<string[]>([]);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-    const [ticketErrors, setTicketErrors] = useState<Record<string, { maxPerOrder?: string }>>({});
+    const [ticketErrors, setTicketErrors] = useState<Record<string, { maxPerOrder?: string; name?: string }>>({});
     const [promoErrors, setPromoErrors] = useState<Record<string, { code?: string; discountValue?: string }>>({});
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
@@ -539,7 +587,7 @@ export function EventWizard({
         [clearFieldErrors, removeTicketBase],
     );
 
-    const clearTicketError = useCallback((id: string, field?: 'maxPerOrder') => {
+    const clearTicketError = useCallback((id: string, field?: 'maxPerOrder' | 'name') => {
         setTicketErrors((prev) => {
             if (!prev[id]) {
                 return prev;
@@ -556,7 +604,7 @@ export function EventWizard({
                 [id]: { ...prev[id], [field]: undefined },
             };
 
-            if (!next[id].maxPerOrder) {
+            if (!next[id].maxPerOrder && !next[id].name) {
                 delete next[id];
                 return next;
             }
@@ -697,6 +745,15 @@ export function EventWizard({
             }
 
             try {
+                const duplicateNameErrors = buildDuplicateTicketNameErrors(tickets);
+                if (Object.keys(duplicateNameErrors).length > 0) {
+                    setTicketErrors((prev) => mergeTicketNameErrors(prev, duplicateNameErrors));
+                    setFieldErrors((prev) => ({ ...prev, tickets: 'Ticket name must be unique.' }));
+                    setActionError('Ticket names must be unique.');
+                    setCurrentStep(4);
+                    return null;
+                }
+
                 const payload = buildEventPayload({ ...formData, title: trimmedTitle });
                 if (bannerWasRemoved) {
                     payload.bannerImageUrl = null;
@@ -763,7 +820,7 @@ export function EventWizard({
 
                 if (hasPromoValidationErrors) {
                     setActionError('Fix promo code errors before saving.');
-                    setCurrentStep(3);
+                    setCurrentStep(4);
                 }
 
                 if (normalizedPromoCodes.length > 0 && isUuid(nextEventId) && !hasPromoValidationErrors) {
@@ -841,17 +898,69 @@ export function EventWizard({
 
                 return nextEventId;
             } catch (error) {
+                let overrideMessage: string | null = null;
                 // Extract detailed field errors from backend
                 if (error instanceof ApiError) {
-                    const details = getBackendErrorDetails<{ fieldErrors?: Record<string, string[]> }>(error.payload);
+                    const details = getBackendErrorDetails<{
+                        fieldErrors?: Record<string, string[]>;
+                        formErrors?: string[];
+                    }>(error.payload);
                     if (details?.fieldErrors) {
                         // Map Zod field errors to our fieldErrors state
                         const mappedErrors: Record<string, string> = {};
+                        const nextTicketErrors: Record<string, { name?: string; maxPerOrder?: string }> = {};
+                        let firstMessage: string | null = null;
+
                         for (const [field, messages] of Object.entries(details.fieldErrors)) {
-                            if (Array.isArray(messages) && messages.length > 0) {
-                                mappedErrors[field] = messages[0];
+                            if (!Array.isArray(messages) || messages.length === 0) {
+                                continue;
                             }
+
+                            const message = messages[0];
+                            if (!firstMessage) {
+                                firstMessage = message;
+                            }
+
+                            if (field === 'tickets') {
+                                mappedErrors.tickets = message;
+                                continue;
+                            }
+
+                            const ticketMatch = field.match(/^tickets\.(\d+)\.(\w+)$/);
+                            if (ticketMatch) {
+                                const index = Number(ticketMatch[1]);
+                                const fieldName = ticketMatch[2];
+                                const ticketId = tickets[index]?.id;
+                                if (ticketId) {
+                                    const current = nextTicketErrors[ticketId] ?? {};
+                                    if (fieldName === 'name') {
+                                        current.name = message;
+                                    } else if (fieldName === 'maxPerOrder') {
+                                        current.maxPerOrder = message;
+                                    }
+                                    nextTicketErrors[ticketId] = current;
+                                    continue;
+                                }
+                            }
+
+                            mappedErrors[field] = message;
                         }
+
+                        if (Object.keys(nextTicketErrors).length > 0) {
+                            setTicketErrors((prev) => {
+                                const next = { ...prev };
+                                Object.entries(nextTicketErrors).forEach(([id, errors]) => {
+                                    next[id] = { ...next[id], ...errors };
+                                });
+                                return next;
+                            });
+                            if (!mappedErrors.tickets && firstMessage) {
+                                mappedErrors.tickets = firstMessage;
+                            }
+                            setCurrentStep(4);
+                            overrideMessage = firstMessage ?? 'Fix the highlighted ticket fields.';
+                        }
+
                         if (Object.keys(mappedErrors).length > 0) {
                             setFieldErrors(mappedErrors);
                             // Navigate to step with first error
@@ -860,12 +969,19 @@ export function EventWizard({
                             } else if (mappedErrors.date || mappedErrors.venue || mappedErrors.startTime || mappedErrors.endTime) {
                                 setCurrentStep(2);
                             } else if (mappedErrors.tickets) {
-                                setCurrentStep(3);
+                                setCurrentStep(4);
+                            }
+                            if (!overrideMessage && firstMessage) {
+                                overrideMessage = firstMessage;
                             }
                         }
                     }
+
+                    if (!overrideMessage && details?.formErrors?.length) {
+                        overrideMessage = details.formErrors[0];
+                    }
                 }
-                const message = getUserFriendlyMessage(error) || 'Unable to save draft.';
+                const message = overrideMessage ?? getUserFriendlyMessage(error) ?? 'Unable to save draft.';
                 setActionError(message);
                 return null;
             } finally {
@@ -1857,9 +1973,27 @@ export function EventWizard({
                                                                     <Input
                                                                         placeholder="e.g., General Admission"
                                                                         value={ticket.name}
-                                                                        onChange={(e) => updateTicket(ticket.id, 'name', e.target.value)}
-                                                                        className="h-11"
+                                                                        onChange={(e) => {
+                                                                            const value = e.target.value;
+                                                                            updateTicket(ticket.id, 'name', value);
+                                                                            const nextTickets = tickets.map((current) =>
+                                                                                current.id === ticket.id
+                                                                                    ? { ...current, name: value }
+                                                                                    : current,
+                                                                            );
+                                                                            const nameErrors = buildDuplicateTicketNameErrors(nextTickets);
+                                                                            setTicketErrors((prev) => mergeTicketNameErrors(prev, nameErrors));
+                                                                        }}
+                                                                        className={cn(
+                                                                            'h-11',
+                                                                            ticketErrors[ticket.id]?.name
+                                                                                ? 'border-destructive focus-visible:ring-destructive'
+                                                                                : '',
+                                                                        )}
                                                                     />
+                                                                    {ticketErrors[ticket.id]?.name ? (
+                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.name}</p>
+                                                                    ) : null}
                                                                 </div>
                                                                 <div className="space-y-1.5">
                                                                     <div className="flex items-center justify-between">
