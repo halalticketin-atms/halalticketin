@@ -758,13 +758,14 @@ export function EventWizard({
                 if (!nextEventId) {
                     const response = await createEventDraft(activeOrganizerId, payload);
                     nextEventId = response.event.id;
+                    setEventId(nextEventId);
                 } else {
                     console.log('[DEBUG] Updating event:', nextEventId, 'with payload:', payload);
                     await updateEventDraft(nextEventId, payload);
                 }
 
                 const ticketPayloads = buildTicketPayloads(tickets, formData.currency, {
-                    includeIds: Boolean(eventId),
+                    includeIds: Boolean(nextEventId),
                 });
                 console.log('[DEBUG] Saving tickets for event:', nextEventId, 'payload:', ticketPayloads);
                 const ticketResponse = await saveEventTickets(nextEventId, ticketPayloads);

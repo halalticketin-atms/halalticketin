@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SalesChart } from './SalesChart';
 import { CircularProgress, ticketTypeColors } from './CircularProgress';
+import { useOptimizedAnimation } from '@/hooks/useOptimizedAnimation';
 
 interface WeeklySalesData {
     weekStart: string;
@@ -78,6 +79,8 @@ const statusColors = {
 };
 
 export function EventPerformanceCards({ events, organizerId }: EventPerformanceCardsProps) {
+    const anim = useOptimizedAnimation();
+
     if (events.length === 0) {
         return (
             <Card className="border-dashed border-2 border-border/50">
@@ -119,9 +122,9 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                         <motion.div
                             key={event.id}
                             className="min-w-0"
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, delay: index * 0.1 }}
+                            initial={anim.initial}
+                            animate={anim.animate}
+                            transition={{ ...anim.transition, delay: index * anim.staggerDelay * 2 }}
                         >
                             <Card className="group overflow-hidden border-border/50 hover:border-primary/20 hover:shadow-lg transition-all duration-300 w-full max-w-full min-w-0">
                                 <div className="flex min-w-0 flex-col gap-0 md:grid md:grid-cols-[280px_1fr]">
@@ -188,7 +191,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                                                     className="h-full bg-gradient-to-r from-primary to-primary/60"
                                                     initial={{ width: 0 }}
                                                     animate={{ width: `${Math.min(percentage, 100)}%` }}
-                                                    transition={{ duration: 1, delay: index * 0.1 + 0.2 }}
+                                                    transition={{ ...anim.springTransition, delay: index * anim.staggerDelay }}
                                                 />
                                             </div>
                                         </div>
@@ -208,9 +211,9 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                                                         return (
                                                             <motion.div
                                                                 key={ticketType.id}
-                                                                initial={{ opacity: 0, y: 10 }}
-                                                                animate={{ opacity: 1, y: 0 }}
-                                                                transition={{ duration: 0.5, delay: index * 0.05 + ttIndex * 0.1 }}
+                                                                initial={anim.initial}
+                                                                animate={anim.animate}
+                                                                transition={{ ...anim.transition, delay: ttIndex * anim.staggerDelay }}
                                                             >
                                                                 <CircularProgress
                                                                     percentage={ttPercentage}

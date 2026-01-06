@@ -55,23 +55,25 @@ export function DeleteEventDialog({
                         <Trash2 className="h-5 w-5" />
                         Delete Event
                     </DialogTitle>
-                    <DialogDescription className="space-y-3 pt-2">
-                        <p>
-                            Are you sure you want to delete{' '}
-                            <span className="font-semibold text-foreground">&quot;{eventTitle}&quot;</span>?
-                        </p>
-                        <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                            <p className="text-sm text-destructive font-medium">
-                                This action cannot be undone. All event data, tickets, and orders will be permanently
-                                removed.
+                    <DialogDescription asChild>
+                        <div className="text-sm text-muted-foreground space-y-3 pt-2">
+                            <p>
+                                Are you sure you want to delete{' '}
+                                <span className="font-semibold text-foreground">&quot;{eventTitle}&quot;</span>?
                             </p>
+                            <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                                <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                                <p className="text-sm text-destructive font-medium">
+                                    This action cannot be undone. All event data, tickets, and orders will be permanently
+                                    removed.
+                                </p>
+                            </div>
+                            {error && (
+                                <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
+                                    {error}
+                                </p>
+                            )}
                         </div>
-                        {error && (
-                            <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
-                                {error}
-                            </p>
-                        )}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2 sm:gap-0">
@@ -106,4 +108,3 @@ export function DeleteEventDialog({
         </Dialog>
     );
 }
-

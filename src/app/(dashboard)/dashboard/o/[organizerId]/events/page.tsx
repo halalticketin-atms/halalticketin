@@ -20,6 +20,7 @@ import {
     AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,7 +31,16 @@ import {
     DropdownMenuTrigger,
 }
     from '@/components/ui/dropdown-menu';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { SUPPORTED_CURRENCIES } from '@/lib/fees'; // Added import
+import api from '@/lib/api';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents, DashboardEvent, DashboardEventStatus } from '@/hooks/useOrganizerEvents';
 import { DeleteEventDialog } from '@/components/dashboard/DeleteEventDialog';
@@ -86,11 +96,15 @@ function EventCard({
     index,
     onDelete,
     revenueCurrency,
+    isSelected,
+    onToggleSelect,
 }: {
     event: DashboardEvent;
     index: number;
     onDelete: (id: string, title: string) => void;
     revenueCurrency?: string;
+    isSelected: boolean;
+    onToggleSelect: (id: string, selected: boolean) => void;
 }) {
     const router = useRouter();
     const config = statusConfig[event.displayStatus];
@@ -106,7 +120,11 @@ function EventCard({
     const handleCardClick = (e: React.MouseEvent) => {
         // Don't navigate if clicking on the dropdown menu
         const target = e.target as HTMLElement;
-        if (target.closest('[data-dropdown-trigger]') || target.closest('[data-dropdown-content]')) {
+        if (
+            target.closest('[data-dropdown-trigger]') ||
+            target.closest('[data-dropdown-content]') ||
+            target.closest('[data-selection-toggle]')
+        ) {
             return;
         }
         router.push(`/events/${event.id}/edit`);
@@ -138,7 +156,16 @@ function EventCard({
                     )}
 
                     {/* Status Badge - Top Left */}
-                    <div className="absolute top-2 left-2">
+                    <div
+                        className="absolute top-2 left-2 flex items-center gap-2"
+                        data-selection-toggle
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => onToggleSelect(event.id, checked === true)}
+                            aria-label={`Select ${event.title || 'event'}`}
+                        />
                         <span // Changed from Badge component to span
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${event.displayStatus === 'active' // Changed from 'published' to 'active'
                                 ? 'bg-emerald-500/90 text-white'
@@ -245,18 +272,42 @@ function EventCard({
 export default function MyEventsPage() {
     const router = useRouter();
     const organizerId = useOrganizerFromParams();
-    const { events, isLoading, error, counts } = useOrganizerEvents(organizerId);
+    const { events, isLoading, error, counts, refresh: refreshEvents } = useOrganizerEvents(organizerId);
     const { organizers } = useOrganizers();
     const [activeTab, setActiveTab] = useState('all');
+    const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string }>({
         open: false,
         eventId: '',
         eventTitle: '',
     });
+    const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+    const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+    const selectedEvents = events.filter((event) => selectedEventIds.has(event.id));
+    const nonDraftSelected = selectedEvents.filter((event) => event.status !== 'draft');
+    const draftSelected = selectedEvents.filter((event) => event.status === 'draft');
 
     const handleDeleteSuccess = () => {
+        refreshEvents();
         router.refresh();
     };
+
+    useEffect(() => {
+        setSelectedEventIds(new Set());
+    }, [activeTab]);
+
+    useEffect(() => {
+        setSelectedEventIds((prev) => {
+            if (prev.size === 0) {
+                return prev;
+            }
+            const validIds = new Set(events.map((event) => event.id));
+            const next = new Set(Array.from(prev).filter((id) => validIds.has(id)));
+            return next.size === prev.size ? prev : next;
+        });
+    }, [events]);
 
     // Scroll to top when page loads
     useEffect(() => {
@@ -268,6 +319,69 @@ export default function MyEventsPage() {
         return events.filter(e => e.displayStatus === status);
     };
     const revenueCurrency = organizers.find((org) => org.id === organizerId)?.defaultCurrency;
+    const hasSelectedEvents = selectedEventIds.size > 0;
+    const hasNonDraftSelected = nonDraftSelected.length > 0;
+    const bulkGuardMessage = hasNonDraftSelected
+        ? 'Active or past events cannot be deleted. Remove them from the selection.'
+        : null;
+
+    const toggleSelectedEvent = (id: string, selected: boolean) => {
+        setSelectedEventIds((prev) => {
+            const next = new Set(prev);
+            if (selected) {
+                next.add(id);
+            } else {
+                next.delete(id);
+            }
+            return next;
+        });
+    };
+
+    const toggleSelectAll = (ids: string[]) => {
+        setSelectedEventIds((prev) => {
+            const next = new Set(prev);
+            const allSelected = ids.length > 0 && ids.every((id) => next.has(id));
+            if (allSelected) {
+                ids.forEach((id) => next.delete(id));
+            } else {
+                ids.forEach((id) => next.add(id));
+            }
+            return next;
+        });
+    };
+
+    const handleBulkDeleteClick = () => {
+        if (!hasSelectedEvents) {
+            return;
+        }
+        if (hasNonDraftSelected) {
+            return;
+        }
+        setBulkDeleteError(null);
+        setBulkDialogOpen(true);
+    };
+
+    const handleBulkDeleteConfirm = async () => {
+        if (draftSelected.length === 0) {
+            return;
+        }
+        setIsBulkDeleting(true);
+        setBulkDeleteError(null);
+        try {
+            await Promise.all(
+                draftSelected.map((event) => api.delete(`/api/v1/events/${event.id}`))
+            );
+            setBulkDialogOpen(false);
+            setSelectedEventIds(new Set());
+            refreshEvents();
+            router.refresh();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to delete selected events';
+            setBulkDeleteError(message);
+        } finally {
+            setIsBulkDeleting(false);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -332,38 +446,84 @@ export default function MyEventsPage() {
 
                     {['all', 'active', 'past', 'draft'].map(tab => (
                         <TabsContent key={tab} value={tab}>
-                            {getFilteredEvents(tab).length === 0 ? (
-                                <Card className="p-12 text-center">
-                                    <Calendar className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                                    <h3 className="font-semibold text-lg">No events found</h3>
-                                    <p className="text-muted-foreground mt-1">
-                                        {tab === 'draft'
-                                            ? "You don't have any draft events."
-                                            : tab === 'all'
-                                                ? "You haven't created any events yet."
-                                                : tab === 'active'
-                                                    ? "You don't have any active events."
-                                                    : "You don't have any past events yet."}
-                                    </p>
-                                    <Button asChild className="mt-4">
-                                        <Link href={organizerId ? `/events/new?organizerId=${organizerId}` : '/events/new'}>
-                                            Create your first event
-                                        </Link>
-                                    </Button>
-                                </Card>
-                            ) : (
-                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                                    {getFilteredEvents(tab).map((event, i) => (
-                                        <EventCard
-                                            key={event.id}
-                                            event={event}
-                                            index={i}
-                                            onDelete={(id, title) => setDeleteDialog({ open: true, eventId: id, eventTitle: title })}
-                                            revenueCurrency={revenueCurrency}
-                                        />
-                                    ))}
-                                </div>
-                            )}
+                            {(() => {
+                                const tabEvents = getFilteredEvents(tab);
+                                const tabEventIds = tabEvents.map((event) => event.id);
+                                const selectedInTab = tabEventIds.filter((id) => selectedEventIds.has(id));
+                                const allSelectedInTab = tabEventIds.length > 0 && selectedInTab.length === tabEventIds.length;
+
+                                if (tabEvents.length === 0) {
+                                    return (
+                                        <Card className="p-12 text-center">
+                                            <Calendar className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                                            <h3 className="font-semibold text-lg">No events found</h3>
+                                            <p className="text-muted-foreground mt-1">
+                                                {tab === 'draft'
+                                                    ? "You don't have any draft events."
+                                                    : tab === 'all'
+                                                        ? "You haven't created any events yet."
+                                                        : tab === 'active'
+                                                            ? "You don't have any active events."
+                                                            : "You don't have any past events yet."}
+                                            </p>
+                                            <Button asChild className="mt-4">
+                                                <Link href={organizerId ? `/events/new?organizerId=${organizerId}` : '/events/new'}>
+                                                    Create your first event
+                                                </Link>
+                                            </Button>
+                                        </Card>
+                                    );
+                                }
+
+                                return (
+                                    <>
+                                        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => toggleSelectAll(tabEventIds)}
+                                                >
+                                                    {allSelectedInTab ? 'Clear selection' : 'Select all'}
+                                                </Button>
+                                                {hasSelectedEvents && (
+                                                    <span className="text-sm text-muted-foreground">
+                                                        {selectedEventIds.size} selected
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {hasSelectedEvents && (
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    {bulkGuardMessage && (
+                                                        <span className="text-xs text-destructive">{bulkGuardMessage}</span>
+                                                    )}
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={handleBulkDeleteClick}
+                                                        disabled={isBulkDeleting || hasNonDraftSelected}
+                                                    >
+                                                        Delete selected
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                                            {tabEvents.map((event, i) => (
+                                                <EventCard
+                                                    key={event.id}
+                                                    event={event}
+                                                    index={i}
+                                                    onDelete={(id, title) => setDeleteDialog({ open: true, eventId: id, eventTitle: title })}
+                                                    revenueCurrency={revenueCurrency}
+                                                    isSelected={selectedEventIds.has(event.id)}
+                                                    onToggleSelect={toggleSelectedEvent}
+                                                />
+                                            ))}
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </TabsContent>
                     ))}
                 </Tabs>
@@ -377,6 +537,49 @@ export default function MyEventsPage() {
                 onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
                 onSuccess={handleDeleteSuccess}
             />
+
+            {/* Bulk Delete Confirmation Dialog */}
+            <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive">
+                            <Trash2 className="h-5 w-5" />
+                            Delete selected drafts
+                        </DialogTitle>
+                        <DialogDescription asChild>
+                            <div className="text-sm text-muted-foreground space-y-3 pt-2">
+                                <p>
+                                    You are about to delete {draftSelected.length} draft
+                                    {draftSelected.length === 1 ? '' : 's'}. This cannot be undone.
+                                </p>
+                                {bulkDeleteError && (
+                                    <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
+                                        {bulkDeleteError}
+                                    </p>
+                                )}
+                            </div>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setBulkDialogOpen(false)}
+                            disabled={isBulkDeleting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleBulkDeleteConfirm}
+                            disabled={isBulkDeleting}
+                        >
+                            {isBulkDeleting ? 'Deleting...' : 'Delete drafts'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
