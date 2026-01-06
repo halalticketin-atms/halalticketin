@@ -230,7 +230,17 @@ export default function PricingPage() {
                             <div className="text-center z-10">
                                 <div className="font-display text-5xl font-bold text-slate-900 mb-1">{symbol}0</div>
                                 <div className="text-sm text-slate-500">always free</div>
-                                <Button variant="outline" className="mt-4 rounded-full border-slate-300 hover:bg-slate-50 px-8">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        if (user) {
+                                            router.push('/dashboard');
+                                        } else {
+                                            router.push('/login?next=/dashboard');
+                                        }
+                                    }}
+                                    className="mt-4 rounded-full border-slate-300 hover:bg-slate-50 px-8"
+                                >
                                     Get Started
                                 </Button>
                             </div>
@@ -464,9 +474,11 @@ export default function PricingPage() {
                                 you&apos;ll also need a payment processor.
                             </p>
                             <p>
-                                Halal Ticketin does not touch or process payments directly. Transactions are managed securely by
-                                reliable, certified payment processors, for example. Stripe ensures fast, reliable, and
-                                secure transfers between your ticket buyers and your bank account.
+                                Halal Ticketin does not directly handle or process customer payments. All
+                                transactions are facilitated through trusted, fully certified payment service
+                                providers. For example, Stripe is used to ensure fast, secure, and reliable
+                                transfers of funds from ticket purchasers directly to your nominated bank
+                                account.
                             </p>
                         </div>
 

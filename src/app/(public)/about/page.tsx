@@ -25,7 +25,7 @@ const VALUES = [
 ];
 
 const STORY_POINTS = [
-    'During the boycotts and the heartbreak in Gaza and Palestine, it became painfully clear how much our community relies on third‑party platforms.',
+    'With boycotts more important than ever, it became painfully clear how much our community relies on third‑party platforms.',
     'A group of young Muslims came together to build a space that reflects our values.',
     'Halal-friendly events, all in one place: clean, transparent discovery and ticketing.',
     "We're building for the long term with the community at the centre.",
@@ -75,7 +75,7 @@ export default function AboutPage() {
                     </h1>
 
                     <p className="mt-6 max-w-2xl mx-auto text-base md:text-lg leading-relaxed text-slate-700/90">
-                        dependent on platforms that don&apos;t share our values. We wanted a Muslim space:
+                        Dependent on platforms that don&apos;t share our values. We wanted a Muslim space:
                         clean, trustworthy, and built for the Ummah.
                     </p>
 

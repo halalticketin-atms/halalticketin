@@ -39,10 +39,10 @@ export function SalesChart({ data, currency }: SalesChartProps) {
         });
     }, [data]);
 
-    // Scroll to end on mount to show most recent weeks
+    // Scroll to start on mount to show week 1
     useLayoutEffect(() => {
         if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+            scrollContainerRef.current.scrollLeft = 0;
         }
     }, [chartData.length]);
 

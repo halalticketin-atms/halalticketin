@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { Calendar, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SalesChart } from './SalesChart';
@@ -80,6 +81,22 @@ const statusColors = {
 
 export function EventPerformanceCards({ events, organizerId }: EventPerformanceCardsProps) {
     const anim = useOptimizedAnimation();
+    const [renderCharts, setRenderCharts] = useState(false);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            setRenderCharts(true);
+            return;
+        }
+
+        if ('requestIdleCallback' in window) {
+            const idleId = window.requestIdleCallback(() => setRenderCharts(true));
+            return () => window.cancelIdleCallback?.(idleId);
+        }
+
+        const timeoutId = window.setTimeout(() => setRenderCharts(true), 0);
+        return () => window.clearTimeout(timeoutId);
+    }, []);
 
     if (events.length === 0) {
         return (
@@ -233,7 +250,9 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                                         <div className="border-t pt-4 w-full overflow-hidden">
                                             <div className="text-xs font-medium text-muted-foreground mb-2">12-Week Sales Trend</div>
                                             <div className="w-full max-w-full overflow-hidden">
-                                                <SalesChart data={event.weeklySales} currency={event.currency} />
+                                                {renderCharts ? (
+                                                    <SalesChart data={event.weeklySales} currency={event.currency} />
+                                                ) : null}
                                             </div>
                                         </div>
 

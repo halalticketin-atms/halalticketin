@@ -11,6 +11,7 @@ import { StatCard, EventPerformanceCards } from '@/components/dashboard';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
+import { useInView } from '@/hooks/useInView';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import api from '@/lib/api';
 import { getCreditBalance } from '@/lib/credits-api';
@@ -77,9 +78,11 @@ export default function DashboardPage() {
     const { organizers } = useOrganizers();
     const [analyticsStats, setAnalyticsStats] = useState<AnalyticsStats | null>(null);
     const [eventsPerformance, setEventsPerformance] = useState<EventPerformanceData[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isEventsLoading, setIsEventsLoading] = useState(false);
+    const [hasLoadedEvents, setHasLoadedEvents] = useState(false);
     const [creditBalance, setCreditBalance] = useState<number | null>(null);
     const [isCreditsLoading, setIsCreditsLoading] = useState(false);
+    const { ref: eventsRef, inView: eventsInView } = useInView<HTMLDivElement>({ rootMargin: '200px' });
 
     // Get the current user's role for this organizer
     const activeOrganizer = organizers.find((org) => org.id === organizerId);
@@ -92,38 +95,56 @@ export default function DashboardPage() {
         }
     }, [organizerId, userRole, router]);
 
-    const fetchData = useEffectEvent(async (currentOrganizerId: string | null) => {
+    const fetchStats = useEffectEvent(async (currentOrganizerId: string | null) => {
         if (!currentOrganizerId) {
             setAnalyticsStats(null);
-            setEventsPerformance([]);
             return;
         }
 
-        setIsLoading(true);
         try {
-            // Fetch both analytics stats and events performance in parallel
-            const [analyticsRes, eventsRes] = await Promise.all([
-                api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
-                    params: { organizerId: currentOrganizerId },
-                }),
-                api.get<EventsPerformanceResponse>('/api/v1/analytics/events-performance', {
-                    params: { organizerId: currentOrganizerId },
-                })
-            ]);
-
+            const analyticsRes = await api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
+                params: { organizerId: currentOrganizerId, include: 'stats' },
+            });
             setAnalyticsStats(analyticsRes.stats);
-            setEventsPerformance(eventsRes.events);
         } catch (error) {
-            console.error('Failed to fetch dashboard data:', error);
-            // Continue with empty data on error
-        } finally {
-            setIsLoading(false);
+            console.error('Failed to fetch dashboard stats:', error);
         }
     });
 
     useEffect(() => {
-        void fetchData(organizerId ?? null);
+        void fetchStats(organizerId ?? null);
     }, [organizerId]);
+
+    useEffect(() => {
+        setHasLoadedEvents(false);
+        setEventsPerformance([]);
+    }, [organizerId]);
+
+    const fetchEventsPerformance = useEffectEvent(async (currentOrganizerId: string | null) => {
+        if (!currentOrganizerId) {
+            setEventsPerformance([]);
+            setHasLoadedEvents(true);
+            return;
+        }
+
+        setIsEventsLoading(true);
+        try {
+            const eventsRes = await api.get<EventsPerformanceResponse>('/api/v1/analytics/events-performance', {
+                params: { organizerId: currentOrganizerId },
+            });
+            setEventsPerformance(eventsRes.events);
+        } catch (error) {
+            console.error('Failed to fetch events performance:', error);
+        } finally {
+            setIsEventsLoading(false);
+            setHasLoadedEvents(true);
+        }
+    });
+
+    useEffect(() => {
+        if (!eventsInView || hasLoadedEvents) return;
+        void fetchEventsPerformance(organizerId ?? null);
+    }, [eventsInView, hasLoadedEvents, organizerId]);
 
     useEffect(() => {
         if (!organizerId || activeOrganizer?.feeTier !== 'token') {
@@ -254,13 +275,15 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Event Performance Cards */}
-                {isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-                    </div>
-                ) : (
-                    <EventPerformanceCards events={eventsPerformance} organizerId={organizerId} />
-                )}
+                <div ref={eventsRef}>
+                    {isEventsLoading || !hasLoadedEvents ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+                        </div>
+                    ) : (
+                        <EventPerformanceCards events={eventsPerformance} organizerId={organizerId} />
+                    )}
+                </div>
             </div>
         </div>
     );

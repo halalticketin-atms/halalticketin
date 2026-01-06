@@ -117,7 +117,12 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
 
                     {/* More Button */}
                     <button
-                        onClick={() => setMoreOpen(true)}
+                        onClick={() => {
+                            if (typeof performance !== 'undefined') {
+                                performance.mark('dashboard-more-open');
+                            }
+                            setMoreOpen(true);
+                        }}
                         className={cn(
                             'flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all duration-150 active:scale-95',
                             isMoreActive || moreOpen

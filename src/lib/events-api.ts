@@ -158,6 +158,11 @@ export const archiveEvent = async (eventId: string) => {
     return api.post<{ event: EventRecord }>(`/api/v1/events/${eventId}/archive`);
 };
 
+export const unarchiveEvent = async (eventId: string) => {
+    assertValidEventId(eventId);
+    return api.post<{ event: EventRecord }>(`/api/v1/events/${eventId}/unarchive`);
+};
+
 export const cancelEvent = async (
     eventId: string,
     data: { reason: string; notes?: string | null },

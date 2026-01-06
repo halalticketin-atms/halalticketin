@@ -3,6 +3,13 @@
 import { useReducedMotion } from 'motion/react';
 import { useMemo } from 'react';
 
+const isLikelyMobile = () => {
+    if (typeof navigator === 'undefined') return false;
+    const userAgentData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;
+    if (userAgentData?.mobile !== undefined) return userAgentData.mobile;
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+};
+
 /**
  * Hook for optimized animations that respect user preferences
  * and provide consistent animation presets across the app.
@@ -17,7 +24,7 @@ export function useOptimizedAnimation() {
 
     return useMemo(() => {
         // If user prefers reduced motion, return minimal/no animations
-        if (prefersReducedMotion) {
+        if (prefersReducedMotion || isLikelyMobile()) {
             return {
                 prefersReducedMotion: true,
                 // No animations for reduced motion

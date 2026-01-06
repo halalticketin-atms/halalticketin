@@ -17,6 +17,7 @@ import {
     Loader2,
     AlertCircle,
     XCircle,
+    RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -41,7 +42,7 @@ import {
 } from '@/components/ui/dialog';
 import { SUPPORTED_CURRENCIES } from '@/lib/fees'; // Added import
 import api from '@/lib/api';
-import { archiveEvent } from '@/lib/events-api';
+import { archiveEvent, unarchiveEvent } from '@/lib/events-api';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents, DashboardEvent } from '@/hooks/useOrganizerEvents';
 import { DeleteEventDialog } from '@/components/dashboard/DeleteEventDialog';
@@ -116,6 +117,7 @@ function EventCard({
     index,
     onDelete,
     onCancel,
+    onUnarchive,
     revenueCurrency,
     isSelected,
     onToggleSelect,
@@ -124,6 +126,7 @@ function EventCard({
     index: number;
     onDelete: (event: DashboardEvent) => void;
     onCancel: (event: DashboardEvent) => void;
+    onUnarchive: (event: DashboardEvent) => void;
     revenueCurrency?: string;
     isSelected: boolean;
     onToggleSelect: (id: string, selected: boolean) => void;
@@ -236,6 +239,16 @@ function EventCard({
                                         <Trash2 className="h-4 w-4 mr-2" />
                                         Delete draft
                                     </DropdownMenuItem>
+                                ) : event.status === 'archived' ? (
+                                    <DropdownMenuItem
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onUnarchive(event);
+                                        }}
+                                    >
+                                        <RotateCcw className="h-4 w-4 mr-2" />
+                                        Unarchive
+                                    </DropdownMenuItem>
                                 ) : isActivePublished ? (
                                     <DropdownMenuItem
                                         className="text-destructive focus:text-destructive"
@@ -317,6 +330,7 @@ export default function MyEventsPage() {
     const { organizers } = useOrganizers();
     const [activeTab, setActiveTab] = useState('all');
     const [showArchived, setShowArchived] = useState(false);
+    const [actionError, setActionError] = useState<string | null>(null);
     const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string; eventStatus?: string | null }>({
         open: false,
@@ -343,7 +357,10 @@ export default function MyEventsPage() {
         (event) => event.status === 'published' && event.displayStatus === 'active'
     );
     const archivableSelected = selectedEvents.filter(
-        (event) => event.status !== 'draft' && !(event.status === 'published' && event.displayStatus === 'active')
+        (event) =>
+            event.status !== 'draft' &&
+            event.status !== 'archived' &&
+            !(event.status === 'published' && event.displayStatus === 'active')
     );
 
     const handleDeleteSuccess = () => {
@@ -466,6 +483,18 @@ export default function MyEventsPage() {
         setBulkArchiveDialogOpen(true);
     };
 
+    const handleUnarchive = async (eventId: string) => {
+        try {
+            setActionError(null);
+            await unarchiveEvent(eventId);
+            refreshEvents();
+            router.refresh();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to unarchive event';
+            setActionError(message);
+        }
+    };
+
     const handleBulkArchiveConfirm = async () => {
         if (archivableSelected.length === 0) {
             return;
@@ -531,6 +560,12 @@ export default function MyEventsPage() {
                         </Link>
                     </Button>
                 </motion.div>
+
+                {actionError && (
+                    <Card className="mb-4 border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+                        {actionError}
+                    </Card>
+                )}
 
                 {/* Tabs */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -659,6 +694,9 @@ export default function MyEventsPage() {
                                                             eventId: selectedEvent.id,
                                                             eventTitle: selectedEvent.title || 'Untitled Event',
                                                         })
+                                                    }
+                                                    onUnarchive={(selectedEvent) =>
+                                                        handleUnarchive(selectedEvent.id)
                                                     }
                                                     revenueCurrency={revenueCurrency}
                                                     isSelected={selectedEventIds.has(event.id)}
