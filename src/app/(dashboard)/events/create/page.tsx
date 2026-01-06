@@ -575,16 +575,11 @@ export function EventWizard({
         (id: string) => {
             removeTicketBase(id);
             clearFieldErrors('tickets');
-            setTicketErrors((prev) => {
-                if (!prev[id]) {
-                    return prev;
-                }
-                const next = { ...prev };
-                delete next[id];
-                return next;
-            });
+            const nextTickets = tickets.filter((ticket) => ticket.id !== id);
+            const nameErrors = buildDuplicateTicketNameErrors(nextTickets);
+            setTicketErrors((prev) => mergeTicketNameErrors(prev, nameErrors, nextTickets));
         },
-        [clearFieldErrors, removeTicketBase],
+        [clearFieldErrors, removeTicketBase, tickets],
     );
 
     const clearTicketError = useCallback((id: string, field?: 'maxPerOrder' | 'name') => {
@@ -747,7 +742,7 @@ export function EventWizard({
             try {
                 const duplicateNameErrors = buildDuplicateTicketNameErrors(tickets);
                 if (Object.keys(duplicateNameErrors).length > 0) {
-                    setTicketErrors((prev) => mergeTicketNameErrors(prev, duplicateNameErrors));
+                    setTicketErrors((prev) => mergeTicketNameErrors(prev, duplicateNameErrors, tickets));
                     setFieldErrors((prev) => ({ ...prev, tickets: 'Ticket name must be unique.' }));
                     setActionError('Ticket names must be unique.');
                     setCurrentStep(4);
@@ -1982,7 +1977,7 @@ export function EventWizard({
                                                                                     : current,
                                                                             );
                                                                             const nameErrors = buildDuplicateTicketNameErrors(nextTickets);
-                                                                            setTicketErrors((prev) => mergeTicketNameErrors(prev, nameErrors));
+                                                                            setTicketErrors((prev) => mergeTicketNameErrors(prev, nameErrors, nextTickets));
                                                                         }}
                                                                         className={cn(
                                                                             'h-11',
