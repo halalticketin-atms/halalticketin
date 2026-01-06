@@ -388,9 +388,12 @@ export default function OrdersPage() {
         const totals = orders.reduce(
             (acc, order) => {
                 acc.totalOrders += 1;
-                if (order.status === 'completed') {
-                    acc.paidOrders += 1;
-                    acc.revenueTotal += order.totals.total;
+                if (order.status === 'completed' || order.status === 'partially_refunded') {
+                    if (order.status === 'completed') {
+                        acc.paidOrders += 1;
+                    }
+                    // Use net revenue to match overview stats
+                    acc.revenueTotal += order.totals.net ?? order.totals.total;
                 }
                 return acc;
             },
@@ -494,7 +497,7 @@ export default function OrdersPage() {
                                             <CreditCard className="h-6 w-6 text-white" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                                            <p className="text-sm font-medium text-muted-foreground">Net Revenue</p>
                                             <p className="text-2xl font-bold">
                                                 {formatCurrency(revenueTotal, orders[0]?.totals.currency ?? 'GBP')}
                                             </p>

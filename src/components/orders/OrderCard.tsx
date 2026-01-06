@@ -46,7 +46,9 @@ export interface OrderResponse {
     totals: {
         subtotal: number;
         total: number;
+        net?: number;
         currency: string;
+        netCurrency?: string;
         remainingRefundable?: number;
     };
     status: OrderStatus;

@@ -68,6 +68,8 @@ export interface CheckoutQuoteResponse {
     processingFee: number;
     total: number;
     useCreditsApplied: boolean;
+    creditsApplied: number;
+    paidTicketCount: number;
     promoCodeApplied: boolean;
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
 import { Calendar, Ticket, DollarSign } from 'lucide-react';
@@ -12,6 +13,8 @@ import { useOrganizers } from '@/context/organizer-context';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import api from '@/lib/api';
+import { getCreditBalance } from '@/lib/credits-api';
+import { MIN_CREDITS } from '@/lib/fees';
 
 interface AnalyticsStats {
     totalRevenue: number;
@@ -75,6 +78,8 @@ export default function DashboardPage() {
     const [analyticsStats, setAnalyticsStats] = useState<AnalyticsStats | null>(null);
     const [eventsPerformance, setEventsPerformance] = useState<EventPerformanceData[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [creditBalance, setCreditBalance] = useState<number | null>(null);
+    const [isCreditsLoading, setIsCreditsLoading] = useState(false);
 
     // Get the current user's role for this organizer
     const activeOrganizer = organizers.find((org) => org.id === organizerId);
@@ -119,6 +124,37 @@ export default function DashboardPage() {
     useEffect(() => {
         void fetchData(organizerId ?? null);
     }, [organizerId]);
+
+    useEffect(() => {
+        if (!organizerId || activeOrganizer?.feeTier !== 'token') {
+            setCreditBalance(null);
+            return;
+        }
+
+        let cancelled = false;
+        setIsCreditsLoading(true);
+        getCreditBalance(organizerId)
+            .then((credits) => {
+                if (!cancelled) {
+                    setCreditBalance(credits.balance);
+                }
+            })
+            .catch((error) => {
+                console.error('Failed to fetch credit balance:', error);
+                if (!cancelled) {
+                    setCreditBalance(0);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsCreditsLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [organizerId, activeOrganizer?.feeTier]);
 
     const greetingName = user?.name || user?.email?.split('@')[0] || '';
     const prefersReducedMotion = useReducedMotion();
@@ -171,6 +207,12 @@ export default function DashboardPage() {
         [analyticsStats, eventsPerformance]
     );
 
+    const showLowCredits =
+        creditBalance !== null &&
+        !isCreditsLoading &&
+        activeOrganizer?.feeTier === 'token' &&
+        creditBalance < MIN_CREDITS;
+
     return (
         <div className="min-h-screen bg-muted/30">
             <div className="container py-8 overflow-x-hidden">
@@ -184,6 +226,25 @@ export default function DashboardPage() {
                     <h1 className="font-display text-2xl sm:text-3xl font-bold">{welcomeTitle}</h1>
                     <p className="text-muted-foreground mt-1">{welcomeSubtitle}</p>
                 </motion.div>
+
+                {showLowCredits && organizerId && (
+                    <div className="mb-6 rounded-xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p className="font-semibold">Credits running low</p>
+                                <p className="text-amber-900/80">
+                                    You have {creditBalance.toLocaleString()} credits left. Add more credits to keep organizer fees active.
+                                </p>
+                            </div>
+                            <Link
+                                href={`${buildDashboardPath(organizerId)}/billing/purchase`}
+                                className="inline-flex items-center justify-center rounded-md bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
+                            >
+                                Top up credits
+                            </Link>
+                        </div>
+                    </div>
+                )}
 
                 {/* Stats Grid - Only 3 cards */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-8">

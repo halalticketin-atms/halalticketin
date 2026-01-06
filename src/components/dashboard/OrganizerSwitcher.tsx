@@ -76,9 +76,8 @@ export function OrgBadge({ name, avatarUrl, isActive = false, showChevron = fals
     return (
         <div
             className={cn(
-                'inline-flex items-center gap-2 rounded-full border transition-all duration-200',
+                'inline-flex items-center gap-2 rounded-full transition-all duration-200',
                 color.bg,
-                color.border,
                 isActive && 'ring-2 ring-offset-2 ring-offset-background',
                 isActive && color.border.replace('border-', 'ring-'),
                 paddingSizes[size],
@@ -90,7 +89,7 @@ export function OrgBadge({ name, avatarUrl, isActive = false, showChevron = fals
                 <img
                     src={avatarUrl}
                     alt={name}
-                    className={cn('rounded-full object-cover shadow-sm', sizes[size])}
+                    className={cn('rounded-full object-cover border-0', sizes[size])}
                 />
             ) : (
                 <div

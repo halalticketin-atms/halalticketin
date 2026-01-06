@@ -596,6 +596,13 @@ export function PublicEventPageContent({
     }, [finalTotal, platformFeeAmount, organizerFeeAmount, currencyCode, checkoutQuote]);
 
     const grandTotal = checkoutQuote ? checkoutQuote.total : finalTotal + platformFeeAmount + organizerFeeAmount + processingFeeAmount;
+    const creditsApplied = checkoutQuote?.creditsApplied ?? 0;
+    const quotePaidTicketCount = checkoutQuote?.paidTicketCount ?? paidTicketCount;
+    const nonCreditTicketCount = Math.max(0, quotePaidTicketCount - creditsApplied);
+    const creditSplitNote =
+        creditsApplied > 0 && nonCreditTicketCount > 0
+            ? `${creditsApplied} ticket${creditsApplied === 1 ? '' : 's'} use the organizer fee and ${nonCreditTicketCount} ticket${nonCreditTicketCount === 1 ? '' : 's'} use the platform fee because the organizer ran out of credits.`
+            : null;
 
     useEffect(() => {
         if (!event?.id) {
@@ -1352,6 +1359,11 @@ export function PublicEventPageContent({
                                                     Organizer fee and processing fee apply.
                                                 </p>
                                             )}
+                                            {creditSplitNote && (
+                                                <p className="text-xs text-muted-foreground text-center">
+                                                    {creditSplitNote}
+                                                </p>
+                                            )}
                                         </div>
                                     )}
 
@@ -1448,6 +1460,11 @@ export function PublicEventPageContent({
                                         <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> {appliedPromo.code}</span>
                                         <span>−{currencySymbol}{discountAmount.toFixed(2)}</span>
                                     </div>
+                                )}
+                                {creditSplitNote && (
+                                    <p className="text-xs text-muted-foreground">
+                                        {creditSplitNote}
+                                    </p>
                                 )}
                             </div>
 
@@ -1799,6 +1816,11 @@ export function PublicEventPageContent({
                                                                 <span>Processing fee</span>
                                                                 <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
                                                             </div>
+                                                        )}
+                                                        {creditSplitNote && (
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {creditSplitNote}
+                                                            </p>
                                                         )}
                                                     </div>
                                                 </div>
