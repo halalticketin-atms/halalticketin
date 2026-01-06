@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import {
     LayoutDashboard,
     Calendar,
@@ -53,7 +53,7 @@ const moreMenuItems = (organizerId?: string): NavItem[] => {
     ];
 };
 
-export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
+function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
     const pathname = usePathname();
     const router = useRouter();
     const [moreOpen, setMoreOpen] = useState(false);
@@ -64,21 +64,21 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
     // Lock body scroll when more menu is open (avoid on mobile to reduce layout work)
     useBodyScrollLock(false);
 
-    const handleSignOut = () => {
+    const handleSignOut = useCallback(() => {
         signOut();
         router.push('/login');
-    };
+    }, [router, signOut]);
 
-    const isActive = (href: string) => {
+    const isActive = useCallback((href: string) => {
         const overviewHref = organizerId ? buildDashboardPath(organizerId) : '/dashboard';
         if (href === overviewHref) {
             return pathname === overviewHref;
         }
         return pathname.startsWith(href);
-    };
+    }, [organizerId, pathname]);
 
     // Check if any "more" item is active
-    const isMoreActive = moreItems.some((item) => isActive(item.href));
+    const isMoreActive = useMemo(() => moreItems.some((item) => isActive(item.href)), [moreItems, isActive]);
 
     return (
         <>
@@ -221,3 +221,5 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
         </>
     );
 }
+
+export const MobileBottomNav = memo(MobileBottomNavComponent);
