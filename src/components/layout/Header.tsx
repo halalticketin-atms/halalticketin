@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { motion, useScroll, useMotionValueEvent, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -21,58 +21,36 @@ import {
 import { useOptionalAuth } from '@/context/auth-context';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
-// Animation variants from v0 design
-const itemVariants = {
-    initial: { rotateX: 0, opacity: 1 },
-    hover: { rotateX: -90, opacity: 0 },
-};
-
-const backVariants = {
-    initial: { rotateX: 90, opacity: 0 },
-    hover: { rotateX: 0, opacity: 1 },
-};
-
-const glowVariants = {
-    initial: { opacity: 0, scale: 0.8 },
-    hover: {
-        opacity: 1,
-        scale: 2,
-        transition: {
-            opacity: { duration: 0.5, ease: [0.4, 0, 0.2, 1] as const },
-            scale: { duration: 0.5, type: 'spring' as const, stiffness: 300, damping: 25 },
-        },
-    },
-};
-
-const navGlowVariants = {
-    initial: { opacity: 0 },
-    hover: {
-        opacity: 1,
-        transition: {
-            duration: 0.5,
-            ease: [0.4, 0, 0.2, 1] as const,
-        },
-    },
-};
-
+// Simplified animation - CSS handles most hover effects now
 const sharedTransition = {
-    type: 'spring' as const,
-    stiffness: 100,
-    damping: 20,
-    duration: 0.5,
+    duration: 0.2,
+    ease: [0.4, 0, 0.2, 1] as const,
 };
 
 export function Header() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const { scrollY } = useScroll();
+    const rafRef = useRef<number | null>(null);
 
     // Lock body scroll when mobile menu is open
     useBodyScrollLock(mobileMenuOpen);
 
-    useMotionValueEvent(scrollY, 'change', (latest) => {
-        setIsScrolled(latest > 50);
-    });
+    // Debounced scroll handler using RAF for better performance
+    const handleScroll = useCallback(() => {
+        if (rafRef.current) return;
+        rafRef.current = requestAnimationFrame(() => {
+            setIsScrolled(window.scrollY > 50);
+            rafRef.current = null;
+        });
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+    }, [handleScroll]);
 
     const pathname = usePathname();
     const router = useRouter();
@@ -160,18 +138,11 @@ export function Header() {
         >
             <div
                 className={cn(
-                    'max-w-7xl mx-auto rounded-[2rem] transition-all duration-300 flex items-center justify-between px-4 py-2',
-                    'bg-white/95 border border-white/70 shadow-lg ring-1 ring-white/60 relative overflow-hidden',
-                    'md:bg-white/60 md:backdrop-blur-xl md:border-white/50'
+                    'max-w-7xl mx-auto rounded-[2rem] transition-all duration-200 flex items-center justify-between px-4 py-2',
+                    'bg-white border border-white/70 shadow-lg ring-1 ring-white/60 relative overflow-hidden',
+                    isScrolled && 'shadow-xl'
                 )}
             >
-                {/* Background Glow Effect */}
-                <motion.div
-                    className="hidden md:block absolute -inset-2 bg-gradient-radial from-transparent via-blue-400/10 via-30% via-purple-400/10 via-60% via-red-400/10 via-90% to-transparent rounded-3xl z-0 pointer-events-none"
-                    variants={navGlowVariants}
-                    initial="initial"
-                    whileHover="hover"
-                />
 
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-2 relative z-50 pl-2">
@@ -185,69 +156,28 @@ export function Header() {
                     />
                 </Link>
 
-                {/* Centered Desktop Menu - Liquid Glass Dock */}
+                {/* Centered Desktop Menu - Simplified for Performance */}
                 <div className="hidden md:flex items-center gap-1 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                    <ul className="flex items-center gap-2">
-                        {navLinks.map((link) => (
-                            <motion.li key={link.id} className="relative">
-                                <motion.div
-                                    className="block rounded-xl overflow-visible group relative"
-                                    style={{ perspective: '600px' }}
-                                    whileHover="hover"
-                                    initial="initial"
-                                >
-                                    <motion.div
-                                        className="absolute inset-0 z-0 pointer-events-none"
-                                        variants={glowVariants}
-                                        style={{
-                                            background: link.gradient,
-                                            opacity: 0,
-                                            borderRadius: '16px',
-                                        }}
-                                    />
-                                    <motion.div>
-                                        <Link href={link.href}>
-                                            <motion.div
-                                                className="flex items-center gap-2 px-4 py-2 relative z-10 bg-transparent text-muted-foreground transition-colors rounded-xl"
-                                                variants={itemVariants}
-                                                transition={sharedTransition}
-                                                style={{
-                                                    transformStyle: 'preserve-3d',
-                                                    transformOrigin: 'center bottom',
-                                                }}
-                                            >
-                                                <span
-                                                    className={`text-sm font-medium transition-colors duration-300 group-hover:${link.iconColor} text-slate-600`}
-                                                >
-                                                    {link.label}
-                                                </span>
-                                            </motion.div>
-                                        </Link>
-                                        <Link href={link.href} className="absolute inset-0 z-20">
-                                            <motion.div
-                                                className="flex items-center gap-2 px-4 py-2 bg-transparent text-muted-foreground group-hover:text-foreground transition-colors rounded-xl h-full w-full"
-                                                variants={backVariants}
-                                                transition={sharedTransition}
-                                                style={{
-                                                    transformStyle: 'preserve-3d',
-                                                    transformOrigin: 'center top',
-                                                    rotateX: 90,
-                                                    position: 'absolute',
-                                                    top: 0,
-                                                    left: 0,
-                                                }}
-                                            >
-                                                <span
-                                                    className={`text-sm font-medium transition-colors duration-300 group-hover:${link.iconColor} text-slate-900`}
-                                                >
-                                                    {link.label}
-                                                </span>
-                                            </motion.div>
-                                        </Link>
-                                    </motion.div>
-                                </motion.div>
-                            </motion.li>
-                        ))}
+                    <ul className="flex items-center gap-1">
+                        {navLinks.map((link) => {
+                            const isActive = pathname === link.href;
+                            return (
+                                <li key={link.id}>
+                                    <Link
+                                        href={link.href}
+                                        className={cn(
+                                            'block px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150',
+                                            'hover:bg-slate-100 hover:text-slate-900 active:scale-95',
+                                            isActive
+                                                ? 'text-slate-900 bg-slate-50'
+                                                : 'text-slate-600'
+                                        )}
+                                    >
+                                        {link.label}
+                                    </Link>
+                                </li>
+                            );
+                        })}
                     </ul>
                 </div>
 
@@ -277,7 +207,7 @@ export function Header() {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent
-                                    className="w-56 backdrop-blur-xl bg-white/90"
+                                    className="w-56 bg-white shadow-xl"
                                     align="end"
                                     forceMount
                                 >
@@ -353,11 +283,11 @@ export function Header() {
                         />
 
                         <motion.div
-                            initial={{ opacity: 0, y: -16, scale: 0.98 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -16, scale: 0.98 }}
-                            transition={{ type: 'spring', duration: 0.4, bounce: 0.2 }}
-                            className="absolute top-[calc(100%-0.5rem)] left-0 right-0 mx-4 p-6 md:hidden z-50 rounded-3xl bg-white shadow-2xl border border-white/70 flex flex-col gap-6"
+                            initial={{ opacity: 0, y: -12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -12 }}
+                            transition={sharedTransition}
+                            className="absolute top-[calc(100%-0.5rem)] left-0 right-0 mx-4 p-6 md:hidden z-50 rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col gap-6 transform-gpu"
                         >
                             <div className="flex flex-col gap-2">
                                 {navLinks.map((link) => {

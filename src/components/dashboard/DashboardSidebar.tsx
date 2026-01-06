@@ -174,7 +174,7 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
     return (
         <>
             {/* Desktop Sidebar - Always visible on lg+ screens */}
-            <aside className="hidden lg:flex fixed top-[var(--nav-safe-offset)] left-0 h-[calc(100vh-var(--nav-safe-offset))] w-[260px] bg-card/95 backdrop-blur-sm border-r border-border flex-col z-30 shadow-sm">
+            <aside className="hidden lg:flex fixed top-[var(--nav-safe-offset)] left-0 h-[calc(100vh-var(--nav-safe-offset))] w-[260px] bg-card border-r border-border flex-col z-30 shadow-sm">
                 {/* Organizer Switcher */}
                 <div className="border-b border-border">
                     <OrganizerSwitcher />

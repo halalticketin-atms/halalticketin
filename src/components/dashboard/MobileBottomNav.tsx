@@ -84,7 +84,7 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
     return (
         <>
             {/* Bottom Tab Bar */}
-            <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white/95 backdrop-blur-sm border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+            <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)] transform-gpu will-change-transform">
                 <div
                     className="flex items-center justify-around h-16"
                     style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
@@ -96,7 +96,7 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
                                 key={item.href}
                                 href={item.href}
                                 className={cn(
-                                    'flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors',
+                                    'flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all duration-150 active:scale-95',
                                     active
                                         ? 'text-[var(--brand-teal)]'
                                         : 'text-muted-foreground hover:text-foreground'
@@ -104,7 +104,7 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
                             >
                                 <div
                                     className={cn(
-                                        'p-1.5 rounded-xl transition-colors',
+                                        'p-1.5 rounded-xl transition-colors duration-150',
                                         active && 'bg-[var(--brand-mint)]'
                                     )}
                                 >
@@ -119,7 +119,7 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
                     <button
                         onClick={() => setMoreOpen(true)}
                         className={cn(
-                            'flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors',
+                            'flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all duration-150 active:scale-95',
                             isMoreActive || moreOpen
                                 ? 'text-[var(--brand-teal)]'
                                 : 'text-muted-foreground hover:text-foreground'
@@ -127,7 +127,7 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
                     >
                         <div
                             className={cn(
-                                'p-1.5 rounded-xl transition-colors',
+                                'p-1.5 rounded-xl transition-colors duration-150',
                                 (isMoreActive || moreOpen) && 'bg-[var(--brand-mint)]'
                             )}
                         >
@@ -147,8 +147,8 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 lg:hidden overscroll-contain touch-none"
+                            transition={{ duration: 0.15 }}
+                            className="fixed inset-0 bg-black/50 z-50 lg:hidden overscroll-contain touch-none"
                             onClick={() => setMoreOpen(false)}
                         />
 
@@ -157,8 +157,8 @@ export function MobileBottomNav({ organizerId }: MobileBottomNavProps) {
                             initial={{ y: '100%' }}
                             animate={{ y: 0 }}
                             exit={{ y: '100%' }}
-                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                            className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white rounded-t-3xl shadow-2xl"
+                            transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
+                            className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-white rounded-t-3xl shadow-2xl transform-gpu will-change-transform"
                             style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
                         >
                             {/* Handle */}

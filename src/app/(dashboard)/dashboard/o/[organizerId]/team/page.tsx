@@ -808,7 +808,7 @@ export default function OrganizerTeamPage() {
 
             {/* Invite Dialog */}
             <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
-                <DialogContent className="max-w-lg p-0 overflow-hidden">
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
                     {/* Header with gradient accent */}
                     <div className="relative px-6 pt-6 pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />

@@ -170,7 +170,7 @@ export function ShareDialog({ open, onOpenChange, title, text, url }: ShareDialo
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="overflow-hidden border-border/60 p-0 sm:max-w-md">
+            <DialogContent className="max-h-[90vh] overflow-y-auto border-border/60 p-0 sm:max-w-md">
                 <div className="relative px-6 pb-5 pt-6">
                     <div className="absolute inset-0 bg-gradient-to-br from-[var(--brand-cyan)]/20 via-background to-[var(--brand-teal)]/20" />
                     <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--brand-teal)]/40 to-transparent" />

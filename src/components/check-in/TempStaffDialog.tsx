@@ -84,7 +84,7 @@ export function TempStaffDialog({ eventId, eventName }: TempStaffDialogProps) {
                     Add Temporary Staff
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Add Temporary Check-in Staff</DialogTitle>
                     <DialogDescription>

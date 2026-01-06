@@ -379,7 +379,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
             </Card>
 
             <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Unable to disconnect Stripe</DialogTitle>
                         <DialogDescription>
@@ -408,7 +408,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
             </Dialog>
 
             <Dialog open={confirmDisconnectOpen} onOpenChange={setConfirmDisconnectOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Disconnect Stripe?</DialogTitle>
                         <DialogDescription>
