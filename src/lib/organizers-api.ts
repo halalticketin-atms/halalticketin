@@ -53,6 +53,7 @@ export interface AcceptInvitationResponse {
         role: string;
         status: string;
         organizerId: string;
+        organizerName: string;
     };
 }
 
@@ -96,7 +97,10 @@ export const revokeTeamInvitation = async (organizerId: string, invitationId: st
 
 export interface InvitationInfoResponse {
     email: string;
+    role: string;
+    organizerName: string;
     expiresAt: string;
+    alreadyAccepted: boolean;
 }
 
 export const fetchInvitationInfo = async (token: string) => {

@@ -25,6 +25,7 @@ import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents } from '@/hooks/useOrganizerEvents';
 import { scanTicketCode } from '@/lib/check-in-api';
 import { ApiError } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
 
 // Detect if mobile/tablet
 function useIsMobile() {
@@ -68,6 +69,7 @@ function CheckInContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { memberships } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -103,6 +105,12 @@ function CheckInContent() {
     viewFromUrl === 'monitor' ? 'monitor' : 'scanner';
 
   const selectedEventData = activeEvents.find((e) => e.id === selectedEvent);
+  const organizerMembership = memberships.find(
+    (membership) => membership.organizerId === organizerId && membership.status === 'active'
+  );
+  const canInviteTempStaff = organizerMembership
+    ? ['owner', 'co_owner', 'admin', 'editor'].includes(organizerMembership.role)
+    : false;
 
   const {
     tickets,
@@ -235,7 +243,7 @@ function CheckInContent() {
           />
 
           <div className="flex justify-end gap-2">
-            {selectedEvent && selectedEventData && (
+            {canInviteTempStaff && selectedEvent && selectedEventData && (
               <TempStaffDialog eventId={selectedEvent} eventName={selectedEventData.name} />
             )}
             <Button
@@ -327,7 +335,7 @@ function CheckInContent() {
           />
 
           <div className="flex justify-end gap-2 mb-4">
-            {selectedEvent && selectedEventData && (
+            {canInviteTempStaff && selectedEvent && selectedEventData && (
               <TempStaffDialog eventId={selectedEvent} eventName={selectedEventData.name} />
             )}
             <Button

@@ -20,6 +20,14 @@ import {
     ChevronUp,
     Building2,
     Calendar,
+    Shield,
+    Crown,
+    ShieldCheck,
+    PenLine,
+    QrCode,
+    Check,
+    AlertCircle,
+    Send,
 } from 'lucide-react';
 import {
     fetchTeamMemberships,
@@ -63,6 +71,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 const ROLE_OPTIONS = [
     {
@@ -799,67 +808,155 @@ export default function OrganizerTeamPage() {
 
             {/* Invite Dialog */}
             <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Invite team member</DialogTitle>
-                        <DialogDescription>
-                            Send an invitation to join your team
-                        </DialogDescription>
-                    </DialogHeader>
+                <DialogContent className="max-w-lg p-0 overflow-hidden">
+                    {/* Header with gradient accent */}
+                    <div className="relative px-6 pt-6 pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <DialogHeader className="relative">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="p-2 rounded-xl bg-primary/10">
+                                    <UserPlus className="h-5 w-5 text-primary" />
+                                </div>
+                                <DialogTitle className="text-xl">Invite team member</DialogTitle>
+                            </div>
+                            <DialogDescription className="text-muted-foreground">
+                                Send an invitation to collaborate on your events
+                            </DialogDescription>
+                        </DialogHeader>
+                    </div>
 
-                    <form onSubmit={handleInviteSubmit} className="space-y-4">
+                    <form onSubmit={handleInviteSubmit} className="p-6 space-y-6">
+                        {/* Email Input */}
                         <div className="space-y-2">
-                            <Label htmlFor="invite-email">Email address</Label>
+                            <Label htmlFor="invite-email" className="text-sm font-medium flex items-center gap-2">
+                                <Mail className="h-4 w-4 text-muted-foreground" />
+                                Email address
+                            </Label>
                             <Input
                                 id="invite-email"
                                 type="email"
-                                placeholder="team@company.com"
+                                placeholder="colleague@company.com"
                                 value={inviteForm.email}
                                 onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
                                 required
+                                className="h-11 rounded-xl"
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Role</Label>
-                            <Select
-                                value={inviteForm.role}
-                                onValueChange={(role) => setInviteForm((prev) => ({ ...prev, role: role as CreateInvitationPayload['role'] }))}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select role" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {ROLE_OPTIONS.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
-                                            <div>
-                                                <p className="font-medium">{option.label}</p>
-                                                <p className="text-xs text-muted-foreground">{option.description}</p>
+                        {/* Role Selection - Card Grid */}
+                        <div className="space-y-3">
+                            <Label className="text-sm font-medium flex items-center gap-2">
+                                <Shield className="h-4 w-4 text-muted-foreground" />
+                                Select role
+                            </Label>
+                            <div className="grid grid-cols-2 gap-3">
+                                {ROLE_OPTIONS.map((option) => {
+                                    const isSelected = inviteForm.role === option.value;
+                                    const RoleIcon = option.value === 'co_owner' ? Crown :
+                                        option.value === 'admin' ? ShieldCheck :
+                                            option.value === 'editor' ? PenLine :
+                                                QrCode;
+
+                                    return (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => setInviteForm((prev) => ({ ...prev, role: option.value as CreateInvitationPayload['role'] }))}
+                                            className={cn(
+                                                'relative p-4 rounded-xl border-2 text-left transition-all duration-200',
+                                                'hover:shadow-md hover:scale-[1.02]',
+                                                isSelected
+                                                    ? 'border-primary bg-primary/5 shadow-sm'
+                                                    : 'border-border hover:border-primary/50'
+                                            )}
+                                        >
+                                            {/* Selection indicator */}
+                                            {isSelected && (
+                                                <div className="absolute top-2 right-2">
+                                                    <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                                                        <Check className="h-3 w-3 text-white" />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Icon */}
+                                            <div className={cn(
+                                                'w-10 h-10 rounded-xl flex items-center justify-center mb-3',
+                                                option.color
+                                            )}>
+                                                <RoleIcon className="h-5 w-5" />
                                             </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+
+                                            {/* Content */}
+                                            <p className="font-semibold text-sm mb-1">{option.label}</p>
+                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                                {option.shortDesc}
+                                            </p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Expanded description for selected role */}
+                            <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                                <p className="text-xs text-muted-foreground">
+                                    <span className="font-medium text-foreground">
+                                        {ROLE_OPTIONS.find(r => r.value === inviteForm.role)?.label}:
+                                    </span>{' '}
+                                    {ROLE_OPTIONS.find(r => r.value === inviteForm.role)?.description}
+                                </p>
+                            </div>
                         </div>
 
+                        {/* Event Access */}
                         <EventScopeSelector
                             value={inviteForm.eventScope}
                             onChange={(scope) => setInviteForm((prev) => ({ ...prev, eventScope: scope }))}
                             events={events}
                         />
 
-                        {inviteError && <p className="text-sm text-destructive">{inviteError}</p>}
-                        {inviteSuccess && <p className="text-sm text-emerald-600">{inviteSuccess}</p>}
+                        {/* Status Messages */}
+                        {inviteError && (
+                            <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                                <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                                <p className="text-sm text-destructive">{inviteError}</p>
+                            </div>
+                        )}
+                        {inviteSuccess && (
+                            <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                                <p className="text-sm text-emerald-600">{inviteSuccess}</p>
+                            </div>
+                        )}
 
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsInviteOpen(false)}>
+                        {/* Footer */}
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsInviteOpen(false)}
+                                className="rounded-xl"
+                            >
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={isInviting}>
-                                {isInviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Send invitation
+                            <Button
+                                type="submit"
+                                disabled={isInviting}
+                                className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 gap-2 px-6"
+                            >
+                                {isInviting ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Sending...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="h-4 w-4" />
+                                        Send invitation
+                                    </>
+                                )}
                             </Button>
-                        </DialogFooter>
+                        </div>
                     </form>
                 </DialogContent>
             </Dialog>

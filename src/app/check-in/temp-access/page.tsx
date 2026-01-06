@@ -3,35 +3,29 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MailCheck, ShieldAlert, Loader2 } from 'lucide-react';
+import { Loader2, MailCheck, ShieldAlert } from 'lucide-react';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
-import { useOrganizers } from '@/context/organizer-context';
-import { acceptInvitationToken } from '@/lib/organizers-api';
+import { acceptTempAccessToken } from '@/lib/check-in-api';
 import { buildDashboardPath } from '@/lib/organizer-path';
 
-function AcceptInvitationContent() {
+function TempAccessContent() {
     const searchParams = useSearchParams();
     const token = searchParams.get('token');
     const router = useRouter();
-    const { user, isLoading, refresh } = useAuth();
-    const { refresh: refreshOrganizers, setActiveOrganizerId } = useOrganizers();
+    const { user, isLoading } = useAuth();
     const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState<string | null>(null);
 
-    const nextLoginUrl = useMemo(() => {
-        if (!token) return '/login';
-        const destination = `/invitations/accept?token=${encodeURIComponent(token)}`;
-        return `/login?next=${encodeURIComponent(destination)}`;
+    const destination = useMemo(() => {
+        if (!token) return '/check-in/temp-access';
+        return `/check-in/temp-access?token=${encodeURIComponent(token)}`;
     }, [token]);
 
-    const nextRegisterUrl = useMemo(() => {
-        if (!token) return '/register';
-        const destination = `/invitations/accept?token=${encodeURIComponent(token)}`;
-        // Pass both the token (for email pre-fill) and redirection path
-        return `/register?inviteToken=${encodeURIComponent(token)}&next=${encodeURIComponent(destination)}`;
-    }, [token]);
+    const loginUrl = useMemo(() => `/login?next=${encodeURIComponent(destination)}`, [destination]);
+    const registerUrl = useMemo(() => `/register?next=${encodeURIComponent(destination)}`, [destination]);
 
     useEffect(() => {
         if (!token || !user || status === 'processing' || status === 'success') {
@@ -42,64 +36,52 @@ function AcceptInvitationContent() {
             try {
                 setStatus('processing');
                 setMessage(null);
-                const response = await acceptInvitationToken(token);
-                await refresh();
-                await refreshOrganizers();
-                setActiveOrganizerId(response.membership.organizerId, { persist: true });
+                const response = await acceptTempAccessToken(token);
                 setStatus('success');
-
-                // Format role for display
-                const roleDisplay = response.membership.role.replace('_', '-');
-                setMessage(`You've been added to ${response.membership.organizerName} with ${roleDisplay} access. Redirecting...`);
-
+                setMessage('Access confirmed! Redirecting you to check-in...');
+                const checkInUrl = `${buildDashboardPath(response.event.organizerId)}/check-in?event=${response.event.id}&mode=scan`;
                 setTimeout(() => {
-                    // Redirect check-in users to check-in page, others to overview
-                    const basePath = buildDashboardPath(response.membership.organizerId);
-                    const redirectPath = response.membership.role === 'check_in'
-                        ? `${basePath}/check-in`
-                        : basePath;
-                    router.push(redirectPath);
-                }, 1500);
+                    router.push(checkInUrl);
+                }, 1200);
             } catch (err) {
                 console.error(err);
                 setStatus('error');
-                setMessage(err instanceof Error ? err.message : 'Unable to accept invitation.');
+                setMessage(err instanceof Error ? err.message : 'Unable to accept access.');
             }
         };
 
         void accept();
-    }, [token, user, status, refresh, refreshOrganizers, setActiveOrganizerId, router]);
+    }, [token, user, status, router]);
 
     return (
         <div className="min-h-screen bg-muted/30 flex items-center justify-center px-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center space-y-1">
-                    <CardTitle className="text-2xl font-display">Team Invitation</CardTitle>
-                    <p className="text-sm text-muted-foreground">Join organiser workspaces in one click.</p>
+                    <CardTitle className="text-2xl font-display">Temporary Check-in Access</CardTitle>
+                    <p className="text-sm text-muted-foreground">Confirm access to check in attendees.</p>
                 </CardHeader>
                 <CardContent className="space-y-6 py-6">
                     {!token ? (
                         <div className="space-y-3 text-center">
                             <ShieldAlert className="h-9 w-9 text-destructive mx-auto" />
                             <p className="text-sm text-muted-foreground">
-                                This link is missing an invitation token. Please use the original link from your email.
+                                This link is missing an access token. Please use the original link from your email.
                             </p>
                         </div>
                     ) : !user && !isLoading ? (
                         <div className="space-y-4 text-center">
                             <ShieldAlert className="h-9 w-9 text-muted-foreground mx-auto" />
                             <p className="text-sm text-muted-foreground">
-                                You need to sign in with the email that was invited before accepting.
+                                Sign in with the invited email to continue.
                             </p>
-                            <Button asChild className="w-full">
-                                <Link href={nextLoginUrl}>Sign in to continue</Link>
-                            </Button>
-                            <p className="text-sm text-muted-foreground">
-                                Don&apos;t have an account?{' '}
-                                <Link href={nextRegisterUrl} className="text-primary hover:underline font-medium">
-                                    Sign up
-                                </Link>
-                            </p>
+                            <div className="space-y-2">
+                                <Button asChild className="w-full">
+                                    <Link href={loginUrl}>Sign in</Link>
+                                </Button>
+                                <Button asChild variant="secondary" className="w-full">
+                                    <Link href={registerUrl}>Create account</Link>
+                                </Button>
+                            </div>
                         </div>
                     ) : (
                         <div className="space-y-4 text-center">
@@ -118,20 +100,20 @@ function AcceptInvitationContent() {
                                         ? 'All set!'
                                         : status === 'error'
                                             ? 'Something went wrong'
-                                            : 'Confirming your invitation'}
+                                            : 'Confirming your access'}
                                 </p>
                                 <p className="text-sm text-muted-foreground mt-1">
                                     {message ??
                                         (status === 'processing'
                                             ? 'This only takes a moment.'
-                                            : 'Accepting this invite will grant you access to the organiser dashboard.')}
+                                            : 'Accepting this access will let you check in attendees.')}
                                 </p>
                             </div>
 
                             {status === 'error' && (
                                 <div className="space-y-2">
                                     <Button variant="outline" asChild className="w-full">
-                                        <Link href="/dashboard">Go to dashboard</Link>
+                                        <Link href={loginUrl}>Sign in again</Link>
                                     </Button>
                                     <Button variant="secondary" onClick={() => setStatus('idle')} className="w-full">
                                         Try again
@@ -146,7 +128,7 @@ function AcceptInvitationContent() {
     );
 }
 
-function AcceptInvitationFallback() {
+function TempAccessFallback() {
     return (
         <div className="min-h-screen flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -154,11 +136,10 @@ function AcceptInvitationFallback() {
     );
 }
 
-export default function AcceptInvitationPage() {
+export default function TempAccessPage() {
     return (
-        <Suspense fallback={<AcceptInvitationFallback />}>
-            <AcceptInvitationContent />
+        <Suspense fallback={<TempAccessFallback />}>
+            <TempAccessContent />
         </Suspense>
     );
 }
-

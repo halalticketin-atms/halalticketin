@@ -37,6 +37,18 @@ export interface CheckInResponse {
     ticket: CheckInTicketRecord;
 }
 
+export interface TempAccessAcceptResponse {
+    event: {
+        id: string;
+        organizerId: string;
+        title: string;
+    };
+    access: {
+        id: string;
+        expiresAt: string;
+    };
+}
+
 // =============================================================================
 // Check-In API Functions
 // =============================================================================
@@ -78,4 +90,10 @@ export const checkInTicket = async (eventId: string, ticketId: string) => {
 
 export const undoCheckIn = async (eventId: string, ticketId: string) => {
     return api.post<CheckInResponse>(`/api/v1/events/${eventId}/check-in/${ticketId}/undo`);
+};
+
+export const acceptTempAccessToken = async (token: string) => {
+    return api.post<TempAccessAcceptResponse>(
+        `/api/v1/events/temporary-access/${token}/accept`
+    );
 };

@@ -21,6 +21,13 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { OrgBadge } from '@/components/dashboard/OrganizerSwitcher';
 import { savePendingDraft } from '@/utils/pending-draft-storage';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
 import { useOrganizers } from '@/context/organizer-context';
@@ -84,8 +91,11 @@ function ActionTile({ title, description, icon: Icon, badge, actionLabel, gradie
 function NewEventChooserPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { activeOrganizerId, isLoading: organizersLoading } = useOrganizers();
+  const { activeOrganizerId, setActiveOrganizerId, organizers, activeOrganizers, isLoading: organizersLoading } = useOrganizers();
   const { user, isOrganizer, isLoading: authLoading } = useAuth();
+
+  // Get current organizer from context
+  const currentOrganizer = organizers.find(o => o.id === activeOrganizerId);
   const [cloneOpen, setCloneOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
   const [draftEvents, setDraftEvents] = useState<EventRecord[]>([]);
@@ -343,6 +353,45 @@ function NewEventChooserPageContent() {
             <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto flex items-center justify-center gap-2">
               AI assistance, blank canvas, or pick up where you left off <Sparkles className="h-5 w-5 text-[#FFD700]" />
             </p>
+
+            {/* Org Badge - shows which org will own the event */}
+            {activeOrganizerId && currentOrganizer && (
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <span className="text-sm text-muted-foreground">Creating for:</span>
+                {activeOrganizers.length > 1 ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full">
+                        <OrgBadge
+                          name={currentOrganizer.name}
+                          avatarUrl={currentOrganizer.avatarUrl}
+                          showChevron
+                          size="md"
+                          className="hover:shadow-md cursor-pointer"
+                        />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center" className="w-[240px]">
+                      {activeOrganizers.map((org) => (
+                        <DropdownMenuItem
+                          key={org.id}
+                          onClick={() => setActiveOrganizerId(org.id)}
+                          className="cursor-pointer"
+                        >
+                          <OrgBadge name={org.name} avatarUrl={org.avatarUrl} size="sm" />
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <OrgBadge
+                    name={currentOrganizer.name}
+                    avatarUrl={currentOrganizer.avatarUrl}
+                    size="md"
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">

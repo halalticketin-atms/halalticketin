@@ -43,6 +43,8 @@ function RegisterPageContent() {
     }, [isLoading]);
 
     // Fetch invite email if token is present
+    const [inviteEmailLoading, setInviteEmailLoading] = useState(Boolean(inviteToken));
+
     useEffect(() => {
         if (!inviteToken) return;
 
@@ -53,6 +55,8 @@ function RegisterPageContent() {
                 setInviteEmail(info.email);
             } catch (err) {
                 console.warn('Could not fetch invite info:', err);
+            } finally {
+                setInviteEmailLoading(false);
             }
         };
         void fetchEmail();
@@ -80,9 +84,8 @@ function RegisterPageContent() {
         router.push(redirectTo);
     };
 
-    // Only show loading spinner on initial page load, before the dialog is shown
-    // Once initial load is complete, never unmount the dialog due to auth state changes
-    if (!initialLoadComplete) {
+    // Show loading spinner while fetching initial data
+    if (!initialLoadComplete || inviteEmailLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-cyan)]" />

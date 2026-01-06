@@ -71,28 +71,44 @@ export default function DashboardLandingPage() {
 
     const organizerCards = useMemo(
         () =>
-            organizers.map((organizer) => (
-                <Card key={organizer.id} className="border border-border/60">
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-primary" />
-                            {organizer.name}
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground capitalize">{organizer.role}</p>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <p className="text-sm text-muted-foreground">
-                            Status: <span className="capitalize">{organizer.status}</span>
-                        </p>
-                        <Button
-                            className="w-full"
-                            onClick={() => router.push(buildDashboardPath(organizer.id))}
-                        >
-                            Continue
-                        </Button>
-                    </CardContent>
-                </Card>
-            )),
+            organizers.map((organizer) => {
+                const isSuspended = organizer.status === 'suspended';
+                return (
+                    <Card key={organizer.id} className={`border border-border/60 ${isSuspended ? 'opacity-75' : ''}`}>
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Building2 className="h-4 w-4 text-primary" />
+                                {organizer.name}
+                                {isSuspended && (
+                                    <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                                        Suspended
+                                    </span>
+                                )}
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground capitalize">{organizer.role.replace('_', ' ')}</p>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {isSuspended ? (
+                                <p className="text-sm text-muted-foreground">
+                                    Your access has been suspended. Contact the team owner for assistance.
+                                </p>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">
+                                    Status: <span className="capitalize">{organizer.status}</span>
+                                </p>
+                            )}
+                            <Button
+                                className="w-full"
+                                onClick={() => router.push(buildDashboardPath(organizer.id))}
+                                disabled={isSuspended}
+                                variant={isSuspended ? 'outline' : 'default'}
+                            >
+                                {isSuspended ? 'Access Suspended' : 'Continue'}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                );
+            }),
         [organizers, router]
     );
 

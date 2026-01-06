@@ -38,6 +38,7 @@ export interface OrganizerSummary {
 
 interface OrganizerContextValue {
     organizers: OrganizerSummary[];
+    activeOrganizers: OrganizerSummary[];
     isLoading: boolean;
     error: string | null;
     activeOrganizerId: string | null;
@@ -145,16 +146,22 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
         void fetchOrganizers();
     }, [fetchOrganizers]);
 
+    const activeOrganizers = useMemo(
+        () => organizers.filter(org => org.status === 'active'),
+        [organizers]
+    );
+
     const value = useMemo<OrganizerContextValue>(
         () => ({
             organizers,
+            activeOrganizers,
             isLoading,
             error,
             activeOrganizerId,
             setActiveOrganizerId,
             refresh: fetchOrganizers,
         }),
-        [organizers, isLoading, error, activeOrganizerId, setActiveOrganizerId, fetchOrganizers]
+        [organizers, activeOrganizers, isLoading, error, activeOrganizerId, setActiveOrganizerId, fetchOrganizers]
     );
 
     return <OrganizerContext.Provider value={value}>{children}</OrganizerContext.Provider>;
