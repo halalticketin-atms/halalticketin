@@ -75,7 +75,7 @@ export default function AboutPage() {
                     </h1>
 
                     <p className="mt-6 max-w-2xl mx-auto text-base md:text-lg leading-relaxed text-slate-700/90">
-                        dependent on platforms that don't share our values. We wanted a Muslim space:
+                        dependent on platforms that don&apos;t share our values. We wanted a Muslim space:
                         clean, trustworthy, and built for the Ummah.
                     </p>
 

@@ -2704,7 +2704,7 @@ export function EventWizard({
                         <DialogTitle>Insufficient Credits</DialogTitle>
                         <DialogDescription>
                             Your total ticket capacity ({publishCapacity}) exceeds your available credits ({organizerCredits}).
-                            Credits will be used until they run out, then tickets will switch to the platform fee and organizer fees won't apply.
+                            Credits will be used until they run out, then tickets will switch to the platform fee and organizer fees won&apos;t apply.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="flex-col sm:flex-row gap-2">

@@ -1277,7 +1277,7 @@ export default function OrdersPage() {
                                 <p className="font-medium mb-1">Current Filters Applied:</p>
                                 <ul className="space-y-0.5 text-muted-foreground">
                                     <li>• Status: {statusFilter === 'all' ? 'All' : statusLabels[statusFilter as OrderStatus]}</li>
-                                    {searchQuery && <li>• Search: "{searchQuery}"</li>}
+                                    {searchQuery && <li>• Search: &quot;{searchQuery}&quot;</li>}
                                 </ul>
                             </div>
                         </div>

@@ -30,12 +30,10 @@ export function CreditUsageBar({ total, used, segments, className }: CreditUsage
 
     // Calculate percentages for width
     const processedSegments = useMemo(() => {
-        let currentTotal = 0;
-        return segments.map((segment) => {
-            const percentage = (segment.value / total) * 100;
-            currentTotal += segment.value;
-            return { ...segment, percentage };
-        });
+        return segments.map((segment) => ({
+            ...segment,
+            percentage: (segment.value / total) * 100
+        }));
     }, [segments, total]);
 
     const availablePercentage = (available / total) * 100;

@@ -746,7 +746,7 @@ export default function OrganizerTeamPage() {
                                 {partnerCollabs.length > 0 && (
                                     <div className="space-y-2">
                                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
-                                            Events you're collaborating on
+                                            Events you&apos;re collaborating on
                                         </p>
                                         {partnerCollabs.map((collab, index) => (
                                             <motion.div
@@ -968,7 +968,7 @@ export default function OrganizerTeamPage() {
                         <DialogHeader>
                             <DialogTitle>Manage access</DialogTitle>
                             <DialogDescription>
-                                Update {editingMember.user.name ?? editingMember.user.email}'s permissions
+                                Update {editingMember.user.name ?? editingMember.user.email}&apos;s permissions
                             </DialogDescription>
                         </DialogHeader>
 

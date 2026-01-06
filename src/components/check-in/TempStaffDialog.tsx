@@ -142,7 +142,7 @@ export function TempStaffDialog({ eventId, eventName }: TempStaffDialogProps) {
                                     disabled={isLoading}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    They'll receive a link to access check-in for this event only.
+                                    They&apos;ll receive a link to access check-in for this event only.
                                 </p>
                             </div>
                         </div>

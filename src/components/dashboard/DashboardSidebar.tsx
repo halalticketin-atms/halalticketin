@@ -148,7 +148,7 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
                             </div>
                         </TooltipTrigger>
                         <TooltipContent side="right" className="text-xs">
-                            You don't have access to this feature
+                            You don&apos;t have access to this feature
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>

@@ -47,6 +47,7 @@ import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord }
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, type TicketAttendeePayload, getCheckoutQuote, type CheckoutQuoteResponse } from '@/lib/checkout-api';
 import { showError } from '@/lib/errors';
 import { calculateFeePerTicket, getCurrencySymbol, type FeeTier } from '@/lib/fees';
+import { formatCreditSplitNote } from '@/lib/credit-notes';
 import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useOptionalAuth } from '@/context/auth-context';
@@ -598,11 +599,7 @@ export function PublicEventPageContent({
     const grandTotal = checkoutQuote ? checkoutQuote.total : finalTotal + platformFeeAmount + organizerFeeAmount + processingFeeAmount;
     const creditsApplied = checkoutQuote?.creditsApplied ?? 0;
     const quotePaidTicketCount = checkoutQuote?.paidTicketCount ?? paidTicketCount;
-    const nonCreditTicketCount = Math.max(0, quotePaidTicketCount - creditsApplied);
-    const creditSplitNote =
-        creditsApplied > 0 && nonCreditTicketCount > 0
-            ? `${creditsApplied} ticket${creditsApplied === 1 ? '' : 's'} use the organizer fee and ${nonCreditTicketCount} ticket${nonCreditTicketCount === 1 ? '' : 's'} use the platform fee because the organizer ran out of credits.`
-            : null;
+    const creditSplitNote = formatCreditSplitNote(creditsApplied, quotePaidTicketCount);
 
     useEffect(() => {
         if (!event?.id) {
