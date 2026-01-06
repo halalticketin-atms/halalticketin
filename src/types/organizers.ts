@@ -9,7 +9,7 @@ export type EventScope =
     };
 
 export type OrganizerRole = 'owner' | 'co_owner' | 'admin' | 'editor' | 'check_in';
-export type MembershipStatus = 'pending' | 'active' | 'suspended';
+export type MembershipStatus = 'pending' | 'active' | 'suspended' | 'removed';
 
 export interface TeamMember {
     id: string;

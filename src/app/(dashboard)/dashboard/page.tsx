@@ -73,8 +73,11 @@ export default function DashboardLandingPage() {
         () =>
             organizers.map((organizer) => {
                 const isSuspended = organizer.status === 'suspended';
+                const isRemoved = organizer.status === 'removed';
+                const isBlocked = isSuspended || isRemoved;
+
                 return (
-                    <Card key={organizer.id} className={`border border-border/60 ${isSuspended ? 'opacity-75' : ''}`}>
+                    <Card key={organizer.id} className={`border border-border/60 ${isBlocked ? 'opacity-75' : ''}`}>
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <Building2 className="h-4 w-4 text-primary" />
@@ -82,6 +85,11 @@ export default function DashboardLandingPage() {
                                 {isSuspended && (
                                     <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
                                         Suspended
+                                    </span>
+                                )}
+                                {isRemoved && (
+                                    <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                                        Removed
                                     </span>
                                 )}
                             </CardTitle>
@@ -92,6 +100,10 @@ export default function DashboardLandingPage() {
                                 <p className="text-sm text-muted-foreground">
                                     Your access has been suspended. Contact the team owner for assistance.
                                 </p>
+                            ) : isRemoved ? (
+                                <p className="text-sm text-muted-foreground">
+                                    You have been removed from this team.
+                                </p>
                             ) : (
                                 <p className="text-sm text-muted-foreground">
                                     Status: <span className="capitalize">{organizer.status}</span>
@@ -100,10 +112,10 @@ export default function DashboardLandingPage() {
                             <Button
                                 className="w-full"
                                 onClick={() => router.push(buildDashboardPath(organizer.id))}
-                                disabled={isSuspended}
-                                variant={isSuspended ? 'outline' : 'default'}
+                                disabled={isBlocked}
+                                variant={isBlocked ? 'outline' : 'default'}
                             >
-                                {isSuspended ? 'Access Suspended' : 'Continue'}
+                                {isSuspended ? 'Access Suspended' : isRemoved ? 'Access Removed' : 'Continue'}
                             </Button>
                         </CardContent>
                     </Card>

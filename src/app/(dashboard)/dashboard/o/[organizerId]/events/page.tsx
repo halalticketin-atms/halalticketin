@@ -13,16 +13,16 @@ import {
     Eye,
     Edit,
     Trash2,
-    Clock,
-    CheckCircle,
     Archive,
     Loader2,
     AlertCircle,
+    XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     DropdownMenu,
@@ -43,14 +43,33 @@ import { SUPPORTED_CURRENCIES } from '@/lib/fees'; // Added import
 import api from '@/lib/api';
 import { archiveEvent } from '@/lib/events-api';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
-import { useOrganizerEvents, DashboardEvent, DashboardEventStatus } from '@/hooks/useOrganizerEvents';
+import { useOrganizerEvents, DashboardEvent } from '@/hooks/useOrganizerEvents';
 import { DeleteEventDialog } from '@/components/dashboard/DeleteEventDialog';
+import { CancelEventDialog } from '@/components/dashboard/CancelEventDialog';
 import { useOrganizers } from '@/context/organizer-context';
 
-const statusConfig: Record<DashboardEventStatus, { label: string; color: string; icon: typeof Clock }> = {
-    active: { label: 'Active', color: 'bg-green-100 text-green-700', icon: Calendar },
-    past: { label: 'Completed', color: 'bg-gray-100 text-gray-600', icon: CheckCircle },
-    draft: { label: 'Draft', color: 'bg-yellow-100 text-yellow-700', icon: Archive },
+const statusBadgeStyles = {
+    active: 'bg-emerald-500/90 text-white',
+    past: 'bg-amber-500/90 text-white',
+    draft: 'bg-slate-500/90 text-white',
+    cancelled: 'bg-red-500/90 text-white',
+    archived: 'bg-slate-700/80 text-white',
+};
+
+const getEventStatusBadge = (event: DashboardEvent) => {
+    if (event.status === 'cancelled') {
+        return { label: 'Cancelled', className: statusBadgeStyles.cancelled };
+    }
+    if (event.status === 'archived') {
+        return { label: 'Archived', className: statusBadgeStyles.archived };
+    }
+    if (event.displayStatus === 'draft') {
+        return { label: 'Draft', className: statusBadgeStyles.draft };
+    }
+    if (event.displayStatus === 'past') {
+        return { label: 'Completed', className: statusBadgeStyles.past };
+    }
+    return { label: 'Active', className: statusBadgeStyles.active };
 };
 
 /**
@@ -96,6 +115,7 @@ function EventCard({
     event,
     index,
     onDelete,
+    onCancel,
     revenueCurrency,
     isSelected,
     onToggleSelect,
@@ -103,15 +123,17 @@ function EventCard({
     event: DashboardEvent;
     index: number;
     onDelete: (event: DashboardEvent) => void;
+    onCancel: (event: DashboardEvent) => void;
     revenueCurrency?: string;
     isSelected: boolean;
     onToggleSelect: (id: string, selected: boolean) => void;
 }) {
     const router = useRouter();
-    const config = statusConfig[event.displayStatus];
+    const statusBadge = getEventStatusBadge(event);
     const { date, time } = formatEventDateTime(event);
     const location = getLocationDisplay(event);
     const currency = revenueCurrency ?? event.currency;
+    const isActivePublished = event.status === 'published' && event.displayStatus === 'active';
 
     // Use actual data from backend
     const ticketsSold = event.ticketsSold || 0;
@@ -168,15 +190,10 @@ function EventCard({
                             aria-label={`Select ${event.title || 'event'}`}
                         />
                         <span // Changed from Badge component to span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${event.displayStatus === 'active' // Changed from 'published' to 'active'
-                                ? 'bg-emerald-500/90 text-white'
-                                : event.displayStatus === 'draft'
-                                    ? 'bg-slate-500/90 text-white'
-                                    : 'bg-amber-500/90 text-white' // This will be for 'past'
-                                }`}
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusBadge.className}`}
                         >
                             {/* Removed StatusIcon */}
-                            {config.label} {/* Kept label from config */}
+                            {statusBadge.label}
                         </span>
                     </div>
 
@@ -218,6 +235,17 @@ function EventCard({
                                     >
                                         <Trash2 className="h-4 w-4 mr-2" />
                                         Delete draft
+                                    </DropdownMenuItem>
+                                ) : isActivePublished ? (
+                                    <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onCancel(event);
+                                        }}
+                                    >
+                                        <XCircle className="h-4 w-4 mr-2" />
+                                        Cancel event
                                     </DropdownMenuItem>
                                 ) : (
                                     <DropdownMenuItem
@@ -285,15 +313,21 @@ function EventCard({
 export default function MyEventsPage() {
     const router = useRouter();
     const organizerId = useOrganizerFromParams();
-    const { events, isLoading, error, counts, refresh: refreshEvents } = useOrganizerEvents(organizerId);
+    const { events, isLoading, error, refresh: refreshEvents } = useOrganizerEvents(organizerId);
     const { organizers } = useOrganizers();
     const [activeTab, setActiveTab] = useState('all');
+    const [showArchived, setShowArchived] = useState(false);
     const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string; eventStatus?: string | null }>({
         open: false,
         eventId: '',
         eventTitle: '',
         eventStatus: null,
+    });
+    const [cancelDialog, setCancelDialog] = useState<{ open: boolean; eventId: string; eventTitle: string }>({
+        open: false,
+        eventId: '',
+        eventTitle: '',
     });
     const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
     const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
@@ -302,29 +336,40 @@ export default function MyEventsPage() {
     const [bulkArchiveError, setBulkArchiveError] = useState<string | null>(null);
     const [isBulkArchiving, setIsBulkArchiving] = useState(false);
 
-    const selectedEvents = events.filter((event) => selectedEventIds.has(event.id));
-    const nonDraftSelected = selectedEvents.filter((event) => event.status !== 'draft');
+    const visibleEvents = showArchived ? events : events.filter((event) => event.status !== 'archived');
+    const selectedEvents = visibleEvents.filter((event) => selectedEventIds.has(event.id));
     const draftSelected = selectedEvents.filter((event) => event.status === 'draft');
+    const activeSelected = selectedEvents.filter(
+        (event) => event.status === 'published' && event.displayStatus === 'active'
+    );
+    const archivableSelected = selectedEvents.filter(
+        (event) => event.status !== 'draft' && !(event.status === 'published' && event.displayStatus === 'active')
+    );
 
     const handleDeleteSuccess = () => {
         refreshEvents();
         router.refresh();
     };
 
+    const handleCancelSuccess = () => {
+        refreshEvents();
+        router.refresh();
+    };
+
     useEffect(() => {
         setSelectedEventIds(new Set());
-    }, [activeTab]);
+    }, [activeTab, showArchived]);
 
     useEffect(() => {
         setSelectedEventIds((prev) => {
             if (prev.size === 0) {
                 return prev;
             }
-            const validIds = new Set(events.map((event) => event.id));
+            const validIds = new Set(visibleEvents.map((event) => event.id));
             const next = new Set(Array.from(prev).filter((id) => validIds.has(id)));
             return next.size === prev.size ? prev : next;
         });
-    }, [events]);
+    }, [visibleEvents]);
 
     // Scroll to top when page loads
     useEffect(() => {
@@ -332,13 +377,31 @@ export default function MyEventsPage() {
     }, []);
 
     const getFilteredEvents = (status: string) => {
-        if (status === 'all') return events;
-        return events.filter(e => e.displayStatus === status);
+        if (status === 'all') return visibleEvents;
+        if (status === 'draft') return visibleEvents.filter((event) => event.status === 'draft');
+        if (status === 'cancelled') return visibleEvents.filter((event) => event.status === 'cancelled');
+        if (status === 'past') {
+            return visibleEvents.filter(
+                (event) => event.displayStatus === 'past' && event.status !== 'cancelled'
+            );
+        }
+        return visibleEvents.filter((event) => event.displayStatus === 'active');
+    };
+    const counts = {
+        all: visibleEvents.length,
+        active: visibleEvents.filter((event) => event.displayStatus === 'active').length,
+        past: visibleEvents.filter(
+            (event) => event.displayStatus === 'past' && event.status !== 'cancelled'
+        ).length,
+        draft: visibleEvents.filter((event) => event.status === 'draft').length,
+        cancelled: visibleEvents.filter((event) => event.status === 'cancelled').length,
     };
     const revenueCurrency = organizers.find((org) => org.id === organizerId)?.defaultCurrency;
     const hasSelectedEvents = selectedEventIds.size > 0;
-    const hasNonDraftSelected = nonDraftSelected.length > 0;
+    const hasArchivableSelected = archivableSelected.length > 0;
     const hasDraftSelected = draftSelected.length > 0;
+    const hasActiveSelected = activeSelected.length > 0;
+    const hasNonDraftSelected = selectedEvents.some((event) => event.status !== 'draft');
 
     const toggleSelectedEvent = (id: string, selected: boolean) => {
         setSelectedEventIds((prev) => {
@@ -396,7 +459,7 @@ export default function MyEventsPage() {
     };
 
     const handleBulkArchiveClick = () => {
-        if (!hasNonDraftSelected) {
+        if (!hasArchivableSelected) {
             return;
         }
         setBulkArchiveError(null);
@@ -404,14 +467,14 @@ export default function MyEventsPage() {
     };
 
     const handleBulkArchiveConfirm = async () => {
-        if (nonDraftSelected.length === 0) {
+        if (archivableSelected.length === 0) {
             return;
         }
         setIsBulkArchiving(true);
         setBulkArchiveError(null);
         try {
             await Promise.all(
-                nonDraftSelected.map((event) => archiveEvent(event.id))
+                archivableSelected.map((event) => archiveEvent(event.id))
             );
             setBulkArchiveDialogOpen(false);
             setSelectedEventIds(new Set());
@@ -471,22 +534,37 @@ export default function MyEventsPage() {
 
                 {/* Tabs */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                    <TabsList className="bg-muted/50 p-1">
-                        <TabsTrigger value="all" className="gap-2">
-                            All <Badge variant="secondary" className="ml-1">{counts.all}</Badge>
-                        </TabsTrigger>
-                        <TabsTrigger value="active" className="gap-2">
-                            Active <Badge variant="secondary" className="ml-1">{counts.active}</Badge>
-                        </TabsTrigger>
-                        <TabsTrigger value="past" className="gap-2">
-                            Past <Badge variant="secondary" className="ml-1">{counts.past}</Badge>
-                        </TabsTrigger>
-                        <TabsTrigger value="draft" className="gap-2">
-                            Drafts <Badge variant="secondary" className="ml-1">{counts.draft}</Badge>
-                        </TabsTrigger>
-                    </TabsList>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <TabsList className="bg-muted/50 p-1 flex-wrap">
+                            <TabsTrigger value="all" className="gap-2">
+                                All <Badge variant="secondary" className="ml-1">{counts.all}</Badge>
+                            </TabsTrigger>
+                            <TabsTrigger value="active" className="gap-2">
+                                Active <Badge variant="secondary" className="ml-1">{counts.active}</Badge>
+                            </TabsTrigger>
+                            <TabsTrigger value="past" className="gap-2">
+                                Past <Badge variant="secondary" className="ml-1">{counts.past}</Badge>
+                            </TabsTrigger>
+                            <TabsTrigger value="cancelled" className="gap-2">
+                                Cancelled <Badge variant="secondary" className="ml-1">{counts.cancelled}</Badge>
+                            </TabsTrigger>
+                            <TabsTrigger value="draft" className="gap-2">
+                                Drafts <Badge variant="secondary" className="ml-1">{counts.draft}</Badge>
+                            </TabsTrigger>
+                        </TabsList>
+                        <div className="flex items-center gap-2">
+                            <Switch
+                                id="toggle-archived"
+                                checked={showArchived}
+                                onCheckedChange={(checked) => setShowArchived(checked)}
+                            />
+                            <label htmlFor="toggle-archived" className="text-sm text-muted-foreground">
+                                Show archived
+                            </label>
+                        </div>
+                    </div>
 
-                    {['all', 'active', 'past', 'draft'].map(tab => (
+                    {['all', 'active', 'past', 'cancelled', 'draft'].map(tab => (
                         <TabsContent key={tab} value={tab}>
                             {(() => {
                                 const tabEvents = getFilteredEvents(tab);
@@ -506,7 +584,9 @@ export default function MyEventsPage() {
                                                         ? "You haven't created any events yet."
                                                         : tab === 'active'
                                                             ? "You don't have any active events."
-                                                            : "You don't have any past events yet."}
+                                                            : tab === 'cancelled'
+                                                                ? "You don't have any cancelled events."
+                                                                : "You don't have any past events yet."}
                                             </p>
                                             <Button asChild className="mt-4">
                                                 <Link href={organizerId ? `/events/new?organizerId=${organizerId}` : '/events/new'}>
@@ -536,7 +616,7 @@ export default function MyEventsPage() {
                                             </div>
                                             {hasSelectedEvents && (
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    {hasNonDraftSelected && (
+                                                    {hasArchivableSelected && (
                                                         <Button
                                                             variant="secondary"
                                                             size="sm"
@@ -573,6 +653,13 @@ export default function MyEventsPage() {
                                                             eventStatus: selectedEvent.status,
                                                         })
                                                     }
+                                                    onCancel={(selectedEvent) =>
+                                                        setCancelDialog({
+                                                            open: true,
+                                                            eventId: selectedEvent.id,
+                                                            eventTitle: selectedEvent.title || 'Untitled Event',
+                                                        })
+                                                    }
                                                     revenueCurrency={revenueCurrency}
                                                     isSelected={selectedEventIds.has(event.id)}
                                                     onToggleSelect={toggleSelectedEvent}
@@ -595,6 +682,14 @@ export default function MyEventsPage() {
                 open={deleteDialog.open}
                 onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
                 onSuccess={handleDeleteSuccess}
+            />
+
+            <CancelEventDialog
+                eventId={cancelDialog.eventId}
+                eventTitle={cancelDialog.eventTitle}
+                open={cancelDialog.open}
+                onOpenChange={(open) => setCancelDialog({ ...cancelDialog, open })}
+                onSuccess={handleCancelSuccess}
             />
 
             {/* Bulk Delete Confirmation Dialog */}
@@ -656,10 +751,15 @@ export default function MyEventsPage() {
                         <DialogDescription asChild>
                             <div className="text-sm text-muted-foreground space-y-3 pt-2">
                                 <p>
-                                    You are about to archive {nonDraftSelected.length} event
-                                    {nonDraftSelected.length === 1 ? '' : 's'}. Archived events are hidden from public
+                                    You are about to archive {archivableSelected.length} event
+                                    {archivableSelected.length === 1 ? '' : 's'}. Archived events are hidden from public
                                     listings and checkout.
                                 </p>
+                                {hasActiveSelected && (
+                                    <p className="text-xs text-muted-foreground">
+                                        Active events must be cancelled before archiving and will be skipped.
+                                    </p>
+                                )}
                                 {bulkArchiveError && (
                                     <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
                                         {bulkArchiveError}

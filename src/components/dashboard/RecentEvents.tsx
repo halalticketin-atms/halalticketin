@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { Archive, Calendar, MapPin, MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
+import { Archive, Calendar, MapPin, MoreHorizontal, Eye, Edit, Trash2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +16,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DeleteEventDialog } from './DeleteEventDialog';
+import { CancelEventDialog } from './CancelEventDialog';
 import { useOptimizedAnimation } from '@/hooks/useOptimizedAnimation';
 
 interface Event {
@@ -23,8 +24,8 @@ interface Event {
     title: string;
     date: string;
     location: string;
-    status: 'published' | 'draft' | 'completed'; // Kept for statusColors/Labels
-    displayStatus: 'published' | 'draft' | 'completed'; // Added based on diff
+    status: 'published' | 'draft' | 'cancelled' | 'archived';
+    displayStatus: 'active' | 'draft' | 'past';
     ticketsSold: number;
     totalTickets: number;
     imageUrl?: string; // Kept as optional for backward compatibility if not all events have bannerImageUrl
@@ -37,20 +38,44 @@ interface RecentEventsProps {
     organizerId?: string | null;
 }
 
-const statusLabels = {
-    published: 'Published',
-    draft: 'Draft',
-    completed: 'Past',
+const statusBadges = {
+    active: { label: 'Active', className: 'bg-emerald-500/90 text-white' },
+    draft: { label: 'Draft', className: 'bg-slate-500/90 text-white' },
+    past: { label: 'Completed', className: 'bg-amber-500/90 text-white' },
+    cancelled: { label: 'Cancelled', className: 'bg-red-500/90 text-white' },
+    archived: { label: 'Archived', className: 'bg-slate-700/80 text-white' },
+};
+
+const getStatusBadge = (event: Event) => {
+    if (event.status === 'cancelled') {
+        return statusBadges.cancelled;
+    }
+    if (event.status === 'archived') {
+        return statusBadges.archived;
+    }
+    if (event.displayStatus === 'draft') {
+        return statusBadges.draft;
+    }
+    if (event.displayStatus === 'past') {
+        return statusBadges.past;
+    }
+    return statusBadges.active;
 };
 
 export function RecentEvents({ events, organizerId }: RecentEventsProps) {
     const router = useRouter();
     const anim = useOptimizedAnimation();
+    const visibleEvents = events.filter((event) => event.status !== 'archived');
     const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; eventId: string; eventTitle: string; eventStatus?: string | null }>({
         open: false,
         eventId: '',
         eventTitle: '',
         eventStatus: null,
+    });
+    const [cancelDialog, setCancelDialog] = useState<{ open: boolean; eventId: string; eventTitle: string }>({
+        open: false,
+        eventId: '',
+        eventTitle: '',
     });
 
     const handleCardClick = (eventId: string, e: React.MouseEvent) => {
@@ -67,6 +92,10 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
         router.refresh();
     };
 
+    const handleCancelSuccess = () => {
+        router.refresh();
+    };
+
     return (
         <>
             <Card className="border-border/50 overflow-hidden">
@@ -79,7 +108,7 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
                     </Button>
                 </CardHeader>
                 <CardContent className="p-6 pt-0">
-                    {events.length === 0 ? (
+                    {visibleEvents.length === 0 ? (
                         <div className="py-16 text-center">
                             <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
                                 <Calendar className="h-8 w-8 text-muted-foreground" />
@@ -94,13 +123,16 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {events.map((event, index) => (
-                                <motion.div
-                                    key={event.id}
-                                    initial={anim.initial}
-                                    animate={anim.animate}
-                                    transition={{ ...anim.transition, delay: index * anim.staggerDelay }}
-                                >
+                            {visibleEvents.map((event, index) => {
+                                const statusBadge = getStatusBadge(event);
+                                const isActivePublished = event.status === 'published' && event.displayStatus === 'active';
+                                return (
+                                    <motion.div
+                                        key={event.id}
+                                        initial={anim.initial}
+                                        animate={anim.animate}
+                                        transition={{ ...anim.transition, delay: index * anim.staggerDelay }}
+                                    >
                                     <Card
                                         className="group relative overflow-hidden border border-border/60 hover:border-primary/20 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
                                         onClick={(e) => handleCardClick(event.id, e)}
@@ -123,14 +155,9 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
                                             {/* Status Badge - Top Left */}
                                             <div className="absolute top-2 left-2">
                                                 <span
-                                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${event.displayStatus === 'published'
-                                                        ? 'bg-emerald-500/90 text-white'
-                                                        : event.displayStatus === 'draft'
-                                                            ? 'bg-slate-500/90 text-white'
-                                                            : 'bg-amber-500/90 text-white'
-                                                        }`}
+                                                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusBadge.className}`}
                                                 >
-                                                    {statusLabels[event.displayStatus]}
+                                                    {statusBadge.label}
                                                 </span>
                                             </div>
 
@@ -161,30 +188,53 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
                                                             </Link>
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    className={event.status === 'draft' ? 'text-destructive focus:text-destructive' : undefined}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setDeleteDialog({
-                                                            open: true,
-                                                            eventId: event.id,
-                                                            eventTitle: event.title,
-                                                            eventStatus: event.status,
-                                                        });
-                                                    }}
-                                                >
-                                                    {event.status === 'draft' ? (
-                                                        <>
-                                                            <Trash2 className="h-4 w-4 mr-2" />
-                                                            Delete
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Archive className="h-4 w-4 mr-2" />
-                                                            Archive
-                                                        </>
-                                                    )}
-                                                </DropdownMenuItem>
+                                                        {event.status === 'draft' ? (
+                                                            <DropdownMenuItem
+                                                                className="text-destructive focus:text-destructive"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setDeleteDialog({
+                                                                        open: true,
+                                                                        eventId: event.id,
+                                                                        eventTitle: event.title,
+                                                                        eventStatus: event.status,
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        ) : isActivePublished ? (
+                                                            <DropdownMenuItem
+                                                                className="text-destructive focus:text-destructive"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setCancelDialog({
+                                                                        open: true,
+                                                                        eventId: event.id,
+                                                                        eventTitle: event.title,
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <XCircle className="h-4 w-4 mr-2" />
+                                                                Cancel event
+                                                            </DropdownMenuItem>
+                                                        ) : (
+                                                            <DropdownMenuItem
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setDeleteDialog({
+                                                                        open: true,
+                                                                        eventId: event.id,
+                                                                        eventTitle: event.title,
+                                                                        eventStatus: event.status,
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <Archive className="h-4 w-4 mr-2" />
+                                                                Archive
+                                                            </DropdownMenuItem>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </div>
@@ -229,12 +279,21 @@ export function RecentEvents({ events, organizerId }: RecentEventsProps) {
                                             </div>
                                         </CardContent>
                                     </Card>
-                                </motion.div>
-                            ))}
+                                    </motion.div>
+                                );
+                            })}
                         </div>
                     )}
                 </CardContent>
             </Card>
+
+            <CancelEventDialog
+                eventId={cancelDialog.eventId}
+                eventTitle={cancelDialog.eventTitle}
+                open={cancelDialog.open}
+                onOpenChange={(open) => setCancelDialog({ ...cancelDialog, open })}
+                onSuccess={handleCancelSuccess}
+            />
 
             {/* Delete Confirmation Dialog */}
             <DeleteEventDialog

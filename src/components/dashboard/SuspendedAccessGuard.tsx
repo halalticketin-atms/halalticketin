@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Building2, AlertTriangle, Plus } from 'lucide-react';
+import { Building2, AlertTriangle, Plus, UserX } from 'lucide-react';
 import { useOrganizers } from '@/context/organizer-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,8 @@ export function SuspendedAccessGuard({ children }: SuspendedAccessGuardProps) {
 
     const currentOrganizer = organizers.find((org) => org.id === params.organizerId);
     const isSuspended = currentOrganizer?.status === 'suspended';
+    const isRemoved = currentOrganizer?.status === 'removed';
+    const isBlocked = isSuspended || isRemoved;
 
     const handleOrgCreated = async (organizerId: string) => {
         setActiveOrganizerId(organizerId);
@@ -65,25 +67,38 @@ export function SuspendedAccessGuard({ children }: SuspendedAccessGuardProps) {
         );
     }
 
-    // If suspended, show blocked message
-    if (isSuspended) {
+    // If suspended or removed, show blocked message
+    if (isBlocked) {
         return (
             <>
                 <div className="flex items-center justify-center min-h-[60vh] px-4">
-                    <Card className="max-w-lg w-full border-amber-200 dark:border-amber-900/50">
+                    <Card className={`max-w-lg w-full ${isRemoved ? 'border-red-200 dark:border-red-900/50' : 'border-amber-200 dark:border-amber-900/50'}`}>
                         <CardHeader className="text-center pb-2">
-                            <div className="mx-auto mb-4 p-4 rounded-full bg-amber-100 dark:bg-amber-900/30 w-fit">
-                                <Building2 className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                            <div className={`mx-auto mb-4 p-4 rounded-full w-fit ${isRemoved ? 'bg-red-100 dark:bg-red-900/30' : 'bg-amber-100 dark:bg-amber-900/30'}`}>
+                                {isRemoved ? (
+                                    <UserX className="h-8 w-8 text-red-600 dark:text-red-400" />
+                                ) : (
+                                    <Building2 className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                                )}
                             </div>
-                            <CardTitle className="text-xl">Access Suspended</CardTitle>
+                            <CardTitle className="text-xl">
+                                {isRemoved ? 'Removed from Team' : 'Access Suspended'}
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="text-center space-y-6">
                             <div className="space-y-2">
                                 <p className="text-muted-foreground">
-                                    Your access to <span className="font-semibold text-foreground">{currentOrganizer.name}</span> has been suspended.
+                                    {isRemoved ? (
+                                        <>You have been removed from <span className="font-semibold text-foreground">{currentOrganizer.name}</span>.</>
+                                    ) : (
+                                        <>Your access to <span className="font-semibold text-foreground">{currentOrganizer.name}</span> has been suspended.</>
+                                    )}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                    Please contact the team owner for assistance or to restore your access.
+                                    {isRemoved
+                                        ? 'If you believe this was a mistake, please contact the team owner.'
+                                        : 'Please contact the team owner for assistance or to restore your access.'
+                                    }
                                 </p>
                             </div>
 
