@@ -32,6 +32,13 @@ export interface ScanResult {
     ticket?: CheckInTicketRecord;
 }
 
+export interface ScanAndCheckInResponse {
+    status: 'success' | 'already_checked_in';
+    message: string;
+    ticket: CheckInTicketRecord;
+    checkedInAt?: string | null;
+}
+
 export interface CheckInResponse {
     success: boolean;
     ticket: CheckInTicketRecord;
@@ -80,6 +87,12 @@ export const getCheckInStats = async (eventId: string) => {
 
 export const scanTicketCode = async (eventId: string, ticketCode: string) => {
     return api.post<ScanResult>(`/api/v1/events/${eventId}/check-in/scan`, {
+        ticketCode,
+    });
+};
+
+export const scanAndCheckInTicket = async (eventId: string, ticketCode: string) => {
+    return api.post<ScanAndCheckInResponse>(`/api/v1/events/${eventId}/check-in/scan-and-check-in`, {
         ticketCode,
     });
 };

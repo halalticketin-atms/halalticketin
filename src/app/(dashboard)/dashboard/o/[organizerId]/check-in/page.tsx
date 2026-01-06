@@ -23,7 +23,7 @@ import { TempStaffDialog } from '@/components/check-in/TempStaffDialog';
 import { useCheckInTickets, transformCheckInTicket } from '@/hooks/useCheckInTickets';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents } from '@/hooks/useOrganizerEvents';
-import { scanTicketCode } from '@/lib/check-in-api';
+import { scanAndCheckInTicket } from '@/lib/check-in-api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 
@@ -117,6 +117,7 @@ function CheckInContent() {
     stats,
     checkIn,
     undo,
+    applyCheckInUpdate,
     isLoading,
     updatingTicketId,
     error,
@@ -194,28 +195,22 @@ function CheckInContent() {
     }
 
     try {
-      const scanResponse = await scanTicketCode(selectedEvent, trimmed);
-
-      if (!scanResponse.valid || !scanResponse.ticket) {
-        setScanResult({
-          status: 'invalid',
-          message: scanResponse.message || 'Ticket not valid for this event.',
-        });
-        return;
-      }
-
+      const scanResponse = await scanAndCheckInTicket(selectedEvent, trimmed);
       const normalizedTicket = transformCheckInTicket(scanResponse.ticket);
 
-      if (scanResponse.alreadyCheckedIn) {
+      if (scanResponse.status === 'already_checked_in') {
         setScanResult({
           status: 'already_checked_in',
           ticket: normalizedTicket,
-          checkedInAt: normalizedTicket.checkedInAt || new Date(),
+          checkedInAt: scanResponse.checkedInAt
+            ? new Date(scanResponse.checkedInAt)
+            : normalizedTicket.checkedInAt || new Date(),
         });
         return;
       }
 
-      await handleCheckIn(normalizedTicket.id);
+      applyCheckInUpdate(normalizedTicket);
+      setScanResult({ status: 'success', ticket: normalizedTicket });
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : 'Failed to scan ticket. Please try again.';

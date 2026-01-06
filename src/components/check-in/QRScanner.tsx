@@ -174,7 +174,10 @@ export function QRScanner({ onScan, isActive = true }: QRScannerProps) {
 
     if (!hasCamera || error) {
         return (
-            <div className="aspect-square max-h-[400px] bg-muted/50 flex flex-col items-center justify-center p-8 text-center">
+            <div
+                data-testid="qr-scanner"
+                className="aspect-square max-h-[400px] bg-muted/50 flex flex-col items-center justify-center p-8 text-center"
+            >
                 <CameraOff className="h-12 w-12 text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">
                     {error || 'Camera not available'}
@@ -191,7 +194,7 @@ export function QRScanner({ onScan, isActive = true }: QRScannerProps) {
     }
 
     return (
-        <div className="relative aspect-square max-h-[400px] bg-black overflow-hidden">
+        <div className="relative aspect-square max-h-[400px] bg-black overflow-hidden" data-testid="qr-scanner">
             {useHtml5Scanner ? (
                 <div id={html5ContainerId} className="absolute inset-0" />
             ) : (

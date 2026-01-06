@@ -10,6 +10,7 @@
     "test:unit": "vitest run --project unit",
     "test:storybook": "VITEST_STORYBOOK=1 vitest run --project storybook",
     "test:all": "VITEST_STORYBOOK=1 vitest run",
+    "test:smoke": "playwright test --config playwright.config.ts",
     "lint": "eslint",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"

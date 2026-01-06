@@ -144,6 +144,32 @@ const UUID_REGEX =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const isUuid = (value: string | undefined | null) => (value ? UUID_REGEX.test(value) : false);
+
+const mapPromoTicketTypeIds = (
+    promoCodes: DraftPromoCode[],
+    ticketIdMap: Map<string, string>
+): DraftPromoCode[] => {
+    if (ticketIdMap.size === 0) {
+        return promoCodes;
+    }
+
+    return promoCodes.map((promo) => {
+        if (!promo.applicableTicketTypeIds || promo.applicableTicketTypeIds.length === 0) {
+            return promo;
+        }
+
+        const mappedIds = promo.applicableTicketTypeIds
+            .map((id) => ticketIdMap.get(id) ?? id)
+            .filter((id): id is string => isUuid(id));
+        const uniqueIds = Array.from(new Set(mappedIds));
+
+        return {
+            ...promo,
+            applicableTicketTypeIds: uniqueIds.length > 0 ? uniqueIds : null,
+        };
+    });
+};
+
 const locationTypeMap: Record<DraftLocationType, 'in_person' | 'online' | 'hybrid'> = {
     physical: 'in_person',
     online: 'online',
@@ -691,16 +717,29 @@ export function EventWizard({
                 console.log('[DEBUG] Saving tickets for event:', nextEventId, 'payload:', ticketPayloads);
                 const ticketResponse = await saveEventTickets(nextEventId, ticketPayloads);
                 let normalizedTickets = tickets;
+                const ticketIdMap = new Map<string, string>();
                 if (ticketResponse.tickets && ticketResponse.tickets.length > 0) {
                     normalizedTickets = mapTicketRecordsToDraft(ticketResponse.tickets);
                     setTickets(normalizedTickets);
+                    const limit = Math.min(tickets.length, ticketResponse.tickets.length);
+                    for (let i = 0; i < limit; i += 1) {
+                        const previousId = tickets[i]?.id;
+                        const nextId = ticketResponse.tickets[i]?.id;
+                        if (previousId && nextId) {
+                            ticketIdMap.set(previousId, nextId);
+                        }
+                    }
                 }
 
                 // Save promo codes (only if we have a valid event ID)
                 let normalizedPromoCodes = promoCodes;
+                if (ticketIdMap.size > 0) {
+                    normalizedPromoCodes = mapPromoTicketTypeIds(promoCodes, ticketIdMap);
+                    setPromoCodes(normalizedPromoCodes);
+                }
                 const nextPromoErrors: Record<string, { code?: string; discountValue?: string }> = {};
 
-                for (const promo of promoCodes) {
+                for (const promo of normalizedPromoCodes) {
                     const code = promo.code.trim();
                     const discountValue = Number.parseFloat(promo.discountValue) || 0;
                     const isRevealOnlyCode = promo.revealsHiddenTickets === true;
@@ -727,11 +766,11 @@ export function EventWizard({
                     setCurrentStep(3);
                 }
 
-                if (promoCodes.length > 0 && isUuid(nextEventId) && !hasPromoValidationErrors) {
+                if (normalizedPromoCodes.length > 0 && isUuid(nextEventId) && !hasPromoValidationErrors) {
                     const existingPromos = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
                     const existingIds = new Set(existingPromos.promoCodes.map(p => p.id));
 
-                    for (const promo of promoCodes) {
+                    for (const promo of normalizedPromoCodes) {
                         const discountValue = Number.parseFloat(promo.discountValue) || 0;
                         const isRevealOnlyCode = promo.revealsHiddenTickets && discountValue === 0;
                         // Skip if no code, or if it's a discount code with no valid discount
@@ -762,7 +801,7 @@ export function EventWizard({
                     }
 
                     // Delete removed promo codes
-                    const currentIds = new Set(promoCodes.map(p => p.id));
+                    const currentIds = new Set(normalizedPromoCodes.map(p => p.id));
                     for (const existing of existingPromos.promoCodes) {
                         if (!currentIds.has(existing.id)) {
                             await deletePromoCode(nextEventId, existing.id);

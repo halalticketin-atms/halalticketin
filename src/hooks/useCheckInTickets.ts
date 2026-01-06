@@ -35,6 +35,7 @@ interface UseCheckInTicketsResult {
   stats: CheckInStats;
   checkIn: (ticketId: string) => Promise<CheckInResult>;
   undo: (ticketId: string) => Promise<void>;
+  applyCheckInUpdate: (ticket: CheckInTicket) => void;
   isLoading: boolean;
   updatingTicketId: string | null;
   error: string | null;
@@ -106,6 +107,53 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
     return { totalTickets, checkedIn, notCheckedIn, percentage };
   }, [tickets, apiStats]);
 
+  const applyCheckInUpdate = useCallback(
+    (updatedTicket: CheckInTicket) => {
+      let previousStatus: CheckInTicket['checkInStatus'] | undefined;
+      let found = false;
+
+      setTickets((prev) => {
+        const next = prev.map((ticket) => {
+          if (ticket.id === updatedTicket.id) {
+            previousStatus = ticket.checkInStatus;
+            found = true;
+            return updatedTicket;
+          }
+          return ticket;
+        });
+
+        return found ? next : prev;
+      });
+
+      if (!found) {
+        void fetchData();
+        return;
+      }
+
+      setApiStats((prev) => {
+        if (!prev || !previousStatus) return prev;
+        if (previousStatus === updatedTicket.checkInStatus) return prev;
+
+        if (previousStatus === 'not_checked_in' && updatedTicket.checkInStatus === 'checked_in') {
+          const checkedIn = prev.checkedIn + 1;
+          const notCheckedIn = Math.max(prev.notCheckedIn - 1, 0);
+          const percentage = prev.totalTickets > 0 ? (checkedIn / prev.totalTickets) * 100 : 0;
+          return { ...prev, checkedIn, notCheckedIn, percentage };
+        }
+
+        if (previousStatus === 'checked_in' && updatedTicket.checkInStatus === 'not_checked_in') {
+          const checkedIn = Math.max(prev.checkedIn - 1, 0);
+          const notCheckedIn = prev.notCheckedIn + 1;
+          const percentage = prev.totalTickets > 0 ? (checkedIn / prev.totalTickets) * 100 : 0;
+          return { ...prev, checkedIn, notCheckedIn, percentage };
+        }
+
+        return prev;
+      });
+    },
+    [fetchData]
+  );
+
   const checkIn = useCallback(
     async (ticketId: string): Promise<CheckInResult> => {
       if (!eventId) {
@@ -123,25 +171,7 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
         if (response.success) {
           const updatedTicket = transformCheckInTicket(response.ticket);
 
-          // Update local state
-          setTickets((prev) =>
-            prev.map((t) => (t.id === ticketId ? updatedTicket : t))
-          );
-
-          // Update stats
-          setApiStats((prev) =>
-            prev
-              ? {
-                ...prev,
-                checkedIn: prev.checkedIn + 1,
-                notCheckedIn: prev.notCheckedIn - 1,
-                percentage:
-                  prev.totalTickets > 0
-                    ? ((prev.checkedIn + 1) / prev.totalTickets) * 100
-                    : 0,
-              }
-              : prev
-          );
+          applyCheckInUpdate(updatedTicket);
 
           return { status: 'success', ticket: updatedTicket };
         }
@@ -174,25 +204,7 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
         if (response.success) {
           const updatedTicket = transformCheckInTicket(response.ticket);
 
-          // Update local state
-          setTickets((prev) =>
-            prev.map((t) => (t.id === ticketId ? updatedTicket : t))
-          );
-
-          // Update stats
-          setApiStats((prev) =>
-            prev
-              ? {
-                ...prev,
-                checkedIn: prev.checkedIn - 1,
-                notCheckedIn: prev.notCheckedIn + 1,
-                percentage:
-                  prev.totalTickets > 0
-                    ? ((prev.checkedIn - 1) / prev.totalTickets) * 100
-                    : 0,
-              }
-              : prev
-          );
+          applyCheckInUpdate(updatedTicket);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to undo check-in';
@@ -209,6 +221,7 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
     stats,
     checkIn,
     undo,
+    applyCheckInUpdate,
     isLoading,
     updatingTicketId,
     error,
