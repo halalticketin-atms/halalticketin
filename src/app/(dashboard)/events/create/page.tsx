@@ -204,6 +204,7 @@ const buildTicketPayloads = (
     tickets.map((ticket, index) => {
         const parsedPrice = Number.parseFloat(ticket.price || '0');
         const priceValue = Number.isFinite(parsedPrice) ? parsedPrice : 0;
+        const isFree = ticket.isFree || priceValue <= 0;
         const quantityValue = Number.isFinite(ticket.quantity) ? Math.max(ticket.quantity, 1) : 1;
         const maxPerOrderValue = Number.isFinite(ticket.maxPerOrder)
             ? Math.max(ticket.maxPerOrder, 1)
@@ -221,7 +222,7 @@ const buildTicketPayloads = (
             : null;
         const trimmedCustomFee = ticket.customFee?.trim() ?? '';
         const parsedCustomFee = Number.parseFloat(trimmedCustomFee);
-        const customFeeValue = !ticket.isFree && priceValue > 0 && trimmedCustomFee && Number.isFinite(parsedCustomFee)
+        const customFeeValue = !isFree && priceValue > 0 && trimmedCustomFee && Number.isFinite(parsedCustomFee)
             ? parsedCustomFee
             : null;
 
@@ -229,8 +230,8 @@ const buildTicketPayloads = (
             id: backendId,
             name: ticket.name.trim() || `Ticket ${index + 1}`,
             description: ticket.description.trim() ? ticket.description.trim() : null,
-            price: ticket.isFree ? 0 : priceValue,
-            isFree: ticket.isFree,
+            price: isFree ? 0 : priceValue,
+            isFree,
             currency: currency,
             maxQuantity: quantityValue,
             maxPerOrder: maxPerOrderValue,
