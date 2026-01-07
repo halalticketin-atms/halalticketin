@@ -167,9 +167,9 @@ export function Header() {
                                         href={link.href}
                                         className={cn(
                                             'block px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150',
-                                            'hover:bg-slate-100 hover:text-slate-900 active:scale-95',
+                                            'hover:bg-[var(--brand-cyan)]/10 hover:text-[var(--brand-teal)] active:scale-95',
                                             isActive
-                                                ? 'text-slate-900 bg-slate-50'
+                                                ? 'text-[var(--brand-teal)] bg-[var(--brand-cyan)]/5 font-semibold'
                                                 : 'text-slate-600'
                                         )}
                                     >
