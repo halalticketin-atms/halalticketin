@@ -15,6 +15,7 @@ import {
     X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toast } from '@/lib/notifications';
 import { savePendingDraft } from '@/utils/pending-draft-storage';
 import { generateEventDraft } from '@/lib/ai/event-draft';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
@@ -159,7 +160,7 @@ export default function AIEventCreatorPage() {
                 userMessage = 'Network error. Please check your connection and try again.';
             }
 
-            setErrorMessage(userMessage);
+            toast.error(userMessage);
         } finally {
             setIsProcessing(false);
         }
