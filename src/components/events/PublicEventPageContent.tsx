@@ -1628,11 +1628,11 @@ export function PublicEventPageContent({
 
             {/* Checkout Dialog - Multi-step wizard with softer styling */}
             <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-                <DialogContent className="sm:max-w-[850px] w-[95vw] p-0 overflow-hidden border-0 bg-transparent shadow-2xl gap-0">
-                    <div className="bg-card flex flex-col md:flex-row h-auto md:h-[540px] rounded-3xl overflow-hidden max-h-[calc(100dvh-2rem)] shadow-2xl border border-primary/10">
+                <DialogContent className="sm:max-w-[850px] w-[95vw] p-0 overflow-hidden border-0 bg-transparent shadow-2xl gap-0" onOpenAutoFocus={(e) => e.preventDefault()}>
+                    <div className="bg-card flex flex-col md:flex-row md:min-h-[540px] md:max-h-[85vh] rounded-3xl overflow-hidden max-h-[calc(100dvh-2rem)] shadow-2xl border border-primary/10">
 
                         {/* LEFT PANEL: Brand & Order Summary */}
-                        <div className="w-full md:w-[340px] bg-primary/5 border-r border-border/50 p-6 flex flex-col relative overflow-hidden group">
+                        <div className="w-full md:w-[340px] bg-primary/5 border-b md:border-b-0 md:border-r border-border/50 p-4 md:p-6 flex flex-col relative overflow-hidden group shrink-0 md:shrink">
                             {/* Decorative background accent */}
                             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none transition-opacity duration-700 group-hover:opacity-70" />
                             <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -ml-24 -mb-24 pointer-events-none" />
@@ -1746,16 +1746,16 @@ export function PublicEventPageContent({
                             </div>
 
                             {/* Total Footer */}
-                            <div className="mt-6 pt-4 border-t border-primary/10 relative z-10">
-                                <div className="flex justify-between items-end">
-                                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">Total</span>
-                                    <span className="text-3xl font-bold text-primary">{currencySymbol}{grandTotal.toFixed(2)}</span>
+                            <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-primary/10 relative z-10">
+                                <div className="flex justify-between items-center md:items-end">
+                                    <span className="text-xs md:text-sm font-medium text-muted-foreground uppercase tracking-wider">Total</span>
+                                    <span className="text-2xl md:text-3xl font-bold text-primary">{currencySymbol}{grandTotal.toFixed(2)}</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* RIGHT PANEL: Wizard Form */}
-                        <div className="flex-1 flex flex-col bg-card relative">
+                        <div className="flex-1 flex flex-col bg-card relative min-h-0 overflow-hidden">
                             {/* Wizard Header */}
                             <div className="px-8 pt-6 pb-2">
                                 {/* Step Indicators */}
@@ -1798,7 +1798,7 @@ export function PublicEventPageContent({
                             </div>
 
                             {/* Scrollable Form Area */}
-                            <div className="flex-1 overflow-y-auto px-8 py-2 custom-scrollbar">
+                            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-2 custom-scrollbar min-h-0">
                                 <AnimatePresence mode="wait">
                                     <motion.div
                                         key={checkoutStep}
@@ -1832,6 +1832,7 @@ export function PublicEventPageContent({
                                                         value={attendeeName}
                                                         onChange={(e) => setAttendeeName(e.target.value)}
                                                         disabled={isProcessing}
+                                                        autoFocus={false}
                                                         className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && !attendeeName.trim() && "border-destructive ring-1 ring-destructive/30")}
                                                     />
                                                     {hasAttemptedSubmit && !attendeeName.trim() && (
@@ -2155,7 +2156,7 @@ export function PublicEventPageContent({
                             </div>
 
                             {/* Footer Navigation */}
-                            <div className="p-8 pt-4 pb-6 mt-auto">
+                            <div className="p-4 md:p-8 pt-3 md:pt-4 pb-4 md:pb-6 mt-auto shrink-0 border-t md:border-t-0 border-border/30">
                                 {stepType !== 'confirm' ? (
                                     <Button
                                         className="w-full h-11 text-base shadow-lg shadow-primary/20"
