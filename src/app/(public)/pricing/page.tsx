@@ -239,7 +239,7 @@ export default function PricingPage() {
                                             router.push('/login?next=/dashboard');
                                         }
                                     }}
-                                    className="mt-4 rounded-full border-slate-300 hover:bg-slate-50 px-8"
+                                    className="mt-4 rounded-full border-slate-300 hover:bg-slate-100 hover:border-slate-400 cursor-pointer transition-all hover:scale-105 px-8"
                                 >
                                     Get Started
                                 </Button>
@@ -272,7 +272,7 @@ export default function PricingPage() {
                                 <div className="text-sm text-slate-500">per ticket</div>
                                 <Button
                                     onClick={() => document.getElementById('calc')?.scrollIntoView({ behavior: 'smooth' })}
-                                    className="mt-4 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-opacity px-8 shadow-md"
+                                    className="mt-4 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 hover:shadow-lg transition-all hover:scale-105 cursor-pointer px-8 shadow-md"
                                 >
                                     Calculate
                                 </Button>
@@ -302,7 +302,7 @@ export default function PricingPage() {
                                 <Button
                                     variant="outline"
                                     onClick={() => { setPayUpfront(false); document.getElementById('calc')?.scrollIntoView({ behavior: 'smooth' }) }}
-                                    className="mt-4 rounded-full border-slate-300 hover:bg-slate-50 px-8"
+                                    className="mt-4 rounded-full border-slate-300 hover:bg-slate-100 hover:border-slate-400 cursor-pointer transition-all hover:scale-105 px-8"
                                 >
                                     Calculate
                                 </Button>
@@ -334,13 +334,13 @@ export default function PricingPage() {
                                             />
                                             <button
                                                 onClick={() => setPayUpfront(true)}
-                                                className={`flex-1 md:flex-none relative z-10 px-8 py-3 rounded-full text-sm font-bold transition-colors ${payUpfront ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+                                                className={`flex-1 md:flex-none relative z-10 px-8 py-3 rounded-full text-sm font-bold transition-colors cursor-pointer ${payUpfront ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
                                             >
                                                 Pay Upfront
                                             </button>
                                             <button
                                                 onClick={() => setPayUpfront(false)}
-                                                className={`flex-1 md:flex-none relative z-10 px-8 py-3 rounded-full text-sm font-bold transition-colors ${!payUpfront ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+                                                className={`flex-1 md:flex-none relative z-10 px-8 py-3 rounded-full text-sm font-bold transition-colors cursor-pointer ${!payUpfront ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
                                             >
                                                 Pay As You Sell
                                             </button>
@@ -445,7 +445,7 @@ export default function PricingPage() {
                                                         router.push(`/login?next=${encodeURIComponent(nextPath)}`);
                                                     }
                                                 }}
-                                                className="w-full mt-8 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-opacity font-bold h-12 shadow-md"
+                                                className="w-full mt-8 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-all hover:scale-[1.02] font-bold h-12 shadow-md cursor-pointer hover:shadow-lg"
                                             >
                                                 Get Started
                                             </Button>
@@ -508,6 +508,6 @@ export default function PricingPage() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
