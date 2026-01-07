@@ -126,8 +126,7 @@ export default function ContactPage() {
                                 <Label htmlFor="firstName" className="text-muted-foreground">First name</Label>
                                 <Input
                                     id="firstName"
-                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                    placeholder="First name"
+                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all"
                                     value={formData.firstName}
                                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                                     required
@@ -137,8 +136,7 @@ export default function ContactPage() {
                                 <Label htmlFor="lastName" className="text-muted-foreground">Last name</Label>
                                 <Input
                                     id="lastName"
-                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                    placeholder="Last name"
+                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all"
                                     value={formData.lastName}
                                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                                     required
@@ -152,8 +150,7 @@ export default function ContactPage() {
                                 <Input
                                     id="email"
                                     type="email"
-                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                    placeholder="Email address"
+                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                     required
@@ -185,8 +182,7 @@ export default function ContactPage() {
                                 <Label htmlFor="customSubject" className="text-muted-foreground">Please specify your subject</Label>
                                 <Input
                                     id="customSubject"
-                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                    placeholder="Enter your subject"
+                                    className="glass-surface md:backdrop-blur-sm rounded-xl transition-all"
                                     value={formData.customSubject}
                                     onChange={(e) => setFormData({ ...formData, customSubject: e.target.value })}
                                     required
@@ -198,8 +194,7 @@ export default function ContactPage() {
                             <Label htmlFor="message" className="text-muted-foreground">Message</Label>
                             <Textarea
                                 id="message"
-                                className="glass-surface md:backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                placeholder="Message"
+                                className="glass-surface md:backdrop-blur-sm rounded-xl transition-all"
                                 rows={6}
                                 value={formData.message}
                                 onChange={(e) => setFormData({ ...formData, message: e.target.value })}

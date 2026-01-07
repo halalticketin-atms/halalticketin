@@ -21,6 +21,7 @@ import {
     Globe,
     Building,
     Check,
+    Heart,
     Tag,
     Eye,
     EyeOff,
@@ -252,7 +253,9 @@ const buildTicketPayloads = (
     tickets.map((ticket, index) => {
         const parsedPrice = Number.parseFloat(ticket.price || '0');
         const priceValue = Number.isFinite(parsedPrice) ? parsedPrice : 0;
-        const isFree = ticket.isFree || priceValue <= 0;
+        const isDonation = ticket.type === 'donation';
+        const isFree = !isDonation && (ticket.isFree || priceValue <= 0);
+        const resolvedType = isDonation ? 'donation' : isFree ? 'free' : 'paid';
         const quantityValue = Number.isFinite(ticket.quantity) ? Math.max(ticket.quantity, 1) : 1;
         const maxPerOrderValue = Number.isFinite(ticket.maxPerOrder)
             ? Math.max(ticket.maxPerOrder, 1)
@@ -262,28 +265,29 @@ const buildTicketPayloads = (
 
         // Early bird pricing
         const parsedEarlyBirdPrice = Number.parseFloat(ticket.earlyBirdPrice || '0');
-        const earlyBirdPriceValue = ticket.hasEarlyBird && Number.isFinite(parsedEarlyBirdPrice) && parsedEarlyBirdPrice > 0
+        const earlyBirdPriceValue = !isDonation && ticket.hasEarlyBird && Number.isFinite(parsedEarlyBirdPrice) && parsedEarlyBirdPrice > 0
             ? parsedEarlyBirdPrice
             : null;
-        const earlyBirdEndDateValue = ticket.hasEarlyBird && ticket.earlyBirdEndDate
+        const earlyBirdEndDateValue = !isDonation && ticket.hasEarlyBird && ticket.earlyBirdEndDate
             ? toIsoString(ticket.earlyBirdEndDate, '23:59', timeZone)
             : null;
         const trimmedCustomFee = ticket.customFee?.trim() ?? '';
         const parsedCustomFee = Number.parseFloat(trimmedCustomFee);
-        const customFeeValue = !isFree && priceValue > 0 && trimmedCustomFee && Number.isFinite(parsedCustomFee)
+        const customFeeValue = !isDonation && !isFree && priceValue > 0 && trimmedCustomFee && Number.isFinite(parsedCustomFee)
             ? parsedCustomFee
             : null;
 
         return {
             id: backendId,
-            name: ticket.name.trim() || `Ticket ${index + 1}`,
+            name: isDonation ? 'Donation' : ticket.name.trim() || `Ticket ${index + 1}`,
             description: ticket.description.trim() ? ticket.description.trim() : null,
-            price: isFree ? 0 : priceValue,
-            isFree,
+            price: resolvedType === 'free' ? 0 : priceValue,
+            isFree: resolvedType === 'free',
+            type: resolvedType,
             currency: currency,
-            maxQuantity: quantityValue,
-            maxPerOrder: maxPerOrderValue,
-            visibility: ticket.visibility,
+            maxQuantity: isDonation ? undefined : quantityValue,
+            maxPerOrder: isDonation ? 1 : maxPerOrderValue,
+            visibility: isDonation ? 'public' : ticket.visibility,
             salesStart: ticket.salesStart ? toIsoString(ticket.salesStart, '00:00', timeZone) : null,
             salesEnd: ticket.salesEnd ? toIsoString(ticket.salesEnd, '23:59', timeZone) : null,
             absorbFee: ticket.absorbFee,
@@ -511,6 +515,8 @@ export function EventWizard({
         updateTicket: updateTicketBase,
         addTicket: addTicketBase,
         removeTicket: removeTicketBase,
+        addDonationTicket: addDonationTicketBase,
+        removeDonationTicket: removeDonationTicketBase,
         promoCodes,
         setPromoCodes,
         addPromoCode: addPromoCodeBase,
@@ -736,6 +742,11 @@ export function EventWizard({
         clearFieldErrors('tickets');
     }, [addTicketBase, clearFieldErrors]);
 
+    const addDonationTicket = useCallback(() => {
+        addDonationTicketBase();
+        clearFieldErrors('tickets');
+    }, [addDonationTicketBase, clearFieldErrors]);
+
     const removeTicket = useCallback(
         (id: string) => {
             removeTicketBase(id);
@@ -746,6 +757,11 @@ export function EventWizard({
         },
         [clearFieldErrors, removeTicketBase, tickets],
     );
+
+    const removeDonationTicket = useCallback(() => {
+        removeDonationTicketBase();
+        clearFieldErrors('tickets');
+    }, [clearFieldErrors, removeDonationTicketBase]);
 
     const clearTicketError = useCallback((id: string, field?: keyof TicketFieldErrors) => {
         setTicketErrors((prev) => {
@@ -772,6 +788,15 @@ export function EventWizard({
             return next;
         });
     }, []);
+
+    const donationTicket = useMemo(
+        () => tickets.find((ticket) => ticket.type === 'donation') ?? null,
+        [tickets],
+    );
+    const regularTickets = useMemo(
+        () => tickets.filter((ticket) => ticket.type !== 'donation'),
+        [tickets],
+    );
 
     const clearPromoError = useCallback((id: string, field?: keyof PromoFieldErrors) => {
         setPromoErrors((prev) => {
@@ -1389,7 +1414,7 @@ export function EventWizard({
         if (canUseCredits && activeOrganizerId) {
             try {
                 const credits = await getCreditBalance(activeOrganizerId);
-                const totalCapacity = tickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
+                const totalCapacity = regularTickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
 
                 if (credits.balance < totalCapacity) {
                     setOrganizerCredits(credits.balance);
@@ -2263,7 +2288,7 @@ export function EventWizard({
 
                                         {/* Ticket Cards */}
                                         <div className="space-y-3">
-                                            {tickets.map((ticket, index) => {
+                                            {regularTickets.map((ticket, index) => {
                                                 const hasAdvancedErrors = Boolean(
                                                     ticketErrors[ticket.id]?.maxPerOrder
                                                     || ticketErrors[ticket.id]?.earlyBirdPrice
@@ -2290,7 +2315,7 @@ export function EventWizard({
                                                                     >
                                                                         {ticket.visibility === 'public' ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
                                                                     </button>
-                                                                    {tickets.length > 1 && (
+                                                                    {regularTickets.length > 1 && (
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="icon"
@@ -2618,6 +2643,83 @@ export function EventWizard({
                                             Add Another Ticket
                                         </Button>
 
+                                        {/* Donation Section */}
+                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
+                                            <CardContent className="p-3 sm:p-4 lg:p-5">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <div className="flex items-center gap-2 text-primary">
+                                                        <Heart className="h-5 w-5" />
+                                                        <h3 className="font-semibold">Donation</h3>
+                                                    </div>
+                                                    {donationTicket ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={removeDonationTicket}
+                                                            className="text-destructive hover:text-destructive h-8 w-8"
+                                                            title="Remove donation"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    ) : (
+                                                        <Button variant="outline" size="sm" onClick={addDonationTicket}>
+                                                            <Plus className="mr-1 h-3 w-3" />
+                                                            Add Donation
+                                                        </Button>
+                                                    )}
+                                                </div>
+
+                                                {donationTicket ? (
+                                                    <div className="space-y-4">
+                                                        <div className="space-y-1.5">
+                                                            <Label>What is this donation for?</Label>
+                                                            <Input
+                                                                placeholder="e.g., Supports the mosque renovation fund"
+                                                                value={donationTicket.description}
+                                                                onChange={(e) => {
+                                                                    updateTicket(donationTicket.id, 'description', e.target.value);
+                                                                }}
+                                                                className="h-11"
+                                                            />
+                                                            <p className="text-xs text-muted-foreground">Shown to buyers during checkout.</p>
+                                                        </div>
+                                                        <div className="space-y-1.5">
+                                                            <Label>Default donation amount ({getCurrencySymbol(formData.currency)})</Label>
+                                                            <Input
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.01"
+                                                                placeholder="0"
+                                                                value={donationTicket.price}
+                                                                onChange={(e) => {
+                                                                    const value = e.target.value;
+                                                                    if (value === '' || Number(value) >= 0) {
+                                                                        clearTicketError(donationTicket.id, 'price');
+                                                                        updateTicket(donationTicket.id, 'price', value);
+                                                                    }
+                                                                }}
+                                                                className={cn(
+                                                                    'h-11',
+                                                                    ticketErrors[donationTicket.id]?.price ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                )}
+                                                            />
+                                                            {ticketErrors[donationTicket.id]?.price ? (
+                                                                <p className="text-xs text-destructive">{ticketErrors[donationTicket.id]?.price}</p>
+                                                            ) : (
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Buyers can change or remove this amount at checkout.
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Add an optional donation to your event checkout.
+                                                    </p>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+
                                         {/* Promo Codes Section */}
                                         <Card className="mt-4 border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
                                             <CardContent className="p-3 sm:p-4 lg:p-5">
@@ -2713,12 +2815,12 @@ export function EventWizard({
                                                                                         : 'border-transparent',
                                                                                 )}
                                                                             >
-                                                                                {tickets.filter(t => t.visibility === 'hidden').length === 0 ? (
+                                                                                {regularTickets.filter(t => t.visibility === 'hidden').length === 0 ? (
                                                                                     <p className="text-xs text-muted-foreground py-3 text-center">
                                                                                         No hidden tickets. Create a ticket with visibility set to &quot;Hidden&quot; first.
                                                                                     </p>
                                                                                 ) : (
-                                                                                    tickets.filter(t => t.visibility === 'hidden').map((ticket) => {
+                                                                                    regularTickets.filter(t => t.visibility === 'hidden').map((ticket) => {
                                                                                         const isSelected = promo.applicableTicketTypeIds?.includes(ticket.id) ?? false;
                                                                                         return (
                                                                                             <div
@@ -2830,7 +2932,7 @@ export function EventWizard({
                                                                             </div>
 
                                                                             {/* Applies to Specific Tickets - only for discount codes */}
-                                                                            {tickets.length > 1 && (
+                                                                            {regularTickets.length > 1 && (
                                                                                 <div className="space-y-2 pt-2">
                                                                                     <Label className="text-sm font-medium">Applies to Tickets</Label>
                                                                                     <p className="text-xs text-muted-foreground mb-2">
@@ -2844,7 +2946,7 @@ export function EventWizard({
                                                                                                 : 'border-transparent',
                                                                                         )}
                                                                                     >
-                                                                                        {tickets.map((ticket) => {
+                                                                                        {regularTickets.map((ticket) => {
                                                                                             const isSelected = promo.applicableTicketTypeIds?.includes(ticket.id) ?? false;
                                                                                             return (
                                                                                                 <div

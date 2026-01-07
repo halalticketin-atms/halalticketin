@@ -43,6 +43,7 @@ export interface DraftTicketType {
   price: string;
   customFee: string;
   isFree: boolean;
+  type: 'paid' | 'free' | 'donation';
   quantity: number;
   maxPerOrder: number;
   description: string;
@@ -109,6 +110,7 @@ const createDefaultTicket = (): DraftTicketType => ({
   price: '',
   customFee: '',
   isFree: false,
+  type: 'paid',
   quantity: 100,
   maxPerOrder: 10,
   description: '',
@@ -121,14 +123,45 @@ const createDefaultTicket = (): DraftTicketType => ({
   absorbFee: false, // per-ticket, no event-level default
 });
 
+const createDonationTicket = (): DraftTicketType => ({
+  id: `donation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  name: 'Donation',
+  price: '0',
+  customFee: '',
+  isFree: false,
+  type: 'donation',
+  quantity: 1,
+  maxPerOrder: 1,
+  description: '',
+  salesStart: '',
+  salesEnd: '',
+  hasEarlyBird: false,
+  earlyBirdPrice: '',
+  earlyBirdEndDate: '',
+  visibility: 'public',
+  absorbFee: false,
+});
+
 export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = stepsCountDefault) {
+  const normalizeTicketType = (ticket: DraftTicketType): DraftTicketType => {
+    if (ticket.type) {
+      return ticket;
+    }
+    return {
+      ...ticket,
+      type: ticket.isFree ? 'free' : 'paid',
+    };
+  };
+
   const [currentStep, setCurrentStep] = useState(initial?.currentStep ?? 1);
   const [formData, setFormData] = useState<DraftFormData>({
     ...defaultFormData,
     ...initial?.formData,
   });
   const [tickets, setTickets] = useState<DraftTicketType[]>(
-    initial?.tickets && initial.tickets.length > 0 ? initial.tickets : [createDefaultTicket()],
+    initial?.tickets && initial.tickets.length > 0
+      ? initial.tickets.map(normalizeTicketType)
+      : [createDefaultTicket()],
   );
   const [promoCodes, setPromoCodes] = useState<DraftPromoCode[]>(initial?.promoCodes ?? []);
 
@@ -155,8 +188,21 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
     setTickets((prev) => [...prev, createDefaultTicket()]);
   };
 
+  const addDonationTicket = () => {
+    setTickets((prev) => {
+      if (prev.some((ticket) => ticket.type === 'donation')) {
+        return prev;
+      }
+      return [...prev, createDonationTicket()];
+    });
+  };
+
   const removeTicket = (id: string) => {
     setTickets((prev) => (prev.length > 1 ? prev.filter((ticket) => ticket.id !== id) : prev));
+  };
+
+  const removeDonationTicket = () => {
+    setTickets((prev) => prev.filter((ticket) => ticket.type !== 'donation'));
   };
 
   const addPromoCode = () => {
@@ -213,6 +259,8 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
     updateTicket,
     addTicket,
     removeTicket,
+    addDonationTicket,
+    removeDonationTicket,
     addPromoCode,
     updatePromoCode,
     removePromoCode,

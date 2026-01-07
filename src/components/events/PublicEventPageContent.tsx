@@ -173,6 +173,69 @@ function TicketCard({
     );
 }
 
+function DonationCard({
+    ticket,
+    amount,
+    currencySymbol,
+    onAmountChange,
+}: {
+    ticket: TicketLike;
+    amount: number;
+    currencySymbol: string;
+    onAmountChange: (amount: number) => void;
+}) {
+    const handleChange = (value: string) => {
+        if (value === '') {
+            onAmountChange(0);
+            return;
+        }
+        const numeric = Number(value);
+        if (Number.isFinite(numeric) && numeric >= 0) {
+            onAmountChange(numeric);
+        }
+    };
+
+    return (
+        <div className="p-4 border rounded-lg hover:border-primary/50 transition-colors space-y-2">
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                    <h4 className="font-medium">{ticket.name}</h4>
+                    {ticket.description && (
+                        <p className="text-sm text-muted-foreground mt-1">{ticket.description}</p>
+                    )}
+                </div>
+                {amount > 0 && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground"
+                        onClick={() => onAmountChange(0)}
+                    >
+                        Remove
+                    </Button>
+                )}
+            </div>
+            <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">Amount</Label>
+                <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                        {currencySymbol}
+                    </span>
+                    <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={amount.toString()}
+                        onChange={(e) => handleChange(e.target.value)}
+                        className="h-10 pl-6"
+                    />
+                </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Set to 0 to remove the donation.</p>
+        </div>
+    );
+}
+
 export function PublicEventPageContent({
     event,
     tickets,
@@ -204,6 +267,7 @@ export function PublicEventPageContent({
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
+    const [donationAmount, setDonationAmount] = useState(0);
     const [attendeeName, setAttendeeName] = useState('');
     const [attendeeEmail, setAttendeeEmail] = useState('');
     const [attendeeAge, setAttendeeAge] = useState('');
@@ -213,25 +277,27 @@ export function PublicEventPageContent({
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [checkoutStep, setCheckoutStep] = useState(0);
     const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuoteResponse | null>(null);
+    const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
-    // Autofill user details
+    // Autofill user details - only runs once when user data first loads
     useEffect(() => {
         if (user) {
-            if (!attendeeName && user.name) {
+            if (user.name) {
                 setAttendeeName(user.name);
             }
-            if (!attendeeEmail && user.email) {
+            if (user.email) {
                 setAttendeeEmail(user.email);
             }
-            if (!attendeeGender && user.gender) {
+            if (user.gender) {
                 setAttendeeGender(user.gender);
             }
-            if (!attendeeAge && user.dateOfBirth) {
+            if (user.dateOfBirth) {
                 const age = differenceInYears(new Date(), new Date(user.dateOfBirth));
                 setAttendeeAge(age.toString());
             }
         }
-    }, [user, attendeeName, attendeeEmail, attendeeGender, attendeeAge]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]); // Only re-run if user changes (login/logout)
 
     // Attendee info mode states
     const [useSharedInfo, setUseSharedInfo] = useState(true);
@@ -242,6 +308,30 @@ export function PublicEventPageContent({
     const [appliedPromo, setAppliedPromo] = useState<ValidatePromoResult | null>(null);
     const [promoError, setPromoError] = useState<string | null>(null);
     const [unlockedTickets, setUnlockedTickets] = useState<TicketLike[]>([]);
+
+    const regularTickets = useMemo(
+        () => tickets.filter((ticket) => ticket.type !== 'donation'),
+        [tickets],
+    );
+    const regularUnlockedTickets = useMemo(
+        () => unlockedTickets.filter((ticket) => ticket.type !== 'donation'),
+        [unlockedTickets],
+    );
+    const donationTicket = useMemo(
+        () => [...tickets, ...unlockedTickets].find((ticket) => ticket.type === 'donation') ?? null,
+        [tickets, unlockedTickets],
+    );
+    const hasDonationOption = Boolean(donationTicket);
+    const hasRegularTickets = regularTickets.length > 0 || regularUnlockedTickets.length > 0;
+
+    useEffect(() => {
+        if (!donationTicket) {
+            setDonationAmount(0);
+            return;
+        }
+        const defaultAmount = parseFloat(donationTicket.price ?? '0');
+        setDonationAmount(Number.isFinite(defaultAmount) ? defaultAmount : 0);
+    }, [donationTicket?.id]);
 
     // --- Checkout Draft Persistence ---
     const DRAFT_KEY = event?.id ? `checkout_draft_${event.id}` : null;
@@ -289,6 +379,9 @@ export function PublicEventPageContent({
             if (draft.useSharedInfo !== undefined) {
                 setUseSharedInfo(draft.useSharedInfo);
             }
+            if (typeof draft.donationAmount === 'number') {
+                setDonationAmount(draft.donationAmount);
+            }
         } catch {
             // Ignore parse errors
         }
@@ -308,6 +401,7 @@ export function PublicEventPageContent({
             ticketAttendees,
             promoCode,
             useSharedInfo,
+            donationAmount,
             savedAt: Date.now()
         };
 
@@ -342,9 +436,16 @@ export function PublicEventPageContent({
         return isEarlyBirdActive ? parseFloat(earlyBirdPrice) : parseFloat(t.price || '0');
     }, []);
 
+    const getCartItemUnitPrice = useCallback((item: { ticket: TicketLike; quantity: number; subtotal: number }) => {
+        if (item.ticket.type === 'donation') {
+            return item.subtotal;
+        }
+        return getEffectivePrice(item.ticket);
+    }, [getEffectivePrice]);
+
     // Calculate totals
-    const cartItems = useMemo(() => {
-        const allTickets = [...tickets, ...unlockedTickets];
+    const ticketCartItems = useMemo(() => {
+        const allTickets = [...regularTickets, ...regularUnlockedTickets];
         return allTickets
             .filter(t => (ticketQuantities[t.id] || 0) > 0)
             .map(t => ({
@@ -352,23 +453,44 @@ export function PublicEventPageContent({
                 quantity: ticketQuantities[t.id] || 0,
                 subtotal: (ticketQuantities[t.id] || 0) * getEffectivePrice(t)
             }));
-    }, [tickets, unlockedTickets, ticketQuantities, getEffectivePrice]);
+    }, [regularTickets, regularUnlockedTickets, ticketQuantities, getEffectivePrice]);
+
+    const donationItem = useMemo(() => {
+        if (!donationTicket) {
+            return null;
+        }
+        if (!Number.isFinite(donationAmount) || donationAmount <= 0) {
+            return null;
+        }
+        return {
+            ticket: donationTicket,
+            quantity: 1,
+            subtotal: donationAmount
+        };
+    }, [donationAmount, donationTicket]);
+
+    const cartItems = useMemo(
+        () => (donationItem ? [...ticketCartItems, donationItem] : ticketCartItems),
+        [donationItem, ticketCartItems],
+    );
 
     const totalAmount = useMemo(() =>
         cartItems.reduce((sum, item) => sum + item.subtotal, 0)
         , [cartItems]);
 
     const totalTickets = useMemo(() =>
-        cartItems.reduce((sum, item) => sum + item.quantity, 0)
-        , [cartItems]);
+        ticketCartItems.reduce((sum, item) => sum + item.quantity, 0)
+        , [ticketCartItems]);
 
     const paidTicketCount = useMemo(() =>
         cartItems.reduce((sum, item) => {
-            const unitPrice = getEffectivePrice(item.ticket);
+            const unitPrice = getCartItemUnitPrice(item);
             return unitPrice > 0 ? sum + item.quantity : sum;
         }, 0),
-        [cartItems, getEffectivePrice]
+        [cartItems, getCartItemUnitPrice]
     );
+    const hasSelections = totalTickets > 0 || donationAmount > 0;
+    const itemCountForTracking = totalTickets + (donationAmount > 0 ? 1 : 0);
 
     const customQuestionCount = event?.customQuestions?.length ?? 0;
     const forcePerTicket = customQuestionCount > 0;
@@ -397,6 +519,13 @@ export function PublicEventPageContent({
             [ticketId]: quantity
         }));
         // Clear applied promo when quantities change
+        setAppliedPromo(null);
+        setPromoError(null);
+    };
+
+    const handleDonationChange = (amount: number) => {
+        setDonationAmount(amount);
+        // Clear applied promo when donation amount changes
         setAppliedPromo(null);
         setPromoError(null);
     };
@@ -433,7 +562,12 @@ export function PublicEventPageContent({
         setIsValidatingPromo(true);
         setPromoError(null);
 
-        const result = await validatePromoCode(event.id, promoCode.trim(), totalAmount);
+        const promoItems = cartItems.map((item) => ({
+            ticketTypeId: item.ticket.id,
+            quantity: item.quantity,
+            unitPrice: item.ticket.type === 'donation' ? item.subtotal : undefined
+        }));
+        const result = await validatePromoCode(event.id, promoCode.trim(), promoItems, totalAmount);
 
         if (result.valid) {
             setAppliedPromo(result);
@@ -479,7 +613,7 @@ export function PublicEventPageContent({
         }
 
         const eventOrganizerFee = normalizeFeeValue(event.customBookingFee);
-        const allTickets = [...tickets, ...unlockedTickets];
+        const allTickets = [...regularTickets, ...regularUnlockedTickets];
 
         for (const ticket of allTickets) {
             const ticketPriceValue = parseFloat(ticket.price ?? '0');
@@ -502,7 +636,7 @@ export function PublicEventPageContent({
         }
 
         return notes;
-    }, [currencyCode, event, tickets, unlockedTickets]);
+    }, [currencyCode, event, regularTickets, regularUnlockedTickets]);
 
     useEffect(() => {
         if (!eventPixelId) {
@@ -546,7 +680,7 @@ export function PublicEventPageContent({
         }
 
         return cartItems.reduce((sum, item) => {
-            const unitPrice = getEffectivePrice(item.ticket);
+            const unitPrice = getCartItemUnitPrice(item);
             if (unitPrice <= 0) {
                 return sum;
             }
@@ -565,7 +699,7 @@ export function PublicEventPageContent({
 
             return sum + feePerTicket * item.quantity;
         }, 0);
-    }, [event, paidTicketCount, finalTotal, cartItems, getEffectivePrice, currencyCode, rates, checkoutQuote]);
+    }, [event, paidTicketCount, finalTotal, cartItems, getCartItemUnitPrice, currencyCode, rates, checkoutQuote]);
 
     const organizerFeeAmount = useMemo(() => {
         if (checkoutQuote) {
@@ -583,7 +717,7 @@ export function PublicEventPageContent({
         const eventOrganizerFee = normalizeFeeValue(event.customBookingFee) ?? 0;
 
         return cartItems.reduce((sum, item) => {
-            const unitPrice = getEffectivePrice(item.ticket);
+            const unitPrice = getCartItemUnitPrice(item);
             if (unitPrice <= 0) {
                 return sum;
             }
@@ -598,7 +732,7 @@ export function PublicEventPageContent({
 
             return sum + resolvedFee * item.quantity;
         }, 0);
-    }, [event, paidTicketCount, finalTotal, cartItems, getEffectivePrice, checkoutQuote]);
+    }, [event, paidTicketCount, finalTotal, cartItems, getCartItemUnitPrice, checkoutQuote]);
 
     const hasOrganizerFeeOverride = useMemo(() => {
         if (!event || cartItems.length === 0) {
@@ -606,7 +740,10 @@ export function PublicEventPageContent({
         }
 
         return cartItems.some((item) => {
-            const unitPrice = getEffectivePrice(item.ticket);
+            if (item.ticket.type === 'donation') {
+                return false;
+            }
+            const unitPrice = getCartItemUnitPrice(item);
             if (unitPrice <= 0) {
                 return false;
             }
@@ -615,7 +752,7 @@ export function PublicEventPageContent({
                 : undefined;
             return ticketCustomFee !== undefined;
         });
-    }, [event, cartItems, getEffectivePrice]);
+    }, [event, cartItems, getCartItemUnitPrice]);
 
     const processingFeeAmount = useMemo(() => {
         if (checkoutQuote) {
@@ -643,7 +780,10 @@ export function PublicEventPageContent({
         let remainingCredits = creditsApplied;
 
         for (const item of cartItems) {
-            const unitPrice = getEffectivePrice(item.ticket);
+            if (item.ticket.type === 'donation') {
+                continue;
+            }
+            const unitPrice = getCartItemUnitPrice(item);
             if (unitPrice <= 0 || remainingCredits <= 0) {
                 continue;
             }
@@ -670,7 +810,7 @@ export function PublicEventPageContent({
         }
 
         return details;
-    }, [cartItems, creditsApplied, event, getEffectivePrice]);
+    }, [cartItems, creditsApplied, event, getCartItemUnitPrice]);
 
     useEffect(() => {
         if (!event?.id) {
@@ -683,9 +823,13 @@ export function PublicEventPageContent({
         }
 
         let cancelled = false;
-            const timer = window.setTimeout(async () => {
+        const timer = window.setTimeout(async () => {
             const quote = await getCheckoutQuote(event.id, {
-                items: cartItems.map((item) => ({ ticketTypeId: item.ticket.id, quantity: item.quantity })),
+                items: cartItems.map((item) => ({
+                    ticketTypeId: item.ticket.id,
+                    quantity: item.quantity,
+                    unitPrice: item.ticket.type === 'donation' ? item.subtotal : undefined
+                })),
                 promoCode: appliedPromo?.code
             });
             if (!cancelled) {
@@ -745,13 +889,16 @@ export function PublicEventPageContent({
         return null;
     };
 
+
     const handleNextStep = () => {
+        setHasAttemptedSubmit(true);
         const error = validateCurrentStep();
         if (error) {
             setCheckoutError(error);
             return;
         }
         setCheckoutError(null);
+        setHasAttemptedSubmit(false);
         setCheckoutStep(s => Math.min(s + 1, totalCheckoutSteps - 1));
     };
 
@@ -770,8 +917,8 @@ export function PublicEventPageContent({
             return 'Please enter a valid age.';
         }
 
-        if (totalTickets === 0) {
-            return 'Please select at least one ticket.';
+        if (!hasSelections) {
+            return 'Please select at least one ticket or donation.';
         }
 
         if (requiresPerTicket) {
@@ -811,7 +958,7 @@ export function PublicEventPageContent({
             showError('Preview mode: checkout is disabled.');
             return;
         }
-        if (!event || !attendeeEmail || totalTickets === 0) return;
+        if (!event || !attendeeEmail || !hasSelections) return;
 
         setIsProcessing(true);
         setCheckoutError(null);
@@ -828,14 +975,15 @@ export function PublicEventPageContent({
 
         const items: CartItem[] = cartItems.map(item => ({
             ticketTypeId: item.ticket.id,
-            quantity: item.quantity
+            quantity: item.quantity,
+            unitPrice: item.ticket.type === 'donation' ? item.subtotal : undefined
         }));
 
-        if (eventPixelId && totalTickets > 0) {
+        if (eventPixelId && itemCountForTracking > 0) {
             track(eventPixelId, 'InitiateCheckout', {
                 value: Number(grandTotal.toFixed(2)),
                 currency: currencyCode,
-                num_items: totalTickets,
+                num_items: itemCountForTracking,
                 content_ids: event?.id ? [event.id] : undefined,
                 content_type: 'product'
             });
@@ -1279,13 +1427,13 @@ export function PublicEventPageContent({
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="pt-6 space-y-4">
-                                    {(tickets.length === 0 && unlockedTickets.length === 0) ? (
+                                    {!hasRegularTickets && !hasDonationOption ? (
                                         <p className="text-muted-foreground text-center py-4">
                                             No tickets available yet.
                                         </p>
                                     ) : (
                                         <>
-                                            {tickets.map((ticket) => (
+                                            {regularTickets.map((ticket) => (
                                                 <TicketCard
                                                     key={ticket.id}
                                                     ticket={ticket}
@@ -1296,13 +1444,13 @@ export function PublicEventPageContent({
                                             ))}
 
                                             {/* Unlocked Hidden Tickets */}
-                                            {unlockedTickets.length > 0 && (
+                                            {regularUnlockedTickets.length > 0 && (
                                                 <div className="pt-4 mt-4 border-t border-dashed relative">
                                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs font-medium text-amber-600 flex items-center gap-1">
                                                         Unlocked Tickets
                                                     </div>
                                                     <div className="space-y-4 pt-2">
-                                                        {unlockedTickets.map((ticket) => (
+                                                        {regularUnlockedTickets.map((ticket) => (
                                                             <div key={ticket.id} className="relative">
                                                                 <div className="absolute -left-1 top-4 w-1 h-8 bg-amber-500 rounded-r-full" />
                                                                 <TicketCard
@@ -1313,6 +1461,22 @@ export function PublicEventPageContent({
                                                                 />
                                                             </div>
                                                         ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {hasDonationOption && donationTicket && (
+                                                <div className="pt-4 mt-4 border-t border-dashed relative">
+                                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs font-medium text-emerald-600">
+                                                        Donation
+                                                    </div>
+                                                    <div className="pt-2">
+                                                        <DonationCard
+                                                            ticket={donationTicket}
+                                                            amount={donationAmount}
+                                                            currencySymbol={currencySymbol}
+                                                            onAmountChange={handleDonationChange}
+                                                        />
                                                     </div>
                                                 </div>
                                             )}
@@ -1438,14 +1602,16 @@ export function PublicEventPageContent({
                                     <Button
                                         className="w-full"
                                         size="lg"
-                                        disabled={tickets.length === 0 || totalTickets === 0}
+                                        disabled={(!hasRegularTickets && !hasDonationOption) || !hasSelections}
                                         onClick={handleOpenCheckout}
                                     >
                                         <ShoppingCart className="h-4 w-4 mr-2" />
-                                        {tickets.length === 0
+                                        {!hasRegularTickets && !hasDonationOption
                                             ? 'No Tickets Available'
-                                            : totalTickets === 0
-                                                ? 'Select Tickets'
+                                            : !hasSelections
+                                                ? hasDonationOption && !hasRegularTickets
+                                                    ? 'Add Donation'
+                                                    : 'Select Tickets'
                                                 : 'Proceed to Checkout'
                                         }
                                     </Button>
@@ -1491,8 +1657,9 @@ export function PublicEventPageContent({
 
                             {/* Items List */}
                             <div className="flex-1 overflow-y-auto pr-2 space-y-3 relative z-10 custom-scrollbar">
-                                {cartItems.map(item => {
-                                    const feeDetail = organizerFeeDetails.get(item.ticket.id);
+                                {cartItems.filter(item => item.ticket.type !== 'donation').map(item => {
+                                    const isDonation = item.ticket.type === 'donation';
+                                    const feeDetail = !isDonation ? organizerFeeDetails.get(item.ticket.id) : undefined;
                                     const feeNote = feeDetail
                                         ? `Organizer fee: ${formatCurrency(feeDetail.feePerTicket, currencyCode)} per ticket` +
                                         (feeDetail.creditQuantity < feeDetail.quantity
@@ -1503,7 +1670,9 @@ export function PublicEventPageContent({
                                         <div key={item.ticket.id} className="flex justify-between items-start text-sm group/item">
                                             <div className="flex flex-col">
                                                 <span className="font-medium text-foreground">{item.ticket.name}</span>
-                                                <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {isDonation ? 'Donation' : `Qty: ${item.quantity}`}
+                                                </span>
                                                 {feeNote ? (
                                                     <span className="text-xs text-muted-foreground">{feeNote}</span>
                                                 ) : null}
@@ -1512,6 +1681,34 @@ export function PublicEventPageContent({
                                         </div>
                                     );
                                 })}
+                                {hasDonationOption && donationTicket && (
+                                    <div className="flex justify-between items-center text-sm">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-foreground">{donationTicket.name}</span>
+                                            <span className="text-xs text-muted-foreground">Optional donation</span>
+                                        </div>
+                                        <div className="w-24">
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={donationAmount.toString()}
+                                                onChange={(e) => {
+                                                    const value = e.target.value;
+                                                    if (value === '') {
+                                                        handleDonationChange(0);
+                                                        return;
+                                                    }
+                                                    const numeric = Number(value);
+                                                    if (Number.isFinite(numeric) && numeric >= 0) {
+                                                        handleDonationChange(numeric);
+                                                    }
+                                                }}
+                                                className="h-9"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Fees & Discounts */}
                                 <Separator className="my-3 bg-primary/10" />
@@ -1629,54 +1826,63 @@ export function PublicEventPageContent({
                                         {stepType === 'buyer' && (
                                             <>
                                                 <div className="space-y-1.5">
-                                                    <Label htmlFor="buyerName" className="text-xs font-medium text-muted-foreground">Full Name</Label>
+                                                    <Label htmlFor="buyerName" className={cn("text-xs font-medium", hasAttemptedSubmit && !attendeeName.trim() ? "text-destructive" : "text-muted-foreground")}>Full Name</Label>
                                                     <Input
                                                         id="buyerName"
-                                                        placeholder="Salahuddin Al-Ayyubi"
                                                         value={attendeeName}
                                                         onChange={(e) => setAttendeeName(e.target.value)}
                                                         disabled={isProcessing}
-                                                        className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors"
+                                                        className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && !attendeeName.trim() && "border-destructive ring-1 ring-destructive/30")}
                                                     />
+                                                    {hasAttemptedSubmit && !attendeeName.trim() && (
+                                                        <p className="text-xs text-destructive">Please enter your name</p>
+                                                    )}
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <Label htmlFor="buyerEmail" className="text-xs font-medium text-muted-foreground">Email Address</Label>
+                                                    <Label htmlFor="buyerEmail" className={cn("text-xs font-medium", hasAttemptedSubmit && !attendeeEmail.trim() ? "text-destructive" : "text-muted-foreground")}>Email Address</Label>
                                                     <Input
                                                         id="buyerEmail"
                                                         type="email"
-                                                        placeholder="salahuddin@example.com"
                                                         value={attendeeEmail}
                                                         onChange={(e) => setAttendeeEmail(e.target.value)}
                                                         disabled={isProcessing}
-                                                        className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors"
+                                                        className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && !attendeeEmail.trim() && "border-destructive ring-1 ring-destructive/30")}
                                                     />
+                                                    {hasAttemptedSubmit && !attendeeEmail.trim() && (
+                                                        <p className="text-xs text-destructive">Please enter your email</p>
+                                                    )}
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="space-y-1.5">
-                                                        <Label htmlFor="buyerAge" className="text-xs font-medium text-muted-foreground">Age</Label>
+                                                        <Label htmlFor="buyerAge" className={cn("text-xs font-medium", hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) <= 0) ? "text-destructive" : "text-muted-foreground")}>Age</Label>
                                                         <Input
                                                             id="buyerAge"
                                                             type="number"
-                                                            placeholder="25"
                                                             min="1"
                                                             max="120"
                                                             value={attendeeAge}
                                                             onChange={(e) => setAttendeeAge(e.target.value)}
                                                             disabled={isProcessing}
-                                                            className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors"
+                                                            className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) <= 0) && "border-destructive ring-1 ring-destructive/30")}
                                                         />
+                                                        {hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) <= 0) && (
+                                                            <p className="text-xs text-destructive">Required</p>
+                                                        )}
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs font-medium text-muted-foreground">Gender</Label>
+                                                        <Label className={cn("text-xs font-medium", hasAttemptedSubmit && !attendeeGender ? "text-destructive" : "text-muted-foreground")}>Gender</Label>
                                                         <Select value={attendeeGender} onValueChange={setAttendeeGender} disabled={isProcessing}>
-                                                            <SelectTrigger className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors">
-                                                                <SelectValue placeholder="Select" />
+                                                            <SelectTrigger className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && !attendeeGender && "border-destructive ring-1 ring-destructive/30")}>
+                                                                <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value="male">Male</SelectItem>
                                                                 <SelectItem value="female">Female</SelectItem>
                                                             </SelectContent>
                                                         </Select>
+                                                        {hasAttemptedSubmit && !attendeeGender && (
+                                                            <p className="text-xs text-destructive">Required</p>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -1705,7 +1911,6 @@ export function PublicEventPageContent({
                                                 <div className="space-y-1.5">
                                                     <Label className="text-xs font-medium text-muted-foreground">Attendee Name</Label>
                                                     <Input
-                                                        placeholder="Name"
                                                         value={ticketAttendees[currentTicketIndex].name}
                                                         onChange={(e) => {
                                                             const updated = [...ticketAttendees];
@@ -1721,7 +1926,6 @@ export function PublicEventPageContent({
                                                         <Label className="text-xs font-medium text-muted-foreground">Age</Label>
                                                         <Input
                                                             type="number"
-                                                            placeholder="25"
                                                             value={ticketAttendees[currentTicketIndex].age}
                                                             onChange={(e) => {
                                                                 const updated = [...ticketAttendees];
@@ -1744,7 +1948,7 @@ export function PublicEventPageContent({
                                                             disabled={isProcessing}
                                                         >
                                                             <SelectTrigger className="h-10 bg-muted/30">
-                                                                <SelectValue placeholder="Select" />
+                                                                <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value="male">Male</SelectItem>
@@ -1763,7 +1967,6 @@ export function PublicEventPageContent({
                                                                 </Label>
                                                                 {q.type === 'text' && (
                                                                     <Input
-                                                                        placeholder={q.label}
                                                                         value={ticketAttendees[currentTicketIndex].customAnswers[q.id] || ''}
                                                                         onChange={(e) => {
                                                                             const updated = [...ticketAttendees];
@@ -1842,7 +2045,7 @@ export function PublicEventPageContent({
                                                                         disabled={isProcessing}
                                                                     >
                                                                         <SelectTrigger className="h-10 bg-muted/30">
-                                                                            <SelectValue placeholder="Select..." />
+                                                                            <SelectValue />
                                                                         </SelectTrigger>
                                                                         <SelectContent>
                                                                             {q.options.map((opt) => (
@@ -1868,7 +2071,8 @@ export function PublicEventPageContent({
                                                     </div>
                                                     <div className="space-y-1.5 text-sm">
                                                         {cartItems.map(item => {
-                                                            const feeDetail = organizerFeeDetails.get(item.ticket.id);
+                                                            const isDonation = item.ticket.type === 'donation';
+                                                            const feeDetail = !isDonation ? organizerFeeDetails.get(item.ticket.id) : undefined;
                                                             const feeNote = feeDetail
                                                                 ? `Organizer fee: ${formatCurrency(feeDetail.feePerTicket, currencyCode)} per ticket` +
                                                                 (feeDetail.creditQuantity < feeDetail.quantity
@@ -1878,7 +2082,7 @@ export function PublicEventPageContent({
                                                             return (
                                                                 <div key={item.ticket.id} className="flex flex-col text-muted-foreground">
                                                                     <div className="flex justify-between">
-                                                                        <span>{item.quantity}× {item.ticket.name}</span>
+                                                                        <span>{isDonation ? item.ticket.name : `${item.quantity}× ${item.ticket.name}`}</span>
                                                                         <span>{currencySymbol}{item.subtotal.toFixed(2)}</span>
                                                                     </div>
                                                                     {feeNote ? (

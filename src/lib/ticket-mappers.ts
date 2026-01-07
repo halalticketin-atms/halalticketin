@@ -14,7 +14,8 @@ export const mapTicketRecordsToDraft = (
 ): DraftTicketType[] =>
     rows.map((ticket, index) => {
         const priceValue = ticket.price ?? '0';
-        const isFree = ticket.type === 'free' || Number(priceValue) === 0;
+        const isDonation = ticket.type === 'donation';
+        const isFree = !isDonation && (ticket.type === 'free' || Number(priceValue) === 0);
         // Check if early bird is configured
         const hasEarlyBird = !!(ticket.earlyBirdPrice && ticket.earlyBirdEndDate);
         return {
@@ -23,6 +24,7 @@ export const mapTicketRecordsToDraft = (
             price: priceValue,
             customFee: ticket.customFee === null || ticket.customFee === undefined ? '' : String(ticket.customFee),
             isFree,
+            type: ticket.type ?? (isFree ? 'free' : 'paid'),
             quantity: ticket.maxQuantity ?? 0,
             maxPerOrder: ticket.maxPerOrder ?? 1,
             description: ticket.description ?? '',

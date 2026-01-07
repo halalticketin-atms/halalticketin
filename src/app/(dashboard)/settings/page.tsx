@@ -621,8 +621,9 @@ export default function SettingsPage() {
                                             <Select
                                                 value={profileForm.gender}
                                                 onValueChange={(value) => setProfileForm(prev => ({ ...prev, gender: value as 'male' | 'female' | '' }))}
+                                                disabled={!!user?.gender}
                                             >
-                                                <SelectTrigger className="glass-surface backdrop-blur-sm rounded-xl">
+                                                <SelectTrigger className={cn("glass-surface backdrop-blur-sm rounded-xl", user?.gender && "opacity-60")}>
                                                     <SelectValue placeholder="Select gender" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -630,6 +631,9 @@ export default function SettingsPage() {
                                                     <SelectItem value="female">Female</SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                            {user?.gender && (
+                                                <p className="text-xs text-muted-foreground">Gender cannot be changed once set</p>
+                                            )}
                                         </div>
 
                                         {/* Date of Birth */}
@@ -643,9 +647,13 @@ export default function SettingsPage() {
                                                 value={profileForm.dateOfBirth}
                                                 onChange={(value) => setProfileForm(prev => ({ ...prev, dateOfBirth: value }))}
                                                 placeholder="Select date of birth"
-                                                className="glass-surface backdrop-blur-sm rounded-xl"
+                                                className={cn("glass-surface backdrop-blur-sm rounded-xl", user?.dateOfBirth && "opacity-60")}
                                                 maxDate={new Date()}
+                                                disabled={!!user?.dateOfBirth}
                                             />
+                                            {user?.dateOfBirth && (
+                                                <p className="text-xs text-muted-foreground">Date of birth cannot be changed once set</p>
+                                            )}
                                         </div>
 
                                         {/* Country */}

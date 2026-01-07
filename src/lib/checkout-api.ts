@@ -9,6 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 export interface CartItem {
     ticketTypeId: string;
     quantity: number;
+    unitPrice?: number;
 }
 
 export interface TicketAttendeePayload {
@@ -247,15 +248,20 @@ export interface ValidatePromoResult {
 export async function validatePromoCode(
     eventId: string,
     promoCode: string,
-    subtotal: number
+    items: CartItem[],
+    subtotal?: number
 ): Promise<ValidatePromoResult> {
     try {
+        const payload: { promoCode: string; items: CartItem[]; subtotal?: number } = { promoCode, items };
+        if (typeof subtotal === 'number') {
+            payload.subtotal = subtotal;
+        }
         const response = await fetch(
             `${API_URL}/api/v1/events/${eventId}/checkout/validate-promo`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ promoCode, subtotal })
+                body: JSON.stringify(payload)
             }
         );
         const data = await response.json().catch(() => null);

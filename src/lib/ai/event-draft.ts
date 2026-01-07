@@ -61,6 +61,7 @@ export async function generateEventDraft({
     '    "name": string | null,',
     '    "price": string | null,           // numeric string without currency symbol, e.g. "15"',
     '    "isFree": boolean | null,',
+    '    "type": "paid" | "free" | "donation" | null,',
     '    "quantity": number | null,',
     '    "maxPerOrder": number | null,',
     '    "description": string | null,',
@@ -292,13 +293,20 @@ function normalizeTicket(
     raw.visibility === 'hidden' ? 'hidden' : 'public';
   const customFee =
     raw.customFee !== undefined && raw.customFee !== null ? String(raw.customFee) : '';
+  const resolvedType: DraftTicketType['type'] =
+    raw.type === 'donation'
+      ? 'donation'
+      : raw.type === 'free' || raw.isFree
+        ? 'free'
+        : 'paid';
 
   return {
     id: baseId,
     name: raw.name && raw.name.trim().length > 0 ? raw.name : 'Standard Ticket',
     price: raw.price ?? '',
     customFee,
-    isFree: Boolean(raw.isFree),
+    isFree: resolvedType === 'free',
+    type: resolvedType,
     quantity,
     maxPerOrder,
     description: raw.description ?? '',

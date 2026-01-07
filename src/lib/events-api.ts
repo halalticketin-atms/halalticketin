@@ -119,6 +119,7 @@ export interface TicketInputPayload {
     description?: string | null;
     price?: number;
     isFree?: boolean;
+    type?: 'free' | 'paid' | 'donation';
     currency?: string;
     maxQuantity?: number;
     maxPerOrder?: number;
