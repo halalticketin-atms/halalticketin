@@ -435,7 +435,7 @@ export default function EmailAttendeesPage() {
                 description: `${response.sent} recipient${response.sent === 1 ? '' : 's'} queued${response.failed ? ` · ${response.failed} failed` : ''}`,
             });
         } catch (err) {
-            toast.error(err, 'Failed to send email');
+            toast.error(err);
         } finally {
             setIsSending(false);
         }

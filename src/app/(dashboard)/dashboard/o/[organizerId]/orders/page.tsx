@@ -192,7 +192,12 @@ export default function OrdersPage() {
             });
         } catch (err) {
             console.error('Failed to resend email:', err);
-            toast.error(err, 'Failed to send email');
+            toast.error(err, undefined, {
+                action: {
+                    label: 'Retry',
+                    onClick: () => handleResendEmail(orderId),
+                },
+            });
         } finally {
             setIsResending(false);
         }

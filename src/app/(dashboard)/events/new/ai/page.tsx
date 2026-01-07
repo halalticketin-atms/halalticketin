@@ -99,11 +99,8 @@ export default function AIEventCreatorPage() {
     const { activeOrganizerId } = useOrganizers();
 
     const redirectToWizard = () => {
-        if (activeOrganizerId) {
-            router.push(`${buildDashboardPath(activeOrganizerId)}/events/create?source=ai`);
-        } else {
-            router.push('/events/create?source=ai');
-        }
+        // Event creation wizard is at /events/create (not under organizer dashboard)
+        router.push('/events/create?source=ai');
     };
 
     const handleSubmit = async () => {
