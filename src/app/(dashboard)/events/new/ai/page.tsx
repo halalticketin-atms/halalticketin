@@ -145,28 +145,21 @@ export default function AIEventCreatorPage() {
 
             redirectToWizard();
         } catch (err) {
-            console.error(err);
+            console.error('AI generation failed:', err);
 
-            const fallbackDraft = buildFallbackDraft(titleHint);
-            if (bannerImageDataUrl) {
-                fallbackDraft.formData = {
-                    ...(fallbackDraft.formData ?? {}),
-                    bannerImageDataUrl,
-                };
+            // Show user-friendly error message based on error type
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            let userMessage = 'Failed to generate event. Please try again.';
+
+            if (errorMessage.includes('rate') || errorMessage.includes('Rate') || errorMessage.includes('Too many')) {
+                userMessage = 'Too many requests. Please wait a minute and try again.';
+            } else if (errorMessage.includes('not configured') || errorMessage.includes('API key')) {
+                userMessage = 'AI service is not available right now.';
+            } else if (errorMessage.includes('network') || errorMessage.includes('Network')) {
+                userMessage = 'Network error. Please check your connection and try again.';
             }
 
-            savePendingDraft({
-                source: 'ai',
-                draft: fallbackDraft,
-                meta: {
-                    label: uploadedFile ? `AI from ${uploadedFile.name}` : 'AI draft (fallback)',
-                    description:
-                        'We could not reach the AI service, so we created a minimal draft. Please fill in the remaining details.',
-                    key: `ai-fallback-${Date.now()}`,
-                },
-            });
-
-            redirectToWizard();
+            setErrorMessage(userMessage);
         } finally {
             setIsProcessing(false);
         }
