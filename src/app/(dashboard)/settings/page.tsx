@@ -11,6 +11,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { StripeConnectStatus } from '@/components/stripe-connect-status';
 import { useOrganizers } from '@/context/organizer-context';
@@ -637,12 +638,13 @@ export default function SettingsPage() {
                                                 <Calendar className="h-4 w-4" />
                                                 Date of Birth
                                             </Label>
-                                            <Input
+                                            <DatePicker
                                                 id="dateOfBirth"
-                                                type="date"
-                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all"
                                                 value={profileForm.dateOfBirth}
-                                                onChange={(e) => setProfileForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                                                onChange={(value) => setProfileForm(prev => ({ ...prev, dateOfBirth: value }))}
+                                                placeholder="Select date of birth"
+                                                className="glass-surface backdrop-blur-sm rounded-xl"
+                                                maxDate={new Date()}
                                             />
                                         </div>
 

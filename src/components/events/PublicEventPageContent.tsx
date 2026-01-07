@@ -46,7 +46,7 @@ import { useMetaPixel } from '@/hooks/useMetaPixel';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, type TicketAttendeePayload, getCheckoutQuote, type CheckoutQuoteResponse } from '@/lib/checkout-api';
 import { showError } from '@/lib/errors';
-import { calculateFeePerTicket, getCurrencySymbol, type FeeTier } from '@/lib/fees';
+import { calculateFeePerTicket, formatCurrency, getCurrencySymbol, type FeeTier } from '@/lib/fees';
 import { formatCreditSplitNote } from '@/lib/credit-notes';
 import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
@@ -107,11 +107,13 @@ function normalizeFeeValue(value?: number | string | null): number | undefined {
 function TicketCard({
     ticket,
     quantity,
-    onQuantityChange
+    onQuantityChange,
+    organizerFeeNote
 }: {
     ticket: TicketLike;
     quantity: number;
     onQuantityChange: (quantity: number) => void;
+    organizerFeeNote?: string | null;
 }) {
     const regularPrice = formatPrice(ticket.price, ticket.currency);
     const isFree = ticket.type === 'free' || regularPrice === 'Free';
@@ -142,6 +144,9 @@ function TicketCard({
                         </>
                     )}
                 </div>
+                {organizerFeeNote ? (
+                    <p className="text-xs text-muted-foreground mt-1">{organizerFeeNote}</p>
+                ) : null}
             </div>
             <div className="flex items-center gap-2 ml-4">
                 <Button
@@ -467,6 +472,38 @@ export function PublicEventPageContent({
     const currencyCode = event?.currency || tickets[0]?.currency || 'GBP';
     const currencySymbol = getCurrencySymbol(currencyCode);
 
+    const organizerFeeNotes = useMemo(() => {
+        const notes = new Map<string, string>();
+        if (!event) {
+            return notes;
+        }
+
+        const eventOrganizerFee = normalizeFeeValue(event.customBookingFee);
+        const allTickets = [...tickets, ...unlockedTickets];
+
+        for (const ticket of allTickets) {
+            const ticketPriceValue = parseFloat(ticket.price ?? '0');
+            if (!Number.isFinite(ticketPriceValue) || ticketPriceValue <= 0) {
+                continue;
+            }
+            const ticketCustomFee = 'customFee' in ticket
+                ? normalizeFeeValue(ticket.customFee)
+                : undefined;
+            const resolvedFee = ticketCustomFee ?? eventOrganizerFee;
+            if (!resolvedFee || resolvedFee <= 0) {
+                continue;
+            }
+
+            const noteCurrency = ticket.currency ?? currencyCode;
+            notes.set(
+                ticket.id,
+                `Organizer fee: ${formatCurrency(resolvedFee, noteCurrency)} per ticket`
+            );
+        }
+
+        return notes;
+    }, [currencyCode, event, tickets, unlockedTickets]);
+
     useEffect(() => {
         if (!eventPixelId) {
             return;
@@ -595,6 +632,45 @@ export function PublicEventPageContent({
     const creditsApplied = checkoutQuote?.creditsApplied ?? 0;
     const quotePaidTicketCount = checkoutQuote?.paidTicketCount ?? paidTicketCount;
     const creditSplitNote = formatCreditSplitNote(creditsApplied, quotePaidTicketCount);
+
+    const organizerFeeDetails = useMemo(() => {
+        const details = new Map<string, { feePerTicket: number; creditQuantity: number; quantity: number }>();
+        if (!event || cartItems.length === 0 || creditsApplied <= 0) {
+            return details;
+        }
+
+        const eventOrganizerFee = normalizeFeeValue(event.customBookingFee);
+        let remainingCredits = creditsApplied;
+
+        for (const item of cartItems) {
+            const unitPrice = getEffectivePrice(item.ticket);
+            if (unitPrice <= 0 || remainingCredits <= 0) {
+                continue;
+            }
+
+            const creditQuantity = Math.min(remainingCredits, item.quantity);
+            remainingCredits -= creditQuantity;
+            if (creditQuantity <= 0) {
+                continue;
+            }
+
+            const ticketCustomFee = 'customFee' in item.ticket
+                ? normalizeFeeValue(item.ticket.customFee)
+                : undefined;
+            const resolvedFee = ticketCustomFee ?? eventOrganizerFee;
+            if (!resolvedFee || resolvedFee <= 0) {
+                continue;
+            }
+
+            details.set(item.ticket.id, {
+                feePerTicket: resolvedFee,
+                creditQuantity,
+                quantity: item.quantity
+            });
+        }
+
+        return details;
+    }, [cartItems, creditsApplied, event, getEffectivePrice]);
 
     useEffect(() => {
         if (!event?.id) {
@@ -1215,6 +1291,7 @@ export function PublicEventPageContent({
                                                     ticket={ticket}
                                                     quantity={ticketQuantities[ticket.id] || 0}
                                                     onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
+                                                    organizerFeeNote={organizerFeeNotes.get(ticket.id)}
                                                 />
                                             ))}
 
@@ -1232,6 +1309,7 @@ export function PublicEventPageContent({
                                                                     ticket={ticket}
                                                                     quantity={ticketQuantities[ticket.id] || 0}
                                                                     onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
+                                                                    organizerFeeNote={organizerFeeNotes.get(ticket.id)}
                                                                 />
                                                             </div>
                                                         ))}
@@ -1413,15 +1491,27 @@ export function PublicEventPageContent({
 
                             {/* Items List */}
                             <div className="flex-1 overflow-y-auto pr-2 space-y-3 relative z-10 custom-scrollbar">
-                                {cartItems.map(item => (
-                                    <div key={item.ticket.id} className="flex justify-between items-start text-sm group/item">
-                                        <div className="flex flex-col">
-                                            <span className="font-medium text-foreground">{item.ticket.name}</span>
-                                            <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
+                                {cartItems.map(item => {
+                                    const feeDetail = organizerFeeDetails.get(item.ticket.id);
+                                    const feeNote = feeDetail
+                                        ? `Organizer fee: ${formatCurrency(feeDetail.feePerTicket, currencyCode)} per ticket` +
+                                        (feeDetail.creditQuantity < feeDetail.quantity
+                                            ? ` (applies to ${feeDetail.creditQuantity} of ${feeDetail.quantity})`
+                                            : '')
+                                        : null;
+                                    return (
+                                        <div key={item.ticket.id} className="flex justify-between items-start text-sm group/item">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-foreground">{item.ticket.name}</span>
+                                                <span className="text-xs text-muted-foreground">Qty: {item.quantity}</span>
+                                                {feeNote ? (
+                                                    <span className="text-xs text-muted-foreground">{feeNote}</span>
+                                                ) : null}
+                                            </div>
+                                            <span className="font-semibold text-foreground">{currencySymbol}{item.subtotal.toFixed(2)}</span>
                                         </div>
-                                        <span className="font-semibold text-foreground">{currencySymbol}{item.subtotal.toFixed(2)}</span>
-                                    </div>
-                                ))}
+                                    );
+                                })}
 
                                 {/* Fees & Discounts */}
                                 <Separator className="my-3 bg-primary/10" />
@@ -1777,12 +1867,26 @@ export function PublicEventPageContent({
                                                         <span className="text-2xl font-bold text-foreground">{currencySymbol}{grandTotal.toFixed(2)}</span>
                                                     </div>
                                                     <div className="space-y-1.5 text-sm">
-                                                        {cartItems.map(item => (
-                                                            <div key={item.ticket.id} className="flex justify-between text-muted-foreground">
-                                                                <span>{item.quantity}× {item.ticket.name}</span>
-                                                                <span>{currencySymbol}{item.subtotal.toFixed(2)}</span>
-                                                            </div>
-                                                        ))}
+                                                        {cartItems.map(item => {
+                                                            const feeDetail = organizerFeeDetails.get(item.ticket.id);
+                                                            const feeNote = feeDetail
+                                                                ? `Organizer fee: ${formatCurrency(feeDetail.feePerTicket, currencyCode)} per ticket` +
+                                                                (feeDetail.creditQuantity < feeDetail.quantity
+                                                                    ? ` (applies to ${feeDetail.creditQuantity} of ${feeDetail.quantity})`
+                                                                    : '')
+                                                                : null;
+                                                            return (
+                                                                <div key={item.ticket.id} className="flex flex-col text-muted-foreground">
+                                                                    <div className="flex justify-between">
+                                                                        <span>{item.quantity}× {item.ticket.name}</span>
+                                                                        <span>{currencySymbol}{item.subtotal.toFixed(2)}</span>
+                                                                    </div>
+                                                                    {feeNote ? (
+                                                                        <span className="text-xs text-muted-foreground">{feeNote}</span>
+                                                                    ) : null}
+                                                                </div>
+                                                            );
+                                                        })}
                                                         {appliedPromo && discountAmount > 0 && (
                                                             <div className="flex justify-between text-green-600">
                                                                 <span>Discount ({appliedPromo.code})</span>

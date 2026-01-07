@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -818,11 +819,12 @@ export function SignupOnboardingDialog({
                                                             <Calendar className="h-4 w-4 text-slate-400" />
                                                             Date of Birth
                                                         </Label>
-                                                        <Input
-                                                            type="date"
+                                                        <DatePicker
                                                             value={formData.dateOfBirth}
-                                                            onChange={(e) => updateField('dateOfBirth', e.target.value)}
+                                                            onChange={(value) => updateField('dateOfBirth', value)}
+                                                            placeholder="Select date of birth"
                                                             className="h-12 bg-white/70 dark:bg-slate-800/70"
+                                                            maxDate={new Date()}
                                                         />
                                                     </div>
                                                 </motion.div>
