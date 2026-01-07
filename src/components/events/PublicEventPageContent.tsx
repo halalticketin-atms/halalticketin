@@ -568,11 +568,6 @@ export function PublicEventPageContent({
             return false;
         }
 
-        const feeTier = (event.feeTier ?? 'payg') as FeeTier;
-        if (feeTier !== 'token') {
-            return false;
-        }
-
         return cartItems.some((item) => {
             const unitPrice = getEffectivePrice(item.ticket);
             if (unitPrice <= 0) {
@@ -606,9 +601,7 @@ export function PublicEventPageContent({
             setCheckoutQuote(null);
             return;
         }
-
-        const feeTier = (event.feeTier ?? 'payg') as FeeTier;
-        if (feeTier !== 'token' || cartItems.length === 0) {
+        if (cartItems.length === 0) {
             setCheckoutQuote(null);
             return;
         }
@@ -628,7 +621,7 @@ export function PublicEventPageContent({
             cancelled = true;
             window.clearTimeout(timer);
         };
-    }, [event?.id, event?.feeTier, cartItems, appliedPromo?.code]);
+    }, [event?.id, cartItems, appliedPromo?.code]);
 
     // Step-based checkout: Step 0 = Buyer, Step 1..N = Tickets (if per-ticket), Final = Confirm
     const totalCheckoutSteps = requiresPerTicket ? 1 + totalTickets + 1 : 2;

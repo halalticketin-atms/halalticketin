@@ -307,30 +307,33 @@ export default function ProfilePage() {
                 {/* Content Tabs */}
                 <div className="container max-w-4xl py-8">
                     <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="w-full justify-start bg-transparent border-b border-border/40 rounded-none h-auto p-0 mb-8 space-x-8">
-                            {['Upcoming', 'Past Events', 'Saved', 'Following'].map((tab) => {
-                                const actualValue = tab === 'Past Events' ? 'past' : tab.toLowerCase();
-                                const isActive = activeTab === actualValue;
+                        {/* Scrollable container for mobile */}
+                        <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                            <TabsList className="w-max sm:w-full justify-start bg-transparent border-b border-border/40 rounded-none h-auto p-0 mb-8 gap-4 sm:gap-8">
+                                {['Upcoming', 'Past Events', 'Saved', 'Following'].map((tab) => {
+                                    const actualValue = tab === 'Past Events' ? 'past' : tab.toLowerCase();
+                                    const isActive = activeTab === actualValue;
 
-                                return (
-                                    <TabsTrigger
-                                        key={tab}
-                                        value={actualValue}
-                                        className="relative rounded-none border-0 bg-transparent px-0 pb-3 pt-0 text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none transition-colors"
-                                    >
-                                        <span className="text-lg font-medium">{tab}</span>
-                                        {isActive && (
-                                            <motion.div
-                                                layoutId="activeTab"
-                                                className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
-                                                initial={false}
-                                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                            />
-                                        )}
-                                    </TabsTrigger>
-                                );
-                            })}
-                        </TabsList>
+                                    return (
+                                        <TabsTrigger
+                                            key={tab}
+                                            value={actualValue}
+                                            className="relative rounded-none border-0 bg-transparent px-0 pb-3 pt-0 text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none transition-colors whitespace-nowrap"
+                                        >
+                                            <span className="text-sm sm:text-lg font-medium">{tab}</span>
+                                            {isActive && (
+                                                <motion.div
+                                                    layoutId="activeTab"
+                                                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                                                    initial={false}
+                                                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                                />
+                                            )}
+                                        </TabsTrigger>
+                                    );
+                                })}
+                            </TabsList>
+                        </div>
 
                         <div className="min-h-[400px]">
                             <TabsContent value="upcoming" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">

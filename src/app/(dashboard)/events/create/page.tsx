@@ -87,7 +87,7 @@ import { ApiError } from '@/lib/api';
 import { getBackendErrorDetails } from '@/lib/api-errors';
 import { getUserFriendlyMessage, showWarning } from '@/lib/errors';
 import { getCurrencySymbol } from '@/lib/fees';
-import { toUtcIsoString } from '@/lib/timezone';
+import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/lib/timezone';
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
 import {
@@ -202,10 +202,18 @@ const mapLocationType = (value: DraftLocationType) => locationTypeMap[value] ?? 
 const toIsoString = (date?: string, time?: string | null, timeZone?: string) =>
     toUtcIsoString(date, time, timeZone);
 
+const parseTimeToMinutes = (value: string) => {
+    const [hours, minutes] = value.split(':').map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+        return null;
+    }
+    return hours * 60 + minutes;
+};
+
 const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
     const start = toIsoString(formData.date, formData.startTime, formData.timezone);
     const inferredEndDate = formData.isMultiDay ? formData.endDate || formData.date : formData.date;
-    const end = toIsoString(inferredEndDate, formData.endTime || formData.startTime, formData.timezone);
+    const end = toIsoString(inferredEndDate, formData.endTime, formData.timezone);
     const locationType = mapLocationType(formData.locationType);
     const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
     const isOnline = locationType === 'online' || locationType === 'hybrid';
@@ -439,6 +447,22 @@ const validatePublishForm = (formData: DraftFormData, tickets: DraftTicketType[]
         errors.endTime = 'End time is required.';
     }
 
+    const nowIso = new Date().toISOString();
+    const todayInZone = formatDateInTimeZone(nowIso, formData.timezone);
+    const nowTimeInZone = formatTimeInTimeZone(nowIso, formData.timezone);
+    const nowMinutes = parseTimeToMinutes(nowTimeInZone);
+    const startMinutes = parseTimeToMinutes(formData.startTime);
+
+    if (formData.date && todayInZone) {
+        if (formData.date < todayInZone) {
+            errors.date = 'Start date must be today or later.';
+        } else if (formData.date === todayInZone && startMinutes !== null && nowMinutes !== null) {
+            if (startMinutes <= nowMinutes) {
+                errors.startTime = 'Start time must be after the current time.';
+            }
+        }
+    }
+
     const start = toIsoString(formData.date, formData.startTime, formData.timezone);
     const inferredEndDate = formData.isMultiDay ? formData.endDate || formData.date : formData.date;
     const end = toIsoString(inferredEndDate, formData.endTime, formData.timezone);
@@ -498,6 +522,17 @@ export function EventWizard({
     const { user, isLoading: authLoading } = useAuth();
     const { activeOrganizerId, organizers, isLoading: organizersLoading } = useOrganizers();
     const currentOrganizer = organizers.find(o => o.id === activeOrganizerId);
+    const appliedBannerRef = useRef<string | null>(null);
+
+    // Banner file upload state
+    const [bannerFile, setBannerFile] = useState<File | null>(null);
+    const [bannerWasRemoved, setBannerWasRemoved] = useState(false);
+    const bannerInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        appliedBannerRef.current = null;
+        setBannerWasRemoved(false);
+    }, [initialDraft?.eventId]);
 
     // Sync currency from organizer default if likely untouched
     useEffect(() => {
@@ -509,13 +544,21 @@ export function EventWizard({
     // FIX: Populate poster preview from existing event's bannerImageDataUrl when editing
     useEffect(() => {
         const bannerUrl = initialDraft?.formData?.bannerImageDataUrl;
+        const eventKey = initialDraft?.eventId ?? 'new';
+        if (bannerWasRemoved) {
+            return;
+        }
+        if (appliedBannerRef.current === eventKey) {
+            return;
+        }
         if (bannerUrl && !formData.bannerImageDataUrl) {
             setFormData(prev => ({
                 ...prev,
                 bannerImageDataUrl: bannerUrl
             }));
+            appliedBannerRef.current = eventKey;
         }
-    }, [initialDraft?.formData?.bannerImageDataUrl, formData.bannerImageDataUrl, setFormData]);
+    }, [bannerWasRemoved, formData.bannerImageDataUrl, initialDraft?.eventId, initialDraft?.formData?.bannerImageDataUrl, setFormData]);
 
     // Location coordinates for map display
     const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
@@ -552,11 +595,35 @@ export function EventWizard({
     const [isWarningOpen, setIsWarningOpen] = useState(false);
     const [organizerCredits, setOrganizerCredits] = useState<number | null>(null);
     const [publishCapacity, setPublishCapacity] = useState(0);
+    const [creditBalance, setCreditBalance] = useState<number | null>(null);
 
-    // Banner file upload state
-    const [bannerFile, setBannerFile] = useState<File | null>(null);
-    const [bannerWasRemoved, setBannerWasRemoved] = useState(false);
-    const bannerInputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (!activeOrganizerId) {
+            setCreditBalance(null);
+            return;
+        }
+
+        let cancelled = false;
+        getCreditBalance(activeOrganizerId)
+            .then((credits) => {
+                if (!cancelled) {
+                    setCreditBalance(credits.balance);
+                }
+            })
+            .catch((error) => {
+                console.error('Failed to fetch credit balance:', error);
+                if (!cancelled) {
+                    setCreditBalance(0);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeOrganizerId]);
+
+    const hasCredits = (creditBalance ?? 0) > 0;
+    const canUseCredits = currentOrganizer?.feeTier === 'token' || hasCredits;
 
     const handleBannerSelect = useCallback((e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -1316,8 +1383,8 @@ export function EventWizard({
             return;
         }
 
-        // Credit check for 'token' fee tier
-        if (currentOrganizer?.feeTier === 'token' && activeOrganizerId) {
+        // Credit check for token-tier behavior (credits available or token plan)
+        if (canUseCredits && activeOrganizerId) {
             try {
                 const credits = await getCreditBalance(activeOrganizerId);
                 const totalCapacity = tickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
@@ -1330,12 +1397,12 @@ export function EventWizard({
                 }
             } catch (err) {
                 console.error('Failed to check credits:', err);
-                // Fail safe: assume they can publish, backend will handle or default to PAYG
+                // Fail safe: assume they can publish, backend will resolve credits.
             }
         }
 
         await executePublish();
-    }, [activeOrganizerId, currentOrganizer, executePublish, formData, isPublishing, tickets]);
+    }, [activeOrganizerId, canUseCredits, executePublish, formData, isPublishing, tickets]);
 
     const handlePreviewClick = useCallback(async () => {
         // Save draft before previewing (silent save)
@@ -1809,7 +1876,7 @@ export function EventWizard({
                                                 {/* Date Selection */}
                                                 <div className="grid gap-4 sm:grid-cols-2">
                                                     <div className="space-y-1.5">
-                                                        <Label htmlFor="date">{formData.isMultiDay ? 'Start Date *' : 'Date *'}</Label>
+                                                        <Label htmlFor="date">Start Date *</Label>
                                                         <Input
                                                             id="date"
                                                             name="date"
@@ -1866,7 +1933,7 @@ export function EventWizard({
                                                         ) : null}
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <Label htmlFor="endTime">End Time</Label>
+                                                        <Label htmlFor="endTime">End Time *</Label>
                                                         <Input
                                                             id="endTime"
                                                             name="endTime"
@@ -2301,7 +2368,7 @@ export function EventWizard({
                                                                         <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.price}</p>
                                                                     ) : null}
                                                                 </div>
-                                                                {currentOrganizer?.feeTier === 'token' && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                {canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
                                                                     <div className="space-y-1.5">
                                                                         <Label>Organizer Fee ({getCurrencySymbol(formData.currency)})</Label>
                                                                     <Input
@@ -2330,7 +2397,7 @@ export function EventWizard({
                                                             )}
 
                                                                 {/* Absorb Fee Toggle - subtle but visible */}
-                                                                {currentOrganizer?.feeTier !== 'token' && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                {!canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
                                                                     <div className="flex items-center justify-between gap-3 mt-2 p-2 rounded-lg bg-muted/30">
                                                                         <div className="flex items-center gap-2 min-w-0">
                                                                             <span className="text-xs text-muted-foreground">

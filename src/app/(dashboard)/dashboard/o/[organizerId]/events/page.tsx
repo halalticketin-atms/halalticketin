@@ -570,23 +570,26 @@ export default function MyEventsPage() {
                 {/* Tabs */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <TabsList className="bg-muted/50 p-1 flex-wrap">
-                            <TabsTrigger value="all" className="gap-2">
-                                All <Badge variant="secondary" className="ml-1">{counts.all}</Badge>
-                            </TabsTrigger>
-                            <TabsTrigger value="active" className="gap-2">
-                                Active <Badge variant="secondary" className="ml-1">{counts.active}</Badge>
-                            </TabsTrigger>
-                            <TabsTrigger value="past" className="gap-2">
-                                Past <Badge variant="secondary" className="ml-1">{counts.past}</Badge>
-                            </TabsTrigger>
-                            <TabsTrigger value="cancelled" className="gap-2">
-                                Cancelled <Badge variant="secondary" className="ml-1">{counts.cancelled}</Badge>
-                            </TabsTrigger>
-                            <TabsTrigger value="draft" className="gap-2">
-                                Drafts <Badge variant="secondary" className="ml-1">{counts.draft}</Badge>
-                            </TabsTrigger>
-                        </TabsList>
+                        {/* Scrollable container for mobile */}
+                        <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                            <TabsList className="bg-muted/50 p-1 w-max sm:w-auto">
+                                <TabsTrigger value="all" className="gap-1.5 text-xs sm:text-sm px-2 sm:px-3">
+                                    All <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-[10px] sm:text-xs px-1 sm:px-1.5">{counts.all}</Badge>
+                                </TabsTrigger>
+                                <TabsTrigger value="active" className="gap-1.5 text-xs sm:text-sm px-2 sm:px-3">
+                                    Active <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-[10px] sm:text-xs px-1 sm:px-1.5">{counts.active}</Badge>
+                                </TabsTrigger>
+                                <TabsTrigger value="past" className="gap-1.5 text-xs sm:text-sm px-2 sm:px-3">
+                                    Past <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-[10px] sm:text-xs px-1 sm:px-1.5">{counts.past}</Badge>
+                                </TabsTrigger>
+                                <TabsTrigger value="cancelled" className="gap-1.5 text-xs sm:text-sm px-2 sm:px-3">
+                                    Cancelled <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-[10px] sm:text-xs px-1 sm:px-1.5">{counts.cancelled}</Badge>
+                                </TabsTrigger>
+                                <TabsTrigger value="draft" className="gap-1.5 text-xs sm:text-sm px-2 sm:px-3">
+                                    Drafts <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-[10px] sm:text-xs px-1 sm:px-1.5">{counts.draft}</Badge>
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
                         <div className="flex items-center gap-2">
                             <Switch
                                 id="toggle-archived"

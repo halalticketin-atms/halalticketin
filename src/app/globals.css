@@ -267,6 +267,15 @@
     box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.08);
   }
 
+  /* Hide scrollbar utility for cleaner mobile horizontal scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
 
 }
 

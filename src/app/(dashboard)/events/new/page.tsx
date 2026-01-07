@@ -295,12 +295,32 @@ function NewEventChooserPageContent() {
     router.push(`/events/create?source=${source}`);
   };
 
+  const resetCloneDraft = (draft: DraftEventInitial): DraftEventInitial => {
+    const baseTime = Date.now();
+    const makeTempId = (index: number) => `temp-${baseTime}-${index}-${Math.random().toString(36).slice(2, 8)}`;
+
+    return {
+      ...draft,
+      eventId: undefined,
+      eventStatus: undefined,
+      tickets: draft.tickets?.map((ticket, index) => ({
+        ...ticket,
+        id: makeTempId(index),
+      })),
+      promoCodes: draft.promoCodes?.map((promo, index) => ({
+        ...promo,
+        id: makeTempId(index + 1000),
+      })),
+    };
+  };
+
   const handleClone = async (event: EventRecord) => {
     if (!event.id) return;
     setSelectedCloneId(event.id);
     try {
       const response = await fetchEventDetails(event.id);
-      const draft = buildDraftFromEventRecord(response.event, response.tickets);
+      let draft = buildDraftFromEventRecord(response.event, response.tickets);
+      draft = resetCloneDraft(draft);
 
       // Prefix the title with "Copy of"
       if (draft.formData) {
