@@ -115,9 +115,7 @@ function normalizeFormData(
     (raw.title ?? '').trim() ||
     (safeTitleHint ? safeTitleHint : 'New Event');
 
-  const description =
-    (raw.description ?? '').trim() ||
-    'Curated by the AI assistant. Review details and adjust anything before publishing.';
+  const description = (raw.description ?? '').trim();
 
   const timezone = (raw.timezone ?? '').trim() || 'Europe/London';
 
@@ -144,7 +142,7 @@ function normalizeFormData(
     city: raw.city ?? '',
     onlineUrl: raw.onlineUrl ?? '',
     absorbFee: raw.absorbFee ?? false,
-    currency: 'GBP',
+    currency: raw.currency ?? 'GBP',
     refundPolicy: raw.refundPolicy ?? '',
     attendeeInfoMode: raw.attendeeInfoMode ?? 'buyer_choice',
     customQuestions: raw.customQuestions ?? [],
