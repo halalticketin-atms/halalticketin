@@ -30,6 +30,7 @@ const sharedTransition = {
 export function Header() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [hasMounted, setHasMounted] = useState(false);
     const rafRef = useRef<number | null>(null);
 
     // Lock body scroll when mobile menu is open
@@ -45,6 +46,11 @@ export function Header() {
     }, []);
 
     useEffect(() => {
+        // Set initial scroll state immediately to prevent flash
+        setIsScrolled(window.scrollY > 50);
+        // Mark as mounted after a frame to enable transitions
+        requestAnimationFrame(() => setHasMounted(true));
+
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => {
             window.removeEventListener('scroll', handleScroll);
@@ -126,21 +132,24 @@ export function Header() {
     };
 
     return (
-        <motion.nav
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
+        <nav
             className={cn(
-                'fixed top-0 left-0 right-0 z-50 transition-all duration-300 px-4 md:px-6',
+                'fixed top-0 left-0 right-0 z-50 px-4 md:px-6',
                 'pt-[max(env(safe-area-inset-top),1rem)]',
-                isScrolled ? 'pb-4' : 'pb-6'
+                isScrolled ? 'pb-4' : 'pb-6',
+                // Only enable transitions after mount to prevent initial stutter
+                hasMounted ? 'transition-[padding] duration-300' : '',
+                // CSS entrance animation using tw-animate-css
+                'animate-in fade-in duration-300 fill-mode-forwards'
             )}
         >
             <div
                 className={cn(
-                    'max-w-7xl mx-auto rounded-[2rem] transition-all duration-200 flex items-center justify-between px-4 py-2',
+                    'max-w-7xl mx-auto rounded-4xl flex items-center justify-between px-4 py-2',
                     'bg-white border border-white/70 shadow-lg ring-1 ring-white/60 relative overflow-hidden',
-                    isScrolled && 'shadow-xl'
+                    isScrolled && 'shadow-xl',
+                    // Only enable shadow transition after mount
+                    hasMounted && 'transition-shadow duration-200'
                 )}
             >
 
@@ -383,6 +392,6 @@ export function Header() {
                     </>
                 )}
             </AnimatePresence>
-        </motion.nav>
+        </nav>
     );
 }
