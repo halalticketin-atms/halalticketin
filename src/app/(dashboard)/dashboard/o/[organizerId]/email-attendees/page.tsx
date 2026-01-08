@@ -13,6 +13,7 @@ import {
     Eye,
     Loader2,
     Mail,
+    RotateCcw,
     Search,
     Send,
     Users,
@@ -277,7 +278,7 @@ export default function EmailAttendeesPage() {
     const [selectedEventId, setSelectedEventId] = useState<string>('');
     const [subject, setSubject] = useState('Event update');
     const [message, setMessage] = useState('');
-    const [audience, setAudience] = useState<'all' | 'individual' | 'recent'>('all');
+    const [audience, setAudience] = useState<'all' | 'individual' | 'recent' | 'refunded'>('all');
     const [showMobilePreview, setShowMobilePreview] = useState(false);
 
     // Enhanced audience filters
@@ -286,6 +287,15 @@ export default function EmailAttendeesPage() {
     const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [isLoadingOrders, setIsLoadingOrders] = useState(false);
     const [isSending, setIsSending] = useState(false);
+
+    const activeOrders = useMemo(
+        () => orders.filter((order) => order.status !== 'refunded'),
+        [orders]
+    );
+    const refundedOrders = useMemo(
+        () => orders.filter((order) => order.status === 'refunded'),
+        [orders]
+    );
 
     const selectedEvent = useMemo(
         () => events.find((event) => event.id === selectedEventId) ?? null,
@@ -341,6 +351,7 @@ export default function EmailAttendeesPage() {
 
         if (audience === 'all') filters.push('All ticket holders');
         if (audience === 'recent') filters.push('Recent buyers');
+        if (audience === 'refunded') filters.push('Refunded attendees');
         if (audience === 'individual' && selectedAttendeeIds.size > 0) {
             filters.push(`${selectedAttendeeIds.size} selected attendee${selectedAttendeeIds.size > 1 ? 's' : ''}`);
         }
@@ -354,10 +365,12 @@ export default function EmailAttendeesPage() {
 
     // Step validation
     const canProceedFromEvent = !!selectedEventId;
-    const hasAttendees = orders.length > 0;
+    const hasAttendees = activeOrders.length > 0;
+    const hasRefundedAttendees = refundedOrders.length > 0;
     const canProceedFromAudience =
         (audience === 'all' && hasAttendees) ||
         (audience === 'recent' && hasAttendees) ||
+        (audience === 'refunded' && hasRefundedAttendees) ||
         (audience === 'individual' && selectedAttendeeIds.size > 0);
     const canProceedFromCompose = subject.trim().length >= 5 && message.trim().length >= 10;
     const canSend = canProceedFromEvent && canProceedFromAudience && canProceedFromCompose;
@@ -672,7 +685,7 @@ export default function EmailAttendeesPage() {
                                 {/* Audience Selection Step */}
                                 {currentStep === 'audience' && (
                                     <div className="space-y-4">
-                                        <div className="grid gap-3 sm:grid-cols-3">
+                                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                             {/* All Attendees */}
                                             <button
                                                 onClick={() => setAudience('all')}
@@ -695,16 +708,16 @@ export default function EmailAttendeesPage() {
                                                     <div>
                                                         <p className="font-semibold">All Attendees</p>
                                                         <p className="text-xs text-muted-foreground">
-                                                            {orders.length > 0 ? `${orders.length} attendee${orders.length !== 1 ? 's' : ''}` : 'No attendees yet'}
+                                                            {activeOrders.length > 0 ? `${activeOrders.length} attendee${activeOrders.length !== 1 ? 's' : ''}` : 'No attendees yet'}
                                                         </p>
                                                     </div>
                                                 </div>
-                                                {audience === 'all' && orders.length > 0 && (
+                                                {audience === 'all' && activeOrders.length > 0 && (
                                                     <Badge className="absolute top-3 right-3 bg-[oklch(0.72_0.15_185)]">
-                                                        {orders.length}
+                                                        {activeOrders.length}
                                                     </Badge>
                                                 )}
-                                                {audience === 'all' && orders.length === 0 && (
+                                                {audience === 'all' && activeOrders.length === 0 && (
                                                     <div className="absolute top-3 right-3">
                                                         <Check className="h-5 w-5 text-[oklch(0.72_0.15_185)]" />
                                                     </div>
@@ -770,21 +783,59 @@ export default function EmailAttendeesPage() {
                                                         </p>
                                                     </div>
                                                 </div>
-                                                {audience === 'recent' && orders.length > 0 && (
+                                                {audience === 'recent' && activeOrders.length > 0 && (
                                                     <Badge className="absolute top-3 right-3 bg-[oklch(0.72_0.15_185)]">
-                                                        {orders.length}
+                                                        {activeOrders.length}
                                                     </Badge>
                                                 )}
-                                                {audience === 'recent' && orders.length === 0 && (
+                                                {audience === 'recent' && activeOrders.length === 0 && (
                                                     <div className="absolute top-3 right-3">
                                                         <Check className="h-5 w-5 text-[oklch(0.72_0.15_185)]" />
+                                                    </div>
+                                                )}
+                                            </button>
+
+                                            {/* Refunded Attendees */}
+                                            <button
+                                                onClick={() => setAudience('refunded')}
+                                                className={cn(
+                                                    'group relative rounded-xl border-2 p-5 text-left transition-all hover:shadow-md',
+                                                    audience === 'refunded'
+                                                        ? 'border-rose-300 bg-rose-50/60'
+                                                        : 'border-border/60 hover:border-border'
+                                                )}
+                                            >
+                                                <div className="flex flex-col gap-2">
+                                                    <div className={cn(
+                                                        'h-10 w-10 rounded-lg flex items-center justify-center transition-colors',
+                                                        audience === 'refunded'
+                                                            ? 'bg-rose-500 text-white'
+                                                            : 'bg-muted text-muted-foreground'
+                                                    )}>
+                                                        <RotateCcw className="h-5 w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold">Refunded Attendees</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {refundedOrders.length > 0 ? `${refundedOrders.length} attendee${refundedOrders.length !== 1 ? 's' : ''}` : 'No refunded attendees'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {audience === 'refunded' && refundedOrders.length > 0 && (
+                                                    <Badge className="absolute top-3 right-3 bg-rose-500">
+                                                        {refundedOrders.length}
+                                                    </Badge>
+                                                )}
+                                                {audience === 'refunded' && refundedOrders.length === 0 && (
+                                                    <div className="absolute top-3 right-3">
+                                                        <Check className="h-5 w-5 text-rose-500" />
                                                     </div>
                                                 )}
                                             </button>
                                         </div>
 
                                         {/* Empty attendees warning */}
-                                        {(audience === 'all' || audience === 'recent') && !isLoadingOrders && orders.length === 0 && (
+                                        {(audience === 'all' || audience === 'recent') && !isLoadingOrders && activeOrders.length === 0 && (
                                             <motion.div
                                                 initial={{ opacity: 0, y: -10 }}
                                                 animate={{ opacity: 1, y: 0 }}
@@ -795,6 +846,21 @@ export default function EmailAttendeesPage() {
                                                     <p className="font-medium">No attendees found</p>
                                                     <p className="text-sm text-amber-700">
                                                         This event has no orders yet. Attendees will appear here once tickets are purchased.
+                                                    </p>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                        {audience === 'refunded' && !isLoadingOrders && refundedOrders.length === 0 && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-900"
+                                            >
+                                                <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
+                                                <div>
+                                                    <p className="font-medium">No refunded attendees</p>
+                                                    <p className="text-sm text-rose-700">
+                                                        Refunded orders will appear here after a refund is processed.
                                                     </p>
                                                 </div>
                                             </motion.div>
@@ -823,12 +889,12 @@ export default function EmailAttendeesPage() {
                                                         <div className="flex items-center justify-center py-8 text-muted-foreground">
                                                             <Loader2 className="h-5 w-5 animate-spin" />
                                                         </div>
-                                                    ) : orders.length === 0 ? (
+                                                    ) : activeOrders.length === 0 ? (
                                                         <p className="text-sm text-center py-8 text-muted-foreground">
                                                             No attendees found for this event
                                                         </p>
                                                     ) : (
-                                                        orders
+                                                        activeOrders
                                                             .filter(order => {
                                                                 const query = attendeeSearchQuery.toLowerCase();
                                                                 return (

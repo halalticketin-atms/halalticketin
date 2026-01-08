@@ -101,7 +101,7 @@ export function OrderCard({
     onRefund,
     isResending = false,
 }: OrderCardProps) {
-    // Drag logic removed
+    const canResend = order.status === 'completed';
 
 
     return (
@@ -192,7 +192,7 @@ export function OrderCard({
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                     onClick={() => onResendEmail(order.id)}
-                                    disabled={isResending}
+                                    disabled={isResending || !canResend}
                                 >
                                     <Mail className="mr-2 h-4 w-4" />
                                     {isResending ? 'Sending...' : 'Resend Confirmation'}

@@ -175,6 +175,11 @@ export default function OrdersPage() {
     };
 
     const handleResendEmail = async (orderId: string) => {
+        const order = orders.find((entry) => entry.id === orderId);
+        if (order && order.status !== 'completed') {
+            toast.warning('Refunded orders cannot receive confirmation emails.');
+            return;
+        }
         if (!canResendEmail(orderId)) {
             toast.warning('Please wait', {
                 description: `You can resend in ${getCooldownRemaining(orderId)} seconds.`
@@ -1000,7 +1005,7 @@ export default function OrdersPage() {
                                                             variant="outline"
                                                             className="flex-1"
                                                             onClick={() => selectedOrder && handleResendEmail(selectedOrder.id)}
-                                                            disabled={isResending}
+                                                            disabled={isResending || selectedOrder.status !== 'completed'}
                                                         >
                                                             <Mail className="h-4 w-4 mr-2" />
                                                             {isResending ? 'Sending...' : 'Resend Email'}
@@ -1029,6 +1034,9 @@ export default function OrdersPage() {
                                                     {/* Refund Type Selection */}
                                                     <div className="space-y-3">
                                                         <Label>Refund Type</Label>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Refunds apply to ticket price only. Platform, processing, and organizer fees are not refunded.
+                                                        </p>
                                                         <div className="grid grid-cols-3 gap-2">
                                                             {(['full', 'partial', 'tickets'] as const).map((type) => (
                                                                 <Button
