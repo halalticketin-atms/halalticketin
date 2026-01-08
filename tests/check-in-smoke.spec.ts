@@ -4,6 +4,7 @@ const organizerId = '550e8400-e29b-41d4-a716-446655440000';
 const eventId = '550e8400-e29b-41d4-a716-446655440001';
 
 test('check-in scanner mounts on mobile view', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(({ accessToken, refreshToken }) => {
     window.localStorage.setItem('halal-ticketin-access-token', accessToken);
     window.localStorage.setItem('halal-ticketin-refresh-token', refreshToken);

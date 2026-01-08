@@ -248,6 +248,7 @@ export function PublicEventPageContent({
     isPreview = false,
     organizerNameOverride = null,
 }: PublicEventPageContentProps) {
+    const safeTickets = Array.isArray(tickets) ? tickets : [];
     const { rates } = useExchangeRates();
     const { track } = useMetaPixel();
     const eventPixelId =
@@ -314,16 +315,16 @@ export function PublicEventPageContent({
     const [unlockedTickets, setUnlockedTickets] = useState<TicketLike[]>([]);
 
     const regularTickets = useMemo(
-        () => tickets.filter((ticket) => ticket.type !== 'donation'),
-        [tickets],
+        () => safeTickets.filter((ticket) => ticket.type !== 'donation'),
+        [safeTickets],
     );
     const regularUnlockedTickets = useMemo(
         () => unlockedTickets.filter((ticket) => ticket.type !== 'donation'),
         [unlockedTickets],
     );
     const donationTicket = useMemo(
-        () => [...tickets, ...unlockedTickets].find((ticket) => ticket.type === 'donation') ?? null,
-        [tickets, unlockedTickets],
+        () => [...safeTickets, ...unlockedTickets].find((ticket) => ticket.type === 'donation') ?? null,
+        [safeTickets, unlockedTickets],
     );
     const hasDonationOption = Boolean(donationTicket);
     const hasRegularTickets = regularTickets.length > 0 || regularUnlockedTickets.length > 0;
@@ -616,7 +617,7 @@ export function PublicEventPageContent({
     // Calculate final total after discount
     const discountAmount = appliedPromo?.discountAmount ? parseFloat(appliedPromo.discountAmount) : 0;
     const finalTotal = Math.max(0, totalAmount - discountAmount);
-    const currencyCode = event?.currency || tickets[0]?.currency || 'GBP';
+    const currencyCode = event?.currency || safeTickets[0]?.currency || 'GBP';
     const currencySymbol = getCurrencySymbol(currencyCode);
     const maxDonationAmount = useMemo(() => {
         const rate = rates[currencyCode.toUpperCase()] ?? 1;

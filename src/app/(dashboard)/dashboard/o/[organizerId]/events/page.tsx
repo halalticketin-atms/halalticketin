@@ -388,11 +388,6 @@ export default function MyEventsPage() {
         });
     }, [visibleEvents]);
 
-    // Scroll to top when page loads
-    useEffect(() => {
-        window.scrollTo(0, 0);
-    }, []);
-
     const getFilteredEvents = (status: string) => {
         if (status === 'all') return visibleEvents;
         if (status === 'draft') return visibleEvents.filter((event) => event.status === 'draft');

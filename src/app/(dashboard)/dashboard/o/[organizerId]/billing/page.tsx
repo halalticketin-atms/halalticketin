@@ -2,24 +2,12 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Wallet, Plus, History, Coins, ArrowUpRight, TrendingUp, RefreshCw } from 'lucide-react';
+import { Plus, ArrowDownLeft, ArrowUpRight, Clock } from 'lucide-react';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useAuth } from '@/context/auth-context';
 import { getCreditBalance, CreditBalanceResponse } from '@/lib/credits-api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { CreditUsageBar, UsageSegment } from '@/components/dashboard/credits/CreditUsageBar';
-import { CreditMetricCard } from '@/components/dashboard/credits/CreditMetricCard';
 
 export default function BillingPage() {
     const organizerId = useOrganizerFromParams();
@@ -42,38 +30,24 @@ export default function BillingPage() {
         void fetchData();
     }, [organizerId]);
 
-    const formatCurrency = (amount: string | number, currency: string) => {
-        const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-        return new Intl.NumberFormat('en-IE', { style: 'currency', currency }).format(num);
-    };
-
     const formatDate = (dateString: string) => {
         return new Intl.DateTimeFormat('en-GB', {
             day: 'numeric',
             month: 'short',
             year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
         }).format(new Date(dateString));
     };
 
-    // Simple Used vs Available based on real data
+    // Usage calculations
     const usageData = useMemo(() => {
-        if (!data) return { total: 0, used: 0, segments: [] };
+        if (!data) return { total: 0, used: 0, available: 0, usedPercentage: 0 };
 
         const total = data.totalPurchased > 0 ? data.totalPurchased : data.balance;
         const used = Math.max(0, data.totalPurchased - data.balance);
+        const available = data.balance;
+        const usedPercentage = total > 0 ? (used / total) * 100 : 0;
 
-        const segments: UsageSegment[] = used > 0 ? [
-            {
-                id: 'used',
-                label: 'Credits Used',
-                value: used,
-                color: 'var(--brand-teal, #0d9488)'
-            }
-        ] : [];
-
-        return { total, used, segments };
+        return { total, used, available, usedPercentage };
     }, [data]);
 
     if (isLoading) {
@@ -85,136 +59,160 @@ export default function BillingPage() {
     }
 
     return (
-        <div className="container py-8 overflow-x-hidden space-y-8">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="container py-8 overflow-x-hidden">
+            <div className="space-y-6">
+                {/* Hero Card - Available Credits */}
                 <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="relative overflow-hidden rounded-2xl border border-[var(--brand-mint)]/30 bg-gradient-to-br from-[var(--brand-mint)]/5 via-background to-[var(--brand-cyan)]/5 p-6 sm:p-8 lg:p-10"
                 >
-                    <h1 className="text-2xl sm:text-3xl font-bold">Credits</h1>
-                    <p className="text-muted-foreground mt-1">Manage your available credits</p>
-                </motion.div>
+                    {/* Decorative accents */}
+                    <div className="absolute top-0 right-0 w-32 h-32 lg:w-48 lg:h-48 bg-gradient-to-bl from-[var(--brand-mint)]/10 to-transparent rounded-bl-full" />
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-[var(--brand-cyan)]/5 to-transparent rounded-tr-full hidden lg:block" />
 
-                <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="flex gap-3"
-                >
-                    <Button asChild className="rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-md hover:opacity-90 transition-opacity px-6">
-                        <Link href={`/dashboard/o/${organizerId}/billing/purchase`} className="flex items-center gap-2">
-                            <Plus className="h-4 w-4" />
-                            Buy More Credits
-                        </Link>
-                    </Button>
-                </motion.div>
-            </div>
-
-            {/* Top Metrics Cards */}
-            <div className="grid gap-4 sm:grid-cols-2">
-                <CreditMetricCard
-                    title="Available Credits"
-                    value={data?.balance?.toLocaleString() ?? 0}
-                    icon={Wallet}
-                    className="border-l-4 border-l-[var(--brand-teal)]"
-                />
-                <CreditMetricCard
-                    title="Total Purchased"
-                    value={data?.totalPurchased?.toLocaleString() ?? 0}
-                    icon={Coins}
-                />
-            </div>
-
-            {/* Usage Breakdown Bar */}
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-card/30 backdrop-blur-sm border border-border/50 rounded-xl p-6"
-            >
-                <CreditUsageBar
-                    total={usageData.total}
-                    used={usageData.used}
-                    segments={usageData.segments}
-                />
-            </motion.div>
-
-            {/* Transaction History */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-            >
-                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
-                        <div className="space-y-1">
-                            <CardTitle className="text-xl flex items-center gap-2">
-                                <History className="h-5 w-5 text-muted-foreground" />
-                                Recent Transactions
-                            </CardTitle>
-                            <CardDescription>Your recent credit purchases and usage</CardDescription>
+                    <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6 lg:gap-12">
+                        {/* Main balance */}
+                        <div className="space-y-1 flex-1">
+                            <p className="text-sm font-medium text-muted-foreground tracking-wide uppercase">Available Credits</p>
+                            <h2 className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)] bg-clip-text text-transparent">
+                                {data?.balance?.toLocaleString() ?? 0}
+                            </h2>
+                            <p className="text-sm text-muted-foreground mt-2">
+                                Ready to use for your events
+                            </p>
                         </div>
-                        <Button variant="ghost" size="sm" className="hidden sm:flex">
-                            Export CSV
-                        </Button>
-                    </CardHeader>
-                    <CardContent>
-                        {data?.history && data.history.length > 0 ? (
-                            <div className="rounded-lg border border-border/50 overflow-hidden">
-                                <Table>
-                                    <TableHeader className="bg-muted/50">
-                                        <TableRow>
-                                            <TableHead>Date</TableHead>
-                                            <TableHead>Description</TableHead>
-                                            <TableHead>Type</TableHead>
-                                            <TableHead>Amount</TableHead>
-                                            <TableHead>Balance</TableHead>
-                                            <TableHead className="text-right"></TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {/* Real History Items (Purchases) */}
-                                        {data.history.map((item) => (
-                                            <TableRow key={item.id} className="hover:bg-muted/30 transition-colors">
-                                                <TableCell className="font-medium whitespace-nowrap">
-                                                    {formatDate(item.createdAt)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    Credit Top Up
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20">
-                                                        Top Up
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-emerald-600 font-medium">
-                                                    +{item.amount.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    -
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                        <ArrowUpRight className="h-4 w-4" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
 
-                                    </TableBody>
-                                </Table>
+                        {/* Desktop: Additional stat + CTA */}
+                        <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end gap-4 lg:gap-6">
+                            {/* Total Purchased stat - visible on md+ */}
+                            <div className="hidden md:block text-right">
+                                <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase mb-1">Total Purchased</p>
+                                <p className="text-2xl lg:text-3xl font-bold text-foreground">
+                                    {data?.totalPurchased?.toLocaleString() ?? 0}
+                                </p>
+                            </div>
+
+                            <Button
+                                asChild
+                                variant="outline"
+                                className="group rounded-full border-[var(--brand-teal)]/40 hover:border-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/5 transition-all duration-300 px-5 lg:px-6 h-11"
+                            >
+                                <Link href={`/dashboard/o/${organizerId}/billing/purchase`} className="flex items-center gap-2">
+                                    <Plus className="h-4 w-4 text-[var(--brand-teal)] group-hover:scale-110 transition-transform" />
+                                    <span className="font-medium">Add Credits</span>
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                </motion.div>
+
+                {/* Two Column Grid for Usage & Transactions */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Usage Progress Card */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.1 }}
+                        className="rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm p-6"
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-foreground">Credit Usage</span>
+                            </div>
+                        </div>
+
+                        {/* Minimal Progress Bar */}
+                        <div className="relative h-2.5 w-full bg-muted/40 rounded-full overflow-hidden">
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${usageData.usedPercentage}%` }}
+                                transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 }}
+                                className="absolute left-0 top-0 h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)] rounded-full"
+                            />
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${100 - usageData.usedPercentage}%` }}
+                                transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 }}
+                                className="absolute right-0 top-0 h-full bg-[var(--brand-mint)]/40 rounded-full"
+                            />
+                        </div>
+
+                        {/* Legend */}
+                        <div className="flex items-center justify-between mt-4 text-sm">
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]" />
+                                    <span className="text-muted-foreground">Used: <span className="font-medium text-foreground">{usageData.used.toLocaleString()}</span></span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="h-2.5 w-2.5 rounded-full bg-[var(--brand-mint)]/60" />
+                                    <span className="text-muted-foreground">Available: <span className="font-medium text-foreground">{usageData.available.toLocaleString()}</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Recent Transactions Card */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
+                        className="rounded-2xl border border-border/60 bg-card/50 backdrop-blur-sm p-6"
+                    >
+                        <div className="flex items-center justify-between mb-5">
+                            <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium text-foreground">Recent Transactions</span>
+                            </div>
+                            {data?.history && data.history.length > 0 && (
+                                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                                    View all
+                                </button>
+                            )}
+                        </div>
+
+                        {data?.history && data.history.length > 0 ? (
+                            <div className="space-y-1">
+                                {data.history.slice(0, 5).map((item, index) => (
+                                    <motion.div
+                                        key={item.id}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.3, delay: 0.3 + index * 0.05 }}
+                                        className="flex items-center justify-between py-3 border-b border-border/30 last:border-0"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-8 w-8 rounded-full bg-[var(--brand-mint)]/20 flex items-center justify-center">
+                                                <ArrowDownLeft className="h-4 w-4 text-[var(--brand-teal)]" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-foreground">Credit Top Up</p>
+                                                <p className="text-xs text-muted-foreground">{formatDate(item.createdAt)}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-sm font-semibold text-[var(--brand-teal)]">
+                                                +{item.amount.toLocaleString()}
+                                            </span>
+                                            <ArrowUpRight className="h-3.5 w-3.5 text-[var(--brand-teal)]" />
+                                        </div>
+                                    </motion.div>
+                                ))}
                             </div>
                         ) : (
-                            <div className="text-center py-12 bg-muted/20 rounded-xl border border-dashed border-border/50">
-                                <History className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-                                <h3 className="font-semibold text-muted-foreground">No history yet</h3>
-                                <p className="text-sm text-muted-foreground/60">Your credit purchases will appear here</p>
+                            <div className="text-center py-10">
+                                <div className="h-12 w-12 rounded-full bg-muted/30 flex items-center justify-center mx-auto mb-3">
+                                    <Clock className="h-5 w-5 text-muted-foreground/50" />
+                                </div>
+                                <p className="text-sm font-medium text-muted-foreground">No transactions yet</p>
+                                <p className="text-xs text-muted-foreground/70 mt-1">Your credit activity will appear here</p>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
-            </motion.div>
+                    </motion.div>
+                </div>
+            </div>
         </div>
     );
 }
-

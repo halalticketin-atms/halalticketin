@@ -1,6 +1,7 @@
 'use client';
 
-import { QrCode, Smartphone } from 'lucide-react';
+import { Smartphone } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 import { CardContent } from '@/components/ui/card';
 import { buildDashboardPath } from '@/lib/organizer-path';
 
@@ -13,7 +14,7 @@ interface DesktopQRRedirectProps {
 export function DesktopQRRedirect({ eventId, eventName, organizerId }: DesktopQRRedirectProps) {
     // Generate the full check-in URL for mobile
     const checkInUrl = typeof window !== 'undefined'
-        ? `${window.location.origin}${buildDashboardPath(organizerId)}/check-in?event=${eventId}&mode=scan`
+        ? `${window.location.origin}${buildDashboardPath(organizerId)}/check-in?event=${encodeURIComponent(eventId)}&mode=scan`
         : '';
 
     return (
@@ -35,12 +36,21 @@ export function DesktopQRRedirect({ eventId, eventName, organizerId }: DesktopQR
                 {checkInUrl && (
                     <div className="space-y-4">
                         <div className="inline-block p-4 bg-white rounded-xl shadow-sm border">
-                            <div className="h-40 w-40 bg-muted rounded flex items-center justify-center">
-                                <QrCode className="h-20 w-20 text-muted-foreground" />
-                            </div>
+                            <QRCodeCanvas
+                                value={checkInUrl}
+                                size={176}
+                                includeMargin
+                                bgColor="#ffffff"
+                                fgColor="#0f172a"
+                                className="block"
+                            />
                         </div>
                         <p className="text-sm text-muted-foreground">
-                            Scan this QR code with your phone to open the check-in scanner
+                            Scan this QR code with your phone to open the check-in scanner.
+                            You&apos;ll be asked to log in and we&apos;ll check your access before letting you in.
+                        </p>
+                        <p className="text-xs text-muted-foreground break-all">
+                            {checkInUrl}
                         </p>
                     </div>
                 )}

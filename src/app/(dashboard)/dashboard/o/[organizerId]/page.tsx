@@ -4,7 +4,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
-import { Calendar, Ticket, DollarSign } from 'lucide-react';
+import { Calendar, Ticket, DollarSign, Plus } from 'lucide-react';
 
 import { StatCard, EventPerformanceCards } from '@/components/dashboard';
 
@@ -14,7 +14,7 @@ import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useInView } from '@/hooks/useInView';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import api from '@/lib/api';
-import { getCreditBalance } from '@/lib/credits-api';
+import { getCreditBalance, CreditBalanceResponse } from '@/lib/credits-api';
 import { MIN_CREDITS } from '@/lib/fees';
 
 interface AnalyticsStats {
@@ -80,7 +80,7 @@ export default function DashboardPage() {
     const [eventsPerformance, setEventsPerformance] = useState<EventPerformanceData[]>([]);
     const [isEventsLoading, setIsEventsLoading] = useState(false);
     const [hasLoadedEvents, setHasLoadedEvents] = useState(false);
-    const [creditBalance, setCreditBalance] = useState<number | null>(null);
+    const [creditData, setCreditData] = useState<CreditBalanceResponse | null>(null);
     const [isCreditsLoading, setIsCreditsLoading] = useState(false);
     const { ref: eventsRef, inView: eventsInView } = useInView<HTMLDivElement>({ rootMargin: '200px' });
 
@@ -147,8 +147,8 @@ export default function DashboardPage() {
     }, [eventsInView, hasLoadedEvents, organizerId]);
 
     useEffect(() => {
-        if (!organizerId || activeOrganizer?.feeTier !== 'token') {
-            setCreditBalance(null);
+        if (!organizerId) {
+            setCreditData(null);
             return;
         }
 
@@ -157,13 +157,13 @@ export default function DashboardPage() {
         getCreditBalance(organizerId)
             .then((credits) => {
                 if (!cancelled) {
-                    setCreditBalance(credits.balance);
+                    setCreditData(credits);
                 }
             })
             .catch((error) => {
                 console.error('Failed to fetch credit balance:', error);
                 if (!cancelled) {
-                    setCreditBalance(0);
+                    setCreditData({ balance: 0, totalPurchased: 0, lastPurchaseAt: null, history: [] });
                 }
             })
             .finally(() => {
@@ -175,7 +175,7 @@ export default function DashboardPage() {
         return () => {
             cancelled = true;
         };
-    }, [organizerId, activeOrganizer?.feeTier]);
+    }, [organizerId]);
 
     const greetingName = user?.name || user?.email?.split('@')[0] || '';
     const prefersReducedMotion = useReducedMotion();
@@ -229,10 +229,22 @@ export default function DashboardPage() {
     );
 
     const showLowCredits =
-        creditBalance !== null &&
+        creditData !== null &&
         !isCreditsLoading &&
         activeOrganizer?.feeTier === 'token' &&
-        creditBalance < MIN_CREDITS;
+        creditData.balance < MIN_CREDITS;
+
+    // Credit usage calculations for the bar - show when there's credit data with positive balance OR purchases
+    const creditUsage = useMemo(() => {
+        if (!creditData) return null;
+        // Only show if they have purchased credits or have a balance
+        if (creditData.totalPurchased === 0 && creditData.balance === 0) return null;
+        const total = creditData.totalPurchased > 0 ? creditData.totalPurchased : creditData.balance;
+        const used = Math.max(0, creditData.totalPurchased - creditData.balance);
+        const available = creditData.balance;
+        const usedPercentage = total > 0 ? (used / total) * 100 : 0;
+        return { total, used, available, usedPercentage };
+    }, [creditData, activeOrganizer?.feeTier]);
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -254,7 +266,7 @@ export default function DashboardPage() {
                             <div>
                                 <p className="font-semibold">Credits running low</p>
                                 <p className="text-amber-900/80">
-                                    You have {creditBalance.toLocaleString()} credits left. Add more credits to keep organizer fees active.
+                                    You have {creditData.balance.toLocaleString()} credits left. Add more credits to keep organizer fees active.
                                 </p>
                             </div>
                             <Link
@@ -273,6 +285,61 @@ export default function DashboardPage() {
                         <StatCard key={stat.title} {...stat} delay={i * 0.1} />
                     ))}
                 </div>
+
+                {/* Credit Usage Bar - Only for token-based organizers with credits */}
+                {creditUsage && !isCreditsLoading && organizerId && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.3 }}
+                        className="mb-8"
+                    >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm font-medium text-foreground">Credit Balance</span>
+                                <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)] bg-clip-text text-transparent">
+                                    {creditUsage.available.toLocaleString()}
+                                </span>
+                                <span className="text-sm text-muted-foreground">available</span>
+                            </div>
+                            <Link
+                                href={`${buildDashboardPath(organizerId)}/billing/purchase`}
+                                className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--brand-teal)] hover:text-[var(--brand-cyan)] transition-colors"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Add Credits
+                            </Link>
+                        </div>
+
+                        {/* Minimal Progress Bar */}
+                        <div className="relative h-2 w-full bg-muted/40 rounded-full overflow-hidden">
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${creditUsage.usedPercentage}%` }}
+                                transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
+                                className="absolute left-0 top-0 h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)] rounded-full"
+                            />
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${100 - creditUsage.usedPercentage}%` }}
+                                transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
+                                className="absolute right-0 top-0 h-full bg-[var(--brand-mint)]/40 rounded-full"
+                            />
+                        </div>
+
+                        {/* Legend */}
+                        <div className="flex items-center gap-6 mt-2.5 text-xs">
+                            <div className="flex items-center gap-1.5">
+                                <div className="h-2 w-2 rounded-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]" />
+                                <span className="text-muted-foreground">Used: <span className="font-medium text-foreground">{creditUsage.used.toLocaleString()}</span></span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="h-2 w-2 rounded-full bg-[var(--brand-mint)]/60" />
+                                <span className="text-muted-foreground">Available: <span className="font-medium text-foreground">{creditUsage.available.toLocaleString()}</span></span>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
 
                 {/* Event Performance Cards */}
                 <div ref={eventsRef}>

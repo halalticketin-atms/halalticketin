@@ -149,6 +149,7 @@ test.describe('Public Pages - Event Detail', () => {
                 body: JSON.stringify({
                     event: {
                         id: 'event_001',
+                        organizerId: 'org_123',
                         title: 'Test Event',
                         slug: 'test-event',
                         description: 'A wonderful test event for the community.',
@@ -161,9 +162,10 @@ test.describe('Public Pages - Event Detail', () => {
                         city: 'London',
                         country: 'UK',
                         currency: 'GBP',
+                        organizerName: 'Test Organizer',
                         absorbFee: false
                     },
-                    ticketTypes: [
+                    tickets: [
                         {
                             id: 'ticket_001',
                             name: 'General Admission',
@@ -180,8 +182,7 @@ test.describe('Public Pages - Event Detail', () => {
                             type: 'free',
                             available: 50
                         }
-                    ],
-                    organizerName: 'Test Organizer'
+                    ]
                 })
             });
         });
@@ -200,7 +201,7 @@ test.describe('Public Pages - Event Detail', () => {
         await page.waitForLoadState('networkidle');
 
         // Should show ticket options
-        await expect(page.getByText('General Admission').or(page.getByText('Tickets'))).toBeVisible();
+        await expect(page.getByRole('heading', { name: /general admission|tickets/i }).first()).toBeVisible();
     });
 
     test('event detail page is responsive', async ({ page }) => {
@@ -222,7 +223,7 @@ test.describe('Public Pages - Pricing', () => {
         await page.waitForLoadState('networkidle');
 
         // Should show pricing header
-        await expect(page.getByText(/pricing/i).first()).toBeVisible();
+        await expect(page.getByRole('heading', { name: /pricing/i }).first()).toBeVisible();
     });
 
     test('pricing toggle works for monthly/annual', async ({ page }) => {
@@ -316,7 +317,7 @@ test.describe('Public Pages - 404 Handling', () => {
         await page.waitForLoadState('networkidle');
 
         // Should show error or 404 message
-        await expect(page.getByText(/not found|error|404/i).first().or(page.locator('body'))).toBeVisible();
+        await expect(page.getByRole('heading', { name: /not found|error|404/i }).first()).toBeVisible();
     });
 });
 
@@ -374,8 +375,9 @@ test.describe('Accessibility - Public Pages', () => {
             const button = buttons.nth(i);
             const text = await button.textContent();
             const ariaLabel = await button.getAttribute('aria-label');
+            const title = await button.getAttribute('title');
             // Button should have text or aria-label
-            expect(text?.trim() || ariaLabel).toBeTruthy();
+            expect(text?.trim() || ariaLabel || title).toBeTruthy();
         }
     });
 });

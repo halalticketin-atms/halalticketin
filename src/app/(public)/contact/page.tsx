@@ -223,21 +223,17 @@ export default function ContactPage() {
                             />
                             <Label
                                 htmlFor="terms"
-                                className="text-sm font-medium leading-relaxed cursor-pointer text-muted-foreground"
+                                className="flex-1 block text-sm font-medium leading-relaxed cursor-pointer text-muted-foreground"
                             >
-                                <span className="block">
-                                    I agree to&nbsp;the{' '}
-                                    <Link href="/terms" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
-                                        Terms of Use
-                                    </Link>
-                                </span>
-                                <span className="block">
-                                    and{' '}
-                                    <Link href="/privacy" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
-                                        Privacy Policy
-                                    </Link>
-                                    <span className="text-red-500 ml-1">*</span>
-                                </span>
+                                I agree to the{' '}
+                                <Link href="/terms" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
+                                    Terms of Use
+                                </Link>{' '}
+                                and{' '}
+                                <Link href="/privacy" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
+                                    Privacy Policy
+                                </Link>
+                                <span className="text-red-500 ml-1">*</span>
                             </Label>
                         </div>
 

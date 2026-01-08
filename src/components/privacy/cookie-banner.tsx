@@ -87,7 +87,7 @@ export function CookieBanner() {
                         </div>
                         <button
                             onClick={handleOpenPreferences}
-                            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors self-start"
+                            className="min-h-8 inline-flex items-center px-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors self-start"
                         >
                             Manage settings
                         </button>

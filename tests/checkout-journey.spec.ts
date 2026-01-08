@@ -331,6 +331,6 @@ test.describe('Checkout Journey - Event Information', () => {
         await page.goto(`/events/${REAL_EVENTS.paidEvent}`);
         await page.waitForLoadState('networkidle');
 
-        await expect(page.getByText(/organizer|by|hosted|gum|events/i).first()).toBeVisible();
+        await expect(page.getByRole('link', { name: /view organizer profile/i })).toBeVisible();
     });
 });

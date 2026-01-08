@@ -197,6 +197,7 @@ export function Header() {
                                     <Button
                                         variant="ghost"
                                         className="relative h-9 w-9 rounded-full ring-2 ring-white hover:ring-[var(--brand-cyan)] transition-all p-0"
+                                        aria-label="Account menu"
                                     >
                                         <Avatar className="h-9 w-9">
                                             <AvatarImage src={user?.avatarUrl ?? undefined} alt={displayName} className="object-cover" />
@@ -263,6 +264,7 @@ export function Header() {
                 <button
                     className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/70 transition-colors bg-white/90 border border-white/80 shadow-sm"
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
                 >
                     {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
                 </button>

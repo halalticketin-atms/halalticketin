@@ -243,6 +243,11 @@ test.describe('Responsive Design - Touch Targets', () => {
         for (let i = 0; i < Math.min(count, 10); i++) {
             const button = buttons.nth(i);
             if (await button.isVisible()) {
+                const ariaLabel = await button.getAttribute('aria-label');
+                const title = await button.getAttribute('title');
+                if ((ariaLabel && ariaLabel.includes('Open Next.js Dev Tools')) || (title && title.includes('Open Next.js Dev Tools'))) {
+                    continue;
+                }
                 const box = await button.boundingBox();
                 if (box) {
                     // Minimum 44x44 for touch targets (allowing some flexibility)
@@ -280,7 +285,7 @@ test.describe('Responsive Design - Forms', () => {
         await page.goto('/contact');
         await page.waitForLoadState('networkidle');
 
-        const inputs = page.locator('input, textarea');
+        const inputs = page.locator('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea');
         const count = await inputs.count();
 
         for (let i = 0; i < count; i++) {

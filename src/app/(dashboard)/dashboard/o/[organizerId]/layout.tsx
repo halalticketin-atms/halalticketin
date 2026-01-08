@@ -1,4 +1,5 @@
 import { DashboardSidebar, MobileBottomNav, SuspendedAccessGuard } from '@/components/dashboard';
+import { ScrollToTopWrapper } from '@/components/layout';
 
 export default async function OrganizerDashboardLayout({
     children,
@@ -13,7 +14,9 @@ export default async function OrganizerDashboardLayout({
             <DashboardSidebar organizerId={resolvedParams.organizerId} />
             <main className="pl-0 lg:pl-[260px] transition-all pt-[calc(var(--nav-safe-offset)+2rem)] pb-20 lg:pb-0">
                 <SuspendedAccessGuard>
-                    {children}
+                    <ScrollToTopWrapper>
+                        {children}
+                    </ScrollToTopWrapper>
                 </SuspendedAccessGuard>
             </main>
             <MobileBottomNav organizerId={resolvedParams.organizerId} />

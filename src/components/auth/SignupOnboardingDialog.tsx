@@ -1121,7 +1121,7 @@ export function SignupOnboardingDialog({
                                                 />
                                                 <Label
                                                     htmlFor="terms-of-use"
-                                                    className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer leading-relaxed"
+                                                    className="flex-1 block text-sm text-slate-600 dark:text-slate-400 cursor-pointer leading-relaxed"
                                                 >
                                                     I agree to the{' '}
                                                     <a

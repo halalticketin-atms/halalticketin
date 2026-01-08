@@ -276,15 +276,58 @@ test.describe('Authentication Flow - Logout', () => {
         await page.goto('/dashboard');
         await page.waitForLoadState('networkidle');
 
-        // Verify tokens exist initially
-        const tokensBefore = await page.evaluate(() => {
+        const dismissCookieBanner = page.getByRole('button', { name: /necessary only|accept all/i }).first();
+        if (await dismissCookieBanner.isVisible()) {
+            await dismissCookieBanner.click({ force: true });
+        }
+
+        const moreButton = page.getByRole('button', { name: /^more$/i }).first();
+        if (await moreButton.isVisible()) {
+            await moreButton.click({ force: true });
+            await page.waitForTimeout(200);
+        }
+
+        let logoutButton = page.getByRole('button', { name: /log out|sign out/i }).first();
+        if (!(await logoutButton.isVisible())) {
+            const menuButton = page.getByRole('button', { name: /open menu|close menu/i }).first();
+            if (await menuButton.isVisible()) {
+                await menuButton.click({ force: true });
+                await page.waitForTimeout(200);
+            }
+        }
+        logoutButton = page.getByRole('button', { name: /log out|sign out/i }).first();
+        await logoutButton.waitFor({ state: 'visible' });
+
+        await page.evaluate(() => {
+            window.localStorage.setItem('halal-ticketin-access-token', 'test-access-token');
+            window.localStorage.setItem('halal-ticketin-refresh-token', 'test-refresh-token');
+        });
+
+        const accountMenuButton = page.getByRole('button', { name: /account menu/i }).first();
+        if (await accountMenuButton.isVisible()) {
+            await accountMenuButton.click({ force: true });
+        }
+
+        let desktopLogout = page.getByRole('menuitem', { name: /log out|sign out/i }).first();
+        if (await desktopLogout.isVisible()) {
+            logoutButton = desktopLogout;
+        }
+
+        await logoutButton.click({ force: true });
+        await page.waitForFunction(() => {
+            return !window.localStorage.getItem('halal-ticketin-access-token')
+                && !window.localStorage.getItem('halal-ticketin-refresh-token');
+        });
+
+        const tokensAfter = await page.evaluate(() => {
             return {
                 access: window.localStorage.getItem('halal-ticketin-access-token'),
                 refresh: window.localStorage.getItem('halal-ticketin-refresh-token')
             };
         });
 
-        expect(tokensBefore.access).toBe('test-access-token');
+        expect(tokensAfter.access).toBeNull();
+        expect(tokensAfter.refresh).toBeNull();
     });
 });
 
