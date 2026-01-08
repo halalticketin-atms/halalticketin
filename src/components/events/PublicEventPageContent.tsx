@@ -44,9 +44,8 @@ import {
 } from "@/components/ui/select";
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
-import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, type TicketAttendeePayload, getCheckoutQuote, type CheckoutQuoteResponse } from '@/lib/checkout-api';
-import { showError } from '@/lib/errors';
-import { calculateFeePerTicket, formatCurrency, getCurrencySymbol, type FeeTier } from '@/lib/fees';
+import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote } from '@/lib/checkout-api';
+import { calculateFeePerTicket, formatCurrency, getCurrencySymbol } from '@/lib/fees';
 import { formatCreditSplitNote } from '@/lib/credit-notes';
 import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
@@ -426,7 +425,7 @@ export function PublicEventPageContent({
 
     const handleOpenCheckout = () => {
         if (isPreview) {
-            showError('Preview mode: checkout is disabled.');
+            toast.error('Preview mode: checkout is disabled.');
             return;
         }
         setIsCheckoutOpen(true);
@@ -987,7 +986,7 @@ export function PublicEventPageContent({
 
     const handleProceedToCheckout = async () => {
         if (isPreview) {
-            showError('Preview mode: checkout is disabled.');
+            toast.error('Preview mode: checkout is disabled.');
             return;
         }
         if (!event || !attendeeEmail || !hasSelections) return;
@@ -1056,7 +1055,7 @@ export function PublicEventPageContent({
         if (!result.success) {
             const errorMessage = result.error || 'Checkout failed. Please try again.';
             setCheckoutError(errorMessage);
-            showError(errorMessage);
+            toast.error(errorMessage);
             setIsProcessing(false);
             return;
         }

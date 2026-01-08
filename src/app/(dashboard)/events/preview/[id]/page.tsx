@@ -7,7 +7,7 @@ import { Menu } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { PublicEventPageContent } from '@/components/events/PublicEventPageContent';
 import { fetchEventDetails, type EventRecord, type TicketRecord } from '@/lib/events-api';
-import { getUserFriendlyMessage, showWarning } from '@/lib/errors';
+import { getUserFriendlyMessage, toast } from '@/lib/notifications';
 import { useOrganizers } from '@/context/organizer-context';
 import { Button } from '@/components/ui/button';
 
@@ -79,7 +79,7 @@ export default function EventPreviewPublicPage() {
             }
             event.preventDefault();
             event.stopPropagation();
-            showWarning('This is just a preview page. Navigation is disabled.');
+            toast.warning('This is just a preview page. Navigation is disabled.');
         };
 
         document.addEventListener('click', handlePreviewNavigation, true);

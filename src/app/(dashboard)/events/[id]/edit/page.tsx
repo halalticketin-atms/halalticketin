@@ -11,7 +11,7 @@ import { buildDashboardPath } from '@/lib/organizer-path';
 import { fetchEventDetails, fetchEventPromoCodes } from '@/lib/events-api';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
-import { getUserFriendlyMessage } from '@/lib/errors';
+import { getUserFriendlyMessage } from '@/lib/notifications';
 
 export default function EditEventPage() {
     const params = useParams<{ id: string }>();

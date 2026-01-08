@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
@@ -69,7 +69,7 @@ import {
     type DraftPromoCode,
 } from '@/hooks/useEventDraft';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
-import { consumePendingDraft, type DraftEntrySource } from '@/utils/pending-draft-storage';
+import { consumePendingDraft } from '@/utils/pending-draft-storage';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 import { buildDashboardPath } from '@/lib/organizer-path';
@@ -89,7 +89,7 @@ import {
 import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
 import { ApiError } from '@/lib/api';
 import { getBackendErrorDetails } from '@/lib/api-errors';
-import { getUserFriendlyMessage, showWarning } from '@/lib/errors';
+import { getUserFriendlyMessage, toast } from '@/lib/notifications';
 import { getCurrencySymbol } from '@/lib/fees';
 import { LIMITS_GBP, MAX_PER_ORDER, MAX_TICKET_QUANTITY, PROMO_CODE_MAX_LENGTH, PROMO_CODE_MIN_LENGTH, roundCurrencyLimit } from '@/lib/input-limits';
 import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/lib/timezone';
@@ -1546,7 +1546,7 @@ export function EventWizard({
             const previewUrl = `/events/${savedEventId}/preview?mode=draft`;
             const opened = window.open(previewUrl, '_blank');
             if (!opened) {
-                showWarning('Popup blocked. Allow popups to open the preview.');
+                toast.warning('Popup blocked. Allow popups to open the preview.');
             }
         } else {
             // If save failed, show error (saveDraft already sets actionError)

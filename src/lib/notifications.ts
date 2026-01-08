@@ -71,7 +71,7 @@ export interface PromiseToastMessages<T = unknown> {
  * Transform an error into a user-friendly message.
  * Prioritizes backend error codes, falls back to status messages, then generic error.
  */
-function getUserFriendlyErrorMessage(error: unknown): string {
+export function getUserFriendlyMessage(error: unknown): string {
     // Handle ApiError from api.ts
     if (error instanceof ApiError) {
         const backendMessage = getBackendErrorMessage(error.payload, '');
@@ -128,7 +128,7 @@ export function success(message: string, options?: ToastOptions) {
  * @param options - Additional toast options (excluding description)
  */
 export function error(err: unknown, customMessage?: string, options?: Omit<ToastOptions, 'description'>) {
-    const message = customMessage || getUserFriendlyErrorMessage(err);
+    const message = customMessage || getUserFriendlyMessage(err);
     const description = (() => {
         if (!(err instanceof ApiError)) return undefined;
         if (!err.payload || typeof err.payload !== 'object') return undefined;
@@ -232,7 +232,7 @@ export function promise<T>(
             }
 
             // Otherwise use user-friendly error transformation
-            return getUserFriendlyErrorMessage(err);
+            return getUserFriendlyMessage(err);
         },
         duration: options?.duration,
         position: options?.position,

@@ -22,6 +22,7 @@ interface TicketInfo {
 interface OrderStatus {
     orderId: string;
     status: string;
+    isPending?: boolean;
     totalAmount: number;
     currency: string;
     organizerId: string;
@@ -63,8 +64,9 @@ function CheckoutSuccessContent() {
                         const data = await response.json();
                         setOrderStatus(data);
 
+                        const pending = data.isPending ?? data.status === 'pending';
                         // If pending and haven't polled too many times, poll again
-                        if (data.status === 'pending' && pollCount < 10) {
+                        if (pending && pollCount < 10) {
                             setTimeout(() => setPollCount(c => c + 1), 2000);
                         }
                     } else {
@@ -85,7 +87,11 @@ function CheckoutSuccessContent() {
 
     // Meta Pixel tracking
     useEffect(() => {
-        if (!orderStatus || orderStatus.status !== 'completed' || !orderStatus.metaPixelId || !canTrack) {
+        if (!orderStatus) {
+            return;
+        }
+        const pending = orderStatus.isPending ?? orderStatus.status === 'pending';
+        if (orderStatus.status !== 'completed' || pending || !orderStatus.metaPixelId || !canTrack) {
             return;
         }
 
@@ -211,8 +217,8 @@ function CheckoutSuccessContent() {
         );
     }
 
-    const isCompleted = orderStatus?.status === 'completed';
-    const isPending = orderStatus?.status === 'pending';
+    const isPending = orderStatus ? (orderStatus.isPending ?? orderStatus.status === 'pending') : false;
+    const isCompleted = orderStatus?.status === 'completed' && !isPending;
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8">

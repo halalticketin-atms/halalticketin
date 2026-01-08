@@ -34,7 +34,7 @@ import { useOrganizers } from '@/context/organizer-context';
 import { useAuth } from '@/context/auth-context';
 import { fetchEventDetails, listOrganizerEvents, type EventRecord } from '@/lib/events-api';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
-import { getUserFriendlyMessage } from '@/lib/errors';
+import { getUserFriendlyMessage } from '@/lib/notifications';
 
 // Lazy load the dialog to reduce initial bundle size
 const CreateOrganizerDialog = dynamic(

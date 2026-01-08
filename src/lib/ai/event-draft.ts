@@ -149,14 +149,9 @@ function normalizeFormData(
   };
 }
 
-function parseCategories(raw: Partial<DraftFormData> & { category?: string }): string[] {
-  // Handle array of categories
+function parseCategories(raw: Partial<DraftFormData>): string[] {
   if (Array.isArray(raw.categories)) {
     return raw.categories.filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
-  }
-  // Handle legacy single category string
-  if (typeof raw.category === 'string' && raw.category.trim().length > 0) {
-    return raw.category.split(',').map((c) => c.trim()).filter((c) => c.length > 0);
   }
   return [];
 }

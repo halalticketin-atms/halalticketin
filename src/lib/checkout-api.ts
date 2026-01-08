@@ -153,6 +153,7 @@ export async function createCheckoutSession(
 export async function getOrderStatus(orderId: string): Promise<{
     orderId: string;
     status: string;
+    isPending?: boolean;
     totalAmount: number;
     currency: string;
     organizerId: string;
