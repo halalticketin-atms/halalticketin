@@ -69,7 +69,7 @@ import {
     type DraftPromoCode,
 } from '@/hooks/useEventDraft';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
-import { consumePendingDraft } from '@/utils/pending-draft-storage';
+import { consumePendingDraft, type DraftEntrySource } from '@/utils/pending-draft-storage';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 import { buildDashboardPath } from '@/lib/organizer-path';
