@@ -44,8 +44,8 @@ import {
 } from "@/components/ui/select";
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
-import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote } from '@/lib/checkout-api';
-import { calculateFeePerTicket, formatCurrency, getCurrencySymbol } from '@/lib/fees';
+import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote, type CheckoutQuoteResponse, type TicketAttendeePayload } from '@/lib/checkout-api';
+import { calculateFeePerTicket, formatCurrency, getCurrencySymbol, type FeeTier } from '@/lib/fees';
 import { formatCreditSplitNote } from '@/lib/credit-notes';
 import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
@@ -1501,13 +1501,13 @@ export function PublicEventPageContent({
                                                         Donation
                                                     </div>
                                                     <div className="pt-2">
-                                                            <DonationCard
-                                                                ticket={donationTicket}
-                                                                amount={donationAmount}
-                                                                maxAmount={maxDonationAmount}
-                                                                currencySymbol={currencySymbol}
-                                                                onAmountChange={handleDonationChange}
-                                                            />
+                                                        <DonationCard
+                                                            ticket={donationTicket}
+                                                            amount={donationAmount}
+                                                            maxAmount={maxDonationAmount}
+                                                            currencySymbol={currencySymbol}
+                                                            onAmountChange={handleDonationChange}
+                                                        />
                                                     </div>
                                                 </div>
                                             )}
@@ -1964,19 +1964,19 @@ export function PublicEventPageContent({
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="space-y-1.5">
                                                         <Label className="text-xs font-medium text-muted-foreground">Age</Label>
-                                                    <Input
-                                                        type="number"
-                                                        value={ticketAttendees[currentTicketIndex].age}
-                                                        onChange={(e) => {
-                                                            const updated = [...ticketAttendees];
-                                                            updated[currentTicketIndex] = { ...updated[currentTicketIndex], age: e.target.value };
-                                                            setTicketAttendees(updated);
-                                                        }}
-                                                        disabled={isProcessing}
-                                                        min="13"
-                                                        max="120"
-                                                        className="h-10 bg-muted/30"
-                                                    />
+                                                        <Input
+                                                            type="number"
+                                                            value={ticketAttendees[currentTicketIndex].age}
+                                                            onChange={(e) => {
+                                                                const updated = [...ticketAttendees];
+                                                                updated[currentTicketIndex] = { ...updated[currentTicketIndex], age: e.target.value };
+                                                                setTicketAttendees(updated);
+                                                            }}
+                                                            disabled={isProcessing}
+                                                            min="13"
+                                                            max="120"
+                                                            className="h-10 bg-muted/30"
+                                                        />
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="text-xs font-medium text-muted-foreground">Gender</Label>
@@ -2008,20 +2008,20 @@ export function PublicEventPageContent({
                                                                     {q.label}{q.required && <span className="text-destructive ml-0.5">*</span>}
                                                                 </Label>
                                                                 {q.type === 'text' && (
-                                                                <Input
-                                                                    value={ticketAttendees[currentTicketIndex].customAnswers[q.id] || ''}
-                                                                    onChange={(e) => {
-                                                                        const updated = [...ticketAttendees];
-                                                                        updated[currentTicketIndex] = {
-                                                                            ...updated[currentTicketIndex],
-                                                                            customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.value }
-                                                                        };
-                                                                        setTicketAttendees(updated);
-                                                                    }}
-                                                                    disabled={isProcessing}
-                                                                    maxLength={500}
-                                                                    className="h-10 bg-muted/30"
-                                                                />
+                                                                    <Input
+                                                                        value={ticketAttendees[currentTicketIndex].customAnswers[q.id] || ''}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...ticketAttendees];
+                                                                            updated[currentTicketIndex] = {
+                                                                                ...updated[currentTicketIndex],
+                                                                                customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.value }
+                                                                            };
+                                                                            setTicketAttendees(updated);
+                                                                        }}
+                                                                        disabled={isProcessing}
+                                                                        maxLength={500}
+                                                                        className="h-10 bg-muted/30"
+                                                                    />
                                                                 )}
                                                                 {q.type === 'checkbox' && q.options && q.options.length > 0 ? (
                                                                     <div className="space-y-2">
