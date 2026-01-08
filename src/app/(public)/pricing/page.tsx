@@ -356,6 +356,8 @@ export default function PricingPage() {
                                                 <Input
                                                     type="number"
                                                     min="0"
+                                                    max="9999"
+                                                    step="0.01"
                                                     value={ticketPrice}
                                                     onChange={(e) => {
                                                         const value = Number(e.target.value);

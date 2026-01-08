@@ -223,6 +223,7 @@ function LoginContent() {
                                             placeholder="you@example.com"
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
+                                            maxLength={254}
                                             className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all rounded-xl"
                                             required
                                         />
@@ -248,6 +249,8 @@ function LoginContent() {
                                                 placeholder="Enter your password"
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
+                                                minLength={8}
+                                                maxLength={128}
                                                 className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all rounded-xl pr-12"
                                                 required
                                             />

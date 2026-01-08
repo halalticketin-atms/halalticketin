@@ -68,6 +68,7 @@ import {
     type DraftLocationType,
     type DraftPromoCode,
 } from '@/hooks/useEventDraft';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { consumePendingDraft, type DraftEntrySource } from '@/utils/pending-draft-storage';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
@@ -90,6 +91,7 @@ import { ApiError } from '@/lib/api';
 import { getBackendErrorDetails } from '@/lib/api-errors';
 import { getUserFriendlyMessage, showWarning } from '@/lib/errors';
 import { getCurrencySymbol } from '@/lib/fees';
+import { LIMITS_GBP, MAX_PER_ORDER, MAX_TICKET_QUANTITY, PROMO_CODE_MAX_LENGTH, PROMO_CODE_MIN_LENGTH, roundCurrencyLimit } from '@/lib/input-limits';
 import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/lib/timezone';
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
@@ -137,6 +139,18 @@ const refundPolicyOptions = [
 
 const isDraftSource = (value: string | null): value is DraftEntrySource =>
     value === 'ai' || value === 'clone' || value === 'draft';
+
+async function dataUrlToFile(dataUrl: string, fallbackName: string): Promise<File | null> {
+    if (!dataUrl.startsWith('data:image/')) {
+        return null;
+    }
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const mimeMatch = dataUrl.match(/^data:([^;]+);base64,/);
+    const mimeType = blob.type || mimeMatch?.[1] || 'image/png';
+    const extension = mimeType.split('/')[1] || 'png';
+    return new File([blob], `${fallbackName}.${extension}`, { type: mimeType });
+}
 
 type EntryContext = {
     label: string;
@@ -436,8 +450,13 @@ const validatePublishForm = (formData: DraftFormData, tickets: DraftTicketType[]
     const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
     const isOnline = locationType === 'online' || locationType === 'hybrid';
 
-    if (!formData.title.trim()) {
+    const trimmedTitle = formData.title.trim();
+    if (!trimmedTitle) {
         errors.title = 'Title is required before publishing.';
+    } else if (trimmedTitle.length < 3) {
+        errors.title = 'Title must be at least 3 characters.';
+    } else if (trimmedTitle.length > 75) {
+        errors.title = 'Title must be 75 characters or less.';
     }
 
     if (!formData.currency) {
@@ -495,8 +514,13 @@ const validatePublishForm = (formData: DraftFormData, tickets: DraftTicketType[]
         errors.tickets = 'At least one ticket type must be configured before publishing.';
     }
 
-    if (!formData.refundPolicy.trim()) {
+    const trimmedRefundPolicy = formData.refundPolicy.trim();
+    if (!trimmedRefundPolicy) {
         errors.refundPolicy = 'Select a refund policy before publishing.';
+    } else if (trimmedRefundPolicy.length < 10) {
+        errors.refundPolicy = 'Refund policy must be at least 10 characters.';
+    } else if (trimmedRefundPolicy.length > 500) {
+        errors.refundPolicy = 'Refund policy must be 500 characters or less.';
     }
 
     return errors;
@@ -537,7 +561,31 @@ export function EventWizard({
     const { user, isLoading: authLoading } = useAuth();
     const { activeOrganizerId, organizers, isLoading: organizersLoading } = useOrganizers();
     const currentOrganizer = organizers.find(o => o.id === activeOrganizerId);
+    const { rates, isLoading: isLoadingRates } = useExchangeRates();
     const appliedBannerRef = useRef<string | null>(null);
+    const appliedBannerFileRef = useRef<string | null>(null);
+
+    const [currencyRateSnapshot, setCurrencyRateSnapshot] = useState<number | null>(null);
+    const [currencySnapshotCode, setCurrencySnapshotCode] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (isLoadingRates) {
+            return;
+        }
+        const currency = (formData.currency || 'GBP').toUpperCase();
+        if (currencySnapshotCode !== currency) {
+            setCurrencySnapshotCode(currency);
+            setCurrencyRateSnapshot(rates[currency] ?? 1);
+        }
+    }, [currencySnapshotCode, formData.currency, isLoadingRates, rates]);
+
+    const currencyCode = (formData.currency || 'GBP').toUpperCase();
+    const rateSnapshot = currencyRateSnapshot ?? rates[currencyCode] ?? 1;
+    const convertLimit = useCallback((amountGBP: number) => roundCurrencyLimit(amountGBP * rateSnapshot), [rateSnapshot]);
+    const maxTicketPrice = convertLimit(LIMITS_GBP.ticketPrice);
+    const maxDonationAmount = convertLimit(LIMITS_GBP.donation);
+    const maxCustomFee = convertLimit(LIMITS_GBP.customFee);
+    const maxPromoFixed = convertLimit(LIMITS_GBP.promoFixed);
 
     // Banner file upload state
     const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -546,6 +594,7 @@ export function EventWizard({
 
     useEffect(() => {
         appliedBannerRef.current = null;
+        appliedBannerFileRef.current = null;
         setBannerWasRemoved(false);
     }, [initialDraft?.eventId]);
 
@@ -574,6 +623,37 @@ export function EventWizard({
             appliedBannerRef.current = eventKey;
         }
     }, [bannerWasRemoved, formData.bannerImageDataUrl, initialDraft?.eventId, initialDraft?.formData?.bannerImageDataUrl, setFormData]);
+
+    useEffect(() => {
+        const bannerUrl = initialDraft?.formData?.bannerImageDataUrl;
+        if (!bannerUrl || bannerWasRemoved || bannerFile) {
+            return;
+        }
+        if (!bannerUrl.startsWith('data:image/')) {
+            return;
+        }
+        if (appliedBannerFileRef.current === bannerUrl) {
+            return;
+        }
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const restoredFile = await dataUrlToFile(bannerUrl, 'ai-poster');
+                if (!restoredFile || cancelled) {
+                    return;
+                }
+                setBannerFile(restoredFile);
+                appliedBannerFileRef.current = bannerUrl;
+            } catch (error) {
+                console.warn('Failed to restore poster from AI draft:', error);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [bannerFile, bannerWasRemoved, initialDraft?.formData?.bannerImageDataUrl]);
 
     // Location coordinates for map display
     const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
@@ -923,10 +1003,16 @@ export function EventWizard({
             }
 
             const trimmedTitle = formData.title.trim();
-            if (trimmedTitle.length < 2) {
-                setActionError('Event title must be at least 2 characters.');
-                setFieldErrors({ title: 'Title must be at least 2 characters' });
+            if (trimmedTitle.length < 3) {
+                setActionError('Event title must be at least 3 characters.');
+                setFieldErrors({ title: 'Title must be at least 3 characters' });
                 setCurrentStep(1); // Navigate to Basic Details step
+                return null;
+            }
+            if (trimmedTitle.length > 75) {
+                setActionError('Event title must be 75 characters or less.');
+                setFieldErrors({ title: 'Title must be 75 characters or less' });
+                setCurrentStep(1);
                 return null;
             }
 
@@ -991,6 +1077,7 @@ export function EventWizard({
                 const promoApiErrors: Record<string, PromoFieldErrors> = {};
                 let hasPromoApiErrors = false;
                 let promoErrorMessage: string | null = null;
+                const promoCurrencySymbol = getCurrencySymbol(formData.currency);
 
                 for (const promo of normalizedPromoCodes) {
                     const code = promo.code.trim();
@@ -1000,10 +1087,24 @@ export function EventWizard({
 
                     if (!code) {
                         errors.code = 'Code is required.';
+                    } else {
+                        if (code.length < PROMO_CODE_MIN_LENGTH) {
+                            errors.code = `Code must be at least ${PROMO_CODE_MIN_LENGTH} characters.`;
+                        } else if (code.length > PROMO_CODE_MAX_LENGTH) {
+                            errors.code = `Code must be ${PROMO_CODE_MAX_LENGTH} characters or less.`;
+                        } else if (!/^[A-Z0-9-]+$/i.test(code)) {
+                            errors.code = 'Code must be alphanumeric.';
+                        }
                     }
                     // Only require positive discount for non-reveal codes
                     if (!isRevealOnlyCode && (!Number.isFinite(discountValue) || discountValue <= 0)) {
                         errors.discountValue = 'Discount must be greater than 0.';
+                    }
+                    if (!isRevealOnlyCode && promo.discountType === 'percentage' && discountValue > 100) {
+                        errors.discountValue = 'Percentage discount cannot exceed 100.';
+                    }
+                    if (!isRevealOnlyCode && promo.discountType === 'fixed' && discountValue > maxPromoFixed) {
+                        errors.discountValue = `Discount cannot exceed ${promoCurrencySymbol}${maxPromoFixed.toFixed(2)}.`;
                     }
 
                     if (errors.code || errors.discountValue) {
@@ -1277,7 +1378,7 @@ export function EventWizard({
                 setIsSaving(false);
             }
         },
-        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, isSaving, markSnapshotAsSaved, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
+        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, isSaving, markSnapshotAsSaved, maxPromoFixed, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
@@ -1764,6 +1865,8 @@ export function EventWizard({
                                                         placeholder="Give your event a catchy name"
                                                         value={formData.title}
                                                         onChange={handleFieldChange}
+                                                        minLength={3}
+                                                        maxLength={75}
                                                         className={cn(
                                                             'h-11',
                                                             fieldErrors.title ? 'border-destructive focus-visible:ring-destructive' : '',
@@ -1784,6 +1887,7 @@ export function EventWizard({
                                                         value={formData.description}
                                                         onChange={handleFieldChange}
                                                         rows={3}
+                                                        maxLength={2500}
                                                         className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
                                                     />
                                                 </div>
@@ -2113,6 +2217,7 @@ export function EventWizard({
                                                                     placeholder="Street address"
                                                                     value={formData.address}
                                                                     onChange={handleFieldChange}
+                                                                    maxLength={100}
                                                                     className="h-11"
                                                                 />
                                                             </div>
@@ -2124,6 +2229,7 @@ export function EventWizard({
                                                                     placeholder="City"
                                                                     value={formData.city}
                                                                     onChange={handleFieldChange}
+                                                                    maxLength={50}
                                                                     className="h-11"
                                                                 />
                                                             </div>
@@ -2161,6 +2267,7 @@ export function EventWizard({
                                                             placeholder="https://zoom.us/j/..."
                                                             value={formData.onlineUrl}
                                                             onChange={handleFieldChange}
+                                                            maxLength={500}
                                                             className={cn(
                                                                 'h-11',
                                                                 fieldErrors.onlineUrl ? 'border-destructive focus-visible:ring-destructive' : '',
@@ -2283,6 +2390,8 @@ export function EventWizard({
                                                             placeholder="Describe your refund terms for attendees"
                                                             value={formData.refundPolicy}
                                                             onChange={handleFieldChange}
+                                                            minLength={10}
+                                                            maxLength={500}
                                                             className="min-h-[90px] resize-none"
                                                         />
                                                     </div>
@@ -2355,6 +2464,8 @@ export function EventWizard({
                                                                                 const nameErrors = buildDuplicateTicketNameErrors(nextTickets);
                                                                                 setTicketErrors((prev) => mergeTicketNameErrors(prev, nameErrors, nextTickets));
                                                                             }}
+                                                                            minLength={2}
+                                                                            maxLength={50}
                                                                             className={cn(
                                                                                 'h-11',
                                                                                 ticketErrors[ticket.id]?.name
@@ -2386,6 +2497,8 @@ export function EventWizard({
                                                                             type="number"
                                                                             placeholder="0.00"
                                                                             min="0"
+                                                                            max={maxTicketPrice}
+                                                                            step="0.01"
                                                                             value={ticket.price}
                                                                             onChange={(e) => {
                                                                                 const value = e.target.value;
@@ -2413,6 +2526,7 @@ export function EventWizard({
                                                                                 placeholder="0.55"
                                                                                 min="0"
                                                                                 step="0.01"
+                                                                                max={maxCustomFee}
                                                                                 value={ticket.customFee ?? ''}
                                                                                 onChange={(e) => {
                                                                                     const value = e.target.value;
@@ -2471,11 +2585,17 @@ export function EventWizard({
                                                                         </Button>
                                                                         <Input
                                                                             type="number"
+                                                                            min={1}
+                                                                            max={MAX_TICKET_QUANTITY}
                                                                             value={ticket.quantity || ''}
                                                                             onChange={(e) => {
                                                                                 const val = e.target.value.replace(/^0+(?=\d)/, '');
                                                                                 clearTicketError(ticket.id, 'quantity');
-                                                                                updateTicket(ticket.id, 'quantity', parseInt(val) || 0);
+                                                                                const parsed = Number.parseInt(val, 10);
+                                                                                const nextValue = Number.isFinite(parsed)
+                                                                                    ? Math.min(parsed, MAX_TICKET_QUANTITY)
+                                                                                    : 0;
+                                                                                updateTicket(ticket.id, 'quantity', nextValue);
                                                                             }}
                                                                             className={cn(
                                                                                 'h-10 text-center font-semibold',
@@ -2488,7 +2608,7 @@ export function EventWizard({
                                                                             className="h-10 w-10 shrink-0"
                                                                             onClick={() => {
                                                                                 clearTicketError(ticket.id, 'quantity');
-                                                                                updateTicket(ticket.id, 'quantity', ticket.quantity + 10);
+                                                                                updateTicket(ticket.id, 'quantity', Math.min(MAX_TICKET_QUANTITY, ticket.quantity + 10));
                                                                             }}
                                                                         >
                                                                             <Plus className="h-3.5 w-3.5" />
@@ -2546,6 +2666,7 @@ export function EventWizard({
                                                                                     }
                                                                                 }}
                                                                                 onBlur={() => {
+                                                                                    const maxPerOrderLimit = Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1));
                                                                                     if (!ticket.maxPerOrder || ticket.maxPerOrder < 1) {
                                                                                         updateTicket(ticket.id, 'maxPerOrder', 1);
                                                                                         setTicketErrors((prev) => ({
@@ -2555,6 +2676,17 @@ export function EventWizard({
                                                                                                 maxPerOrder: "Can't be less than one.",
                                                                                             },
                                                                                         }));
+                                                                                        return;
+                                                                                    }
+                                                                                    if (ticket.maxPerOrder > maxPerOrderLimit) {
+                                                                                        updateTicket(ticket.id, 'maxPerOrder', maxPerOrderLimit);
+                                                                                        setTicketErrors((prev) => ({
+                                                                                            ...prev,
+                                                                                            [ticket.id]: {
+                                                                                                ...prev[ticket.id],
+                                                                                                maxPerOrder: `Can't exceed ${maxPerOrderLimit}.`,
+                                                                                            },
+                                                                                        }));
                                                                                     }
                                                                                 }}
                                                                                 className={cn(
@@ -2562,7 +2694,7 @@ export function EventWizard({
                                                                                     ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
                                                                                 )}
                                                                                 min={1}
-                                                                                max={Math.max(ticket.quantity, 1)}
+                                                                                max={Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1))}
                                                                             />
                                                                             {ticketErrors[ticket.id]?.maxPerOrder ? (
                                                                                 <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
@@ -2595,6 +2727,8 @@ export function EventWizard({
                                                                                             type="number"
                                                                                             placeholder="Discounted price"
                                                                                             min="0"
+                                                                                            max={maxTicketPrice}
+                                                                                            step="0.01"
                                                                                             value={ticket.earlyBirdPrice}
                                                                                             onChange={(e) => {
                                                                                                 const value = e.target.value;
@@ -2686,6 +2820,7 @@ export function EventWizard({
                                                                 onChange={(e) => {
                                                                     updateTicket(donationTicket.id, 'description', e.target.value);
                                                                 }}
+                                                                maxLength={250}
                                                                 className="h-11"
                                                             />
                                                             <p className="text-xs text-muted-foreground">Shown to buyers during checkout.</p>
@@ -2696,6 +2831,7 @@ export function EventWizard({
                                                                 type="number"
                                                                 min="0"
                                                                 step="0.01"
+                                                                max={maxDonationAmount}
                                                                 placeholder="0"
                                                                 value={donationTicket.price}
                                                                 onChange={(e) => {
@@ -2760,6 +2896,9 @@ export function EventWizard({
                                                                                 placeholder="CODE2024"
                                                                                 value={promo.code}
                                                                                 onChange={(e) => updatePromoCode(promo.id, 'code', e.target.value.toUpperCase())}
+                                                                                minLength={PROMO_CODE_MIN_LENGTH}
+                                                                                maxLength={PROMO_CODE_MAX_LENGTH}
+                                                                                autoCapitalize="characters"
                                                                                 className={cn(
                                                                                     'h-10 w-40 font-mono uppercase',
                                                                                     promoError?.code ? 'border-destructive focus-visible:ring-destructive' : '',
@@ -2896,7 +3035,9 @@ export function EventWizard({
                                                                                         <Input
                                                                                             type="number"
                                                                                             placeholder="10"
-                                                                                            min="0"
+                                                                                            min={promo.discountType === 'percentage' ? 1 : 0.01}
+                                                                                            max={promo.discountType === 'percentage' ? 100 : maxPromoFixed}
+                                                                                            step={promo.discountType === 'percentage' ? 1 : 0.01}
                                                                                             value={promo.discountValue}
                                                                                             onChange={(e) => {
                                                                                                 const value = e.target.value;

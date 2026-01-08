@@ -286,6 +286,10 @@ export function SignupOnboardingDialog({
                     setError('Password must be at least 8 characters');
                     return;
                 }
+                if (formData.password.length > 128) {
+                    setError('Password must be 128 characters or less');
+                    return;
+                }
                 setStep('profile');
                 break;
             case 'profile':
@@ -753,6 +757,8 @@ export function SignupOnboardingDialog({
                                                 placeholder="Your full name"
                                                 value={formData.name}
                                                 onChange={(e) => updateField('name', e.target.value)}
+                                                minLength={2}
+                                                maxLength={80}
                                                 className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all"
                                             />
                                         </motion.div>
@@ -774,6 +780,7 @@ export function SignupOnboardingDialog({
                                                 value={formData.email}
                                                 onChange={(e) => updateField('email', e.target.value)}
                                                 disabled={isInviteFlow}
+                                                maxLength={254}
                                                 className={cn(
                                                     "h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all",
                                                     isInviteFlow && "bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-80"
@@ -794,6 +801,8 @@ export function SignupOnboardingDialog({
                                                     placeholder="At least 8 characters"
                                                     value={formData.password}
                                                     onChange={(e) => updateField('password', e.target.value)}
+                                                    minLength={8}
+                                                    maxLength={128}
                                                     className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all pr-12"
                                                     required
                                                 />

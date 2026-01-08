@@ -359,7 +359,7 @@ export default function EmailAttendeesPage() {
         (audience === 'all' && hasAttendees) ||
         (audience === 'recent' && hasAttendees) ||
         (audience === 'individual' && selectedAttendeeIds.size > 0);
-    const canProceedFromCompose = subject.trim().length > 0 && message.trim().length > 0;
+    const canProceedFromCompose = subject.trim().length >= 5 && message.trim().length >= 10;
     const canSend = canProceedFromEvent && canProceedFromAudience && canProceedFromCompose;
 
     useEffect(() => {
@@ -885,6 +885,8 @@ export default function EmailAttendeesPage() {
                                                 id="subject"
                                                 value={subject}
                                                 onChange={(e) => setSubject(e.target.value)}
+                                                minLength={5}
+                                                maxLength={100}
                                                 className="h-12"
                                                 placeholder="Email subject line"
                                             />
@@ -898,6 +900,8 @@ export default function EmailAttendeesPage() {
                                                 id="message"
                                                 value={message}
                                                 onChange={(e) => setMessage(e.target.value)}
+                                                minLength={10}
+                                                maxLength={10000}
                                                 className="min-h-[200px] resize-none"
                                                 placeholder="Write your message to attendees..."
                                             />

@@ -129,6 +129,8 @@ export default function ContactPage() {
                                     className="glass-surface md:backdrop-blur-sm rounded-xl transition-all"
                                     value={formData.firstName}
                                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                                    minLength={2}
+                                    maxLength={80}
                                     required
                                 />
                             </div>
@@ -139,6 +141,8 @@ export default function ContactPage() {
                                     className="glass-surface md:backdrop-blur-sm rounded-xl transition-all"
                                     value={formData.lastName}
                                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                                    minLength={2}
+                                    maxLength={80}
                                     required
                                 />
                             </div>
@@ -153,6 +157,7 @@ export default function ContactPage() {
                                     className="glass-surface md:backdrop-blur-sm rounded-xl transition-all"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    maxLength={254}
                                     required
                                 />
                             </div>
@@ -185,6 +190,8 @@ export default function ContactPage() {
                                     className="glass-surface md:backdrop-blur-sm rounded-xl transition-all"
                                     value={formData.customSubject}
                                     onChange={(e) => setFormData({ ...formData, customSubject: e.target.value })}
+                                    minLength={5}
+                                    maxLength={78}
                                     required
                                 />
                             </div>
@@ -198,6 +205,8 @@ export default function ContactPage() {
                                 rows={6}
                                 value={formData.message}
                                 onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                                minLength={20}
+                                maxLength={2000}
                                 required
                             />
                         </div>

@@ -9,7 +9,6 @@ import {
     ArrowRight,
     ImageIcon,
     Loader2,
-    Paperclip,
     Sparkles,
     Upload,
     X,
@@ -66,9 +65,13 @@ export default function AIEventCreatorPage() {
 
     const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (file) {
-            setUploadedFile(file);
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please select an image file');
+            event.target.value = '';
+            return;
         }
+        setUploadedFile(file);
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -85,9 +88,12 @@ export default function AIEventCreatorPage() {
         e.preventDefault();
         setIsDragging(false);
         const file = e.dataTransfer.files?.[0];
-        if (file && file.type.startsWith('image/')) {
-            setUploadedFile(file);
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please drop an image file');
+            return;
         }
+        setUploadedFile(file);
     };
 
     const handleRemoveFile = () => {
@@ -256,19 +262,8 @@ export default function AIEventCreatorPage() {
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={isProcessing}
                                 >
-                                    <Paperclip className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Add Attachment</span>
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-9 gap-2 text-muted-foreground hover:text-foreground"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={isProcessing}
-                                >
                                     <Upload className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Use Image</span>
+                                    <span className="hidden sm:inline">Upload Poster</span>
                                 </Button>
                             </div>
 

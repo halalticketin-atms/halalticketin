@@ -598,6 +598,8 @@ export default function SettingsPage() {
                                                 placeholder="Your display name"
                                                 value={profileForm.name}
                                                 onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
+                                                minLength={2}
+                                                maxLength={80}
                                             />
                                         </div>
 
@@ -610,6 +612,7 @@ export default function SettingsPage() {
                                                 className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 opacity-60"
                                                 placeholder="your@email.com"
                                                 defaultValue={user?.email || ''}
+                                                maxLength={254}
                                                 disabled
                                             />
                                             <p className="text-xs text-muted-foreground">Email cannot be changed</p>
@@ -921,6 +924,7 @@ export default function SettingsPage() {
                                                     placeholder="replies@your-organization.com"
                                                     value={organizerProfileForm.replyToEmail}
                                                     onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, replyToEmail: e.target.value }))}
+                                                    maxLength={254}
                                                 />
                                                 {organizerProfileForm.replyToEmail && (
                                                     <button

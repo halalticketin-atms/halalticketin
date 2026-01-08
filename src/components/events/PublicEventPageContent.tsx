@@ -50,6 +50,7 @@ import { calculateFeePerTicket, formatCurrency, getCurrencySymbol, type FeeTier 
 import { formatCreditSplitNote } from '@/lib/credit-notes';
 import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
+import { LIMITS_GBP, MAX_PER_ORDER, PROMO_CODE_MAX_LENGTH, PROMO_CODE_MIN_LENGTH, roundCurrencyLimit } from '@/lib/input-limits';
 import { useOptionalAuth } from '@/context/auth-context';
 import { differenceInYears } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -116,7 +117,8 @@ function TicketCard({
 }) {
     const regularPrice = formatPrice(ticket.price, ticket.currency);
     const isFree = ticket.type === 'free' || regularPrice === 'Free';
-    const maxQty = ticket.maxQuantity || 10;
+    const perOrderLimit = ticket.maxPerOrder ?? MAX_PER_ORDER;
+    const maxQty = Math.min(perOrderLimit, ticket.maxQuantity ?? perOrderLimit);
 
     // Check if early bird pricing is active
     const earlyBirdPrice = 'earlyBirdPrice' in ticket ? ticket.earlyBirdPrice : null;
@@ -175,11 +177,13 @@ function TicketCard({
 function DonationCard({
     ticket,
     amount,
+    maxAmount,
     currencySymbol,
     onAmountChange,
 }: {
     ticket: TicketLike;
     amount: number;
+    maxAmount: number;
     currencySymbol: string;
     onAmountChange: (amount: number) => void;
 }) {
@@ -190,7 +194,7 @@ function DonationCard({
         }
         const numeric = Number(value);
         if (Number.isFinite(numeric) && numeric >= 0) {
-            onAmountChange(numeric);
+            onAmountChange(Math.min(numeric, maxAmount));
         }
     };
 
@@ -223,6 +227,7 @@ function DonationCard({
                     <Input
                         type="number"
                         min="0"
+                        max={maxAmount}
                         step="0.01"
                         value={amount.toString()}
                         onChange={(e) => handleChange(e.target.value)}
@@ -523,7 +528,8 @@ export function PublicEventPageContent({
     };
 
     const handleDonationChange = (amount: number) => {
-        setDonationAmount(amount);
+        const clamped = Math.min(Math.max(amount, 0), maxDonationAmount);
+        setDonationAmount(clamped);
         // Clear applied promo when donation amount changes
         setAppliedPromo(null);
         setPromoError(null);
@@ -556,6 +562,15 @@ export function PublicEventPageContent({
 
     const handleApplyPromo = async () => {
         if (!event || !promoCode.trim()) return;
+        const trimmedCode = promoCode.trim();
+        if (trimmedCode.length < PROMO_CODE_MIN_LENGTH) {
+            setPromoError(`Promo code must be at least ${PROMO_CODE_MIN_LENGTH} characters.`);
+            return;
+        }
+        if (trimmedCode.length > PROMO_CODE_MAX_LENGTH) {
+            setPromoError(`Promo code must be ${PROMO_CODE_MAX_LENGTH} characters or less.`);
+            return;
+        }
 
         setIsValidatingPromo(true);
         setPromoError(null);
@@ -565,7 +580,7 @@ export function PublicEventPageContent({
             quantity: item.quantity,
             unitPrice: item.ticket.type === 'donation' ? item.subtotal : undefined
         }));
-        const result = await validatePromoCode(event.id, promoCode.trim(), promoItems, totalAmount);
+        const result = await validatePromoCode(event.id, trimmedCode, promoItems, totalAmount);
 
         if (result.valid) {
             setAppliedPromo(result);
@@ -573,7 +588,7 @@ export function PublicEventPageContent({
 
             // Check if this promo reveals hidden tickets
             if (result.revealsHiddenTickets) {
-                const unlocked = await fetchUnlockedTickets(event.slug || '', promoCode.trim());
+                const unlocked = await fetchUnlockedTickets(event.slug || '', trimmedCode);
                 if (unlocked.length > 0) {
                     setUnlockedTickets(unlocked as TicketLike[]);
                     toast.success(`Unlocked ${unlocked.length} hidden ticket${unlocked.length === 1 ? '' : 's'}!`);
@@ -603,6 +618,10 @@ export function PublicEventPageContent({
     const finalTotal = Math.max(0, totalAmount - discountAmount);
     const currencyCode = event?.currency || tickets[0]?.currency || 'GBP';
     const currencySymbol = getCurrencySymbol(currencyCode);
+    const maxDonationAmount = useMemo(() => {
+        const rate = rates[currencyCode.toUpperCase()] ?? 1;
+        return roundCurrencyLimit(LIMITS_GBP.donation * rate);
+    }, [currencyCode, rates]);
 
     const organizerFeeNotes = useMemo(() => {
         const notes = new Map<string, string>();
@@ -860,18 +879,24 @@ export function PublicEventPageContent({
     const validateCurrentStep = (): string | null => {
         if (stepType === 'buyer') {
             if (!attendeeName.trim()) return 'Please enter your name.';
+            if (attendeeName.trim().length < 2) return 'Name must be at least 2 characters.';
             if (!attendeeEmail.trim()) return 'Please enter your email.';
             if (!attendeeAge.trim()) return 'Please enter your age.';
             if (!attendeeGender) return 'Please select your gender.';
             const ageNum = Number(attendeeAge);
-            if (Number.isNaN(ageNum) || ageNum <= 0) return 'Please enter a valid age.';
+            if (Number.isNaN(ageNum) || ageNum < 13 || ageNum > 120) {
+                return 'Please enter a valid age (13-120).';
+            }
         } else if (stepType === 'ticket' && currentTicketIndex >= 0) {
             const attendee = ticketAttendees[currentTicketIndex];
             if (!attendee?.name?.trim()) return `Please enter name for Ticket ${currentTicketIndex + 1}.`;
+            if (attendee.name.trim().length < 2) return `Ticket ${currentTicketIndex + 1}: name must be at least 2 characters.`;
             if (!attendee?.age?.trim()) return `Please enter age for Ticket ${currentTicketIndex + 1}.`;
             if (!attendee?.gender) return `Please select gender for Ticket ${currentTicketIndex + 1}.`;
             const ageNum = Number(attendee.age);
-            if (Number.isNaN(ageNum) || ageNum <= 0) return `Please enter a valid age for Ticket ${currentTicketIndex + 1}.`;
+            if (Number.isNaN(ageNum) || ageNum < 13 || ageNum > 120) {
+                return `Please enter a valid age (13-120) for Ticket ${currentTicketIndex + 1}.`;
+            }
             // Check custom questions
             if (event?.customQuestions?.length) {
                 for (const q of event.customQuestions) {
@@ -909,14 +934,20 @@ export function PublicEventPageContent({
         if (!attendeeName.trim() || !attendeeEmail.trim() || !attendeeGender || !attendeeAge.trim()) {
             return 'Please provide your name, email, age, and gender.';
         }
+        if (attendeeName.trim().length < 2) {
+            return 'Name must be at least 2 characters.';
+        }
 
         const buyerAgeNumber = Number(attendeeAge);
-        if (Number.isNaN(buyerAgeNumber) || buyerAgeNumber <= 0) {
-            return 'Please enter a valid age.';
+        if (Number.isNaN(buyerAgeNumber) || buyerAgeNumber < 13 || buyerAgeNumber > 120) {
+            return 'Please enter a valid age (13-120).';
         }
 
         if (!hasSelections) {
             return 'Please select at least one ticket or donation.';
+        }
+        if (donationAmount > maxDonationAmount) {
+            return `Donation amount cannot exceed ${currencySymbol}${maxDonationAmount.toFixed(2)}.`;
         }
 
         if (requiresPerTicket) {
@@ -929,10 +960,13 @@ export function PublicEventPageContent({
                 if (!attendee.name.trim() || !attendee.gender || !attendee.age.trim()) {
                     return `Ticket ${i + 1}: attendee name, gender, and age are required.`;
                 }
+                if (attendee.name.trim().length < 2) {
+                    return `Ticket ${i + 1}: name must be at least 2 characters.`;
+                }
 
                 const ageNumber = Number(attendee.age);
-                if (Number.isNaN(ageNumber) || ageNumber <= 0) {
-                    return `Ticket ${i + 1}: please enter a valid age.`;
+                if (Number.isNaN(ageNumber) || ageNumber < 13 || ageNumber > 120) {
+                    return `Ticket ${i + 1}: please enter a valid age (13-120).`;
                 }
 
                 if (event?.customQuestions?.length) {
@@ -1467,12 +1501,13 @@ export function PublicEventPageContent({
                                                         Donation
                                                     </div>
                                                     <div className="pt-2">
-                                                        <DonationCard
-                                                            ticket={donationTicket}
-                                                            amount={donationAmount}
-                                                            currencySymbol={currencySymbol}
-                                                            onAmountChange={handleDonationChange}
-                                                        />
+                                                            <DonationCard
+                                                                ticket={donationTicket}
+                                                                amount={donationAmount}
+                                                                maxAmount={maxDonationAmount}
+                                                                currencySymbol={currencySymbol}
+                                                                onAmountChange={handleDonationChange}
+                                                            />
                                                     </div>
                                                 </div>
                                             )}
@@ -1499,6 +1534,8 @@ export function PublicEventPageContent({
                                                         setAppliedPromo(null);
                                                     }
                                                 }}
+                                                minLength={PROMO_CODE_MIN_LENGTH}
+                                                maxLength={PROMO_CODE_MAX_LENGTH}
                                                 disabled={isValidatingPromo || !!appliedPromo}
                                                 className="flex-1"
                                             />
@@ -1687,6 +1724,7 @@ export function PublicEventPageContent({
                                             <Input
                                                 type="number"
                                                 min="0"
+                                                max={maxDonationAmount}
                                                 step="0.01"
                                                 value={donationAmount.toString()}
                                                 onChange={(e) => {
@@ -1697,7 +1735,7 @@ export function PublicEventPageContent({
                                                     }
                                                     const numeric = Number(value);
                                                     if (Number.isFinite(numeric) && numeric >= 0) {
-                                                        handleDonationChange(numeric);
+                                                        handleDonationChange(Math.min(numeric, maxDonationAmount));
                                                     }
                                                 }}
                                                 className="h-9"
@@ -1829,6 +1867,8 @@ export function PublicEventPageContent({
                                                         onChange={(e) => setAttendeeName(e.target.value)}
                                                         disabled={isProcessing}
                                                         autoFocus={false}
+                                                        minLength={2}
+                                                        maxLength={80}
                                                         className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && !attendeeName.trim() && "border-destructive ring-1 ring-destructive/30")}
                                                     />
                                                     {hasAttemptedSubmit && !attendeeName.trim() && (
@@ -1843,6 +1883,7 @@ export function PublicEventPageContent({
                                                         value={attendeeEmail}
                                                         onChange={(e) => setAttendeeEmail(e.target.value)}
                                                         disabled={isProcessing}
+                                                        maxLength={254}
                                                         className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && !attendeeEmail.trim() && "border-destructive ring-1 ring-destructive/30")}
                                                     />
                                                     {hasAttemptedSubmit && !attendeeEmail.trim() && (
@@ -1851,19 +1892,19 @@ export function PublicEventPageContent({
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="space-y-1.5">
-                                                        <Label htmlFor="buyerAge" className={cn("text-xs font-medium", hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) <= 0) ? "text-destructive" : "text-muted-foreground")}>Age</Label>
+                                                        <Label htmlFor="buyerAge" className={cn("text-xs font-medium", hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) < 13 || Number(attendeeAge) > 120) ? "text-destructive" : "text-muted-foreground")}>Age</Label>
                                                         <Input
                                                             id="buyerAge"
                                                             type="number"
-                                                            min="1"
+                                                            min="13"
                                                             max="120"
                                                             value={attendeeAge}
                                                             onChange={(e) => setAttendeeAge(e.target.value)}
                                                             disabled={isProcessing}
-                                                            className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) <= 0) && "border-destructive ring-1 ring-destructive/30")}
+                                                            className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) < 13 || Number(attendeeAge) > 120) && "border-destructive ring-1 ring-destructive/30")}
                                                         />
-                                                        {hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) <= 0) && (
-                                                            <p className="text-xs text-destructive">Required</p>
+                                                        {hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) < 13 || Number(attendeeAge) > 120) && (
+                                                            <p className="text-xs text-destructive">Enter age 13-120</p>
                                                         )}
                                                     </div>
                                                     <div className="space-y-1.5">
@@ -1915,23 +1956,27 @@ export function PublicEventPageContent({
                                                             setTicketAttendees(updated);
                                                         }}
                                                         disabled={isProcessing}
+                                                        minLength={2}
+                                                        maxLength={80}
                                                         className="h-10 bg-muted/30"
                                                     />
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="space-y-1.5">
                                                         <Label className="text-xs font-medium text-muted-foreground">Age</Label>
-                                                        <Input
-                                                            type="number"
-                                                            value={ticketAttendees[currentTicketIndex].age}
-                                                            onChange={(e) => {
-                                                                const updated = [...ticketAttendees];
-                                                                updated[currentTicketIndex] = { ...updated[currentTicketIndex], age: e.target.value };
-                                                                setTicketAttendees(updated);
-                                                            }}
-                                                            disabled={isProcessing}
-                                                            className="h-10 bg-muted/30"
-                                                        />
+                                                    <Input
+                                                        type="number"
+                                                        value={ticketAttendees[currentTicketIndex].age}
+                                                        onChange={(e) => {
+                                                            const updated = [...ticketAttendees];
+                                                            updated[currentTicketIndex] = { ...updated[currentTicketIndex], age: e.target.value };
+                                                            setTicketAttendees(updated);
+                                                        }}
+                                                        disabled={isProcessing}
+                                                        min="13"
+                                                        max="120"
+                                                        className="h-10 bg-muted/30"
+                                                    />
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="text-xs font-medium text-muted-foreground">Gender</Label>
@@ -1963,19 +2008,20 @@ export function PublicEventPageContent({
                                                                     {q.label}{q.required && <span className="text-destructive ml-0.5">*</span>}
                                                                 </Label>
                                                                 {q.type === 'text' && (
-                                                                    <Input
-                                                                        value={ticketAttendees[currentTicketIndex].customAnswers[q.id] || ''}
-                                                                        onChange={(e) => {
-                                                                            const updated = [...ticketAttendees];
-                                                                            updated[currentTicketIndex] = {
-                                                                                ...updated[currentTicketIndex],
-                                                                                customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.value }
-                                                                            };
-                                                                            setTicketAttendees(updated);
-                                                                        }}
-                                                                        disabled={isProcessing}
-                                                                        className="h-10 bg-muted/30"
-                                                                    />
+                                                                <Input
+                                                                    value={ticketAttendees[currentTicketIndex].customAnswers[q.id] || ''}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...ticketAttendees];
+                                                                        updated[currentTicketIndex] = {
+                                                                            ...updated[currentTicketIndex],
+                                                                            customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.value }
+                                                                        };
+                                                                        setTicketAttendees(updated);
+                                                                    }}
+                                                                    disabled={isProcessing}
+                                                                    maxLength={500}
+                                                                    className="h-10 bg-muted/30"
+                                                                />
                                                                 )}
                                                                 {q.type === 'checkbox' && q.options && q.options.length > 0 ? (
                                                                     <div className="space-y-2">

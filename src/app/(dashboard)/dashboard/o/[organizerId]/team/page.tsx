@@ -861,6 +861,7 @@ export default function OrganizerTeamPage() {
                                 value={inviteForm.email}
                                 onChange={(e) => setInviteForm((prev) => ({ ...prev, email: e.target.value }))}
                                 required
+                                maxLength={254}
                                 className="h-11 rounded-xl"
                             />
                         </div>
