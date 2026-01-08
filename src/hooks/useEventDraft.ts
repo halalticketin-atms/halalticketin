@@ -153,10 +153,34 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
     };
   };
 
+  const normalizeCustomQuestions = (questions?: DraftCustomQuestion[]) => {
+    if (!questions || questions.length === 0) {
+      return [];
+    }
+    const seed = Date.now();
+    return questions.map((question, index) => {
+      const id = typeof question.id === 'string' && question.id.trim().length > 0
+        ? question.id
+        : `q-${seed}-${index}`;
+      const hasOptions = question.type === 'select' || question.type === 'checkbox';
+      const options = hasOptions
+        ? (Array.isArray(question.options) ? question.options : [])
+        : undefined;
+      return { ...question, id, options };
+    });
+  };
+
+  const normalizedInitialFormData = initial?.formData
+    ? {
+        ...initial.formData,
+        customQuestions: normalizeCustomQuestions(initial.formData.customQuestions),
+      }
+    : undefined;
+
   const [currentStep, setCurrentStep] = useState(initial?.currentStep ?? 1);
   const [formData, setFormData] = useState<DraftFormData>({
     ...defaultFormData,
-    ...initial?.formData,
+    ...normalizedInitialFormData,
   });
   const [tickets, setTickets] = useState<DraftTicketType[]>(
     initial?.tickets && initial.tickets.length > 0

@@ -77,7 +77,6 @@ interface PublicEventPageContentProps {
 // Per-ticket attendee info structure
 interface TicketAttendee {
     name: string;
-    email: string;
     gender: 'male' | 'female' | '';
     age: string;
     customAnswers: Record<string, string>;
@@ -545,7 +544,6 @@ export function PublicEventPageContent({
                 for (let i = 0; i < totalTickets; i++) {
                     newAttendees.push(prev[i] || {
                         name: '',
-                        email: '',
                         gender: '',
                         age: '',
                         customAnswers: {},
@@ -928,7 +926,6 @@ export function PublicEventPageContent({
 
             for (let i = 0; i < ticketAttendees.length; i += 1) {
                 const attendee = ticketAttendees[i];
-                // Email is optional for attendees (will fallback to buyer email)
                 if (!attendee.name.trim() || !attendee.gender || !attendee.age.trim()) {
                     return `Ticket ${i + 1}: attendee name, gender, and age are required.`;
                 }
@@ -1003,7 +1000,6 @@ export function PublicEventPageContent({
 
                 return {
                     name: attendee.name.trim(),
-                    email: attendee.email.trim() || attendeeEmail.trim(), // Fallback to buyer email
                     gender: attendee.gender as 'male' | 'female',
                     age: attendee.age ? Math.floor(Number(attendee.age)) : undefined,
                     customAnswers: hasAnswers ? normalizedAnswers : undefined,

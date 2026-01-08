@@ -240,7 +240,14 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         category: formData.categories.length > 0 ? formData.categories.join(',') : null,
         // absorbFee removed - now handled per-ticket
         attendeeInfoMode: formData.attendeeInfoMode,
-        customQuestions: formData.customQuestions.length > 0 ? formData.customQuestions : null,
+        customQuestions: formData.customQuestions.length > 0
+            ? formData.customQuestions.map((question) => ({
+                ...question,
+                options: question.type === 'select' || question.type === 'checkbox'
+                    ? (Array.isArray(question.options) ? question.options : [])
+                    : undefined,
+            }))
+            : null,
     };
 };
 

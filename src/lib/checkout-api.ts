@@ -14,7 +14,7 @@ export interface CartItem {
 
 export interface TicketAttendeePayload {
     name: string;
-    email: string;
+    email?: string;
     gender: 'male' | 'female';
     age?: number;
     customAnswers?: Record<string, unknown>;

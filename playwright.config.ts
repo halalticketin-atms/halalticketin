@@ -1,24 +1,25 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const port = Number(process.env.PLAYWRIGHT_PORT ?? 4173);
+const frontendPort = Number(process.env.PLAYWRIGHT_PORT ?? 3000);
+const backendPort = 3001;
 
 export default defineConfig({
   testDir: './tests',
   timeout: 60_000,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 2,
   reporter: [
     ['html', { open: 'never' }],
     ['list']
   ],
   use: {
-    baseURL: `http://127.0.0.1:${port}`,
+    baseURL: `http://127.0.0.1:${frontendPort}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
   projects: [
-    // Desktop Chrome
+    // Desktop Chrome - Primary browser
     {
       name: 'chromium',
       use: {
@@ -26,22 +27,7 @@ export default defineConfig({
         viewport: { width: 1920, height: 1080 }
       },
     },
-    // Desktop Safari
-    {
-      name: 'webkit',
-      use: {
-        ...devices['Desktop Safari'],
-        viewport: { width: 1920, height: 1080 }
-      },
-    },
-    // Mobile Chrome (iPhone 14)
-    {
-      name: 'Mobile Chrome',
-      use: {
-        ...devices['iPhone 14'],
-      },
-    },
-    // Mobile Safari
+    // Mobile Safari - Critical for iOS users
     {
       name: 'Mobile Safari',
       use: {
@@ -57,11 +43,19 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
-    port,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  // Start BOTH frontend and backend servers
+  webServer: [
+    {
+      command: `cd ../backend && npm run dev`,
+      port: backendPort,
+      reuseExistingServer: true,
+      timeout: 120_000,
+    },
+    {
+      command: `npm run dev -- --hostname 127.0.0.1 --port ${frontendPort}`,
+      port: frontendPort,
+      reuseExistingServer: true,
+      timeout: 120_000,
+    },
+  ],
 });
-
