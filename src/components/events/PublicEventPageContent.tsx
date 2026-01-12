@@ -1290,7 +1290,7 @@ export function PublicEventPageContent({
                                                         {organizerName}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground group-hover:underline">
-                                                        View organizer profile →
+                                                        View organiser profile →
                                                     </p>
                                                 </div>
                                             </div>

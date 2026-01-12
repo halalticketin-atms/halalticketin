@@ -9,7 +9,7 @@ export function ManageCookiesButton({ className }: { className?: string }) {
         <button
             type="button"
             onClick={openPreferences}
-            className={className ?? 'min-h-8 inline-flex items-center px-2 text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline'}
+            className={className ?? 'text-sm text-muted-foreground hover:text-foreground transition-colors'}
         >
             Manage cookies
         </button>

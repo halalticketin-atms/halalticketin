@@ -1592,7 +1592,7 @@ export function EventWizard({
                         <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center">
                             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                         </div>
-                        <h2 className="text-lg font-semibold">Loading your organizer access</h2>
+                        <h2 className="text-lg font-semibold">Loading your organiser access</h2>
                         <p className="text-muted-foreground">
                             Checking your account details...
                         </p>
@@ -1615,16 +1615,16 @@ export function EventWizard({
                         <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                             <Building className="h-8 w-8 text-amber-600 dark:text-amber-400" />
                         </div>
-                        <h2 className="text-xl font-semibold">Organizer Account Required</h2>
+                        <h2 className="text-xl font-semibold">Organiser Account Required</h2>
                         <p className="text-muted-foreground">
-                            You need to be an event organizer to create events. Please sign up as an organizer or contact support if you believe this is an error.
+                            You need to be an event organiser to create events. Please sign up as an organiser or contact support if you believe this is an error.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-3 pt-2">
                             <Button variant="outline" asChild className="flex-1">
                                 <Link href="/events">Browse Events</Link>
                             </Button>
                             <Button asChild className="flex-1">
-                                <Link href="/register?role=organizer">Become an Organizer</Link>
+                                <Link href="/register?role=organizer">Become an Organiser</Link>
                             </Button>
                         </div>
                     </CardContent>
@@ -2543,7 +2543,7 @@ export function EventWizard({
                                                                             {ticketErrors[ticket.id]?.customFee ? (
                                                                                 <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.customFee}</p>
                                                                             ) : null}
-                                                                            <p className="text-xs text-muted-foreground">Optional per-ticket organizer fee (paid to you).</p>
+                                                                            <p className="text-xs text-muted-foreground">Optional per-ticket organiser fee (paid to you).</p>
                                                                         </div>
                                                                     )}
 
@@ -3568,7 +3568,7 @@ export function EventWizard({
                         <DialogTitle>Insufficient Credits</DialogTitle>
                         <DialogDescription>
                             Your total ticket capacity ({publishCapacity}) exceeds your available credits ({organizerCredits}).
-                            Credits will be used until they run out, then tickets will switch to the platform fee and organizer fees won&apos;t apply.
+                            Credits will be used until they run out, then tickets will switch to the platform fee and organiser fees won&apos;t apply.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="flex-col sm:flex-row gap-2">

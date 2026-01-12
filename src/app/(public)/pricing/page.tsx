@@ -38,9 +38,9 @@ const fadeStyle = (delay: string): FadeStyle => ({ '--fade-delay': delay });
 export default function PricingPage() {
     const [currency, setCurrency] = useState<SupportedCurrency>('GBP');
     const [payUpfront, setPayUpfront] = useState(true);
-    const [ticketPrice, setTicketPrice] = useState(20);
-    const [credits, setCredits] = useState(500);
-    const [passFees, setPassFees] = useState(false);
+    const [ticketPriceInput, setTicketPriceInput] = useState('20');
+    const [credits, setCredits] = useState(1000);
+    const [passFees, setPassFees] = useState(true);
     const router = useRouter();
     const { user, memberships } = useAuth();
     const calculatorRef = useRef<HTMLDivElement | null>(null);
@@ -117,6 +117,9 @@ export default function PricingPage() {
     // Convert fees to display currency for breakdown
     const platformFeeDisplay = platformFeeGBP * rate;
 
+    // Parse ticket price from string input (default to 0 for calculations if empty)
+    const ticketPrice = parseFloat(ticketPriceInput) || 0;
+
     // Buyer pays and you receive calculations (in display currency) - only platform fee
     const buyerPays = passFees ? ticketPrice + platformFeeDisplay : ticketPrice;
     const youReceive = passFees ? ticketPrice : ticketPrice - platformFeeDisplay;
@@ -129,7 +132,7 @@ export default function PricingPage() {
                 {/* Header */}
                 <div className="text-center mb-12 md:mb-16 space-y-4 animate-fade-up">
                     <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900">
-                        Simple, transparent pricing for <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)]">every event organizer.</span>
+                        Simple, transparent pricing for <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)]">every event organiser.</span>
                     </h1>
                     <div className="flex justify-center mt-6">
                         <Select value={currency} onValueChange={(v) => setCurrency(v as SupportedCurrency)}>
@@ -258,7 +261,7 @@ export default function PricingPage() {
                                         Save Big
                                     </span>
                                 </div>
-                                <p className="text-slate-600 mb-4">Buy credits in advance. Best for regular event organizers.</p>
+                                <p className="text-slate-600 mb-4">Buy credits in advance. Best for regular event organisers.</p>
                                 <ul className="space-y-2 text-sm text-slate-500">
                                     <li className="flex items-center gap-2 justify-center md:justify-start"><Check className="h-4 w-4 text-[var(--brand-cyan)]" /> Lowest fees guaranteed</li>
                                     <li className="flex items-center gap-2 justify-center md:justify-start"><Check className="h-4 w-4 text-[var(--brand-cyan)]" /> Credits never expire</li>
@@ -354,16 +357,29 @@ export default function PricingPage() {
                                             <div className="relative">
                                                 <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">{symbol}</span>
                                                 <Input
-                                                    type="number"
-                                                    min="0"
-                                                    max="9999"
-                                                    step="0.01"
-                                                    value={ticketPrice}
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={ticketPriceInput}
                                                     onChange={(e) => {
-                                                        const value = Number(e.target.value);
-                                                        // Prevent negative values
-                                                        if (value >= 0 || e.target.value === '') {
-                                                            setTicketPrice(value >= 0 ? value : 0);
+                                                        const val = e.target.value;
+                                                        // Allow empty, digits, and one decimal point
+                                                        if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                                                            // Prevent values over 9999
+                                                            const numVal = parseFloat(val);
+                                                            if (val === '' || isNaN(numVal) || numVal <= 9999) {
+                                                                setTicketPriceInput(val);
+                                                            }
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        // Clean up the value on blur (remove trailing dot, format nicely)
+                                                        if (ticketPriceInput === '' || ticketPriceInput === '.') {
+                                                            setTicketPriceInput('0');
+                                                        } else {
+                                                            const num = parseFloat(ticketPriceInput);
+                                                            if (!isNaN(num)) {
+                                                                setTicketPriceInput(num.toString());
+                                                            }
                                                         }
                                                     }}
                                                     className="pl-10 h-16 text-2xl font-bold bg-white/50 border-slate-200 rounded-2xl focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 shadow-sm"
@@ -394,6 +410,15 @@ export default function PricingPage() {
                                                 </div>
                                             </div>
                                         )}
+
+                                        {/* Credits Info Note */}
+                                        <div className="flex items-start gap-3 text-xs text-slate-500 bg-slate-50/70 rounded-xl p-4 border border-slate-100/80">
+                                            <div className="w-0.5 h-full min-h-[2.5rem] bg-gradient-to-b from-[var(--brand-cyan)] to-[var(--brand-teal)] rounded-full flex-shrink-0" />
+                                            <p className="leading-relaxed">
+                                                <span className="font-semibold text-slate-700">1 credit = 1 paid ticket.</span>{' '}
+                                                Buy more credits to lower your per‑ticket rate. Credits are prepaid, so allows you to replace the platform fee with your own custom fee.
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 
