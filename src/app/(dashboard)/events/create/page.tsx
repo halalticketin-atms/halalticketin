@@ -25,6 +25,7 @@ import {
     Tag,
     Eye,
     EyeOff,
+    Lock,
     Trash2,
     Loader2,
     ChevronDown,
@@ -2419,18 +2420,38 @@ export function EventWizard({
                                                                 <div className="flex items-center gap-2 text-primary">
                                                                     <Ticket className="h-5 w-5" />
                                                                     <h3 className="font-semibold">Ticket {index + 1}</h3>
-                                                                    {ticket.visibility === 'hidden' && (
-                                                                        <Badge variant="secondary" className="text-xs">Hidden</Badge>
-                                                                    )}
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
-                                                                    <button
-                                                                        onClick={() => updateTicket(ticket.id, 'visibility', ticket.visibility === 'public' ? 'hidden' : 'public')}
-                                                                        className="p-2 rounded-lg hover:bg-muted transition-colors"
-                                                                        title={ticket.visibility === 'public' ? 'Hide ticket' : 'Show ticket'}
-                                                                    >
-                                                                        {ticket.visibility === 'public' ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
-                                                                    </button>
+                                                                    {/* Visibility Toggle - Dual segmented control */}
+                                                                    <div className="flex items-center rounded-lg border border-border/60 overflow-hidden text-xs font-medium shadow-sm">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => updateTicket(ticket.id, 'visibility', 'public')}
+                                                                            className={cn(
+                                                                                'flex items-center gap-1.5 px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-inset active:scale-95',
+                                                                                ticket.visibility === 'public'
+                                                                                    ? 'bg-emerald-100 text-emerald-700 shadow-inner'
+                                                                                    : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer'
+                                                                            )}
+                                                                        >
+                                                                            <Check className="h-3.5 w-3.5" />
+                                                                            Visible
+                                                                        </button>
+                                                                        <div className="w-px h-5 bg-border/60" />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => updateTicket(ticket.id, 'visibility', 'hidden')}
+                                                                            className={cn(
+                                                                                'flex items-center gap-1.5 px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset active:scale-95',
+                                                                                ticket.visibility === 'hidden'
+                                                                                    ? 'bg-amber-100 text-amber-700 shadow-inner'
+                                                                                    : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer'
+                                                                            )}
+                                                                        >
+                                                                            <Lock className="h-3.5 w-3.5" />
+                                                                            Hidden
+                                                                        </button>
+                                                                    </div>
                                                                     {regularTickets.length > 1 && (
                                                                         <Button
                                                                             variant="ghost"

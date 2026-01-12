@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from 'motion/react';
 import {
     Calendar,
@@ -106,6 +106,8 @@ export default function AnalyticsPage() {
     const [chartView, setChartView] = useState<'revenue' | 'tickets'>('revenue');
     const [eventSortBy, setEventSortBy] = useState<'revenue' | 'tickets'>('revenue');
     const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
+    const chartContainerRef = useRef<HTMLDivElement | null>(null);
+    const [chartSize, setChartSize] = useState({ width: 560, height: 200 });
 
     const fetchAnalytics = useCallback(
         async (eventId?: string) => {
@@ -145,6 +147,29 @@ export default function AnalyticsPage() {
 
     useEffect(() => {
         setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        const element = chartContainerRef.current;
+        if (!element) return;
+
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (!entry) return;
+            const { width, height } = entry.contentRect;
+            if (width <= 0 || height <= 0) return;
+            setChartSize((prev) => {
+                const nextWidth = Math.round(width);
+                const nextHeight = Math.round(height);
+                if (prev.width === nextWidth && prev.height === nextHeight) {
+                    return prev;
+                }
+                return { width: nextWidth, height: nextHeight };
+            });
+        });
+
+        observer.observe(element);
+        return () => observer.disconnect();
     }, []);
 
     const eventOptions = analytics?.filters.events ?? [];
@@ -265,10 +290,13 @@ export default function AnalyticsPage() {
     // Chart color - single consistent color
     const chartColor = chartView === 'revenue' ? '#10b981' : '#3b82f6';
 
-    // Chart dimensions - fixed for consistency
-    const chartWidth = 560;
-    const chartHeight = 200;
-    const chartPadding = { top: 20, right: 20, bottom: 30, left: 50 };
+    // Chart dimensions - responsive to container size
+    const chartWidth = chartSize.width;
+    const chartHeight = chartSize.height;
+    const isCompactChart = chartWidth < 420;
+    const chartPadding = isCompactChart
+        ? { top: 16, right: 16, bottom: 28, left: 40 }
+        : { top: 20, right: 20, bottom: 30, left: 50 };
     const plotWidth = chartWidth - chartPadding.left - chartPadding.right;
     const plotHeight = chartHeight - chartPadding.top - chartPadding.bottom;
 
@@ -402,8 +430,8 @@ export default function AnalyticsPage() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 }}
                         >
-                            <Card className="border-border/50">
-                                <CardHeader className="pb-4">
+                            <Card className="border-border/50 gap-4 sm:gap-6">
+                                <CardHeader className="pb-3 sm:pb-4">
                                     <div className="flex items-center justify-between flex-wrap gap-4">
                                         <CardTitle className="text-lg font-semibold">
                                             {chartView === 'revenue' ? 'Net Revenue' : 'Tickets Sold'} — Last 6 Months
@@ -433,11 +461,11 @@ export default function AnalyticsPage() {
                                 </CardHeader>
                                 <CardContent>
                                     {/* Fixed height chart container */}
-                                    <div className="h-[280px] relative">
+                                    <div ref={chartContainerRef} className="h-[260px] sm:h-[280px] relative">
                                         <svg
                                             className="w-full h-full"
                                             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                                            preserveAspectRatio="xMidYMid meet"
+                                            preserveAspectRatio="none"
                                         >
                                             {/* Chart area with padding */}
                                             <g transform={`translate(${chartPadding.left}, ${chartPadding.top})`}>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
@@ -20,6 +20,7 @@ import {
 
 import { useOptionalAuth } from '@/context/auth-context';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useScrollVisibility } from '@/hooks/useScrollVisibility';
 
 // Simplified animation - CSS handles most hover effects now
 const sharedTransition = {
@@ -28,35 +29,18 @@ const sharedTransition = {
 };
 
 export function Header() {
-    const [isScrolled, setIsScrolled] = useState(false);
+    const [isInteracting, setIsInteracting] = useState(false);
+    const { isScrolled, isVisible } = useScrollVisibility({ isInteracting });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [hasMounted, setHasMounted] = useState(false);
-    const rafRef = useRef<number | null>(null);
 
     // Lock body scroll when mobile menu is open
     useBodyScrollLock(mobileMenuOpen);
 
-    // Debounced scroll handler using RAF for better performance
-    const handleScroll = useCallback(() => {
-        if (rafRef.current) return;
-        rafRef.current = requestAnimationFrame(() => {
-            setIsScrolled(window.scrollY > 50);
-            rafRef.current = null;
-        });
-    }, []);
-
     useEffect(() => {
-        // Set initial scroll state immediately to prevent flash
-        setIsScrolled(window.scrollY > 50);
         // Mark as mounted after a frame to enable transitions
         requestAnimationFrame(() => setHasMounted(true));
-
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-            if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        };
-    }, [handleScroll]);
+    }, []);
 
     const pathname = usePathname();
     const router = useRouter();
@@ -131,17 +115,26 @@ export function Header() {
         router.push('/login');
     };
 
+    // Keep header visible when mobile menu is open
+    const shouldBeVisible = isVisible || mobileMenuOpen;
+
     return (
         <nav
             className={cn(
                 'fixed top-0 left-0 right-0 z-50 px-4 md:px-6',
                 'pt-[max(env(safe-area-inset-top),1rem)]',
                 isScrolled ? 'pb-4' : 'pb-6',
+                // Smooth transform transition for hide/show
+                'transition-[transform,padding] duration-400 ease-[cubic-bezier(0.4,0,0.2,1)]',
+                // Slide up when hidden, down when visible
+                shouldBeVisible ? 'translate-y-0' : '-translate-y-full',
                 // Only enable transitions after mount to prevent initial stutter
-                hasMounted ? 'transition-[padding] duration-300' : '',
+                !hasMounted && 'motion-reduce:transition-none',
                 // CSS entrance animation using tw-animate-css
-                'animate-in fade-in duration-300 fill-mode-forwards'
+                hasMounted && 'animate-in fade-in duration-300 fill-mode-forwards'
             )}
+            onMouseEnter={() => setIsInteracting(true)}
+            onMouseLeave={() => setIsInteracting(false)}
         >
             <div
                 className={cn(

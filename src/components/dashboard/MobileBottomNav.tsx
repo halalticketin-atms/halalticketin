@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import { useAuth } from '@/context/auth-context';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useScrollVisibility } from '@/hooks/useScrollVisibility';
 
 interface NavItem {
     title: string;
@@ -72,9 +73,11 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
     const pathname = usePathname();
     const router = useRouter();
     const [isExpanded, setIsExpanded] = useState(false);
-    const [isPending, startTransition] = useTransition();
+    const [, startTransition] = useTransition();
     const { signOut } = useAuth();
     const prefersReducedMotion = useReducedMotion();
+    const [isInteracting, setIsInteracting] = useState(false);
+    const { isVisible: isNavVisible } = useScrollVisibility({ isInteracting });
 
     const mainNavItems = useMemo(() => buildNavItems(organizerId), [organizerId]);
     const moreItems = useMemo(() => moreMenuItems(organizerId), [organizerId]);
@@ -222,6 +225,8 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
                     'fixed bottom-0 left-0 right-0 z-50 lg:hidden',
                     'bg-white/95 border-t border-gray-200/80',
                     'shadow-[0_-4px_20px_rgba(0,0,0,0.06)]',
+                    'transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]',
+                    (isNavVisible || isExpanded) ? 'translate-y-0' : 'translate-y-[calc(100%+env(safe-area-inset-bottom))]',
                     isExpanded && 'opacity-0 pointer-events-none'
                 )}
                 style={{
@@ -230,6 +235,8 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
                     backdropFilter: 'blur(12px)',
                     touchAction: 'manipulation',
                 }}
+                onMouseEnter={() => setIsInteracting(true)}
+                onMouseLeave={() => setIsInteracting(false)}
             >
                 <div className="flex items-center justify-around h-16 px-2">
                     {mainNavItems.map((item) => {
