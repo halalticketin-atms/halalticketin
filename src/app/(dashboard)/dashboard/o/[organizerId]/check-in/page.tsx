@@ -211,6 +211,21 @@ function CheckInContent() {
     }
   };
 
+  const getMismatchDetails = (error: unknown) => {
+    if (!(error instanceof ApiError)) return null;
+    const payload = error.payload;
+    if (!payload || typeof payload !== 'object') return null;
+
+    const apiError = (payload as { error?: { details?: unknown } }).error;
+    const details = apiError?.details;
+    if (!details || typeof details !== 'object') return null;
+
+    const mismatch = details as { eventId?: string; eventName?: string | null };
+    if (!mismatch.eventId) return null;
+
+    return mismatch;
+  };
+
   const handleScan = async (data: string) => {
     const ticketCode = extractTicketCode(data);
     if (!ticketCode) {
@@ -247,6 +262,16 @@ function CheckInContent() {
       applyCheckInUpdate(normalizedTicket);
       setScanResult({ status: 'success', ticket: normalizedTicket });
     } catch (err) {
+      const mismatch = getMismatchDetails(err);
+      if (mismatch) {
+        updateQuery('event', mismatch.eventId);
+        const label = mismatch.eventName ? `"${mismatch.eventName}"` : 'the correct event';
+        setScanResult({
+          status: 'invalid',
+          message: `Wrong event selected. Switched to ${label}. Please scan again.`,
+        });
+        return;
+      }
       const message =
         err instanceof ApiError ? err.message : 'Failed to scan ticket. Please try again.';
       setScanResult({
