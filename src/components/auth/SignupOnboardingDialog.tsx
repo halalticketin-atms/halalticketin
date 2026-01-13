@@ -390,23 +390,25 @@ export function SignupOnboardingDialog({
                 };
             }
 
-            let registerResponse: RegisterResponse | null = null;
+            let organizerIdFromRegister: string | null = null;
 
             if (isAuthenticatedOnboarding) {
-                registerResponse = await api.post<RegisterResponse>('/api/v1/auth/onboarding', payload);
+                const registerResponse = await api.post<RegisterResponse>('/api/v1/auth/onboarding', payload);
+                organizerIdFromRegister = registerResponse.organizerId ?? null;
 
-                if (registerResponse.organizerId) {
-                    setOrganizerId(registerResponse.organizerId);
+                if (organizerIdFromRegister) {
+                    setOrganizerId(organizerIdFromRegister);
                 }
 
                 await refresh();
             } else {
                 payload.password = formData.password;
 
-                registerResponse = await api.post<RegisterResponse>('/api/v1/auth/register', payload);
+                const registerResponse = await api.post<RegisterResponse>('/api/v1/auth/register', payload);
+                organizerIdFromRegister = registerResponse.organizerId ?? null;
 
-                if (registerResponse.organizerId) {
-                    setOrganizerId(registerResponse.organizerId);
+                if (organizerIdFromRegister) {
+                    setOrganizerId(organizerIdFromRegister);
                 }
 
                 const loginResponse = await api.post<LoginResponse>('/api/v1/auth/login', {
@@ -419,7 +421,7 @@ export function SignupOnboardingDialog({
             }
 
             if (avatarFile && formData.role === 'organizer') {
-                const organizerIdForUpload = registerResponse?.organizerId;
+                const organizerIdForUpload = organizerIdFromRegister;
 
                 if (!organizerIdForUpload) {
                     console.warn('Organizer logo upload skipped: missing organizer ID');

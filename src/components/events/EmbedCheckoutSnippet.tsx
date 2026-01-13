@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Check, Copy, Moon, Sun, LayoutPanelLeft, Maximize, Code2 } from 'lucide-react';
+import { Check, Copy, Moon, Sun, LayoutPanelLeft, Maximize, Code2, LayoutTemplate } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,7 @@ export function EmbedCheckoutSnippet({
     siteUrl?: string;
 }) {
     const [theme, setTheme] = useState<EmbedTheme>('light');
-    const [selectedLayout, setSelectedLayout] = useState<'side' | 'full'>('side');
+    const [selectedLayout, setSelectedLayout] = useState<'default' | 'side' | 'full'>('default');
     const [copied, setCopied] = useState(false);
 
     const resolvedSiteUrl = useMemo(() => {
@@ -35,6 +35,10 @@ export function EmbedCheckoutSnippet({
     const resolvedSlug = slug ?? 'your-event-slug';
 
     // Generate snippets
+    const defaultSnippet = useMemo(
+        () => buildEmbedCheckoutSnippet({ slug: resolvedSlug, theme, siteUrl: resolvedSiteUrl }),
+        [resolvedSlug, theme, resolvedSiteUrl],
+    );
     const sideSnippet = useMemo(
         () => [
             `<div style="max-width: 380px;">`,
@@ -53,7 +57,8 @@ export function EmbedCheckoutSnippet({
         [resolvedSiteUrl, resolvedSlug, theme],
     );
 
-    const currentSnippet = selectedLayout === 'side' ? sideSnippet : fullSnippet;
+    const currentSnippet =
+        selectedLayout === 'default' ? defaultSnippet : selectedLayout === 'side' ? sideSnippet : fullSnippet;
 
     const handleCopySnippet = async () => {
         if (!navigator.clipboard?.writeText) {
@@ -88,7 +93,7 @@ export function EmbedCheckoutSnippet({
                 <div className="space-y-4">
                     {/* Theme Selection */}
                     <div className="space-y-3">
-                        <label className="text-sm font-medium">1. Choose Theme</label>
+                        <label className="text-sm font-medium">Theme</label>
                         <div className="grid grid-cols-2 gap-2 p-1 bg-muted/40 rounded-lg border border-border/50">
                             <button
                                 onClick={() => setTheme('light')}
@@ -119,8 +124,30 @@ export function EmbedCheckoutSnippet({
 
                     {/* Layout Selection */}
                     <div className="space-y-3">
-                        <label className="text-sm font-medium">2. Select Layout</label>
+                        <label className="text-sm font-medium">Layout</label>
                         <div className="grid gap-3">
+                            <div
+                                onClick={() => setSelectedLayout('default')}
+                                className={cn(
+                                    "relative flex items-center gap-4 p-3 rounded-xl border-2 transition-all cursor-pointer hover:bg-muted/30",
+                                    selectedLayout === 'default'
+                                        ? "border-primary bg-primary/5"
+                                        : "border-border/50"
+                                )}
+                            >
+                                <div className={cn(
+                                    "h-10 w-10 rounded-lg flex items-center justify-center transition-colors",
+                                    selectedLayout === 'default' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                                )}>
+                                    <LayoutTemplate className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-medium text-sm">Default</p>
+                                </div>
+                                {selectedLayout === 'default' && (
+                                    <div className="h-2 w-2 rounded-full bg-primary absolute right-3 top-3" />
+                                )}
+                            </div>
                             <div
                                 onClick={() => setSelectedLayout('side')}
                                 className={cn(
@@ -138,7 +165,6 @@ export function EmbedCheckoutSnippet({
                                 </div>
                                 <div className="flex-1">
                                     <p className="font-medium text-sm">Side Panel</p>
-                                    <p className="text-xs text-muted-foreground">Compact width, best for sidebars or mobile-first layouts.</p>
                                 </div>
                                 {selectedLayout === 'side' && (
                                     <div className="h-2 w-2 rounded-full bg-primary absolute right-3 top-3" />
@@ -162,7 +188,6 @@ export function EmbedCheckoutSnippet({
                                 </div>
                                 <div className="flex-1">
                                     <p className="font-medium text-sm">Full Width</p>
-                                    <p className="text-xs text-muted-foreground">Full page embed with expanded view for desktop.</p>
                                 </div>
                                 {selectedLayout === 'full' && (
                                     <div className="h-2 w-2 rounded-full bg-primary absolute right-3 top-3" />
