@@ -69,6 +69,7 @@ export interface TicketRecord {
     price: string | null;
     currency: string;
     maxQuantity: number | null;
+    minPerOrder: number | null;
     maxPerOrder: number | null;
     type: 'free' | 'paid' | 'donation';
     visibility: 'public' | 'hidden';
@@ -122,6 +123,7 @@ export interface TicketInputPayload {
     type?: 'free' | 'paid' | 'donation';
     currency?: string;
     maxQuantity?: number;
+    minPerOrder?: number;
     maxPerOrder?: number;
     visibility?: 'public' | 'hidden';
     salesStart?: string | null;
@@ -293,6 +295,7 @@ export interface PublicTicketRecord {
     price: string | null;
     currency: string;
     maxQuantity: number | null;
+    minPerOrder: number | null;
     maxPerOrder: number | null;
     type: 'free' | 'paid' | 'donation';
     salesStart: string | null;

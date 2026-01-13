@@ -45,6 +45,7 @@ export interface DraftTicketType {
   isFree: boolean;
   type: 'paid' | 'free' | 'donation';
   quantity: number;
+  minPerOrder: number;
   maxPerOrder: number;
   description: string;
   salesStart: string;
@@ -112,7 +113,8 @@ const createDefaultTicket = (): DraftTicketType => ({
   isFree: false,
   type: 'paid',
   quantity: 100,
-  maxPerOrder: 10,
+  minPerOrder: 0,
+  maxPerOrder: 0,
   description: '',
   salesStart: '',
   salesEnd: '',
@@ -131,6 +133,7 @@ const createDonationTicket = (): DraftTicketType => ({
   isFree: false,
   type: 'donation',
   quantity: 1,
+  minPerOrder: 1,
   maxPerOrder: 1,
   description: '',
   salesStart: '',
@@ -172,9 +175,9 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
 
   const normalizedInitialFormData = initial?.formData
     ? {
-        ...initial.formData,
-        customQuestions: normalizeCustomQuestions(initial.formData.customQuestions),
-      }
+      ...initial.formData,
+      customQuestions: normalizeCustomQuestions(initial.formData.customQuestions),
+    }
     : undefined;
 
   const [currentStep, setCurrentStep] = useState(initial?.currentStep ?? 1);

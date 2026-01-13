@@ -279,8 +279,11 @@ const buildTicketPayloads = (
         const isFree = !isDonation && (ticket.isFree || priceValue <= 0);
         const resolvedType = isDonation ? 'donation' : isFree ? 'free' : 'paid';
         const quantityValue = Number.isFinite(ticket.quantity) ? Math.max(ticket.quantity, 1) : 1;
-        const maxPerOrderValue = Number.isFinite(ticket.maxPerOrder)
-            ? Math.max(ticket.maxPerOrder, 1)
+        const minPerOrderValue = ticket.minPerOrder && Number.isFinite(ticket.minPerOrder) && ticket.minPerOrder >= 1
+            ? ticket.minPerOrder
+            : undefined;
+        const maxPerOrderValue = ticket.maxPerOrder && Number.isFinite(ticket.maxPerOrder) && ticket.maxPerOrder >= 1
+            ? ticket.maxPerOrder
             : undefined;
         const shouldIncludeIds = options?.includeIds ?? true;
         const backendId = shouldIncludeIds && isUuid(ticket.id) ? ticket.id : undefined;
@@ -308,6 +311,7 @@ const buildTicketPayloads = (
             type: resolvedType,
             currency: currency,
             maxQuantity: isDonation ? undefined : quantityValue,
+            minPerOrder: isDonation ? 1 : minPerOrderValue,
             maxPerOrder: isDonation ? 1 : maxPerOrderValue,
             visibility: isDonation ? 'public' : ticket.visibility,
             salesStart: ticket.salesStart ? toIsoString(ticket.salesStart, '00:00', timeZone) : null,
@@ -2612,60 +2616,98 @@ export function EventWizard({
                                                                         </Button>
                                                                     </CollapsibleTrigger>
                                                                     <CollapsibleContent className="space-y-4 pt-3 mt-1">
-                                                                        {/* Max Per Order - Toggleable */}
-                                                                        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
-                                                                            <div className="space-y-0.5">
-                                                                                <Label className="text-sm font-medium">Limit Per Order</Label>
-                                                                                <p className="text-xs text-muted-foreground">
-                                                                                    {ticket.maxPerOrder ? `Max ${ticket.maxPerOrder} per checkout` : 'No limit (up to 15)'}
-                                                                                </p>
+                                                                        {/* Min/Max Per Order - Side by Side Toggles */}
+                                                                        <div className="grid grid-cols-2 gap-3">
+                                                                            {/* Min Per Order */}
+                                                                            <div className="space-y-2">
+                                                                                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
+                                                                                    <div className="space-y-0.5">
+                                                                                        <Label className="text-xs font-medium">Min Per Order</Label>
+                                                                                        <p className="text-[10px] text-muted-foreground">Sets a minimum purchase limit (Default: 1)</p>
+                                                                                    </div>
+                                                                                    <Switch
+                                                                                        checked={Boolean(ticket.minPerOrder)}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            if (checked) {
+                                                                                                updateTicket(ticket.id, 'minPerOrder', 1);
+                                                                                            } else {
+                                                                                                updateTicket(ticket.id, 'minPerOrder', 0);
+                                                                                            }
+                                                                                        }}
+                                                                                    />
+                                                                                </div>
+                                                                                {ticket.minPerOrder ? (
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        value={ticket.minPerOrder || ''}
+                                                                                        onChange={(e) => {
+                                                                                            const value = e.target.value;
+                                                                                            if (value === '') {
+                                                                                                updateTicket(ticket.id, 'minPerOrder', 1);
+                                                                                                return;
+                                                                                            }
+                                                                                            const numericValue = Number.parseInt(value, 10);
+                                                                                            if (Number.isNaN(numericValue) || numericValue < 1) {
+                                                                                                return;
+                                                                                            }
+                                                                                            const maxLimit = ticket.maxPerOrder || MAX_PER_ORDER;
+                                                                                            updateTicket(ticket.id, 'minPerOrder', Math.min(numericValue, maxLimit));
+                                                                                        }}
+                                                                                        className="h-9"
+                                                                                        min={1}
+                                                                                        max={ticket.maxPerOrder || MAX_PER_ORDER}
+                                                                                    />
+                                                                                ) : null}
                                                                             </div>
-                                                                            <Switch
-                                                                                checked={Boolean(ticket.maxPerOrder)}
-                                                                                onCheckedChange={(checked) => {
-                                                                                    if (checked) {
-                                                                                        updateTicket(ticket.id, 'maxPerOrder', MAX_PER_ORDER);
-                                                                                    } else {
-                                                                                        updateTicket(ticket.id, 'maxPerOrder', 0);
-                                                                                        clearTicketError(ticket.id, 'maxPerOrder');
-                                                                                    }
-                                                                                }}
-                                                                            />
-                                                                        </div>
-                                                                        {ticket.maxPerOrder ? (
-                                                                            <div className="space-y-1.5 pl-3 border-l-2 border-primary/20">
-                                                                                <Label className="text-xs text-muted-foreground">Max tickets per order</Label>
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    value={ticket.maxPerOrder || ''}
-                                                                                    onChange={(e) => {
-                                                                                        const value = e.target.value;
-                                                                                        if (value === '') {
-                                                                                            updateTicket(ticket.id, 'maxPerOrder', 1);
-                                                                                            return;
-                                                                                        }
-                                                                                        const numericValue = Number.parseInt(value, 10);
-                                                                                        if (Number.isNaN(numericValue) || numericValue < 0) {
-                                                                                            return;
-                                                                                        }
-                                                                                        const maxLimit = Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1));
-                                                                                        updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, maxLimit));
-                                                                                        if (numericValue >= 1) {
-                                                                                            clearTicketError(ticket.id, 'maxPerOrder');
-                                                                                        }
-                                                                                    }}
-                                                                                    className={cn(
-                                                                                        'h-9 w-24',
-                                                                                        ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                    )}
-                                                                                    min={1}
-                                                                                    max={Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1))}
-                                                                                />
+                                                                            {/* Max Per Order */}
+                                                                            <div className="space-y-2">
+                                                                                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
+                                                                                    <Label className="text-xs font-medium">Max Per Order</Label>
+                                                                                    <Switch
+                                                                                        checked={Boolean(ticket.maxPerOrder)}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            if (checked) {
+                                                                                                updateTicket(ticket.id, 'maxPerOrder', MAX_PER_ORDER);
+                                                                                            } else {
+                                                                                                updateTicket(ticket.id, 'maxPerOrder', 0);
+                                                                                                clearTicketError(ticket.id, 'maxPerOrder');
+                                                                                            }
+                                                                                        }}
+                                                                                    />
+                                                                                </div>
+                                                                                {ticket.maxPerOrder ? (
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        value={ticket.maxPerOrder || ''}
+                                                                                        onChange={(e) => {
+                                                                                            const value = e.target.value;
+                                                                                            if (value === '') {
+                                                                                                updateTicket(ticket.id, 'maxPerOrder', 1);
+                                                                                                return;
+                                                                                            }
+                                                                                            const numericValue = Number.parseInt(value, 10);
+                                                                                            if (Number.isNaN(numericValue) || numericValue < 1) {
+                                                                                                return;
+                                                                                            }
+                                                                                            const maxLimit = Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1));
+                                                                                            updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, maxLimit));
+                                                                                            if (numericValue >= 1) {
+                                                                                                clearTicketError(ticket.id, 'maxPerOrder');
+                                                                                            }
+                                                                                        }}
+                                                                                        className={cn(
+                                                                                            'h-9',
+                                                                                            ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                        )}
+                                                                                        min={ticket.minPerOrder || 1}
+                                                                                        max={Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1))}
+                                                                                    />
+                                                                                ) : null}
                                                                                 {ticketErrors[ticket.id]?.maxPerOrder ? (
                                                                                     <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
                                                                                 ) : null}
                                                                             </div>
-                                                                        ) : null}
+                                                                        </div>
 
                                                                         {/* Early Bird Toggle */}
                                                                         <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">

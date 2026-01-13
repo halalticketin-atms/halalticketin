@@ -72,6 +72,7 @@ interface PublicEventPageContentProps {
     error: string | null;
     isPreview?: boolean;
     organizerNameOverride?: string | null;
+    embedMode?: 'checkout' | 'full';
 }
 
 // Per-ticket attendee info structure
@@ -246,7 +247,9 @@ export function PublicEventPageContent({
     error,
     isPreview = false,
     organizerNameOverride = null,
+    embedMode = 'full',
 }: PublicEventPageContentProps) {
+    const isEmbedCheckout = embedMode === 'checkout';
     const safeTickets = Array.isArray(tickets) ? tickets : [];
     const visibleTickets = useMemo(
         () => safeTickets.filter((ticket) => ('visibility' in ticket ? ticket.visibility !== 'hidden' : true)),
@@ -269,11 +272,11 @@ export function PublicEventPageContent({
     // Fetch organizer profile for avatar
     const [organizerAvatar, setOrganizerAvatar] = useState<string | null>(null);
     useEffect(() => {
-        if (!event?.organizerId || isPreview) return;
+        if (!event?.organizerId || isPreview || isEmbedCheckout) return;
         fetchPublicOrganizerProfile(event.organizerId)
             .then(res => setOrganizerAvatar(res.organizer.avatarUrl))
             .catch(() => setOrganizerAvatar(null));
-    }, [event?.organizerId, isPreview]);
+    }, [event?.organizerId, isPreview, isEmbedCheckout]);
 
     // Checkout state
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -1176,92 +1179,97 @@ export function PublicEventPageContent({
     }
 
     return (
-        <div className="min-h-screen bg-muted/30">
-            <ShareDialog
-                open={isShareOpen}
-                onOpenChange={setIsShareOpen}
-                title={event.title || 'Event'}
-                text={organizerName ? `Hosted by ${organizerName}` : undefined}
-            />
-            {/* Hero Section - Poster with Blurred Background */}
-            <div className="relative">
-                {/* Blurred Background Layer */}
-                <div className="relative h-[400px] sm:h-[450px] md:h-[500px] overflow-hidden">
-                    {event.bannerImageUrl ? (
-                        <>
-                            {/* Blurred, zoomed background */}
-                            <div className="absolute inset-0 scale-110">
-                                <Image
-                                    src={event.bannerImageUrl}
-                                    alt=""
-                                    fill
-                                    className="object-cover blur-xl"
-                                    priority
-                                />
-                            </div>
-                            {/* Dark overlay for better contrast */}
-                            <div className="absolute inset-0 bg-black/50" />
-                        </>
-                    ) : (
-                        /* Solid gradient fallback when no image */
-                        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
-                    )}
-
-                    {/* Centered Sharp Poster */}
-                    <div className="absolute inset-0 flex items-center justify-center px-4">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            transition={{ duration: 0.5, ease: 'easeOut' }}
-                            className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[360px] aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10"
-                        >
+        <div className={cn(isEmbedCheckout ? 'bg-transparent' : 'min-h-screen bg-muted/30')}>
+            {!isEmbedCheckout && (
+                <>
+                    <ShareDialog
+                        open={isShareOpen}
+                        onOpenChange={setIsShareOpen}
+                        title={event.title || 'Event'}
+                        text={organizerName ? `Hosted by ${organizerName}` : undefined}
+                    />
+                    {/* Hero Section - Poster with Blurred Background */}
+                    <div className="relative">
+                        {/* Blurred Background Layer */}
+                        <div className="relative h-[400px] sm:h-[450px] md:h-[500px] overflow-hidden">
                             {event.bannerImageUrl ? (
-                                <Image
-                                    src={event.bannerImageUrl}
-                                    alt={event.title || 'Event'}
-                                    fill
-                                    className="object-cover"
-                                    priority
-                                />
+                                <>
+                                    {/* Blurred, zoomed background */}
+                                    <div className="absolute inset-0 scale-110">
+                                        <Image
+                                            src={event.bannerImageUrl}
+                                            alt=""
+                                            fill
+                                            className="object-cover blur-xl"
+                                            priority
+                                        />
+                                    </div>
+                                    {/* Dark overlay for better contrast */}
+                                    <div className="absolute inset-0 bg-black/50" />
+                                </>
                             ) : (
-                                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
-                                    <Calendar className="h-16 w-16 text-white/40" />
-                                </div>
+                                /* Solid gradient fallback when no image */
+                                <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
                             )}
-                        </motion.div>
-                    </div>
 
-                    {/* Back Button */}
-                    <div className="absolute top-4 left-4 z-10">
-                        <Button variant="secondary" size="sm" asChild className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50">
-                            <Link href="/events">
-                                <ArrowLeft className="h-4 w-4 mr-2" />
-                                Back to Events
-                            </Link>
-                        </Button>
-                    </div>
+                            {/* Centered Sharp Poster */}
+                            <div className="absolute inset-0 flex items-center justify-center px-4">
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                                    className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[360px] aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10"
+                                >
+                                    {event.bannerImageUrl ? (
+                                        <Image
+                                            src={event.bannerImageUrl}
+                                            alt={event.title || 'Event'}
+                                            fill
+                                            className="object-cover"
+                                            priority
+                                        />
+                                    ) : (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
+                                            <Calendar className="h-16 w-16 text-white/40" />
+                                        </div>
+                                    )}
+                                </motion.div>
+                            </div>
 
-                    {/* Action Buttons */}
-                    <div className="absolute top-4 right-4 flex gap-2 z-10">
-                        <FavoriteButton eventId={event.id} size="sm" />
-                        <Button
-                            variant="secondary"
-                            size="icon"
-                            className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50"
-                            onClick={() => setIsShareOpen(true)}
-                            aria-label="Share event"
-                        >
-                            <Share2 className="h-4 w-4" />
-                        </Button>
+                            {/* Back Button */}
+                            <div className="absolute top-4 left-4 z-10">
+                                <Button variant="secondary" size="sm" asChild className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50">
+                                    <Link href="/events">
+                                        <ArrowLeft className="h-4 w-4 mr-2" />
+                                        Back to Events
+                                    </Link>
+                                </Button>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="absolute top-4 right-4 flex gap-2 z-10">
+                                <FavoriteButton eventId={event.id} size="sm" />
+                                <Button
+                                    variant="secondary"
+                                    size="icon"
+                                    className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50"
+                                    onClick={() => setIsShareOpen(true)}
+                                    aria-label="Share event"
+                                >
+                                    <Share2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
+                </>
+            )}
 
             {/* Content */}
-            <div className="container py-8">
-                <div className="grid gap-8 lg:grid-cols-3">
+            <div className={cn('container', isEmbedCheckout ? 'py-6' : 'py-8')}>
+                <div className={cn('grid gap-8', isEmbedCheckout ? 'grid-cols-1' : 'lg:grid-cols-3')}>
                     {/* Main Content */}
-                    <div className="lg:col-span-2 space-y-8">
+                    {!isEmbedCheckout && (
+                        <div className="lg:col-span-2 space-y-8">
                         {/* Title */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
@@ -1461,14 +1469,46 @@ export function PublicEventPageContent({
                             </motion.div>
                         )}
                     </div>
+                    )}
 
                     {/* Sidebar - Tickets */}
-                    <div className="lg:col-span-1">
+                    <div className={cn(isEmbedCheckout ? 'w-full' : 'lg:col-span-1')}>
+                        {isEmbedCheckout && (
+                            <div className="mb-4 space-y-2">
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Tickets for</p>
+                                <h1 className="text-2xl font-bold">{event.title || 'Untitled Event'}</h1>
+                                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                                    {eventDateTime.date && (
+                                        <span className="flex items-center gap-1">
+                                            <Calendar className="h-3.5 w-3.5 text-primary" />
+                                            {eventDateTime.date}
+                                        </span>
+                                    )}
+                                    {eventDateTime.time && (
+                                        <span className="flex items-center gap-1">
+                                            <Clock className="h-3.5 w-3.5 text-primary" />
+                                            {eventDateTime.time}
+                                            {eventDateTime.endTime ? ` - ${eventDateTime.endTime}` : ''}
+                                        </span>
+                                    )}
+                                    <span className="flex items-center gap-1">
+                                        {event.locationType === 'online' ? (
+                                            <Globe className="h-3.5 w-3.5 text-primary" />
+                                        ) : (
+                                            <MapPin className="h-3.5 w-3.5 text-primary" />
+                                        )}
+                                        {event.locationType === 'online'
+                                            ? 'Online Event'
+                                            : [event.venue, event.city].filter(Boolean).join(', ') || 'Location TBD'}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: 0.2 }}
-                            className="sticky top-8"
+                            className={cn(isEmbedCheckout ? '' : 'sticky top-8')}
                         >
                             <Card className="overflow-hidden">
                                 <CardHeader>

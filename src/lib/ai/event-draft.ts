@@ -191,6 +191,7 @@ function normalizeTicket(
     isFree: resolvedType === 'free',
     type: resolvedType,
     quantity,
+    minPerOrder: 0,
     maxPerOrder,
     description: raw.description ?? '',
     salesStart: raw.salesStart ?? '',
