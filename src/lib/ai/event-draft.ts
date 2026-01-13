@@ -140,6 +140,8 @@ function normalizeFormData(
     venue: raw.venue ?? '',
     address: raw.address ?? '',
     city: raw.city ?? '',
+    latitude: typeof raw.latitude === 'number' ? raw.latitude : null,
+    longitude: typeof raw.longitude === 'number' ? raw.longitude : null,
     onlineUrl: raw.onlineUrl ?? '',
     absorbFee: raw.absorbFee ?? false,
     currency: raw.currency ?? 'GBP',

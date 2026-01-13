@@ -199,10 +199,10 @@ export default function RegistrationFormBuilderPage() {
                                     <div className="flex-1">
                                         <label htmlFor="buyer_choice" className="flex items-center gap-2 font-medium cursor-pointer">
                                             <User className="h-4 w-4 text-primary" />
-                                            Let buyer choose
+                                            Buyer info for all tickets
                                         </label>
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            Buyers can use their info for all tickets or add details for each attendee. Good for general admission events.
+                                            Use the buyer's name, gender and age for all tickets. Best for general admission events.
                                         </p>
                                     </div>
                                 </div>

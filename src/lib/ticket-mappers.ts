@@ -83,6 +83,8 @@ export const buildDraftFromEventRecord = (
         venue: event.venue ?? '',
         address: event.address ?? '',
         city: event.city ?? '',
+        latitude: event.latitude ?? null,
+        longitude: event.longitude ?? null,
         onlineUrl: event.onlineUrl ?? '',
         currency: event.currency ?? 'GBP',
         absorbFee: event.absorbFee ?? false,

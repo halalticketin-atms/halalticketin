@@ -29,6 +29,8 @@ export interface DraftFormData {
   venue: string;
   address: string;
   city: string;
+  latitude: number | null;
+  longitude: number | null;
   onlineUrl: string;
   absorbFee: boolean;
   currency: string;
@@ -97,6 +99,8 @@ const defaultFormData: DraftFormData = {
   venue: '',
   address: '',
   city: '',
+  latitude: null,
+  longitude: null,
   onlineUrl: '',
   absorbFee: false,
   currency: 'GBP',

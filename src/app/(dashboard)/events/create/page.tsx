@@ -251,6 +251,8 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         venue: isInPerson ? formData.venue || null : null,
         address: isInPerson ? formData.address || null : null,
         city: isInPerson ? formData.city || null : null,
+        latitude: isInPerson ? formData.latitude ?? null : null,
+        longitude: isInPerson ? formData.longitude ?? null : null,
         country: null,
         onlineUrl: isOnline ? formData.onlineUrl || null : null,
         currency: formData.currency,
@@ -456,7 +458,7 @@ const getStepForFieldErrors = (errors: Record<string, string>) => {
 const publishRequiredFieldsByStep: Record<number, string[]> = {
     1: ['title'],
     2: ['date', 'startTime', 'endDate', 'endTime'],
-    3: ['venue', 'onlineUrl'],
+    3: ['venue', 'address', 'city', 'onlineUrl'],
     4: ['tickets', 'currency', 'refundPolicy'],
 };
 
@@ -465,6 +467,8 @@ const validatePublishForm = (formData: DraftFormData, tickets: DraftTicketType[]
     const locationType = mapLocationType(formData.locationType);
     const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
     const isOnline = locationType === 'online' || locationType === 'hybrid';
+    const hasCoordinates =
+        Number.isFinite(formData.latitude) && Number.isFinite(formData.longitude);
 
     const trimmedTitle = formData.title.trim();
     if (!trimmedTitle) {
@@ -520,6 +524,15 @@ const validatePublishForm = (formData: DraftFormData, tickets: DraftTicketType[]
 
     if (isInPerson && !formData.venue.trim()) {
         errors.venue = 'Venue is required for in-person or hybrid events.';
+    }
+
+    if (isInPerson && !hasCoordinates) {
+        if (!formData.address.trim()) {
+            errors.address = 'Address is required when entering a venue manually.';
+        }
+        if (!formData.city.trim()) {
+            errors.city = 'City is required when entering a venue manually.';
+        }
     }
 
     if (isOnline && !formData.onlineUrl.trim()) {
@@ -2222,6 +2235,8 @@ export function EventWizard({
                                                                 setFormData(prev => ({
                                                                     ...prev,
                                                                     venue: nextValue,
+                                                                    latitude: null,
+                                                                    longitude: null,
                                                                     ...(nextValue ? {} : { address: '', city: '' }),
                                                                 }));
                                                                 if (!nextValue || locationCoords) {
@@ -2250,6 +2265,9 @@ export function EventWizard({
                                                                     maxLength={100}
                                                                     className="h-11"
                                                                 />
+                                                                {fieldErrors.address ? (
+                                                                    <p className="text-xs text-destructive">{fieldErrors.address}</p>
+                                                                ) : null}
                                                             </div>
                                                             <div className="space-y-1.5">
                                                                 <Label htmlFor="city">City</Label>
@@ -2262,6 +2280,9 @@ export function EventWizard({
                                                                     maxLength={50}
                                                                     className="h-11"
                                                                 />
+                                                                {fieldErrors.city ? (
+                                                                    <p className="text-xs text-destructive">{fieldErrors.city}</p>
+                                                                ) : null}
                                                             </div>
                                                         </div>
 
@@ -3297,9 +3318,9 @@ export function EventWizard({
                                                             )}
                                                         </div>
                                                         <div className="flex-1">
-                                                            <p className="font-medium">Let buyer choose</p>
+                                                            <p className="font-medium">Buyer info for all tickets</p>
                                                             <p className="text-sm text-muted-foreground mt-1">
-                                                                Buyers can use their info for all tickets or add details for each attendee. Best for general admission events.
+                                                                Use the buyer's name, gender and age for all tickets. Best for general admission events.
                                                             </p>
                                                         </div>
                                                     </div>
