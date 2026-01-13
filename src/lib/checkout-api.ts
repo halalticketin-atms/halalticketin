@@ -186,7 +186,10 @@ export async function getOrderStatus(orderId: string): Promise<{
  */
 export async function handleCheckout(
     eventId: string,
-    request: CheckoutRequest
+    request: CheckoutRequest,
+    options?: {
+        redirectTarget?: 'self' | 'top';
+    },
 ): Promise<{
     success: boolean;
     isFreeOrder?: boolean;
@@ -218,7 +221,11 @@ export async function handleCheckout(
 
     // Paid order - redirect to Stripe
     if (result.checkoutUrl) {
-        window.location.href = result.checkoutUrl;
+        if (options?.redirectTarget === 'top' && window.top) {
+            window.top.location.href = result.checkoutUrl;
+        } else {
+            window.location.href = result.checkoutUrl;
+        }
         return {
             success: true,
             isFreeOrder: false,

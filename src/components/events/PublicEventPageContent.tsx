@@ -899,6 +899,22 @@ export function PublicEventPageContent({
         }
     }, [isCheckoutOpen]);
 
+    useEffect(() => {
+        if (!isEmbedCheckout) return;
+        const frame = window.requestAnimationFrame(() => {
+            const height = Math.max(document.documentElement.scrollHeight, window.innerHeight);
+            window.parent?.postMessage(
+                {
+                    source: 'ht-embed',
+                    type: 'resize',
+                    height,
+                },
+                '*',
+            );
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [isEmbedCheckout, isCheckoutOpen, checkoutStep]);
+
     // Validate current step before advancing
     const validateCurrentStep = (): string | null => {
         if (stepType === 'buyer') {
@@ -1065,16 +1081,20 @@ export function PublicEventPageContent({
             })
             : undefined;
 
-        const result = await handleCheckout(event.id, {
-            items,
-            attendeeName: attendeeName.trim(),
-            attendeeEmail: attendeeEmail.trim(),
-            attendeeAge: Math.floor(buyerAgeNumber),
-            attendeeGender: attendeeGender as 'male' | 'female',
-            useSharedInfo: !requiresPerTicket && useSharedInfo,
-            ticketAttendees: ticketAttendeePayload,
-            promoCode: appliedPromo?.code || promoCode.trim() || undefined,
-        });
+        const result = await handleCheckout(
+            event.id,
+            {
+                items,
+                attendeeName: attendeeName.trim(),
+                attendeeEmail: attendeeEmail.trim(),
+                attendeeAge: Math.floor(buyerAgeNumber),
+                attendeeGender: attendeeGender as 'male' | 'female',
+                useSharedInfo: !requiresPerTicket && useSharedInfo,
+                ticketAttendees: ticketAttendeePayload,
+                promoCode: appliedPromo?.code || promoCode.trim() || undefined,
+            },
+            { redirectTarget: isEmbedCheckout ? 'top' : 'self' },
+        );
 
         if (!result.success) {
             const errorMessage = result.error || 'Checkout failed. Please try again.';
@@ -1087,7 +1107,12 @@ export function PublicEventPageContent({
         // If free order, redirect to success
         if (result.isFreeOrder && result.orderId) {
             clearDraft(); // Clear saved form draft
-            window.location.href = `/checkout/success?order_id=${result.orderId}`;
+            const successUrl = `/checkout/success?order_id=${result.orderId}`;
+            if (isEmbedCheckout && window.top) {
+                window.top.location.href = successUrl;
+            } else {
+                window.location.href = successUrl;
+            }
         }
         // Paid orders: clearDraft is handled by success page (draft auto-expires anyway)
     };

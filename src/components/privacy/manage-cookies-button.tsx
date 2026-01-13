@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import { useCookieConsent } from '@/context/cookie-consent-context';
 
 export function ManageCookiesButton({ className }: { className?: string }) {
@@ -9,7 +10,10 @@ export function ManageCookiesButton({ className }: { className?: string }) {
         <button
             type="button"
             onClick={openPreferences}
-            className={className ?? 'text-sm text-muted-foreground hover:text-foreground transition-colors'}
+            className={cn(
+                'inline-flex min-h-8 items-center px-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
+                className,
+            )}
         >
             Manage cookies
         </button>

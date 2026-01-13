@@ -1,20 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Copy } from 'lucide-react';
+import { Check, Copy, Moon, Sun, LayoutPanelLeft, Maximize, Code2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { toast } from '@/lib/notifications';
 import { buildEmbedCheckoutSnippet, type EmbedTheme } from '@/lib/embed';
+import { motion, AnimatePresence } from 'motion/react';
 
 export function EmbedCheckoutSnippet({
     slug,
@@ -30,6 +23,8 @@ export function EmbedCheckoutSnippet({
     siteUrl?: string;
 }) {
     const [theme, setTheme] = useState<EmbedTheme>('light');
+    const [selectedLayout, setSelectedLayout] = useState<'side' | 'full'>('side');
+    const [copied, setCopied] = useState(false);
 
     const resolvedSiteUrl = useMemo(() => {
         if (siteUrl) return siteUrl;
@@ -39,80 +34,194 @@ export function EmbedCheckoutSnippet({
 
     const resolvedSlug = slug ?? 'your-event-slug';
 
-    const snippet = useMemo(
-        () => buildEmbedCheckoutSnippet({ slug: resolvedSlug, theme, siteUrl: resolvedSiteUrl }),
-        [resolvedSlug, theme, resolvedSiteUrl],
+    // Generate snippets
+    const sideSnippet = useMemo(
+        () => [
+            `<div style="max-width: 380px;">`,
+            `  <div id="halal-ticketin-checkout" data-event-slug="${resolvedSlug}" data-theme="${theme}" data-height="720px"></div>`,
+            `</div>`,
+            `<script src="${resolvedSiteUrl.replace(/\/$/, '')}/embed/checkout.js"></script>`,
+        ].join('\n'),
+        [resolvedSiteUrl, resolvedSlug, theme],
     );
 
-    const handleCopy = async () => {
-        if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+    const fullSnippet = useMemo(
+        () => [
+            `<div id="halal-ticketin-checkout" data-event-slug="${resolvedSlug}" data-theme="${theme}" data-height="1100px"></div>`,
+            `<script src="${resolvedSiteUrl.replace(/\/$/, '')}/embed/checkout.js"></script>`,
+        ].join('\n'),
+        [resolvedSiteUrl, resolvedSlug, theme],
+    );
+
+    const currentSnippet = selectedLayout === 'side' ? sideSnippet : fullSnippet;
+
+    const handleCopySnippet = async () => {
+        if (!navigator.clipboard?.writeText) {
             toast.error('Clipboard access is not available.');
             return;
         }
         try {
-            await navigator.clipboard.writeText(snippet);
-            toast.success('Embed code copied');
+            await navigator.clipboard.writeText(currentSnippet);
+            toast.success('Code copied to clipboard');
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
         } catch {
             toast.error('Unable to copy embed code');
         }
     };
 
     return (
-        <Card className="border-dashed border-primary/30 bg-gradient-to-br from-primary/5 via-background to-background">
-            <CardHeader className="space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <CardTitle className="text-lg">Embed checkout widget</CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                            Paste this snippet into your website to embed ticket checkout.
+        <div className="grid gap-6 lg:grid-cols-12 md:gap-8">
+            {/* Left Column: Configuration */}
+            <div className="lg:col-span-5 space-y-6">
+                {/* Status Indicator */}
+                <div className="flex items-center gap-3">
+                    <div className={cn(
+                        "h-2.5 w-2.5 rounded-full ring-2 ring-offset-2 ring-offset-background",
+                        isLive ? "bg-emerald-500 ring-emerald-500/30" : "bg-amber-500 ring-amber-500/30"
+                    )} />
+                    <span className="text-sm font-medium text-muted-foreground">
+                        {isLive ? 'Ready for your website' : 'Save draft to generate code'}
+                    </span>
+                </div>
+
+                <div className="space-y-4">
+                    {/* Theme Selection */}
+                    <div className="space-y-3">
+                        <label className="text-sm font-medium">1. Choose Theme</label>
+                        <div className="grid grid-cols-2 gap-2 p-1 bg-muted/40 rounded-lg border border-border/50">
+                            <button
+                                onClick={() => setTheme('light')}
+                                className={cn(
+                                    "flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200",
+                                    theme === 'light'
+                                        ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                                )}
+                            >
+                                <Sun className="h-4 w-4" />
+                                Light
+                            </button>
+                            <button
+                                onClick={() => setTheme('dark')}
+                                className={cn(
+                                    "flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200",
+                                    theme === 'dark'
+                                        ? "bg-slate-900 text-white shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                                )}
+                            >
+                                <Moon className="h-4 w-4" />
+                                Dark
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Layout Selection */}
+                    <div className="space-y-3">
+                        <label className="text-sm font-medium">2. Select Layout</label>
+                        <div className="grid gap-3">
+                            <div
+                                onClick={() => setSelectedLayout('side')}
+                                className={cn(
+                                    "relative flex items-center gap-4 p-3 rounded-xl border-2 transition-all cursor-pointer hover:bg-muted/30",
+                                    selectedLayout === 'side'
+                                        ? "border-primary bg-primary/5"
+                                        : "border-border/50"
+                                )}
+                            >
+                                <div className={cn(
+                                    "h-10 w-10 rounded-lg flex items-center justify-center transition-colors",
+                                    selectedLayout === 'side' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                                )}>
+                                    <LayoutPanelLeft className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-medium text-sm">Side Panel</p>
+                                    <p className="text-xs text-muted-foreground">Compact width, best for sidebars or mobile-first layouts.</p>
+                                </div>
+                                {selectedLayout === 'side' && (
+                                    <div className="h-2 w-2 rounded-full bg-primary absolute right-3 top-3" />
+                                )}
+                            </div>
+
+                            <div
+                                onClick={() => setSelectedLayout('full')}
+                                className={cn(
+                                    "relative flex items-center gap-4 p-3 rounded-xl border-2 transition-all cursor-pointer hover:bg-muted/30",
+                                    selectedLayout === 'full'
+                                        ? "border-primary bg-primary/5"
+                                        : "border-border/50"
+                                )}
+                            >
+                                <div className={cn(
+                                    "h-10 w-10 rounded-lg flex items-center justify-center transition-colors",
+                                    selectedLayout === 'full' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                                )}>
+                                    <Maximize className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-medium text-sm">Full Width</p>
+                                    <p className="text-xs text-muted-foreground">Full page embed with expanded view for desktop.</p>
+                                </div>
+                                {selectedLayout === 'full' && (
+                                    <div className="h-2 w-2 rounded-full bg-primary absolute right-3 top-3" />
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Right Column: Code Preview */}
+            <div className="lg:col-span-7">
+                <Card className="h-full border-border/50 bg-slate-950 text-slate-50 shadow-xl overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/5">
+                        <div className="flex items-center gap-2">
+                            <div className="flex gap-1.5">
+                                <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 ring-1 ring-red-500/50" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 ring-1 ring-amber-500/50" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 ring-1 ring-emerald-500/50" />
+                            </div>
+                            <span className="ml-3 text-xs font-mono text-white/40">embed.html</span>
+                        </div>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className={cn(
+                                "h-7 gap-1.5 text-xs hover:bg-white/10 hover:text-white transition-all",
+                                copied && "text-emerald-400 hover:text-emerald-400 hover:bg-emerald-400/10"
+                            )}
+                            onClick={handleCopySnippet}
+                            disabled={!canCopy}
+                        >
+                            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            {copied ? 'Copied!' : 'Copy Code'}
+                        </Button>
+                    </div>
+                    <div className="p-4 overflow-x-auto custom-scrollbar flex-1 relative group">
+                        <pre className="text-xs sm:text-sm font-mono leading-relaxed text-blue-100/90 whitespace-pre-wrap break-all">
+                            {currentSnippet}
+                        </pre>
+
+                        {/* Mask for disabled state */}
+                        {!canCopy && (
+                            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[1px] flex items-center justify-center p-4 text-center">
+                                <p className="text-sm font-medium text-white/80 bg-slate-900/90 px-4 py-2 rounded-full shadow-lg border border-white/10">
+                                    Save your event first to generate code
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                    {/* Helper tip footer */}
+                    <div className="bg-white/5 px-4 py-3 border-t border-white/10">
+                        <p className="text-[11px] text-white/50 flex items-center gap-2">
+                            <Code2 className="h-3 w-3" />
+                            Paste this code anywhere in your website's body tag
                         </p>
                     </div>
-                    <Badge variant={isLive ? 'default' : 'secondary'}>
-                        {isLive ? 'Live embed' : canCopy ? 'Draft embed' : 'Save draft'}
-                    </Badge>
-                </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex flex-wrap items-center gap-3">
-                    <div className="w-40">
-                        <Select value={theme} onValueChange={(value) => setTheme(value as EmbedTheme)}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Theme" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="light">Light theme</SelectItem>
-                                <SelectItem value="dark">Dark theme</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                        The widget will match this theme inside the iframe.
-                    </p>
-                </div>
-
-                <Textarea value={snippet} readOnly rows={4} className="font-mono text-xs" />
-
-                {!canCopy && (
-                    <p className="text-xs text-muted-foreground">
-                        Save your draft once to generate the embed code.
-                    </p>
-                )}
-                {canCopy && !isLive && (
-                    <p className="text-xs text-muted-foreground">
-                        This embed will go live once the event is published{isPublic ? '' : ' and set to public'}.
-                    </p>
-                )}
-
-                <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs text-muted-foreground">
-                        Event slug: <span className="font-medium text-foreground">{resolvedSlug}</span>
-                    </p>
-                    <Button onClick={handleCopy} disabled={!canCopy} className="gap-2">
-                        <Copy className="h-4 w-4" />
-                        Copy embed code
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
+                </Card>
+            </div>
+        </div>
     );
 }

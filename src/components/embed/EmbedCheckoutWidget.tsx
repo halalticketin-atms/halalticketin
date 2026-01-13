@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import type { PublicEventRecord, PublicTicketRecord } from '@/lib/events-api';
 import { normalizeEmbedTheme } from '@/lib/embed';
 import { PublicEventPageContent } from '@/components/events/PublicEventPageContent';
 import { cn } from '@/lib/utils';
+
+type CSSVariableStyles = CSSProperties & Record<`--${string}`, string>;
 
 export function EmbedCheckoutWidget({
     event,
@@ -22,7 +24,7 @@ export function EmbedCheckoutWidget({
     const shellRef = useRef<HTMLDivElement | null>(null);
     const embedTheme = useMemo(() => normalizeEmbedTheme(theme), [theme]);
     const isDark = embedTheme === 'dark';
-    const darkThemeStyles = useMemo<React.CSSProperties>(
+    const darkThemeStyles = useMemo<CSSVariableStyles>(
         () => ({
             '--background': '#0a1224',
             '--foreground': '#f8fafc',
@@ -120,7 +122,13 @@ export function EmbedCheckoutWidget({
                 organizerNameOverride={event?.organizerName ?? null}
             />
             <div className={cn('container pb-6 pt-2 flex items-center gap-2 text-xs', isDark ? 'text-slate-300' : 'text-muted-foreground')}>
-                <img src="/images/HTlogocr.png" alt="HalalTicketin' logo" className="h-6 w-6" />
+                <img
+                    src="/images/HTlogocr.png"
+                    alt="HalalTicketin' logo"
+                    width={24}
+                    height={24}
+                    className="h-6 w-6 object-contain"
+                />
                 <span>Delivered with Ihsan by HalalTicketin&apos;</span>
             </div>
         </div>

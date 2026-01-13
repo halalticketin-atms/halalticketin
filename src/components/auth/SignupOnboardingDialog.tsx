@@ -390,8 +390,10 @@ export function SignupOnboardingDialog({
                 };
             }
 
+            let registerResponse: RegisterResponse | null = null;
+
             if (isAuthenticatedOnboarding) {
-                const registerResponse = await api.post<RegisterResponse>('/api/v1/auth/onboarding', payload);
+                registerResponse = await api.post<RegisterResponse>('/api/v1/auth/onboarding', payload);
 
                 if (registerResponse.organizerId) {
                     setOrganizerId(registerResponse.organizerId);
@@ -401,7 +403,7 @@ export function SignupOnboardingDialog({
             } else {
                 payload.password = formData.password;
 
-                const registerResponse = await api.post<RegisterResponse>('/api/v1/auth/register', payload);
+                registerResponse = await api.post<RegisterResponse>('/api/v1/auth/register', payload);
 
                 if (registerResponse.organizerId) {
                     setOrganizerId(registerResponse.organizerId);
@@ -417,11 +419,13 @@ export function SignupOnboardingDialog({
             }
 
             if (avatarFile && formData.role === 'organizer') {
-                if (!registerResponse.organizerId) {
+                const organizerIdForUpload = registerResponse?.organizerId;
+
+                if (!organizerIdForUpload) {
                     console.warn('Organizer logo upload skipped: missing organizer ID');
                 } else {
                     try {
-                        await uploadOrganizerAvatar(registerResponse.organizerId, avatarFile);
+                        await uploadOrganizerAvatar(organizerIdForUpload, avatarFile);
                     } catch (uploadError) {
                         console.warn('Organizer logo upload error:', uploadError);
                         // Don't fail registration for logo upload issues

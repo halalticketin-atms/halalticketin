@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
 // These are actual events from your database. Update these if events change.
 const REAL_EVENTS = {
     // Free event: "FREE TEST" - has free tickets
-    freeEvent: 'free-test',
+    freeEvent: 'hearts-unlocked',
     // Paid event: "Copy of TDS" - has paid tickets
     paidEvent: 'copy-of-tds',
     // Test event: "Testing 123"
@@ -331,6 +331,6 @@ test.describe('Checkout Journey - Event Information', () => {
         await page.goto(`/events/${REAL_EVENTS.paidEvent}`);
         await page.waitForLoadState('networkidle');
 
-        await expect(page.getByRole('link', { name: /view organizer profile/i })).toBeVisible();
+        await expect(page.getByRole('link', { name: /view organi[sz]er profile/i })).toBeVisible();
     });
 });

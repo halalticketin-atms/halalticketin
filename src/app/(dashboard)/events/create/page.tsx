@@ -31,6 +31,7 @@ import {
     ChevronDown,
     Settings2,
     X,
+    Code,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -112,6 +113,7 @@ export const steps = [
     { id: 3, title: 'Where', description: 'Location & venue', icon: MapPin },
     { id: 4, title: 'Tickets', description: 'Pricing & availability', icon: Ticket },
     { id: 5, title: 'Attendee Info', description: 'Registration settings', icon: Users },
+    { id: 6, title: 'Embed Widget', description: 'Website integration', icon: Code },
 ];
 
 const entryContextDefaults: Record<'scratch' | DraftEntrySource, EntryContext> = {
@@ -1812,16 +1814,6 @@ export function EventWizard({
                     {/* Main Content */}
                     <main ref={mainContentRef} className="flex-1 min-w-0 bg-card/50 rounded-2xl border border-border/50 p-4 sm:p-6 lg:p-8">
                         <div className="max-w-2xl mx-auto lg:max-w-none lg:mx-0">
-                            {showEmbedSnippet ? (
-                                <div className="mb-6">
-                                    <EmbedCheckoutSnippet
-                                        slug={embedSlug}
-                                        canCopy={embedCanCopy}
-                                        isLive={embedIsLive}
-                                        isPublic={embedIsPublic}
-                                    />
-                                </div>
-                            ) : null}
                             <AnimatePresence mode="wait">
                                 {/* Step 1: Basic Details */}
                                 {currentStep === 1 && (
@@ -3508,6 +3500,30 @@ export function EventWizard({
                                                 )}
                                             </CardContent>
                                         </Card>
+                                    </motion.div>
+                                )}
+
+                                {/* Step 6: Embed Widget */}
+                                {currentStep === 6 && (
+                                    <motion.div
+                                        key="step6"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="space-y-4 lg:space-y-5"
+                                    >
+                                        <div>
+                                            <h2 className="font-display text-xl lg:text-2xl font-bold">Embed Checkout Widget</h2>
+                                            <p className="mt-1 text-sm text-muted-foreground">Integrate ticket sales directly into your website</p>
+                                        </div>
+
+                                        <EmbedCheckoutSnippet
+                                            slug={embedSlug}
+                                            canCopy={embedCanCopy}
+                                            isLive={embedIsLive}
+                                            isPublic={embedIsPublic}
+                                        />
                                     </motion.div>
                                 )}
                             </AnimatePresence>
