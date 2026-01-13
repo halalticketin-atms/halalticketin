@@ -182,9 +182,44 @@ function CheckInContent() {
     await undo(ticketId);
   };
 
+  const extractTicketCode = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+
+    const withoutPrefix = trimmed.replace(/^ticket:/i, '').trim();
+    const ticketCodePattern = /^[0-9a-f]{16,}$/i;
+
+    try {
+      const url = new URL(withoutPrefix);
+      const param =
+        url.searchParams.get('ticketCode') ||
+        url.searchParams.get('ticket') ||
+        url.searchParams.get('code');
+      if (param) {
+        return param.trim();
+      }
+
+      const lastSegment = url.pathname.split('/').filter(Boolean).pop();
+      if (lastSegment && ticketCodePattern.test(lastSegment)) {
+        return lastSegment.trim();
+      }
+
+      return '';
+    } catch {
+      const match = withoutPrefix.match(/(?:ticketCode|ticket|code)=([A-Za-z0-9_-]+)/i);
+      return match ? match[1].trim() : withoutPrefix;
+    }
+  };
+
   const handleScan = async (data: string) => {
-    const trimmed = data.trim();
-    if (!trimmed) return;
+    const ticketCode = extractTicketCode(data);
+    if (!ticketCode) {
+      setScanResult({
+        status: 'invalid',
+        message: 'QR code does not include a ticket code.',
+      });
+      return;
+    }
 
     if (!selectedEvent) {
       setScanResult({
@@ -195,7 +230,7 @@ function CheckInContent() {
     }
 
     try {
-      const scanResponse = await scanAndCheckInTicket(selectedEvent, trimmed);
+      const scanResponse = await scanAndCheckInTicket(selectedEvent, ticketCode);
       const normalizedTicket = transformCheckInTicket(scanResponse.ticket);
 
       if (scanResponse.status === 'already_checked_in') {
