@@ -1870,7 +1870,7 @@ export function EventWizard({
                     </aside>
 
                     {/* Main Content */}
-                    <main ref={mainContentRef} className="flex-1 min-w-0">
+                    <main ref={mainContentRef} className="flex-1 min-w-0 bg-card/50 rounded-2xl border border-border/50 p-4 sm:p-6 lg:p-8">
                         <div className="max-w-2xl mx-auto lg:max-w-none lg:mx-0">
                             <AnimatePresence mode="wait">
                                 {/* Step 1: Basic Details */}
