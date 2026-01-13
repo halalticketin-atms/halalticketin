@@ -356,42 +356,55 @@ function CheckInContent() {
 
   // Mobile/Tablet view - Immersive Scanner
   return (
-    <div className="min-h-screen bg-black flex flex-col pt-[var(--nav-safe-offset)]">
+    <div className="min-h-screen bg-black flex flex-col pt-(--nav-safe-offset)">
       {/* Scan Mode - Full Screen Immersive */}
       {mode === 'scan' && (
         <>
-          {/* Floating Header - Adjust for global header */}
-          <div className="absolute top-[var(--nav-safe-offset)] left-0 right-0 z-20 p-4">
-            <div className="flex items-center justify-between bg-black/40 backdrop-blur-md rounded-2xl p-3 border border-white/10">
-              {/* Stats */}
-              <div className="flex items-center gap-4 text-white text-sm">
-                <div className="flex items-center gap-1.5">
-                  <Users className="h-4 w-4 opacity-80" />
-                  <span className="font-medium">{stats.totalTickets}</span>
-                  <span className="opacity-60">total</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-green-400 font-medium">{stats.checkedIn}</span>
-                  <span className="opacity-60">checked in</span>
+          {/* Floating Header - Stacked for better responsiveness */}
+          <div className="absolute top-(--nav-safe-offset) left-0 right-0 z-20 p-4 pointer-events-none">
+            <div className="flex flex-col gap-3 w-full animate-in fade-in slide-in-from-top-4 duration-500">
+              {/* Row 1: Stats Container */}
+              <div className="flex items-center justify-center pointer-events-auto">
+                <div className="flex items-center gap-6 bg-black/60 backdrop-blur-xl rounded-2xl px-5 py-2.5 border border-white/10 shadow-2xl">
+                  {/* Total */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm font-black text-white">{stats.totalTickets}</span>
+                    <span className="text-[9px] uppercase tracking-tighter font-bold text-white/40">Total</span>
+                  </div>
+                  <div className="h-6 w-[1px] bg-white/10" />
+                  {/* Checked In */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm font-black text-green-400">{stats.checkedIn}</span>
+                    <span className="text-[9px] uppercase tracking-tighter font-bold text-green-400/40">Checked In</span>
+                  </div>
+                  <div className="h-6 w-[1px] bg-white/10" />
+                  {/* Remaining */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm font-black text-white/60">{stats.totalTickets - stats.checkedIn}</span>
+                    <span className="text-[9px] uppercase tracking-tighter font-bold text-white/20">Left</span>
+                  </div>
                 </div>
               </div>
-              {/* Event selector - minimal */}
+
+              {/* Row 2: Event Selector - More Centered & Modern */}
               {activeEvents.length > 1 && (
-                <Select
-                  value={selectedEvent}
-                  onValueChange={(value) => updateQuery('event', value)}
-                >
-                  <SelectTrigger className="w-auto h-8 gap-2 bg-white/10 border-white/20 text-white text-xs backdrop-blur-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeEvents.map((event) => (
-                      <SelectItem key={event.id} value={event.id}>
-                        {event.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex justify-center pointer-events-auto">
+                  <Select
+                    value={selectedEvent}
+                    onValueChange={(value) => updateQuery('event', value)}
+                  >
+                    <SelectTrigger className="w-auto h-10 gap-2 bg-white/10 border-white/10 text-white text-xs backdrop-blur-md rounded-xl px-4 font-bold active:scale-95 transition-all">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-black/90 backdrop-blur-xl border-white/10 text-white rounded-xl">
+                      {activeEvents.map((event) => (
+                        <SelectItem key={event.id} value={event.id} className="focus:bg-white/10 focus:text-white rounded-lg my-1">
+                          {event.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
             </div>
           </div>
@@ -407,12 +420,12 @@ function CheckInContent() {
           {/* Search FAB */}
           <button
             onClick={() => updateQuery('mode', 'search')}
-            className="absolute bottom-28 right-6 z-20 h-14 px-6 rounded-2xl bg-primary shadow-xl shadow-primary/20 flex items-center gap-3 text-sm font-bold text-primary-foreground active:scale-95 transition-all hover:bg-primary/90"
+            className="absolute bottom-28 right-6 z-20 h-14 px-6 rounded-2xl bg-primary shadow-xl shadow-primary/40 flex items-center gap-3 text-sm font-black text-primary-foreground active:scale-95 transition-all hover:bg-primary/95"
           >
-            <div className="bg-white/20 p-1.5 rounded-lg">
+            <div className="bg-white/20 p-2 rounded-xl">
               <Search className="h-4 w-4" />
             </div>
-            Search
+            Attendee List
           </button>
         </>
       )}
@@ -432,32 +445,30 @@ function CheckInContent() {
               isEventLoading={eventsLoading}
             />
 
-            {/* Search & Filter */}
-            <Card className="mb-4">
-              <CardContent className="py-3">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search name, email, order..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="not_checked_in">Pending</SelectItem>
-                      <SelectItem value="checked_in">Checked In</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {/* Search & Filter - More Modern & Less Cluttered */}
+            <div className="flex flex-col gap-4 mb-8 sticky top-(--nav-safe-offset) z-10 py-2 bg-muted/5 shadow-[0_-20px_20px_rgba(var(--background),1)]">
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground opacity-40" />
+                  <Input
+                    placeholder="Search name, email, order..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-14 pl-11 bg-white border-2 border-black/5 rounded-2xl shadow-sm focus:ring-primary/20 transition-all font-medium"
+                  />
                 </div>
-              </CardContent>
-            </Card>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[140px] h-14 bg-white border-2 border-black/5 rounded-2xl shadow-sm font-bold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-2">
+                    <SelectItem value="all" className="rounded-xl my-1">All Tickets</SelectItem>
+                    <SelectItem value="not_checked_in" className="rounded-xl my-1">Pending</SelectItem>
+                    <SelectItem value="checked_in" className="rounded-xl my-1">Checked In</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
             {/* Attendee List */}
             <div className="space-y-3">

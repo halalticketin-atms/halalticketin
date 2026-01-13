@@ -51,13 +51,13 @@ export function CheckInHeader({
     }, [stats.checkedIn, stats.totalTickets]);
 
     return (
-        <div className="space-y-4 mb-6">
+        <div className="space-y-6 mb-8">
             {/* Title and Event Selector */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-black tracking-tight">Check-in</h1>
-                    <p className="text-sm text-muted-foreground font-medium">
-                        {subtitle || 'Manage event entry'}
+            <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="space-y-1.5 px-1">
+                    <h1 className="text-4xl font-black tracking-tight text-black">Check-in</h1>
+                    <p className="text-sm text-muted-foreground font-bold uppercase tracking-widest opacity-60">
+                        Attendee Directory
                     </p>
                 </div>
 
@@ -66,51 +66,72 @@ export function CheckInHeader({
                     onValueChange={onEventChange}
                     disabled={isEventLoading}
                 >
-                    <SelectTrigger className="w-full sm:w-[280px] bg-white border-2 border-black/5 rounded-xl h-12">
-                        <Calendar className="h-4 w-4 mr-2 shrink-0 text-primary" />
-                        <SelectValue placeholder="Select event" />
+                    <SelectTrigger className="w-full bg-white border-2 border-black/5 rounded-2xl h-14 shadow-sm px-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-primary/10 p-2 rounded-xl">
+                                <Calendar className="h-4 w-4 text-primary" />
+                            </div>
+                            <SelectValue placeholder="Select event" />
+                        </div>
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl border-2">
+                    <SelectContent className="rounded-2xl border-2 border-black/5 shadow-2xl p-2">
                         {events.map((event) => (
-                            <SelectItem key={event.id} value={event.id} className="rounded-lg my-1">
-                                {event.name}
+                            <SelectItem key={event.id} value={event.id} className="rounded-xl my-1 h-12">
+                                <span className="font-bold">{event.name}</span>
                             </SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
             </div>
 
-            {/* Error Alert */}
-            {error && (
-                <Alert variant="destructive" className="rounded-xl border-2">
-                    <AlertDescription>{error}</AlertDescription>
-                </Alert>
-            )}
-
-            {/* Stats Bar - Cleaner Mobile Version */}
-            <Card className="rounded-2xl border-2 border-black/5 shadow-none overflow-hidden">
+            {/* Stats Bar - Premium Layout */}
+            <Card className="rounded-4xl border-2 border-black/5 shadow-xl shadow-black/5 overflow-hidden bg-white">
                 <CardContent className="p-0">
                     <div className="flex flex-col">
-                        <div className="flex items-center justify-between p-4 bg-muted/20">
-                            <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-between p-6">
+                            <div className="flex items-center gap-6">
                                 <div className="flex flex-col">
-                                    <span className="text-2xl font-black">{stats.checkedIn}</span>
-                                    <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Checked In</span>
+                                    <span className="text-3xl font-black">{stats.checkedIn}</span>
+                                    <span className="text-[10px] uppercase tracking-[0.2em] font-black text-muted-foreground opacity-50">Checked In</span>
                                 </div>
-                                <div className="h-8 w-[2px] bg-black/5" />
+                                <div className="h-10 w-px bg-black/5" />
                                 <div className="flex flex-col">
-                                    <span className="text-2xl font-black text-muted-foreground/40">{stats.totalTickets}</span>
-                                    <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40">Total</span>
+                                    <span className="text-3xl font-black text-black/20">{stats.totalTickets}</span>
+                                    <span className="text-[10px] uppercase tracking-[0.2em] font-black text-muted-foreground opacity-30">Total</span>
                                 </div>
                             </div>
                             <div className="flex flex-col items-end">
-                                <span className="text-2xl font-black text-primary">{percentage}%</span>
-                                <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Progress</span>
+                                <div className="relative h-14 w-14 flex items-center justify-center">
+                                    <svg className="h-14 w-14 -rotate-90">
+                                        <circle
+                                            cx="28"
+                                            cy="28"
+                                            r="24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="6"
+                                            className="text-black/5"
+                                        />
+                                        <circle
+                                            cx="28"
+                                            cy="28"
+                                            r="24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="6"
+                                            strokeDasharray={150.8}
+                                            strokeDashoffset={150.8 - (150.8 * percentage) / 100}
+                                            className="text-primary transition-all duration-1000 ease-out"
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                    <span className="absolute text-[11px] font-black text-primary">{percentage}%</span>
+                                </div>
                             </div>
                         </div>
-                        <div className="h-1.5 w-full bg-muted">
+                        <div className="h-1.5 w-full bg-black/5">
                             <div
-                                className="h-full bg-primary transition-all duration-700 ease-out"
+                                className="h-full bg-primary transition-all duration-1000 ease-out"
                                 style={{ width: `${percentage}%` }}
                             />
                         </div>
@@ -118,14 +139,14 @@ export function CheckInHeader({
                 </CardContent>
             </Card>
 
-            {/* Mode Toggle (Mobile) */}
+            {/* Mode Toggle - Modern Switch */}
             {showModeToggle && onModeChange && (
-                <div className="flex p-1.5 bg-muted/40 rounded-2xl gap-1">
+                <div className="flex p-2 bg-black/5 rounded-3xl gap-1.5">
                     <Button
                         variant="ghost"
                         className={cn(
-                            "flex-1 h-12 rounded-xl transition-all font-bold",
-                            mode === 'scan' ? "bg-white shadow-sm text-primary" : "text-muted-foreground"
+                            "flex-1 h-14 rounded-2xl transition-all duration-300 font-black text-sm tracking-wide",
+                            mode === 'scan' ? "bg-white shadow-md text-primary" : "text-muted-foreground hover:bg-white/50"
                         )}
                         onClick={() => onModeChange('scan')}
                     >
@@ -135,8 +156,8 @@ export function CheckInHeader({
                     <Button
                         variant="ghost"
                         className={cn(
-                            "flex-1 h-12 rounded-xl transition-all font-bold",
-                            mode === 'search' ? "bg-white shadow-sm text-primary" : "text-muted-foreground"
+                            "flex-1 h-14 rounded-2xl transition-all duration-300 font-black text-sm tracking-wide",
+                            mode === 'search' ? "bg-white shadow-md text-primary" : "text-muted-foreground hover:bg-white/50"
                         )}
                         onClick={() => onModeChange('search')}
                     >

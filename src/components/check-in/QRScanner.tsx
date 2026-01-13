@@ -223,26 +223,21 @@ export function QRScanner({ onScan, isActive = true }: QRScannerProps) {
 
             {/* Scanning overlay */}
             <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-                {/* Corner guides - Refined */}
                 <div className="relative w-64 h-64">
-                    <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-white/80 rounded-tl-xl sm:w-12 sm:h-12" />
-                    <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-white/80 rounded-tr-xl sm:w-12 sm:h-12" />
-                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-white/80 rounded-bl-xl sm:w-12 sm:h-12" />
-                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-white/80 rounded-br-xl sm:w-12 sm:h-12" />
-
-                    {/* Scanning line animation */}
-                    {isScanning && (
-                        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent animate-scan shadow-[0_0_15px_rgba(var(--primary),0.5)]" />
-                    )}
+                    {/* Corner guides - Refined */}
+                    <div className="absolute top-0 left-0 w-10 h-10 border-t-2 border-l-2 border-white/60 rounded-tl-2xl sm:w-14 sm:h-14" />
+                    <div className="absolute top-0 right-0 w-10 h-10 border-t-2 border-r-2 border-white/60 rounded-tr-2xl sm:w-14 sm:h-14" />
+                    <div className="absolute bottom-0 left-0 w-10 h-10 border-b-2 border-l-2 border-white/60 rounded-bl-2xl sm:w-14 sm:h-14" />
+                    <div className="absolute bottom-0 right-0 w-10 h-10 border-b-2 border-r-2 border-white/60 rounded-br-2xl sm:w-14 sm:h-14" />
                 </div>
             </div>
 
             {/* Minimal status indicator - only when starting */}
             {!isScanning && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[2px] z-20">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-md z-20">
                     <div className="flex flex-col items-center gap-3 text-white">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <span className="text-sm font-medium tracking-wide">Initializing camera...</span>
+                        <span className="text-sm font-bold tracking-wider opacity-80 uppercase">Accessing Camera</span>
                     </div>
                 </div>
             )}
