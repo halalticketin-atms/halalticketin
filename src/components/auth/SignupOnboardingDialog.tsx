@@ -101,6 +101,7 @@ interface RegisterResponse {
     email: string;
     isOrganizer: boolean;
     organizerId?: string;
+    requiresEmailConfirmation?: boolean;
 }
 
 type Step = 'intent' | 'credentials' | 'profile' | 'stripe' | 'complete';
@@ -187,6 +188,7 @@ export function SignupOnboardingDialog({
     const [organizerId, setOrganizerId] = useState<string | null>(null);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [pendingEmailConfirmation, setPendingEmailConfirmation] = useState(false);
 
     // Avatar upload state
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -411,6 +413,13 @@ export function SignupOnboardingDialog({
                     setOrganizerId(organizerIdFromRegister);
                 }
 
+                if (registerResponse.requiresEmailConfirmation) {
+                    setPendingEmailConfirmation(true);
+                    setDirection(1);
+                    setStep('complete');
+                    return;
+                }
+
                 const loginResponse = await api.post<LoginResponse>('/api/v1/auth/login', {
                     email: formData.email,
                     password: formData.password,
@@ -453,6 +462,12 @@ export function SignupOnboardingDialog({
     };
 
     const handleComplete = () => {
+        if (pendingEmailConfirmation) {
+            router.push('/login');
+            onOpenChange(false);
+            return;
+        }
+
         const redirectTo = redirectAfterComplete ?? (formData.role === 'organizer' ? '/dashboard' : '/events');
         if (onComplete) {
             onComplete(redirectTo);
@@ -488,6 +503,32 @@ export function SignupOnboardingDialog({
     };
 
     const progressPercentage = ((currentStepIndex + 1) / steps.length) * 100;
+
+    const handleResendVerificationEmail = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            const emailRedirectTo = `${window.location.origin}/auth/callback${redirectAfterComplete ? `?next=${encodeURIComponent(redirectAfterComplete)}` : ''}`;
+            const { error } = await getSupabase().auth.resend({
+                type: 'signup',
+                email: formData.email,
+                options: { emailRedirectTo },
+            });
+
+            if (error) {
+                throw error;
+            }
+
+            toast.success('Verification email sent', 'Check your inbox and spam folder.');
+        } catch (err) {
+            console.error('Resend verification error:', err);
+            toast.error(err, 'Unable to resend verification email');
+            setError(err instanceof Error ? err.message : 'Unable to resend verification email.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1354,12 +1395,14 @@ export function SignupOnboardingDialog({
                                         transition={{ delay: 0.4 }}
                                     >
                                         <h2 className="text-3xl font-display font-bold text-slate-800 dark:text-white">
-                                            You&apos;re all set!
+                                            {pendingEmailConfirmation ? 'Check your email' : 'You\'re all set!'}
                                         </h2>
                                         <p className="text-slate-600 dark:text-slate-400 mt-3 text-lg">
-                                            {formData.role === 'organizer'
-                                                ? 'Your organizer account is ready. Let\'s create your first event!'
-                                                : 'Welcome! Explore amazing events happening near you.'}
+                                            {pendingEmailConfirmation
+                                                ? 'We sent a verification link. Click it to confirm your email and sign in.'
+                                                : (formData.role === 'organizer'
+                                                    ? 'Your organizer account is ready. Let\'s create your first event!'
+                                                    : 'Welcome! Explore amazing events happening near you.')}
                                         </p>
                                     </motion.div>
 
@@ -1368,13 +1411,29 @@ export function SignupOnboardingDialog({
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: 0.6 }}
                                     >
-                                        <Button
-                                            onClick={handleComplete}
-                                            className="h-14 px-10 text-lg font-semibold bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 transition-all"
-                                        >
-                                            {formData.role === 'organizer' ? 'Go to Dashboard' : 'Browse Events'}
-                                            <ArrowRight className="ml-2 h-5 w-5" />
-                                        </Button>
+                                        <div className="space-y-3">
+                                            <Button
+                                                onClick={handleComplete}
+                                                className="h-14 px-10 text-lg font-semibold bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 transition-all w-full"
+                                                disabled={isLoading}
+                                            >
+                                                {pendingEmailConfirmation
+                                                    ? 'Go to Login'
+                                                    : (formData.role === 'organizer' ? 'Go to Dashboard' : 'Browse Events')}
+                                                <ArrowRight className="ml-2 h-5 w-5" />
+                                            </Button>
+
+                                            {pendingEmailConfirmation && (
+                                                <Button
+                                                    variant="ghost"
+                                                    onClick={handleResendVerificationEmail}
+                                                    disabled={isLoading || !formData.email}
+                                                    className="w-full h-12 text-slate-500 hover:text-slate-700"
+                                                >
+                                                    Resend verification email
+                                                </Button>
+                                            )}
+                                        </div>
                                     </motion.div>
                                 </motion.div>
                             )}
