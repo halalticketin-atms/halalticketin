@@ -44,8 +44,7 @@ export default function EventPreviewPublicPage() {
                 const response = await fetchEventDetails(eventId);
                 if (cancelled) return;
                 setEvent(response.event);
-                const visibleTickets = response.tickets.filter((ticket) => ticket.visibility !== 'hidden');
-                setTickets(visibleTickets);
+                setTickets(response.tickets);
             } catch (err) {
                 if (cancelled) return;
                 const message = getUserFriendlyMessage(err) || 'Event not found';

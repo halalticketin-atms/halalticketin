@@ -248,6 +248,14 @@ export function PublicEventPageContent({
     organizerNameOverride = null,
 }: PublicEventPageContentProps) {
     const safeTickets = Array.isArray(tickets) ? tickets : [];
+    const visibleTickets = useMemo(
+        () => safeTickets.filter((ticket) => ('visibility' in ticket ? ticket.visibility !== 'hidden' : true)),
+        [safeTickets],
+    );
+    const hiddenTickets = useMemo(
+        () => safeTickets.filter((ticket) => 'visibility' in ticket && ticket.visibility === 'hidden'),
+        [safeTickets],
+    );
     const { rates } = useExchangeRates();
     const { track } = useMetaPixel();
     const eventPixelId =
@@ -314,16 +322,16 @@ export function PublicEventPageContent({
     const [unlockedTickets, setUnlockedTickets] = useState<TicketLike[]>([]);
 
     const regularTickets = useMemo(
-        () => safeTickets.filter((ticket) => ticket.type !== 'donation'),
-        [safeTickets],
+        () => visibleTickets.filter((ticket) => ticket.type !== 'donation'),
+        [visibleTickets],
     );
     const regularUnlockedTickets = useMemo(
         () => unlockedTickets.filter((ticket) => ticket.type !== 'donation'),
         [unlockedTickets],
     );
     const donationTicket = useMemo(
-        () => [...safeTickets, ...unlockedTickets].find((ticket) => ticket.type === 'donation') ?? null,
-        [safeTickets, unlockedTickets],
+        () => [...visibleTickets, ...unlockedTickets].find((ticket) => ticket.type === 'donation') ?? null,
+        [visibleTickets, unlockedTickets],
     );
     const hasDonationOption = Boolean(donationTicket);
     const hasRegularTickets = regularTickets.length > 0 || regularUnlockedTickets.length > 0;
@@ -588,13 +596,26 @@ export function PublicEventPageContent({
 
             // Check if this promo reveals hidden tickets
             if (result.revealsHiddenTickets) {
-                const unlocked = await fetchUnlockedTickets(event.slug || '', trimmedCode);
-                if (unlocked.length > 0) {
-                    setUnlockedTickets(unlocked as TicketLike[]);
-                    toast.success(`Unlocked ${unlocked.length} hidden ticket${unlocked.length === 1 ? '' : 's'}!`);
-                } else if (result.discountValue === '0' || result.discountValue === '0.00') {
-                    // Reveal-only code but no tickets found
-                    setPromoError('Code is valid but no hidden tickets are currently available.');
+                if (isPreview) {
+                    const applicable = result.applicableTicketTypeIds ?? null;
+                    const unlocked = applicable && applicable.length > 0
+                        ? hiddenTickets.filter((ticket) => applicable.includes(ticket.id))
+                        : hiddenTickets;
+                    if (unlocked.length > 0) {
+                        setUnlockedTickets(unlocked as TicketLike[]);
+                        toast.success(`Unlocked ${unlocked.length} hidden ticket${unlocked.length === 1 ? '' : 's'}!`);
+                    } else if (result.discountValue === '0' || result.discountValue === '0.00') {
+                        setPromoError('Code is valid but no hidden tickets are currently available.');
+                    }
+                } else {
+                    const unlocked = await fetchUnlockedTickets(event.slug || '', trimmedCode);
+                    if (unlocked.length > 0) {
+                        setUnlockedTickets(unlocked as TicketLike[]);
+                        toast.success(`Unlocked ${unlocked.length} hidden ticket${unlocked.length === 1 ? '' : 's'}!`);
+                    } else if (result.discountValue === '0' || result.discountValue === '0.00') {
+                        // Reveal-only code but no tickets found
+                        setPromoError('Code is valid but no hidden tickets are currently available.');
+                    }
                 }
             }
         } else {
