@@ -1,3 +1,5 @@
+import { fromSmallestUnit, toSmallestUnit } from './fees';
+
 export type StripeFeeConfig = {
     percent: number;
     fixed: number;
@@ -43,8 +45,8 @@ export const calculateStripeProcessingFee = (baseAmount: number, currency: strin
         return 0;
     }
 
-    const baseSmallestUnit = Math.round(baseAmount * 100);
-    const fixedSmallestUnit = Math.round(fixed * 100);
+    const baseSmallestUnit = toSmallestUnit(baseAmount, currency);
+    const fixedSmallestUnit = toSmallestUnit(fixed, currency);
     const denominator = 1 - percent;
     if (denominator <= 0) {
         return 0;
@@ -53,5 +55,5 @@ export const calculateStripeProcessingFee = (baseAmount: number, currency: strin
     const feeSmallestUnit = Math.ceil(
         (baseSmallestUnit * percent + fixedSmallestUnit) / denominator
     );
-    return Math.max(0, feeSmallestUnit) / 100;
+    return Math.max(0, fromSmallestUnit(feeSmallestUnit, currency));
 };

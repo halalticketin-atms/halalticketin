@@ -1,4 +1,4 @@
-import { convertFromGBP } from '@/lib/fees';
+import { ceilCurrencyAmount, convertFromGBP } from '@/lib/fees';
 
 export const LIMITS_GBP = {
     ticketPrice: 9_999,
@@ -12,10 +12,11 @@ export const MAX_PER_ORDER = 10;
 export const PROMO_CODE_MIN_LENGTH = 3;
 export const PROMO_CODE_MAX_LENGTH = 15;
 
-export const roundCurrencyLimit = (amount: number) => Math.ceil(amount * 100) / 100;
+export const roundCurrencyLimit = (amount: number, currency?: string) =>
+    ceilCurrencyAmount(amount, currency);
 
 export const getCurrencyLimit = (
     amountGBP: number,
     currency: string,
     rates: Record<string, number>,
-) => roundCurrencyLimit(convertFromGBP(amountGBP, currency, rates));
+) => roundCurrencyLimit(convertFromGBP(amountGBP, currency, rates), currency);

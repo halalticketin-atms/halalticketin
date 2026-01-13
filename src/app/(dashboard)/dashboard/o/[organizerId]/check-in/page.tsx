@@ -354,36 +354,82 @@ function CheckInContent() {
     );
   }
 
-  // Mobile/Tablet view
+  // Mobile/Tablet view - Immersive Scanner
   return (
-    <div className="min-h-screen bg-muted/30 pb-24">
-      <div className="container py-6">
-        <CheckInHeader
-          events={activeEvents}
-          selectedEventId={selectedEvent}
-          onEventChange={(value) => updateQuery('event', value)}
-          stats={stats}
-          mode={mode}
-          onModeChange={(next) => updateQuery('mode', next)}
-          error={error}
-          isEventLoading={eventsLoading}
-        />
+    <div className="min-h-screen bg-black flex flex-col">
+      {/* Scan Mode - Full Screen Immersive */}
+      {mode === 'scan' && (
+        <>
+          {/* Floating Header */}
+          <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-black/60 to-transparent">
+            <div className="flex items-center justify-between">
+              {/* Stats */}
+              <div className="flex items-center gap-4 text-white text-sm">
+                <div className="flex items-center gap-1.5">
+                  <Users className="h-4 w-4 opacity-80" />
+                  <span className="font-medium">{stats.totalTickets}</span>
+                  <span className="opacity-60">total</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-green-400 font-medium">{stats.checkedIn}</span>
+                  <span className="opacity-60">checked in</span>
+                </div>
+              </div>
+              {/* Event selector - minimal */}
+              {activeEvents.length > 1 && (
+                <Select
+                  value={selectedEvent}
+                  onValueChange={(value) => updateQuery('event', value)}
+                >
+                  <SelectTrigger className="w-auto h-8 gap-2 bg-white/10 border-white/20 text-white text-xs backdrop-blur-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeEvents.map((event) => (
+                      <SelectItem key={event.id} value={event.id}>
+                        {event.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
 
-        {/* Scanner Mode */}
-        {mode === 'scan' && (
-          <Card className="overflow-hidden border-0 shadow-none sm:border sm:shadow-sm">
-            <CardContent className="p-0">
-              <QRScanner
-                onScan={handleScan}
-                isActive={!isLoading && !!selectedEvent}
-              />
-            </CardContent>
-          </Card>
-        )}
+          {/* Full Screen Scanner */}
+          <div className="flex-1 relative">
+            <QRScanner
+              onScan={handleScan}
+              isActive={!isLoading && !!selectedEvent}
+            />
+          </div>
 
-        {/* Search Mode */}
-        {mode === 'search' && (
-          <>
+          {/* Search FAB */}
+          <button
+            onClick={() => updateQuery('mode', 'search')}
+            className="absolute bottom-24 right-4 z-20 h-12 px-5 rounded-full bg-white shadow-lg flex items-center gap-2 text-sm font-medium text-gray-900 active:scale-95 transition-transform"
+          >
+            <Search className="h-4 w-4" />
+            Search
+          </button>
+        </>
+      )}
+
+      {/* Search Mode */}
+      {mode === 'search' && (
+        <div className="flex-1 bg-muted/30 pb-24">
+          <div className="container py-6">
+            <CheckInHeader
+              events={activeEvents}
+              selectedEventId={selectedEvent}
+              onEventChange={(value) => updateQuery('event', value)}
+              stats={stats}
+              mode={mode}
+              onModeChange={(next) => updateQuery('mode', next)}
+              error={error}
+              isEventLoading={eventsLoading}
+            />
+
             {/* Search & Filter */}
             <Card className="mb-4">
               <CardContent className="py-3">
@@ -445,9 +491,9 @@ function CheckInContent() {
                 ))
               )}
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {/* Scan Result Overlay */}
       <ScanResultOverlay result={scanResult} onClose={() => setScanResult(null)} />

@@ -67,14 +67,26 @@ export function QRScanner({ onScan, isActive = true }: QRScannerProps) {
                     video: { facingMode: 'environment' },
                 });
 
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
+                if (cancelled || !videoRef.current) return;
+
+                videoRef.current.srcObject = stream;
+
+                try {
                     await videoRef.current.play();
-                    setIsScanning(true);
-                    setHasCamera(true);
-                    setError(null);
+                    if (!cancelled) {
+                        setIsScanning(true);
+                        setHasCamera(true);
+                        setError(null);
+                    }
+                } catch (playErr) {
+                    // Ignore AbortError - happens when component unmounts during play()
+                    if (playErr instanceof Error && playErr.name === 'AbortError') {
+                        return;
+                    }
+                    throw playErr;
                 }
             } catch (err) {
+                if (cancelled) return;
                 console.error('Camera error:', err);
                 setHasCamera(false);
                 setError('Unable to access camera. Please grant permission.');
@@ -128,7 +140,7 @@ export function QRScanner({ onScan, isActive = true }: QRScannerProps) {
                         { facingMode: 'environment' },
                         { fps: 10, qrbox: { width: 240, height: 240 } },
                         (decodedText) => handleDecoded(decodedText),
-                        () => {}
+                        () => { }
                     );
                     setIsScanning(true);
                     setHasCamera(true);
@@ -194,7 +206,7 @@ export function QRScanner({ onScan, isActive = true }: QRScannerProps) {
     }
 
     return (
-        <div className="relative aspect-square max-h-[400px] bg-black overflow-hidden" data-testid="qr-scanner">
+        <div className="relative w-full h-full min-h-[300px] bg-black overflow-hidden" data-testid="qr-scanner">
             {useHtml5Scanner ? (
                 <div id={html5ContainerId} className="absolute inset-0" />
             ) : (
@@ -209,32 +221,15 @@ export function QRScanner({ onScan, isActive = true }: QRScannerProps) {
                 </>
             )}
 
-            {/* Scanning overlay */}
-            <div className="absolute inset-0 pointer-events-none">
-                {/* Corner guides */}
-                <div className="absolute inset-8 sm:inset-16">
-                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg" />
-                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-lg" />
-                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-lg" />
-                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-lg" />
+            {/* Minimal status indicator - only when starting */}
+            {!isScanning && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                    <div className="flex items-center gap-2 text-white text-sm">
+                        <Camera className="h-5 w-5 animate-pulse" />
+                        Starting camera...
+                    </div>
                 </div>
-
-                {/* Scanning line animation */}
-                {isScanning && (
-                    <div className="absolute inset-x-8 sm:inset-x-16 top-8 sm:top-16 h-0.5 bg-green-400 animate-scan" />
-                )}
-            </div>
-
-            {/* Status */}
-            <div className="absolute bottom-4 left-0 right-0 text-center">
-                <div className={cn(
-                    'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm',
-                    'bg-black/60 text-white backdrop-blur-sm'
-                )}>
-                    <Camera className="h-4 w-4" />
-                    {isScanning ? 'Scanning for QR codes...' : 'Starting camera...'}
-                </div>
-            </div>
+            )}
         </div>
     );
 }

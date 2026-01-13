@@ -1076,23 +1076,34 @@ export default function EmailAttendeesPage() {
                                         <ArrowLeft className="h-4 w-4" />
                                         Back
                                     </Button>
-                                    <Button
-                                        onClick={handleContinue}
-                                        disabled={
-                                            (currentStep === 'event' && !canProceedFromEvent) ||
-                                            (currentStep === 'audience' && !canProceedFromAudience) ||
-                                            (currentStep === 'compose' && !canProceedFromCompose)
-                                        }
-                                        className="gap-2 bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] hover:from-[oklch(0.75_0.14_165)] hover:to-[oklch(0.68_0.15_185)]"
-                                    >
-                                        Continue
-                                        <ArrowRight className="h-4 w-4" />
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowMobilePreview(true)}
+                                            className="lg:hidden gap-1.5"
+                                        >
+                                            <Eye className="h-4 w-4" />
+                                            Preview
+                                        </Button>
+                                        <Button
+                                            onClick={handleContinue}
+                                            disabled={
+                                                (currentStep === 'event' && !canProceedFromEvent) ||
+                                                (currentStep === 'audience' && !canProceedFromAudience) ||
+                                                (currentStep === 'compose' && !canProceedFromCompose)
+                                            }
+                                            className="gap-2 bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] hover:from-[oklch(0.75_0.14_165)] hover:to-[oklch(0.68_0.15_185)]"
+                                        >
+                                            Continue
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
 
                             {currentStep === 'send' && (
-                                <div className="border-t border-border/40 px-6 py-4 bg-muted/10">
+                                <div className="border-t border-border/40 px-6 py-4 bg-muted/10 flex items-center justify-between">
                                     <Button
                                         variant="ghost"
                                         onClick={handleBack}
@@ -1100,6 +1111,15 @@ export default function EmailAttendeesPage() {
                                     >
                                         <ArrowLeft className="h-4 w-4" />
                                         Back to Edit
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowMobilePreview(true)}
+                                        className="lg:hidden gap-1.5"
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                        Preview
                                     </Button>
                                 </div>
                             )}
@@ -1118,15 +1138,7 @@ export default function EmailAttendeesPage() {
                 </div>
             </div>
 
-            {/* Mobile Preview FAB */}
-            <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowMobilePreview(true)}
-                className="lg:hidden fixed bottom-24 right-6 h-14 px-6 rounded-full bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] text-white shadow-2xl flex items-center gap-2 font-semibold z-50"
-            >
-                <Eye className="h-5 w-5" />
-                Preview
-            </motion.button>
+
 
             {/* Mobile Preview Sheet */}
             <Sheet open={showMobilePreview} onOpenChange={setShowMobilePreview}>

@@ -74,6 +74,49 @@ export const FALLBACK_EXCHANGE_RATES: Record<string, number> = {
     BDT: 152.0,
 };
 
+const ZERO_DECIMAL_CURRENCIES = new Set([
+    'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'rwf', 'ugx',
+    'vnd', 'vuv', 'xaf', 'xof', 'xpf'
+]);
+
+const THREE_DECIMAL_CURRENCIES = new Set(['bhd', 'jod', 'kwd', 'omr', 'tnd']);
+
+export const getCurrencyExponent = (currency?: string) => {
+    const normalized = typeof currency === 'string' ? currency.toLowerCase() : '';
+    if (ZERO_DECIMAL_CURRENCIES.has(normalized)) {
+        return 0;
+    }
+    if (THREE_DECIMAL_CURRENCIES.has(normalized)) {
+        return 3;
+    }
+    return 2;
+};
+
+export const toSmallestUnit = (amount: number | string, currency?: string): number => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    const exponent = getCurrencyExponent(currency);
+    const factor = Math.pow(10, exponent);
+    return Math.round(num * factor);
+};
+
+export const fromSmallestUnit = (amount: number, currency?: string): number => {
+    const exponent = getCurrencyExponent(currency);
+    const factor = Math.pow(10, exponent);
+    return amount / factor;
+};
+
+export const roundCurrencyAmount = (amount: number, currency?: string): number => {
+    const exponent = getCurrencyExponent(currency);
+    const factor = Math.pow(10, exponent);
+    return Math.round(amount * factor) / factor;
+};
+
+export const ceilCurrencyAmount = (amount: number, currency?: string): number => {
+    const exponent = getCurrencyExponent(currency);
+    const factor = Math.pow(10, exponent);
+    return Math.ceil(amount * factor) / factor;
+};
+
 export type FeeTier = 'payg' | 'token' | 'charity';
 
 /**
