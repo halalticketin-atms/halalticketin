@@ -356,10 +356,10 @@ function CheckInContent() {
 
   // Mobile/Tablet view - Immersive Scanner
   return (
-    <div className="min-h-screen bg-black flex flex-col pt-(--nav-safe-offset)">
+    <div className="min-h-screen flex flex-col">
       {/* Scan Mode - Full Screen Immersive */}
       {mode === 'scan' && (
-        <>
+        <div className="flex-1 bg-black relative pt-(--nav-safe-offset)">
           {/* Floating Header - Stacked for better responsiveness */}
           <div className="absolute top-(--nav-safe-offset) left-0 right-0 z-20 p-4 pointer-events-none">
             <div className="flex flex-col gap-3 w-full animate-in fade-in slide-in-from-top-4 duration-500">
@@ -371,13 +371,13 @@ function CheckInContent() {
                     <span className="text-sm font-black text-white">{stats.totalTickets}</span>
                     <span className="text-[9px] uppercase tracking-tighter font-bold text-white/40">Total</span>
                   </div>
-                  <div className="h-6 w-[1px] bg-white/10" />
+                  <div className="h-6 w-px bg-white/10" />
                   {/* Checked In */}
                   <div className="flex flex-col items-center">
                     <span className="text-sm font-black text-green-400">{stats.checkedIn}</span>
                     <span className="text-[9px] uppercase tracking-tighter font-bold text-green-400/40">Checked In</span>
                   </div>
-                  <div className="h-6 w-[1px] bg-white/10" />
+                  <div className="h-6 w-px bg-white/10" />
                   {/* Remaining */}
                   <div className="flex flex-col items-center">
                     <span className="text-sm font-black text-white/60">{stats.totalTickets - stats.checkedIn}</span>
@@ -427,12 +427,12 @@ function CheckInContent() {
             </div>
             Attendee List
           </button>
-        </>
+        </div>
       )}
 
-      {/* Search Mode */}
+      {/* Search Mode - Clean white background */}
       {mode === 'search' && (
-        <div className="flex-1 bg-muted/30 pb-32">
+        <div className="flex-1 bg-background pt-(--nav-safe-offset) pb-32">
           <div className="container py-6 px-4">
             <CheckInHeader
               events={activeEvents}
@@ -445,29 +445,27 @@ function CheckInContent() {
               isEventLoading={eventsLoading}
             />
 
-            {/* Search & Filter - More Modern & Less Cluttered */}
-            <div className="flex flex-col gap-4 mb-8 sticky top-(--nav-safe-offset) z-10 py-2 bg-muted/5 shadow-[0_-20px_20px_rgba(var(--background),1)]">
-              <div className="flex gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground opacity-40" />
-                  <Input
-                    placeholder="Search name, email, order..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-14 pl-11 bg-white border-2 border-black/5 rounded-2xl shadow-sm focus:ring-primary/20 transition-all font-medium"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px] h-14 bg-white border-2 border-black/5 rounded-2xl shadow-sm font-bold">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-2">
-                    <SelectItem value="all" className="rounded-xl my-1">All Tickets</SelectItem>
-                    <SelectItem value="not_checked_in" className="rounded-xl my-1">Pending</SelectItem>
-                    <SelectItem value="checked_in" className="rounded-xl my-1">Checked In</SelectItem>
-                  </SelectContent>
-                </Select>
+            {/* Search & Filter */}
+            <div className="flex gap-3 mb-6">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground opacity-50" />
+                <Input
+                  placeholder="Search name, email, order..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 pl-11 bg-white border-2 border-black/5 rounded-xl shadow-sm transition-all"
+                />
               </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[120px] h-12 bg-white border-2 border-black/5 rounded-xl shadow-sm font-medium">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-2">
+                  <SelectItem value="all" className="rounded-lg">All</SelectItem>
+                  <SelectItem value="not_checked_in" className="rounded-lg">Pending</SelectItem>
+                  <SelectItem value="checked_in" className="rounded-lg">Checked In</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Attendee List */}
