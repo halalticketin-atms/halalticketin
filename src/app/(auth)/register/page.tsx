@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { useAuth } from '@/context/auth-context';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
 import { Loader2 } from 'lucide-react';
+import { getSupabase } from '@/lib/supabase';
 
 // Lazy load the dialog to reduce initial bundle size
 const SignupOnboardingDialog = dynamic(
@@ -21,7 +22,9 @@ function RegisterPageContent() {
     const userClosedRef = useRef(false);
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { user, isLoading } = useAuth();
+    const { user, isLoading, needsOnboarding } = useAuth();
+    const isAuthenticatedOnboarding = Boolean(user && needsOnboarding);
+    const [prefill, setPrefill] = useState<{ email?: string; name?: string } | null>(null);
 
     // Get params from URL
     const roleParam = searchParams.get('role');
@@ -71,6 +74,11 @@ function RegisterPageContent() {
     }, [user, initialLoadComplete, router, dialogOpen, redirectPath]);
 
     const handleDialogClose = (open: boolean) => {
+        if (!open && isAuthenticatedOnboarding) {
+            setDialogOpen(true);
+            return;
+        }
+
         setDialogOpen(open);
         if (!open && !isCompletingRef.current) {
             // Mark that user manually closed, then redirect to home
@@ -83,6 +91,38 @@ function RegisterPageContent() {
         isCompletingRef.current = true;
         router.push(redirectTo);
     };
+
+    useEffect(() => {
+        if (!isAuthenticatedOnboarding) {
+            return;
+        }
+
+        const loadPrefill = async () => {
+            try {
+                const supabase = getSupabase();
+                const { data } = await supabase.auth.getUser();
+                const supabaseUser = data.user;
+                const metadata = (supabaseUser?.user_metadata ?? {}) as Record<string, unknown>;
+                const metadataName = [metadata.given_name, metadata.family_name]
+                    .filter((value) => typeof value === 'string' && value.trim().length > 0)
+                    .join(' ');
+                const resolvedName = (user?.name ?? '').trim()
+                    || (typeof metadata.full_name === 'string' && metadata.full_name.trim() ? metadata.full_name.trim() : '')
+                    || (typeof metadata.name === 'string' && metadata.name.trim() ? metadata.name.trim() : '')
+                    || metadataName;
+                const resolvedEmail = (user?.email ?? '').trim() || (supabaseUser?.email ?? '').trim();
+
+                setPrefill({
+                    email: resolvedEmail || undefined,
+                    name: resolvedName || undefined,
+                });
+            } catch (err) {
+                console.warn('Unable to prefill Google account data:', err);
+            }
+        };
+
+        void loadPrefill();
+    }, [isAuthenticatedOnboarding, user]);
 
     // Show loading spinner while fetching initial data
     if (!initialLoadComplete || inviteEmailLoading) {
@@ -103,6 +143,8 @@ function RegisterPageContent() {
                 defaultRole={defaultRole}
                 redirectAfterComplete={safeNextParam ?? undefined}
                 inviteEmail={inviteEmail}
+                authMode={isAuthenticatedOnboarding ? 'existing' : undefined}
+                prefill={prefill ?? undefined}
             />
         </div>
     );

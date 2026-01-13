@@ -9,14 +9,19 @@ import { Loader2 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: PropsWithChildren) {
     const router = useRouter();
-    const { user, isLoading } = useAuth();
+    const { user, isLoading, needsOnboarding } = useAuth();
 
     useEffect(() => {
         // Redirect to login if not authenticated (after loading completes)
         if (!isLoading && !user) {
             router.replace('/login');
+            return;
         }
-    }, [user, isLoading, router]);
+
+        if (!isLoading && needsOnboarding) {
+            router.replace('/register');
+        }
+    }, [user, isLoading, needsOnboarding, router]);
 
     // Show loading spinner while checking auth
     if (isLoading) {
@@ -28,7 +33,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
     }
 
     // Don't render dashboard content if not authenticated
-    if (!user) {
+    if (!user || needsOnboarding) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-muted/30">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

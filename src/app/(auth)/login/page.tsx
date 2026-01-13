@@ -42,7 +42,7 @@ function LoginContent() {
     const [isMobile, setIsMobile] = useState(false);
     const searchParams = useSearchParams();
     const router = useRouter();
-    const { user, isLoading: authLoading, refresh, isOrganizer } = useAuth();
+    const { user, isLoading: authLoading, refresh, isOrganizer, needsOnboarding } = useAuth();
     const nextParam = searchParams.get('next');
     const fallbackRedirect = isOrganizer ? '/dashboard' : '/events';
     const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
@@ -80,10 +80,17 @@ function LoginContent() {
     // If already logged in, redirect to intended destination
     useEffect(() => {
         if (!authLoading && user) {
-            router.push(redirectPath);
+            if (needsOnboarding) {
+                const onboardingPath = safeNextParam
+                    ? `/register?next=${encodeURIComponent(safeNextParam)}`
+                    : '/register';
+                router.push(onboardingPath);
+            } else {
+                router.push(redirectPath);
+            }
             router.refresh();
         }
-    }, [user, authLoading, router, redirectPath]);
+    }, [user, authLoading, router, redirectPath, needsOnboarding, safeNextParam]);
 
     // Show loading while checking auth state
     if (authLoading) {

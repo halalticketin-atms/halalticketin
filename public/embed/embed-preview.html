@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Halal Ticketin Embed Preview</title>
+    <style>
+      :root {
+        --ink: #111827;
+        --muted: #6b7280;
+        --panel: #ffffff;
+        --edge: #e5e7eb;
+        --accent: #0ea5e9;
+        --accent-soft: rgba(14, 165, 233, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+        color: var(--ink);
+        background: radial-gradient(circle at top, #f0f9ff 0%, #f8fafc 45%, #f1f5f9 100%);
+      }
+
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: -0.02em;
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .panel {
+        border-radius: 16px;
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        padding: 20px;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.06);
+      }
+
+      form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+
+      label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      input,
+      select {
+        border: 1px solid var(--edge);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+        min-width: 220px;
+      }
+
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 18px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 14px;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(14, 165, 233, 0.25);
+      }
+
+      .meta {
+        margin-top: 12px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .embed-frame {
+        margin-top: 24px;
+        padding: 12px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #fff 0%, #f8fafc 100%);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+      }
+
+      .embed-frame h2 {
+        margin: 0 0 12px;
+        font-size: 16px;
+        color: #0f172a;
+      }
+
+      .note {
+        margin-top: 16px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: var(--accent-soft);
+        font-size: 12px;
+        color: #0369a1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="hero">
+        <h1>Embed Checkout Preview</h1>
+        <p>Use this page to preview the embedded checkout widget exactly as it will render on a host site.</p>
+      </div>
+
+      <div class="panel">
+        <form id="embed-form">
+          <div>
+            <label for="event-slug">Event slug</label>
+            <input id="event-slug" name="event" placeholder="prayer-event" />
+          </div>
+          <div>
+            <label for="theme">Theme</label>
+            <select id="theme" name="theme">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+          <button type="submit">Load embed</button>
+        </form>
+        <p class="meta" id="embed-meta"></p>
+        <div class="note">
+          If the event isn’t published or public, the widget will load but checkout won’t proceed.
+        </div>
+      </div>
+
+      <div class="embed-frame">
+        <h2>Embedded widget</h2>
+        <div id="halal-ticketin-checkout"></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const slug = params.get('event') || 'prayer-event';
+        const theme = params.get('theme') || 'light';
+
+        const slugInput = document.getElementById('event-slug');
+        const themeSelect = document.getElementById('theme');
+        const meta = document.getElementById('embed-meta');
+        const container = document.getElementById('halal-ticketin-checkout');
+
+        slugInput.value = slug;
+        themeSelect.value = theme;
+
+        meta.textContent = `Previewing event slug: ${slug} (theme: ${theme})`;
+
+        container.dataset.eventSlug = slug;
+        container.dataset.theme = theme;
+
+        const script = document.createElement('script');
+        script.src = '/embed/checkout.js';
+        document.body.appendChild(script);
+
+        document.getElementById('embed-form').addEventListener('submit', (event) => {
+          event.preventDefault();
+          const nextSlug = slugInput.value.trim() || 'prayer-event';
+          const nextTheme = themeSelect.value || 'light';
+          const nextParams = new URLSearchParams();
+          nextParams.set('event', nextSlug);
+          nextParams.set('theme', nextTheme);
+          window.location.search = nextParams.toString();
+        });
+      })();
+    </script>
+  </body>
+</html>

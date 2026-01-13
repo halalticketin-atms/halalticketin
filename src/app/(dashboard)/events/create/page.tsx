@@ -687,6 +687,10 @@ export function EventWizard({
 
     const [eventId, setEventId] = useState<string | null>(initialDraft?.eventId ?? null);
     const [eventStatus] = useState<'draft' | 'published' | 'cancelled' | 'archived' | null>(initialDraft?.eventStatus ?? null);
+    const [draftEmbedSlug, setDraftEmbedSlug] = useState<string | null>(embedCheckout?.slug ?? null);
+    const [draftEmbedStatus, setDraftEmbedStatus] = useState<'draft' | 'published' | 'cancelled' | 'archived' | null>(
+        embedCheckout?.status ?? initialDraft?.eventStatus ?? null,
+    );
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -1064,9 +1068,13 @@ export function EventWizard({
                     const response = await createEventDraft(activeOrganizerId, payload);
                     nextEventId = response.event.id;
                     setEventId(nextEventId);
+                    setDraftEmbedSlug(response.event.slug ?? null);
+                    setDraftEmbedStatus(response.event.status ?? 'draft');
                 } else {
                     console.log('[DEBUG] Updating event:', nextEventId, 'with payload:', payload);
-                    await updateEventDraft(nextEventId, payload);
+                    const response = await updateEventDraft(nextEventId, payload);
+                    setDraftEmbedSlug(response.event.slug ?? null);
+                    setDraftEmbedStatus(response.event.status ?? 'draft');
                 }
 
                 const ticketPayloads = buildTicketPayloads(tickets, formData.currency, formData.timezone, {
@@ -1595,6 +1603,12 @@ export function EventWizard({
     const disableSaveButtons = !activeOrganizerId || isBusy;
     const disablePublishButtons = !activeOrganizerId || isPublishing;
     const isAlreadyPublished = eventStatus === 'published';
+    const embedSlug = embedCheckout?.slug ?? draftEmbedSlug;
+    const embedStatus = embedCheckout?.status ?? draftEmbedStatus ?? (eventId ? 'draft' : null);
+    const embedIsPublic = embedCheckout?.isPublic ?? formData.visibility === 'public';
+    const embedCanCopy = Boolean(embedSlug);
+    const embedIsLive = embedStatus === 'published' && embedIsPublic;
+    const showEmbedSnippet = mode === 'edit' || Boolean(eventId) || Boolean(embedSlug);
     const publishButtonLabel =
         isPublishing
             ? (isAlreadyPublished ? 'Updating...' : 'Publishing...')
@@ -1798,11 +1812,13 @@ export function EventWizard({
                     {/* Main Content */}
                     <main ref={mainContentRef} className="flex-1 min-w-0 bg-card/50 rounded-2xl border border-border/50 p-4 sm:p-6 lg:p-8">
                         <div className="max-w-2xl mx-auto lg:max-w-none lg:mx-0">
-                            {mode === 'edit' && embedCheckout?.slug ? (
+                            {showEmbedSnippet ? (
                                 <div className="mb-6">
                                     <EmbedCheckoutSnippet
-                                        slug={embedCheckout.slug}
-                                        isReady={embedCheckout.isPublic && embedCheckout.status === 'published'}
+                                        slug={embedSlug}
+                                        canCopy={embedCanCopy}
+                                        isLive={embedIsLive}
+                                        isPublic={embedIsPublic}
                                     />
                                 </div>
                             ) : null}

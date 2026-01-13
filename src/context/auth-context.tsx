@@ -29,12 +29,14 @@ export interface ProfileResponse {
     user: UserProfile | null;
     memberships: Membership[];
     isOrganizer: boolean;
+    needsOnboarding: boolean;
 }
 
 interface AuthContextValue {
     user: UserProfile | null;
     memberships: Membership[];
     isOrganizer: boolean;
+    needsOnboarding: boolean;
     isLoading: boolean;
     error: string | null;
     refresh: () => Promise<void>;
@@ -129,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             user: profile?.user ?? null,
             memberships: profile?.memberships ?? [],
             isOrganizer: profile?.isOrganizer ?? false,
+            needsOnboarding: profile?.needsOnboarding ?? false,
             isLoading,
             error,
             refresh: fetchProfile,

@@ -11,7 +11,7 @@ import { useAuth } from '@/context/auth-context';
 function CallbackContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { refresh, isOrganizer, isLoading: authLoading, user } = useAuth();
+    const { refresh, isOrganizer, isLoading: authLoading, user, needsOnboarding } = useAuth();
     const [redirectPending, setRedirectPending] = useState(false);
 
     useEffect(() => {
@@ -57,10 +57,19 @@ function CallbackContent() {
         }
 
         const nextParam = searchParams.get('next');
+        if (needsOnboarding) {
+            const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
+            const onboardingPath = safeNextParam
+                ? `/register?next=${encodeURIComponent(safeNextParam)}`
+                : '/register';
+            router.push(onboardingPath);
+            return;
+        }
+
         const fallbackRedirect = isOrganizer ? '/dashboard' : '/events';
         const redirectPath = nextParam && nextParam.startsWith('/') ? nextParam : fallbackRedirect;
         router.push(redirectPath);
-    }, [authLoading, isOrganizer, redirectPending, router, searchParams, user]);
+    }, [authLoading, isOrganizer, needsOnboarding, redirectPending, router, searchParams, user]);
 
     return (
         <div className="min-h-screen flex items-center justify-center gradient-mesh">
