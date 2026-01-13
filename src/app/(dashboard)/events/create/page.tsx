@@ -2612,63 +2612,60 @@ export function EventWizard({
                                                                         </Button>
                                                                     </CollapsibleTrigger>
                                                                     <CollapsibleContent className="space-y-4 pt-3 mt-1">
-                                                                        {/* Max Per Order */}
-                                                                        <div className="space-y-1.5">
-                                                                            <Label className="text-sm">Max Per Order</Label>
-                                                                            <Input
-                                                                                type="number"
-                                                                                value={ticket.maxPerOrder || ''}
-                                                                                onChange={(e) => {
-                                                                                    const value = e.target.value;
-                                                                                    if (value === '') {
+                                                                        {/* Max Per Order - Toggleable */}
+                                                                        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
+                                                                            <div className="space-y-0.5">
+                                                                                <Label className="text-sm font-medium">Limit Per Order</Label>
+                                                                                <p className="text-xs text-muted-foreground">
+                                                                                    {ticket.maxPerOrder ? `Max ${ticket.maxPerOrder} per checkout` : 'No limit (up to 15)'}
+                                                                                </p>
+                                                                            </div>
+                                                                            <Switch
+                                                                                checked={Boolean(ticket.maxPerOrder)}
+                                                                                onCheckedChange={(checked) => {
+                                                                                    if (checked) {
+                                                                                        updateTicket(ticket.id, 'maxPerOrder', MAX_PER_ORDER);
+                                                                                    } else {
                                                                                         updateTicket(ticket.id, 'maxPerOrder', 0);
                                                                                         clearTicketError(ticket.id, 'maxPerOrder');
-                                                                                        return;
-                                                                                    }
-                                                                                    const numericValue = Number.parseInt(value, 10);
-                                                                                    if (Number.isNaN(numericValue) || numericValue < 0) {
-                                                                                        return;
-                                                                                    }
-                                                                                    updateTicket(ticket.id, 'maxPerOrder', numericValue);
-                                                                                    if (numericValue >= 1) {
-                                                                                        clearTicketError(ticket.id, 'maxPerOrder');
                                                                                     }
                                                                                 }}
-                                                                                onBlur={() => {
-                                                                                    const maxPerOrderLimit = Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1));
-                                                                                    if (!ticket.maxPerOrder || ticket.maxPerOrder < 1) {
-                                                                                        updateTicket(ticket.id, 'maxPerOrder', 1);
-                                                                                        setTicketErrors((prev) => ({
-                                                                                            ...prev,
-                                                                                            [ticket.id]: {
-                                                                                                ...prev[ticket.id],
-                                                                                                maxPerOrder: "Can't be less than one.",
-                                                                                            },
-                                                                                        }));
-                                                                                        return;
-                                                                                    }
-                                                                                    if (ticket.maxPerOrder > maxPerOrderLimit) {
-                                                                                        updateTicket(ticket.id, 'maxPerOrder', maxPerOrderLimit);
-                                                                                        setTicketErrors((prev) => ({
-                                                                                            ...prev,
-                                                                                            [ticket.id]: {
-                                                                                                ...prev[ticket.id],
-                                                                                                maxPerOrder: `Can't exceed ${maxPerOrderLimit}.`,
-                                                                                            },
-                                                                                        }));
-                                                                                    }
-                                                                                }}
-                                                                                className={cn(
-                                                                                    'h-9',
-                                                                                    ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                )}
-                                                                                min={1}
-                                                                                max={Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1))}
                                                                             />
-                                                                            {ticketErrors[ticket.id]?.maxPerOrder ? (
-                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
-                                                                            ) : null}
                                                                         </div>
+                                                                        {ticket.maxPerOrder ? (
+                                                                            <div className="space-y-1.5 pl-3 border-l-2 border-primary/20">
+                                                                                <Label className="text-xs text-muted-foreground">Max tickets per order</Label>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    value={ticket.maxPerOrder || ''}
+                                                                                    onChange={(e) => {
+                                                                                        const value = e.target.value;
+                                                                                        if (value === '') {
+                                                                                            updateTicket(ticket.id, 'maxPerOrder', 1);
+                                                                                            return;
+                                                                                        }
+                                                                                        const numericValue = Number.parseInt(value, 10);
+                                                                                        if (Number.isNaN(numericValue) || numericValue < 0) {
+                                                                                            return;
+                                                                                        }
+                                                                                        const maxLimit = Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1));
+                                                                                        updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, maxLimit));
+                                                                                        if (numericValue >= 1) {
+                                                                                            clearTicketError(ticket.id, 'maxPerOrder');
+                                                                                        }
+                                                                                    }}
+                                                                                    className={cn(
+                                                                                        'h-9 w-24',
+                                                                                        ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                    )}
+                                                                                    min={1}
+                                                                                    max={Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1))}
+                                                                                />
+                                                                                {ticketErrors[ticket.id]?.maxPerOrder ? (
+                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
+                                                                                ) : null}
+                                                                            </div>
+                                                                        ) : null}
 
                                                                         {/* Early Bird Toggle */}
                                                                         <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">

@@ -425,75 +425,73 @@ function CheckInContent() {
     <div className="min-h-screen flex flex-col overflow-x-hidden">
       {/* Scan Mode - Full Screen Immersive */}
       {mode === 'scan' && (
-        <div className="flex-1 bg-black relative overflow-x-hidden">
-          {/* Full Screen Scanner */}
-          <div className="flex-1 relative">
+        <div className="flex-1 bg-black flex flex-col overflow-hidden">
+          {/* Scanner Area - Takes remaining space */}
+          <div className="flex-1 relative min-h-0">
             <QRScanner
               onScan={handleScan}
               isActive={!isLoading && !!selectedEvent}
             />
           </div>
 
-          {/* Bottom Overlay Bar */}
-          <div className="absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+4rem)] z-20 pointer-events-none">
-            <div className="pointer-events-auto w-full overflow-x-hidden bg-black/75 backdrop-blur-xl border-t border-white/10">
-              <div className="px-4 pt-3 pb-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  {activeEvents.length > 1 ? (
-                    <Select
-                      value={selectedEvent}
-                      onValueChange={(value) => updateQuery('event', value)}
-                    >
-                      <SelectTrigger className="w-full h-12 gap-2 bg-white/10 border-white/10 text-white text-xs backdrop-blur-md rounded-2xl px-4 font-black active:scale-95 transition-all overflow-hidden">
-                        <SelectValue className="truncate" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-black/90 backdrop-blur-xl border-white/10 text-white rounded-xl">
-                        {activeEvents.map((event) => (
-                          <SelectItem key={event.id} value={event.id} className="focus:bg-white/10 focus:text-white rounded-lg my-1">
-                            {event.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="w-full h-12 flex items-center px-4 rounded-2xl bg-white/10 border border-white/10 text-white text-xs font-black truncate">
-                      {selectedEventData?.name || 'Event'}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3 w-full">
-                  <div className="flex-1 min-w-0 flex items-center justify-between gap-3 bg-white/5 rounded-2xl px-4 py-2.5 border border-white/10 shadow-2xl">
-                    <div className="flex flex-col items-center">
-                      <span className="text-sm font-black text-white">{stats.totalTickets}</span>
-                      <span className="text-[9px] uppercase tracking-tighter font-bold text-white/40">Total</span>
-                    </div>
-                    <div className="h-6 w-px bg-white/10" />
-                    <div className="flex flex-col items-center">
-                      <span className="text-sm font-black text-green-400">{stats.checkedIn}</span>
-                      <span className="text-[9px] uppercase tracking-tighter font-bold text-green-400/40">Checked In</span>
-                    </div>
-                    <div className="h-6 w-px bg-white/10" />
-                    <div className="flex flex-col items-center">
-                      <span className="text-sm font-black text-white/60">{stats.totalTickets - stats.checkedIn}</span>
-                      <span className="text-[9px] uppercase tracking-tighter font-bold text-white/20">Left</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => updateQuery('mode', 'search')}
-                    className="h-12 px-4 rounded-2xl bg-primary shadow-xl shadow-primary/40 flex items-center gap-2 text-[11px] font-black text-primary-foreground active:scale-95 transition-all hover:bg-primary/95 whitespace-normal leading-tight shrink-0 max-w-[132px]"
+          {/* Bottom Control Bar - Always visible, docked below scanner */}
+          <div className="shrink-0 bg-black/90 backdrop-blur-xl border-t border-white/10 safe-area-pb">
+            <div className="px-4 pt-3 pb-4 space-y-3">
+              <div className="flex items-center gap-3">
+                {activeEvents.length > 1 ? (
+                  <Select
+                    value={selectedEvent}
+                    onValueChange={(value) => updateQuery('event', value)}
                   >
-                    <div className="bg-white/20 p-2 rounded-xl">
-                      <Search className="h-4 w-4" />
-                    </div>
-                    <span className="block text-left">
-                      Attendee
-                      <br />
-                      List
-                    </span>
-                  </button>
+                    <SelectTrigger className="w-full h-12 gap-2 bg-white/10 border-white/10 text-white text-xs backdrop-blur-md rounded-2xl px-4 font-black active:scale-95 transition-all overflow-hidden">
+                      <SelectValue className="truncate" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-black/90 backdrop-blur-xl border-white/10 text-white rounded-xl">
+                      {activeEvents.map((event) => (
+                        <SelectItem key={event.id} value={event.id} className="focus:bg-white/10 focus:text-white rounded-lg my-1">
+                          {event.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="w-full h-12 flex items-center px-4 rounded-2xl bg-white/10 border border-white/10 text-white text-xs font-black truncate">
+                    {selectedEventData?.name || 'Event'}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 w-full">
+                <div className="flex-1 min-w-0 flex items-center justify-between gap-3 bg-white/5 rounded-2xl px-4 py-2.5 border border-white/10 shadow-2xl">
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm font-black text-white">{stats.totalTickets}</span>
+                    <span className="text-[9px] uppercase tracking-tighter font-bold text-white/40">Total</span>
+                  </div>
+                  <div className="h-6 w-px bg-white/10" />
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm font-black text-green-400">{stats.checkedIn}</span>
+                    <span className="text-[9px] uppercase tracking-tighter font-bold text-green-400/40">Checked In</span>
+                  </div>
+                  <div className="h-6 w-px bg-white/10" />
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm font-black text-white/60">{stats.totalTickets - stats.checkedIn}</span>
+                    <span className="text-[9px] uppercase tracking-tighter font-bold text-white/20">Left</span>
+                  </div>
                 </div>
+
+                <button
+                  onClick={() => updateQuery('mode', 'search')}
+                  className="h-12 px-4 rounded-2xl bg-primary shadow-xl shadow-primary/40 flex items-center gap-2 text-[11px] font-black text-primary-foreground active:scale-95 transition-all hover:bg-primary/95 whitespace-normal leading-tight shrink-0 max-w-[132px]"
+                >
+                  <div className="bg-white/20 p-2 rounded-xl">
+                    <Search className="h-4 w-4" />
+                  </div>
+                  <span className="block text-left">
+                    Attendee
+                    <br />
+                    List
+                  </span>
+                </button>
               </div>
             </div>
           </div>
