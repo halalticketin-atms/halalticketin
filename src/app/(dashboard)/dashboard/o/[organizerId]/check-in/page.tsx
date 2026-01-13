@@ -356,13 +356,13 @@ function CheckInContent() {
 
   // Mobile/Tablet view - Immersive Scanner
   return (
-    <div className="min-h-screen bg-black flex flex-col">
+    <div className="min-h-screen bg-black flex flex-col pt-[var(--nav-safe-offset)]">
       {/* Scan Mode - Full Screen Immersive */}
       {mode === 'scan' && (
         <>
-          {/* Floating Header */}
-          <div className="absolute top-0 left-0 right-0 z-20 p-4 bg-gradient-to-b from-black/60 to-transparent">
-            <div className="flex items-center justify-between">
+          {/* Floating Header - Adjust for global header */}
+          <div className="absolute top-[var(--nav-safe-offset)] left-0 right-0 z-20 p-4">
+            <div className="flex items-center justify-between bg-black/40 backdrop-blur-md rounded-2xl p-3 border border-white/10">
               {/* Stats */}
               <div className="flex items-center gap-4 text-white text-sm">
                 <div className="flex items-center gap-1.5">
@@ -407,9 +407,11 @@ function CheckInContent() {
           {/* Search FAB */}
           <button
             onClick={() => updateQuery('mode', 'search')}
-            className="absolute bottom-24 right-4 z-20 h-12 px-5 rounded-full bg-white shadow-lg flex items-center gap-2 text-sm font-medium text-gray-900 active:scale-95 transition-transform"
+            className="absolute bottom-28 right-6 z-20 h-14 px-6 rounded-2xl bg-primary shadow-xl shadow-primary/20 flex items-center gap-3 text-sm font-bold text-primary-foreground active:scale-95 transition-all hover:bg-primary/90"
           >
-            <Search className="h-4 w-4" />
+            <div className="bg-white/20 p-1.5 rounded-lg">
+              <Search className="h-4 w-4" />
+            </div>
             Search
           </button>
         </>
@@ -417,8 +419,8 @@ function CheckInContent() {
 
       {/* Search Mode */}
       {mode === 'search' && (
-        <div className="flex-1 bg-muted/30 pb-24">
-          <div className="container py-6">
+        <div className="flex-1 bg-muted/30 pb-32">
+          <div className="container py-6 px-4">
             <CheckInHeader
               events={activeEvents}
               selectedEventId={selectedEvent}
