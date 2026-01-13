@@ -687,6 +687,16 @@ export function EventWizard({
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
     const [ticketAdvancedOpen, setTicketAdvancedOpen] = useState<Record<string, boolean>>({});
 
+    // Ref for scrolling to top of content area
+    const mainContentRef = useRef<HTMLDivElement>(null);
+
+    // Scroll to top when step changes
+    useEffect(() => {
+        mainContentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Also scroll the window to ensure visibility on mobile
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [currentStep]);
+
     // Credit warning state
     const [isWarningOpen, setIsWarningOpen] = useState(false);
     const [organizerCredits, setOrganizerCredits] = useState<number | null>(null);
@@ -1469,15 +1479,18 @@ export function EventWizard({
                         setCurrentStep(4);
                     }
                     setActionError(firstMessage ?? details.formErrors?.[0] ?? errorMessage);
+                    // Show toast for visibility (especially on mobile)
+                    toast.error(firstMessage ?? details.formErrors?.[0] ?? errorMessage);
                 } else {
                     setFieldErrors({});
-                    setPublishErrors(normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')
-                        ? [errorMessage]
-                        : []);
+                    // Don't duplicate - only use actionError for single messages
+                    setPublishErrors([]);
                     if (normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')) {
                         setCurrentStep(4);
                     }
                     setActionError(errorMessage);
+                    // Show toast for visibility (especially on mobile)
+                    toast.error(errorMessage);
                 }
             } else {
                 setFieldErrors({});
@@ -1515,7 +1528,10 @@ export function EventWizard({
                 setCurrentStep(nextStep);
             }
             const firstMessage = Object.values(publishFieldErrors)[0];
-            setActionError(firstMessage ?? 'Fix the highlighted fields below.');
+            const errorMsg = firstMessage ?? 'Fix the highlighted fields below.';
+            setActionError(errorMsg);
+            // Show toast for visibility (especially on mobile)
+            toast.error(errorMsg);
             return;
         }
 
@@ -1837,7 +1853,7 @@ export function EventWizard({
                     </aside>
 
                     {/* Main Content */}
-                    <main className="flex-1 min-w-0">
+                    <main ref={mainContentRef} className="flex-1 min-w-0">
                         <div className="max-w-2xl mx-auto lg:max-w-none lg:mx-0">
                             <AnimatePresence mode="wait">
                                 {/* Step 1: Basic Details */}
@@ -3528,6 +3544,21 @@ export function EventWizard({
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Mobile Error Display */}
+                            {actionError && (
+                                <div className="lg:hidden mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                                    <p className="text-sm text-destructive font-medium">{actionError}</p>
+                                    {actionError.toLowerCase().includes('stripe') && activeOrganizerId && (
+                                        <Link
+                                            href={`${buildDashboardPath(activeOrganizerId)}/settings?tab=payments`}
+                                            className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                                        >
+                                            → Set up Stripe payments
+                                        </Link>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Navigation Footer */}
                             <div className="mt-8 flex items-center justify-between">
