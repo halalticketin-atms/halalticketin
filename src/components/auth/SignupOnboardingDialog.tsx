@@ -118,7 +118,7 @@ interface FormData {
 }
 
 const initialFormData: FormData = {
-    role: 'buyer',
+    role: 'organizer',
     email: '',
     password: '',
     name: '',
@@ -169,7 +169,7 @@ export function SignupOnboardingDialog({
     const [direction, setDirection] = useState(1);
     const [formData, setFormData] = useState<FormData>({
         ...initialFormData,
-        role: defaultRole ?? 'buyer',
+        role: defaultRole ?? 'organizer',
         // Pre-fill email from invitation
         email: inviteEmail ?? '',
     });
@@ -442,17 +442,13 @@ export function SignupOnboardingDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-3xl lg:max-w-4xl p-0 gap-0 max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] border-0 shadow-2xl bg-gradient-to-br from-white via-slate-50/80 to-cyan-50/30 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 [&>[data-slot=dialog-close]]:z-50 [&>[data-slot=dialog-close]]:bg-white/80 [&>[data-slot=dialog-close]]:dark:bg-slate-800/80 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:backdrop-blur-sm [&>[data-slot=dialog-close]]:shadow-md">
+            <DialogContent className="sm:max-w-3xl lg:max-w-4xl p-0 gap-0 max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] border-0 shadow-2xl bg-white dark:bg-slate-900 [&>[data-slot=dialog-close]]:z-50 [&>[data-slot=dialog-close]]:bg-white [&>[data-slot=dialog-close]]:dark:bg-slate-800 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:shadow-md">
                 <VisuallyHidden>
                     <DialogTitle>Create your account</DialogTitle>
                     <DialogDescription>Multi-step signup form</DialogDescription>
                 </VisuallyHidden>
 
-                {/* Ambient background glow */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute -top-32 -right-32 w-96 h-96 bg-gradient-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-3xl" />
-                    <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-gradient-to-tr from-teal-400/15 to-emerald-400/15 rounded-full blur-3xl" />
-                </div>
+
 
                 {/* Progress bar */}
                 {step !== 'complete' && (
@@ -468,7 +464,7 @@ export function SignupOnboardingDialog({
 
                 {/* Mobile Step Indicator */}
                 {step !== 'complete' && (
-                    <div className="lg:hidden border-b border-slate-200/50 dark:border-slate-700/50 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm shrink-0 relative z-10">
+                    <div className="lg:hidden border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0 relative z-10">
                         <div className="px-4 py-4">
                             <div className="flex items-center justify-between">
                                 {steps.map((s, idx) => (
@@ -510,7 +506,7 @@ export function SignupOnboardingDialog({
                 <div className="flex flex-1 min-h-0 overflow-hidden relative z-10">
                     {/* Desktop Sidebar */}
                     {step !== 'complete' && (
-                        <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-gradient-to-b from-slate-50/80 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-800/30 border-r border-slate-200/50 dark:border-slate-700/50 p-5 backdrop-blur-sm">
+                        <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 p-5">
                             <div className="space-y-2">
                                 {steps.map((s, idx) => (
                                     <motion.button
@@ -592,49 +588,12 @@ export function SignupOnboardingDialog({
                                     >
                                         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                                             <Label
-                                                htmlFor="role-buyer"
-                                                className={cn(
-                                                    'flex items-start gap-5 p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden group',
-                                                    formData.role === 'buyer'
-                                                        ? 'border-[var(--brand-cyan)] bg-gradient-to-br from-cyan-50 to-teal-50/50 dark:from-cyan-950/30 dark:to-teal-950/20 shadow-lg shadow-cyan-500/10'
-                                                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white/50 dark:bg-slate-800/50'
-                                                )}
-                                            >
-                                                <RadioGroupItem value="buyer" id="role-buyer" className="mt-1 hidden" />
-                                                <div className={cn(
-                                                    'w-14 h-14 rounded-2xl flex items-center justify-center transition-all',
-                                                    formData.role === 'buyer'
-                                                        ? 'bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-lg'
-                                                        : 'bg-slate-100 dark:bg-slate-700 text-slate-500 group-hover:bg-slate-200'
-                                                )}>
-                                                    <ShoppingBag className="h-7 w-7" />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <span className="font-bold text-xl text-slate-800 dark:text-white">Buy Tickets</span>
-                                                    <p className="text-slate-600 dark:text-slate-400 mt-1">
-                                                        Discover and attend amazing halal-friendly events
-                                                    </p>
-                                                </div>
-                                                {formData.role === 'buyer' && (
-                                                    <motion.div
-                                                        initial={{ scale: 0 }}
-                                                        animate={{ scale: 1 }}
-                                                        className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] flex items-center justify-center"
-                                                    >
-                                                        <Check className="h-5 w-5 text-white" />
-                                                    </motion.div>
-                                                )}
-                                            </Label>
-                                        </motion.div>
-
-                                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                                            <Label
                                                 htmlFor="role-organizer"
                                                 className={cn(
                                                     'flex items-start gap-5 p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden group',
                                                     formData.role === 'organizer'
-                                                        ? 'border-[var(--brand-teal)] bg-gradient-to-br from-teal-50 to-emerald-50/50 dark:from-teal-950/30 dark:to-emerald-950/20 shadow-lg shadow-teal-500/10'
-                                                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white/50 dark:bg-slate-800/50'
+                                                        ? 'border-[var(--brand-teal)] bg-teal-50 dark:bg-teal-950/30 shadow-lg shadow-teal-500/10'
+                                                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800'
                                                 )}
                                             >
                                                 <RadioGroupItem value="organizer" id="role-organizer" className="mt-1 hidden" />
@@ -663,6 +622,43 @@ export function SignupOnboardingDialog({
                                                 )}
                                             </Label>
                                         </motion.div>
+
+                                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                                            <Label
+                                                htmlFor="role-buyer"
+                                                className={cn(
+                                                    'flex items-start gap-5 p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden group',
+                                                    formData.role === 'buyer'
+                                                        ? 'border-[var(--brand-cyan)] bg-cyan-50 dark:bg-cyan-950/30 shadow-lg shadow-cyan-500/10'
+                                                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800'
+                                                )}
+                                            >
+                                                <RadioGroupItem value="buyer" id="role-buyer" className="mt-1 hidden" />
+                                                <div className={cn(
+                                                    'w-14 h-14 rounded-2xl flex items-center justify-center transition-all',
+                                                    formData.role === 'buyer'
+                                                        ? 'bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-lg'
+                                                        : 'bg-slate-100 dark:bg-slate-700 text-slate-500 group-hover:bg-slate-200'
+                                                )}>
+                                                    <ShoppingBag className="h-7 w-7" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <span className="font-bold text-xl text-slate-800 dark:text-white">Buy Tickets</span>
+                                                    <p className="text-slate-600 dark:text-slate-400 mt-1">
+                                                        Discover and attend amazing halal-friendly events
+                                                    </p>
+                                                </div>
+                                                {formData.role === 'buyer' && (
+                                                    <motion.div
+                                                        initial={{ scale: 0 }}
+                                                        animate={{ scale: 1 }}
+                                                        className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] flex items-center justify-center"
+                                                    >
+                                                        <Check className="h-5 w-5 text-white" />
+                                                    </motion.div>
+                                                )}
+                                            </Label>
+                                        </motion.div>
                                     </RadioGroup>
 
                                     <motion.div
@@ -679,22 +675,19 @@ export function SignupOnboardingDialog({
                                             <ArrowRight className="ml-2 h-5 w-5" />
                                         </Button>
 
-                                        <div className="relative">
-                                            <div className="absolute inset-0 flex items-center">
-                                                <span className="w-full border-t border-slate-200 dark:border-slate-700" />
-                                            </div>
-                                            <div className="relative flex justify-center text-xs uppercase">
-                                                <span className="bg-white dark:bg-slate-900 px-2 text-slate-500">
-                                                    Or continue with
-                                                </span>
-                                            </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
+                                            <span className="text-xs uppercase font-bold tracking-widest text-slate-400">
+                                                or
+                                            </span>
+                                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
                                         </div>
 
                                         <Button
                                             variant="outline"
                                             onClick={handleGoogleLogin}
                                             disabled={isLoading}
-                                            className="w-full h-12 bg-white/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                                            className="w-full h-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl"
                                         >
                                             <svg className="h-5 w-5 mr-3" viewBox="0 0 24 24">
                                                 <path
@@ -714,7 +707,7 @@ export function SignupOnboardingDialog({
                                                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                                                 />
                                             </svg>
-                                            Google
+                                            Continue with Google
                                         </Button>
                                     </motion.div>
                                 </motion.div>
