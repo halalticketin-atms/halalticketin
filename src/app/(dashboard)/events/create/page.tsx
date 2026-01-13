@@ -55,6 +55,7 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { LocationAutocomplete } from '@/components/events/LocationAutocomplete';
+import { EmbedCheckoutSnippet } from '@/components/events/EmbedCheckoutSnippet';
 
 // Dynamic import to avoid SSR issues with Leaflet
 const EventLocationMap = dynamic(
@@ -535,10 +536,16 @@ export function EventWizard({
     mode = 'create',
     initialDraft,
     entryContext,
+    embedCheckout,
 }: {
     mode?: 'create' | 'edit';
     initialDraft?: DraftEventInitial;
     entryContext?: EntryContext;
+    embedCheckout?: {
+        slug: string;
+        isPublic: boolean;
+        status: 'draft' | 'published' | 'cancelled' | 'archived' | null;
+    };
 }) {
     const {
         currentStep,
@@ -1791,6 +1798,14 @@ export function EventWizard({
                     {/* Main Content */}
                     <main ref={mainContentRef} className="flex-1 min-w-0 bg-card/50 rounded-2xl border border-border/50 p-4 sm:p-6 lg:p-8">
                         <div className="max-w-2xl mx-auto lg:max-w-none lg:mx-0">
+                            {mode === 'edit' && embedCheckout?.slug ? (
+                                <div className="mb-6">
+                                    <EmbedCheckoutSnippet
+                                        slug={embedCheckout.slug}
+                                        isReady={embedCheckout.isPublic && embedCheckout.status === 'published'}
+                                    />
+                                </div>
+                            ) : null}
                             <AnimatePresence mode="wait">
                                 {/* Step 1: Basic Details */}
                                 {currentStep === 1 && (

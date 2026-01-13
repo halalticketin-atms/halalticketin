@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import api, { ApiError, clearAuthSession, getAuthToken } from '@/lib/api';
+import api, { ApiError, clearAuthSession, getAuthToken, setAuthToken, setRefreshToken } from '@/lib/api';
+import { getSupabase } from '@/lib/supabase';
 import type { EventScope } from '@/types';
 
 interface Membership {
@@ -76,10 +77,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     useEffect(() => {
-        fetchProfile();
+        const supabase = getSupabase();
+
+        const initializeSession = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+
+                if (session?.access_token) {
+                    setAuthToken(session.access_token);
+                    setRefreshToken(session.refresh_token ?? null);
+                }
+            } catch (err) {
+                console.error('Failed to read Supabase session:', err);
+            }
+
+            await fetchProfile();
+        };
+
+        initializeSession();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+                clearAuthSession();
+                setProfile(null);
+                setError(null);
+                setIsLoading(false);
+                return;
+            }
+
+            if (session?.access_token) {
+                setAuthToken(session.access_token);
+                setRefreshToken(session.refresh_token ?? null);
+                await fetchProfile();
+            }
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, [fetchProfile]);
 
     const signOut = useCallback(() => {
+        void getSupabase().auth.signOut();
         clearAuthSession();
         setProfile(null);
         setError(null);

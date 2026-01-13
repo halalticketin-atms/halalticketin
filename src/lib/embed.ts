@@ -12,3 +12,15 @@ export function buildEmbedCheckoutUrl(params: {
     const theme = normalizeEmbedTheme(params.theme);
     return `${params.baseUrl.replace(/\/$/, '')}/embed/checkout/${params.eventSlug}?theme=${theme}`;
 }
+
+export function buildEmbedCheckoutSnippet(params: {
+    slug: string;
+    theme: EmbedTheme;
+    siteUrl?: string;
+}): string {
+    const base = (params.siteUrl || 'https://halalticketin.com').replace(/\/$/, '');
+    return [
+        `<div id="halal-ticketin-checkout" data-event-slug="${params.slug}" data-theme="${params.theme}"></div>`,
+        `<script src="${base}/embed/checkout.js"></script>`,
+    ].join('\n');
+}

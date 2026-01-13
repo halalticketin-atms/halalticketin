@@ -22,12 +22,18 @@ export default function EditEventPage() {
         : '/dashboard';
 
     const [initialDraft, setInitialDraft] = useState<DraftEventInitial | null>(null);
+    const [embedMeta, setEmbedMeta] = useState<{
+        slug: string | null;
+        status: 'draft' | 'published' | 'cancelled' | 'archived';
+        isPublic: boolean;
+    } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!eventId) {
             setInitialDraft(null);
+            setEmbedMeta(null);
             setIsLoading(false);
             setError('Invalid event id.');
             return;
@@ -43,6 +49,11 @@ export default function EditEventPage() {
                     fetchEventPromoCodes(eventId).catch(() => ({ promoCodes: [] })),
                 ]);
                 if (cancelled) return;
+                setEmbedMeta({
+                    slug: eventResponse.event.slug ?? null,
+                    status: eventResponse.event.status,
+                    isPublic: eventResponse.event.isListedPublicly,
+                });
                 setInitialDraft(
                     buildDraftFromEventRecord(
                         eventResponse.event,
@@ -53,6 +64,7 @@ export default function EditEventPage() {
             } catch (err) {
                 if (cancelled) return;
                 setInitialDraft(null);
+                setEmbedMeta(null);
                 const message = getUserFriendlyMessage(err) || 'Unable to load this event.';
                 setError(message);
             } finally {
@@ -113,6 +125,15 @@ export default function EditEventPage() {
                 label: 'Editing existing event',
                 description: 'Changes will update this event once you publish.',
             }}
+            embedCheckout={
+                embedMeta?.slug
+                    ? {
+                        slug: embedMeta.slug,
+                        isPublic: embedMeta.isPublic,
+                        status: embedMeta.status,
+                    }
+                    : undefined
+            }
         />
     );
 }
