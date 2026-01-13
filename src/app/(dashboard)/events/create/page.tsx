@@ -1843,7 +1843,7 @@ export function EventWizard({
                                                     <p className="text-sm text-destructive font-medium leading-tight">{actionError}</p>
                                                     {actionError.toLowerCase().includes('stripe') && activeOrganizerId && (
                                                         <Link
-                                                            href={`${buildDashboardPath(activeOrganizerId)}/settings?tab=payments`}
+                                                            href="/settings?tab=payments"
                                                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                                                         >
                                                             → Set up Stripe payments
@@ -3564,7 +3564,7 @@ export function EventWizard({
                                     <p className="text-sm text-destructive font-medium">{actionError}</p>
                                     {actionError.toLowerCase().includes('stripe') && activeOrganizerId && (
                                         <Link
-                                            href={`${buildDashboardPath(activeOrganizerId)}/settings?tab=payments`}
+                                            href="/settings?tab=payments"
                                             className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
                                         >
                                             → Set up Stripe payments
