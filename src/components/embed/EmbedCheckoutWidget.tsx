@@ -21,6 +21,32 @@ export function EmbedCheckoutWidget({
 }) {
     const shellRef = useRef<HTMLDivElement | null>(null);
     const embedTheme = useMemo(() => normalizeEmbedTheme(theme), [theme]);
+    const isDark = embedTheme === 'dark';
+    const darkThemeStyles = useMemo<React.CSSProperties>(
+        () => ({
+            '--background': '#0a1224',
+            '--foreground': '#f8fafc',
+            '--card': '#0f1a34',
+            '--card-foreground': '#f8fafc',
+            '--popover': '#0f1a34',
+            '--popover-foreground': '#f8fafc',
+            '--primary': '#23d3c3',
+            '--primary-foreground': '#0a1224',
+            '--secondary': '#132540',
+            '--secondary-foreground': '#d6f8f3',
+            '--muted': '#0f1b2e',
+            '--muted-foreground': '#9fb2d0',
+            '--accent': '#17324a',
+            '--accent-foreground': '#c9f5f1',
+            '--border': 'rgba(148, 163, 184, 0.22)',
+            '--input': 'rgba(148, 163, 184, 0.28)',
+            '--ring': '#23d3c3',
+            '--brand-mint': '#4ee5d8',
+            '--brand-cyan': '#23d3c3',
+            '--brand-teal': '#1fb7a7',
+        }),
+        [],
+    );
 
     useEffect(() => {
         const root = document.documentElement;
@@ -81,8 +107,9 @@ export function EmbedCheckoutWidget({
             data-testid="embed-checkout-shell"
             className={cn(
                 'min-h-0',
-                embedTheme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-900',
+                isDark ? 'dark bg-background text-foreground' : 'bg-white text-slate-900',
             )}
+            style={isDark ? { ...darkThemeStyles, colorScheme: 'dark' } : undefined}
         >
             <PublicEventPageContent
                 event={event}
@@ -92,6 +119,10 @@ export function EmbedCheckoutWidget({
                 embedMode="checkout"
                 organizerNameOverride={event?.organizerName ?? null}
             />
+            <div className={cn('container pb-6 pt-2 flex items-center gap-2 text-xs', isDark ? 'text-slate-300' : 'text-muted-foreground')}>
+                <img src="/images/HTlogocr.png" alt="HalalTicketin' logo" className="h-6 w-6" />
+                <span>Delivered with Ihsan by HalalTicketin&apos;</span>
+            </div>
         </div>
     );
 }

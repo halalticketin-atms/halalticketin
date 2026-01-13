@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Side Checkout Preview - Dark Theme</title>
+    <style>
+      :root {
+        --ink: #0b1220;
+        --muted: #94a3b8;
+        --edge: #1e293b;
+        --bg: #0a1224;
+        --accent: #23d3c3;
+        --accent-soft: rgba(35, 211, 195, 0.15);
+        --card: #0f1a34;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Georgia", "Times New Roman", serif;
+        color: #f8fafc;
+        background: radial-gradient(circle at top, #0d1a34 0%, #0a1224 55%, #070e1c 100%);
+      }
+
+      .page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 20px 80px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        gap: 28px;
+        align-items: start;
+      }
+
+      .story {
+        background: var(--card);
+        border: 1px solid #1f2a44;
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 24px 60px rgba(2, 6, 23, 0.35);
+      }
+
+      .story h1 {
+        margin: 0 0 8px;
+        font-size: 30px;
+        letter-spacing: -0.02em;
+        color: #f8fafc;
+      }
+
+      .story p {
+        margin: 0 0 12px;
+        color: #cbd5f5;
+        line-height: 1.6;
+      }
+
+      .details {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        font-size: 13px;
+        color: #9fb2d0;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--accent);
+        background: var(--accent-soft);
+        padding: 6px 12px;
+        border-radius: 999px;
+        margin-bottom: 16px;
+      }
+
+      .aside {
+        position: sticky;
+        top: 24px;
+        background: transparent;
+      }
+
+      .aside h2 {
+        margin: 0 0 12px;
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #9fb2d0;
+      }
+
+      .embed-shell {
+        width: min(380px, 100%);
+        margin-left: auto;
+        border-radius: 18px;
+        padding: 16px;
+        background: #0b142b;
+        border: 1px solid #1f2a44;
+        box-shadow: 0 30px 70px rgba(2, 6, 23, 0.45);
+      }
+
+      .note {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #9fb2d0;
+      }
+
+      .brand {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+        color: #9fb2d0;
+      }
+
+      .brand img {
+        width: 28px;
+        height: 28px;
+      }
+
+      @media (max-width: 960px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .aside {
+          position: static;
+        }
+
+        .embed-shell {
+          margin-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="layout">
+        <section class="story">
+          <div class="badge">Community Lecture</div>
+          <h1>Sheikh Omar: Night of Reflection</h1>
+          <p>
+            Join us for an evening of remembrance and reflection. This is a host-site example
+            showing how the checkout widget can sit in a sidebar while the event details live on
+            your own website.
+          </p>
+          <div class="details">
+            <span>Saturday, 31 January 2026</span>
+            <span>•</span>
+            <span>Convention Centre, Dublin</span>
+          </div>
+        </section>
+
+        <aside class="aside">
+          <h2>Book Your Seat</h2>
+          <div class="embed-shell">
+            <div id="halal-ticketin-checkout" data-event-slug="sh-omar" data-theme="dark"></div>
+            <script src="http://localhost:3000/embed/checkout.js"></script>
+          </div>
+          <p class="note">Dark theme embed in a side panel. Checkout opens in the modal, then redirects to Stripe.</p>
+          <div class="brand">
+            <img src="/images/HTlogocr.png" alt="HalalTicketin' logo" />
+            <span>Delivered with Ihsan by HalalTicketin'</span>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </body>
+</html>
