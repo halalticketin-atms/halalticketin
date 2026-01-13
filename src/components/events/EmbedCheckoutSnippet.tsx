@@ -175,22 +175,22 @@ export function EmbedCheckoutSnippet({
 
             {/* Right Column: Code Preview */}
             <div className="lg:col-span-7">
-                <Card className="h-full border-border/50 bg-slate-950 text-slate-50 shadow-xl overflow-hidden flex flex-col">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/5">
+                <Card className="h-full border-border/50 bg-card shadow-xl overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-border/10 bg-muted/30">
                         <div className="flex items-center gap-2">
                             <div className="flex gap-1.5">
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 ring-1 ring-red-500/50" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 ring-1 ring-amber-500/50" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 ring-1 ring-emerald-500/50" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-destructive/20 ring-1 ring-destructive/30" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/20 ring-1 ring-amber-500/30" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 ring-1 ring-emerald-500/30" />
                             </div>
-                            <span className="ml-3 text-xs font-mono text-white/40">embed.html</span>
+                            <span className="ml-3 text-xs font-mono text-muted-foreground/60">embed.html</span>
                         </div>
                         <Button
                             size="sm"
-                            variant="ghost"
+                            variant="secondary"
                             className={cn(
-                                "h-7 gap-1.5 text-xs hover:bg-white/10 hover:text-white transition-all",
-                                copied && "text-emerald-400 hover:text-emerald-400 hover:bg-emerald-400/10"
+                                "h-7 gap-1.5 text-xs transition-all",
+                                copied ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-primary/5 hover:bg-primary/10 text-primary"
                             )}
                             onClick={handleCopySnippet}
                             disabled={!canCopy}
@@ -199,23 +199,23 @@ export function EmbedCheckoutSnippet({
                             {copied ? 'Copied!' : 'Copy Code'}
                         </Button>
                     </div>
-                    <div className="p-4 overflow-x-auto custom-scrollbar flex-1 relative group">
-                        <pre className="text-xs sm:text-sm font-mono leading-relaxed text-blue-100/90 whitespace-pre-wrap break-all">
+                    <div className="p-4 overflow-x-auto custom-scrollbar flex-1 relative group bg-muted/5">
+                        <pre className="text-xs sm:text-sm font-mono leading-relaxed text-foreground/80 whitespace-pre-wrap break-all">
                             {currentSnippet}
                         </pre>
 
                         {/* Mask for disabled state */}
                         {!canCopy && (
-                            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[1px] flex items-center justify-center p-4 text-center">
-                                <p className="text-sm font-medium text-white/80 bg-slate-900/90 px-4 py-2 rounded-full shadow-lg border border-white/10">
+                            <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] flex items-center justify-center p-4 text-center">
+                                <p className="text-sm font-medium text-foreground/80 bg-background px-4 py-2 rounded-full shadow-lg border border-border/50">
                                     Save your event first to generate code
                                 </p>
                             </div>
                         )}
                     </div>
                     {/* Helper tip footer */}
-                    <div className="bg-white/5 px-4 py-3 border-t border-white/10">
-                        <p className="text-[11px] text-white/50 flex items-center gap-2">
+                    <div className="bg-muted/30 px-4 py-3 border-t border-border/10">
+                        <p className="text-[11px] text-muted-foreground/70 flex items-center gap-2">
                             <Code2 className="h-3 w-3" />
                             Paste this code anywhere in your website's body tag
                         </p>
