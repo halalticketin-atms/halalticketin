@@ -214,7 +214,7 @@ export default function RegistrationFormBuilderPage() {
                                             Require info for each ticket
                                         </label>
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            Collect name, email, gender and age for every ticket. Best for conferences or reserved seating.
+                                            Collect name, gender, age and custom questions (if any) for every ticket. Best for conferences or reserved seating.
                                         </p>
                                     </div>
                                 </div>

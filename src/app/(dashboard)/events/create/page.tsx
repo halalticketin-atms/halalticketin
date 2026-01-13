@@ -32,6 +32,7 @@ import {
     Settings2,
     X,
     Code,
+    AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -452,6 +453,13 @@ const getStepForFieldErrors = (errors: Record<string, string>) => {
     return null;
 };
 
+const publishRequiredFieldsByStep: Record<number, string[]> = {
+    1: ['title'],
+    2: ['date', 'startTime', 'endDate', 'endTime'],
+    3: ['venue', 'onlineUrl'],
+    4: ['tickets', 'currency', 'refundPolicy'],
+};
+
 const validatePublishForm = (formData: DraftFormData, tickets: DraftTicketType[]) => {
     const errors: Record<string, string> = {};
     const locationType = mapLocationType(formData.locationType);
@@ -703,6 +711,26 @@ export function EventWizard({
     const [promoErrors, setPromoErrors] = useState<Record<string, PromoFieldErrors>>({});
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
     const [ticketAdvancedOpen, setTicketAdvancedOpen] = useState<Record<string, boolean>>({});
+
+    const publishRequirementErrors = useMemo(() => validatePublishForm(formData, tickets), [formData, tickets]);
+    const stepStatuses = useMemo(
+        () =>
+            steps.map((step) => {
+                const requiredFields = publishRequiredFieldsByStep[step.id] ?? [];
+                const hasRequiredFields = requiredFields.length > 0;
+                const hasMissingRequired = hasRequiredFields && requiredFields.some((field) => publishRequirementErrors[field]);
+                const isCurrent = currentStep === step.id;
+                const isPast = currentStep > step.id;
+                const showWarning = hasMissingRequired && isPast;
+                return {
+                    ...step,
+                    isCurrent,
+                    isPast,
+                    showWarning,
+                };
+            }),
+        [currentStep, publishRequirementErrors],
+    );
 
     // Ref for scrolling to top of content area
     const mainContentRef = useRef<HTMLDivElement>(null);
@@ -1730,23 +1758,29 @@ export function EventWizard({
             <div className="lg:hidden border-b bg-background">
                 <div className="container py-3">
                     <div className="flex items-center justify-between">
-                        {steps.map((step) => (
+                        {stepStatuses.map((step) => (
                             <button
                                 key={step.id}
                                 onClick={() => setCurrentStep(step.id)}
                                 className="flex flex-col items-center gap-1"
                             >
                                 <div
-                                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-all ${currentStep === step.id
+                                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-all ${step.isCurrent
                                         ? 'bg-primary text-primary-foreground'
-                                        : currentStep > step.id
-                                            ? 'bg-primary/20 text-primary'
+                                        : step.isPast
+                                            ? step.showWarning
+                                                ? 'border-2 border-dashed border-muted-foreground/40 bg-muted/50 text-muted-foreground'
+                                                : 'bg-primary/20 text-primary'
                                             : 'bg-muted text-muted-foreground'
                                         }`}
                                 >
-                                    {currentStep > step.id ? <Check className="h-4 w-4" /> : step.id}
+                                    {step.isPast ? (
+                                        step.showWarning ? step.id : <Check className="h-4 w-4" />
+                                    ) : (
+                                        step.id
+                                    )}
                                 </div>
-                                <span className={`text-xs ${currentStep === step.id ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                                <span className={`text-xs ${step.isCurrent ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
                                     {step.title.split(' ')[0]}
                                 </span>
                             </button>
@@ -1761,36 +1795,45 @@ export function EventWizard({
                     {/* Sidebar Navigation - Desktop Only */}
                     <aside className="hidden lg:block w-72 xl:w-80 shrink-0">
                         <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto space-y-3 pr-2">
-                            {steps.map((step) => (
+                            {stepStatuses.map((step) => (
                                 <button
                                     key={step.id}
                                     onClick={() => setCurrentStep(step.id)}
-                                    className={`w-full flex items-start gap-3 rounded-xl p-4 text-left transition-all ${currentStep === step.id
+                                    className={`w-full flex items-start gap-3 rounded-xl p-4 text-left transition-all ${step.isCurrent
                                         ? 'bg-primary text-primary-foreground shadow-lg'
-                                        : currentStep > step.id
-                                            ? 'bg-primary/10 hover:bg-primary/15'
+                                        : step.isPast
+                                            ? step.showWarning
+                                                ? 'bg-muted/40 hover:bg-muted/60 border border-dashed border-muted-foreground/30'
+                                                : 'bg-primary/10 hover:bg-primary/15'
                                             : 'bg-card hover:bg-muted'
                                         }`}
                                 >
                                     <div
-                                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${currentStep === step.id
+                                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${step.isCurrent
                                             ? 'bg-primary-foreground/20'
-                                            : currentStep > step.id
-                                                ? 'bg-primary/20 text-primary'
+                                            : step.isPast
+                                                ? step.showWarning
+                                                    ? 'border-2 border-dashed border-muted-foreground/40 bg-transparent text-muted-foreground'
+                                                    : 'bg-primary/20 text-primary'
                                                 : 'bg-muted'
                                             }`}
                                     >
-                                        {currentStep > step.id ? (
-                                            <Check className="h-4 w-4" />
+                                        {step.isPast ? (
+                                            step.showWarning ? <step.icon className="h-4 w-4" /> : <Check className="h-4 w-4" />
                                         ) : (
                                             <step.icon className="h-4 w-4" />
                                         )}
                                     </div>
                                     <div className="min-w-0">
                                         <p className="font-medium">{step.title}</p>
-                                        <p className={`text-sm truncate ${currentStep === step.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                        <p className={`text-sm truncate ${step.isCurrent ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                                             {step.description}
                                         </p>
+                                        {step.showWarning ? (
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                Add details
+                                            </p>
+                                        ) : null}
                                     </div>
                                 </button>
                             ))}
@@ -2173,6 +2216,17 @@ export function EventWizard({
                                                                     longitude: location.lon,
                                                                 }));
                                                                 setLocationCoords({ lat: location.lat, lon: location.lon });
+                                                                clearFieldErrors('venue');
+                                                            }}
+                                                            onInputChange={(nextValue) => {
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    venue: nextValue,
+                                                                    ...(nextValue ? {} : { address: '', city: '' }),
+                                                                }));
+                                                                if (!nextValue || locationCoords) {
+                                                                    setLocationCoords(null);
+                                                                }
                                                                 clearFieldErrors('venue');
                                                             }}
                                                             label="Venue Location *"
@@ -3270,7 +3324,7 @@ export function EventWizard({
                                                         <div className="flex-1">
                                                             <p className="font-medium">Require info for each ticket</p>
                                                             <p className="text-sm text-muted-foreground mt-1">
-                                                                Collect name, email, gender and age for every ticket. Best for conferences or reserved seating.
+                                                                Collect name, gender, age and custom questions (if any) for every ticket. Best for conferences or reserved seating.
                                                             </p>
                                                         </div>
                                                     </div>
