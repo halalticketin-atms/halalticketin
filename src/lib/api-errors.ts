@@ -23,6 +23,7 @@ const ERROR_CODE_FALLBACKS: Record<string, string> = {
     INTERNAL_ERROR: 'Something went wrong. Please try again later.',
     REGISTRATION_FAILED: 'We could not complete registration. Please try again.',
     INVALID_CREDENTIALS: 'Invalid email or password.',
+    EMAIL_NOT_CONFIRMED: 'Please verify your email first. Check your inbox/spam for the confirmation link.',
     ORGANIZER_ONBOARDING_REQUIRED: 'Organizer onboarding is required to continue.',
     STRIPE_CONNECT_REQUIRED: 'Payment setup is incomplete for this organizer.',
 };

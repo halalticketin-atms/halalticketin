@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getSupabase } from '@/lib/supabase';
+import { getPasswordValidationError, PASSWORD_REQUIREMENTS_TEXT } from '@/lib/password';
 
 const staggerContainer = {
     hidden: { opacity: 0 },
@@ -106,8 +107,9 @@ function ResetPasswordContent() {
             return;
         }
 
-        if (password.length < 8) {
-            setError('Password must be at least 8 characters');
+        const passwordError = getPasswordValidationError(password);
+        if (passwordError) {
+            setError(passwordError);
             return;
         }
 
@@ -274,21 +276,22 @@ function ResetPasswordContent() {
                                         onSubmit={handleSubmit}
                                         className="space-y-5"
                                     >
-                                        <div className="space-y-2">
-                                            <Label htmlFor="password" className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
-                                                <Lock className="h-4 w-4 text-slate-400" />
-                                                New Password
-                                            </Label>
-                                            <div className="relative">
+	                                        <div className="space-y-2">
+	                                            <Label htmlFor="password" className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
+	                                                <Lock className="h-4 w-4 text-slate-400" />
+	                                                New Password
+	                                            </Label>
+	                                            <div className="relative">
                                                 <Input
                                                     id="password"
                                                     type={showPassword ? 'text' : 'password'}
-                                                    placeholder="Enter new password"
+                                                    placeholder="8+ chars, upper/lower/number/symbol"
                                                     value={password}
                                                     onChange={(e) => setPassword(e.target.value)}
                                                     className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all rounded-xl pr-12"
                                                     required
                                                     minLength={8}
+                                                    maxLength={128}
                                                 />
                                                 <button
                                                     type="button"
@@ -297,9 +300,12 @@ function ResetPasswordContent() {
                                                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                                                 >
                                                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                                </button>
-                                            </div>
-                                        </div>
+	                                                </button>
+	                                            </div>
+	                                            <p className="text-xs text-slate-500 dark:text-slate-400">
+	                                                {PASSWORD_REQUIREMENTS_TEXT}
+	                                            </p>
+	                                        </div>
 
                                         <div className="space-y-2">
                                             <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
@@ -316,6 +322,7 @@ function ResetPasswordContent() {
                                                     className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all rounded-xl pr-12"
                                                     required
                                                     minLength={8}
+                                                    maxLength={128}
                                                 />
                                                 <button
                                                     type="button"

@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getSupabase } from '@/lib/supabase';
-import api, { setAuthToken, setRefreshToken } from '@/lib/api';
+import api, { ApiError, setAuthToken, setRefreshToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { toast } from '@/lib/notifications';
+import { parseBackendError } from '@/lib/api-errors';
 
 interface LoginResponse {
     accessToken: string;
@@ -38,6 +39,7 @@ function LoginContent() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showResendVerification, setShowResendVerification] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const searchParams = useSearchParams();
@@ -115,6 +117,7 @@ function LoginContent() {
         e.preventDefault();
         setIsLoading(true);
         setError(null);
+        setShowResendVerification(false);
 
         try {
             const response = await api.post<LoginResponse>('/api/v1/auth/login', {
@@ -133,8 +136,49 @@ function LoginContent() {
             });
         } catch (err) {
             console.error(err);
-            toast.error(err, 'Unable to sign in');
-            setError(err instanceof Error ? err.message : 'Unable to sign in.');
+            const parsed = err instanceof ApiError ? parseBackendError(err.payload) : null;
+            if (parsed?.code === 'EMAIL_NOT_CONFIRMED') {
+                setShowResendVerification(true);
+                toast.error(err, 'Email not verified');
+                setError(
+                    parsed.message
+                    || 'Please verify your email first. Check your inbox/spam for the confirmation link.'
+                );
+            } else {
+                toast.error(err, 'Unable to sign in');
+                setError(err instanceof Error ? err.message : 'Unable to sign in.');
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleResendVerification = async () => {
+        const trimmedEmail = email.trim();
+        if (!trimmedEmail) {
+            setError('Email is required');
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const { error: resendError } = await getSupabase().auth.resend({
+                type: 'signup',
+                email: trimmedEmail,
+                options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+            });
+
+            if (resendError) {
+                throw resendError;
+            }
+
+            toast.success('Verification email sent', { description: 'Check your inbox and spam folder.' });
+        } catch (err) {
+            console.error(err);
+            toast.error(err, 'Unable to resend verification email');
+            setError(err instanceof Error ? err.message : 'Unable to resend verification email.');
         } finally {
             setIsLoading(false);
         }
@@ -280,6 +324,18 @@ function LoginContent() {
                                         >
                                             {error}
                                         </motion.div>
+                                    )}
+
+                                    {showResendVerification && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={handleResendVerification}
+                                            disabled={isLoading || !email.trim()}
+                                            className="w-full h-11 text-slate-500 hover:text-slate-700"
+                                        >
+                                            Resend verification email
+                                        </Button>
                                     )}
 
                                     <Button

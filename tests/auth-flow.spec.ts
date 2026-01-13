@@ -96,7 +96,7 @@ test.describe('Authentication Flow - Signup', () => {
         }
     });
 
-    test('signup form validates password length', async ({ page }) => {
+    test('signup form validates password strength', async ({ page }) => {
         await page.goto('/');
         await page.waitForLoadState('networkidle');
 
@@ -105,11 +105,23 @@ test.describe('Authentication Flow - Signup', () => {
             await signUpButton.click();
             await page.waitForTimeout(500);
 
+            const continueButton = page.getByRole('button', { name: /continue/i }).first();
             const passwordInput = page.locator('input[type="password"]').first();
-            if (await passwordInput.isVisible()) {
-                await passwordInput.fill('short');
-                await passwordInput.blur();
-                // Should show password length error
+
+            if (!(await passwordInput.isVisible()) && await continueButton.isVisible()) {
+                await continueButton.click();
+                await page.waitForTimeout(300);
+            }
+
+            const emailInput = page.locator('input[type="email"], input[name="email"]').first();
+            if (await emailInput.isVisible() && await passwordInput.isVisible()) {
+                await emailInput.fill('test@example.com');
+                await passwordInput.fill('Password1'); // missing symbol
+
+                if (await continueButton.isVisible()) {
+                    await continueButton.click();
+                    await expect(page.getByText(/uppercase letter|lowercase letter|number|symbol/i).first()).toBeVisible();
+                }
             }
         }
     });
