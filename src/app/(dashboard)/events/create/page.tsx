@@ -1733,7 +1733,7 @@ export function EventWizard({
                 <div className="flex gap-6 lg:gap-10 xl:gap-16">
                     {/* Sidebar Navigation - Desktop Only */}
                     <aside className="hidden lg:block w-72 xl:w-80 shrink-0">
-                        <div className="sticky top-24 space-y-3">
+                        <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto space-y-3 pr-2">
                             {steps.map((step) => (
                                 <button
                                     key={step.id}
@@ -1769,7 +1769,7 @@ export function EventWizard({
                             ))}
 
                             {/* Quick Actions */}
-                            <div className="pt-6 space-y-3">
+                            <div className="pt-6">
                                 <Button
                                     variant="outline"
                                     className="w-full h-12 justify-center gap-2 text-base font-medium border-2"
@@ -1779,92 +1779,7 @@ export function EventWizard({
                                     <Eye className="h-5 w-5" />
                                     Preview Event
                                 </Button>
-
-                                <div className="flex items-center gap-2">
-                                    <Select
-                                        value={formData.visibility}
-                                        onValueChange={(value) =>
-                                            setFormData((prev) => ({
-                                                ...prev,
-                                                visibility: value as DraftFormData['visibility'],
-                                            }))
-                                        }
-                                    >
-                                        <SelectTrigger className="h-11 flex-1 bg-transparent border-2 border-border/50 hover:border-border transition-colors">
-                                            <div className="flex items-center gap-2">
-                                                {formData.visibility === 'public' ? (
-                                                    <Globe className="h-4 w-4 text-primary" />
-                                                ) : (
-                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                                )}
-                                                <span className="font-medium">{formData.visibility === 'public' ? 'Public' : 'Private'}</span>
-                                            </div>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="public">
-                                                <div className="flex items-center gap-2">
-                                                    <Globe className="h-4 w-4" />
-                                                    <span>Public</span>
-                                                </div>
-                                            </SelectItem>
-                                            <SelectItem value="private">
-                                                <div className="flex items-center gap-2">
-                                                    <EyeOff className="h-4 w-4" />
-                                                    <span>Private</span>
-                                                </div>
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <Button
-                                    className="w-full h-11 justify-center gap-2"
-                                    onClick={handlePublishClick}
-                                    disabled={disablePublishButtons}
-                                >
-                                    <Sparkles className="h-4 w-4" />
-                                    {publishButtonLabel}
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    className="w-full justify-center text-muted-foreground"
-                                    onClick={handleSaveDraftClick}
-                                    disabled={disableSaveButtons}
-                                >
-                                    {saveButtonLabel}
-                                </Button>
-                                <div className="text-left">
-                                    <p className="text-xs text-muted-foreground underline mb-2 decoration-primary/30 underline-offset-4">{statusLabel}</p>
-
-                                    {(actionError || publishErrors.length > 0) && (
-                                        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 space-y-2">
-                                            {actionError && (
-                                                <div className="space-y-1">
-                                                    <p className="text-sm text-destructive font-medium leading-tight">{actionError}</p>
-                                                    {actionError.toLowerCase().includes('stripe') && activeOrganizerId && (
-                                                        <Link
-                                                            href="/settings?tab=payments"
-                                                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                                                        >
-                                                            → Set up Stripe payments
-                                                        </Link>
-                                                    )}
-                                                </div>
-                                            )}
-                                            {publishErrors.length > 0 && (
-                                                <ul className="text-xs text-destructive list-disc list-inside space-y-1">
-                                                    {publishErrors.filter(err => err !== actionError).map((error) => (
-                                                        <li key={error} className="leading-tight">{error}</li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {!actionError && actionMessage && (
-                                        <p className="text-sm text-muted-foreground mt-1">{actionMessage}</p>
-                                    )}
-                                </div>
+                                <p className="text-xs text-muted-foreground text-center mt-3">{statusLabel}</p>
                             </div>
                         </div>
                     </aside>
@@ -3527,52 +3442,6 @@ export function EventWizard({
                                 )}
                             </AnimatePresence>
 
-                            {/* Mobile Visibility Selector */}
-                            <div className="lg:hidden mt-6 flex items-center justify-center gap-2 p-3 rounded-lg bg-muted/50">
-                                <span className="text-xs text-muted-foreground">Visibility:</span>
-                                <div className="flex rounded-lg overflow-hidden border border-border/50">
-                                    <button
-                                        onClick={() => setFormData(prev => ({ ...prev, visibility: 'public' }))}
-                                        className={cn(
-                                            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
-                                            formData.visibility === 'public'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-card hover:bg-muted'
-                                        )}
-                                    >
-                                        <Globe className="h-3 w-3" />
-                                        Public
-                                    </button>
-                                    <button
-                                        onClick={() => setFormData(prev => ({ ...prev, visibility: 'private' }))}
-                                        className={cn(
-                                            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
-                                            formData.visibility === 'private'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-card hover:bg-muted'
-                                        )}
-                                    >
-                                        <EyeOff className="h-3 w-3" />
-                                        Private
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Mobile Error Display */}
-                            {actionError && (
-                                <div className="lg:hidden mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
-                                    <p className="text-sm text-destructive font-medium">{actionError}</p>
-                                    {actionError.toLowerCase().includes('stripe') && activeOrganizerId && (
-                                        <Link
-                                            href="/settings?tab=payments"
-                                            className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                                        >
-                                            → Set up Stripe payments
-                                        </Link>
-                                    )}
-                                </div>
-                            )}
-
                             {/* Navigation Footer */}
                             <div className="mt-8 flex items-center justify-between">
                                 <Button
@@ -3585,47 +3454,134 @@ export function EventWizard({
                                     <span className="hidden sm:inline">Back</span>
                                 </Button>
 
-                                <div className="flex gap-2 sm:gap-3">
-                                    {/* Preview button - always visible on mobile like desktop */}
-                                    <Button
-                                        variant="outline"
-                                        className="lg:hidden gap-2"
-                                        onClick={handlePreviewClick}
-                                        disabled={disableSaveButtons}
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        Preview
+                                {currentStep < steps.length && (
+                                    <Button onClick={nextStep} className="gap-2 px-4 sm:px-6">
+                                        Continue
+                                        <ChevronRight className="h-4 w-4" />
                                     </Button>
-                                    <Button
-                                        variant="outline"
-                                        className="lg:hidden"
-                                        onClick={handleSaveDraftClick}
-                                        disabled={disableSaveButtons}
-                                    >
-                                        {saveButtonLabel}
-                                    </Button>
-                                    {currentStep < steps.length ? (
-                                        <Button onClick={nextStep} className="gap-2 px-4 sm:px-6">
-                                            Continue
-                                            <ChevronRight className="h-4 w-4" />
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            className="gap-2 px-4 sm:px-6"
-                                            onClick={handlePublishClick}
-                                            disabled={disablePublishButtons}
-                                        >
-                                            <Sparkles className="h-4 w-4" />
-                                            <span className="hidden sm:inline">{publishButtonLabel}</span>
-                                            <span className="sm:hidden">Publish</span>
-                                        </Button>
-                                    )}
-                                </div>
+                                )}
                             </div>
                         </div>
                     </main>
                 </div>
             </div>
+
+            {/* Unified Sticky Footer Bar */}
+            <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
+                <div className="container py-3">
+                    <div className="flex items-center gap-3">
+                        {/* Error Display - Left (tap for full message) */}
+                        <div className="flex-1 min-w-0">
+                            {actionError ? (
+                                <button
+                                    onClick={() => {
+                                        toast.error(actionError, undefined, { duration: 8000 });
+                                    }}
+                                    className="flex items-center gap-2 text-left w-full group"
+                                >
+                                    <p className="text-sm text-destructive font-medium truncate group-hover:underline">{actionError}</p>
+                                    {actionError.toLowerCase().includes('stripe') && (
+                                        <Link
+                                            href="/settings?tab=payments"
+                                            className="shrink-0 text-xs text-primary hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            Fix →
+                                        </Link>
+                                    )}
+                                </button>
+                            ) : (
+                                <p className="text-xs text-muted-foreground truncate">{statusLabel}</p>
+                            )}
+                        </div>
+
+                        {/* Visibility Toggle - Mobile (tap to toggle) */}
+                        <button
+                            onClick={() => setFormData(prev => ({
+                                ...prev,
+                                visibility: prev.visibility === 'public' ? 'private' : 'public'
+                            }))}
+                            className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border/50 bg-card hover:bg-muted transition-colors"
+                        >
+                            {formData.visibility === 'public' ? (
+                                <>
+                                    <Globe className="h-3 w-3 text-primary" />
+                                    Public
+                                </>
+                            ) : (
+                                <>
+                                    <EyeOff className="h-3 w-3 text-muted-foreground" />
+                                    Private
+                                </>
+                            )}
+                        </button>
+
+                        {/* Visibility Toggle - Desktop (segmented control) */}
+                        <div className="hidden sm:flex items-center rounded-lg border border-border/50 overflow-hidden">
+                            <button
+                                onClick={() => setFormData(prev => ({ ...prev, visibility: 'public' }))}
+                                className={cn(
+                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
+                                    formData.visibility === 'public'
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'bg-card hover:bg-muted'
+                                )}
+                            >
+                                <Globe className="h-3 w-3" />
+                                Public
+                            </button>
+                            <button
+                                onClick={() => setFormData(prev => ({ ...prev, visibility: 'private' }))}
+                                className={cn(
+                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
+                                    formData.visibility === 'private'
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'bg-card hover:bg-muted'
+                                )}
+                            >
+                                <EyeOff className="h-3 w-3" />
+                                Private
+                            </button>
+                        </div>
+
+                        {/* Action Buttons - Right */}
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handlePreviewClick}
+                                disabled={disableSaveButtons}
+                                className="hidden sm:flex gap-1.5"
+                            >
+                                <Eye className="h-3.5 w-3.5" />
+                                Preview
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleSaveDraftClick}
+                                disabled={disableSaveButtons}
+                            >
+                                <span className="hidden sm:inline">Save Draft</span>
+                                <span className="sm:hidden">Save</span>
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={handlePublishClick}
+                                disabled={disablePublishButtons}
+                                className="gap-1.5"
+                            >
+                                <Sparkles className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">{publishButtonLabel}</span>
+                                <span className="sm:hidden">Publish</span>
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Spacer for sticky footer */}
+            <div className="h-16" />
 
             <Dialog open={isWarningOpen} onOpenChange={setIsWarningOpen}>
                 <DialogContent>
