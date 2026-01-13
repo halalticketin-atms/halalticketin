@@ -300,12 +300,12 @@ function ResetPasswordContent() {
                                                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                                                 >
                                                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-	                                                </button>
-	                                            </div>
-	                                            <p className="text-xs text-slate-500 dark:text-slate-400">
-	                                                {PASSWORD_REQUIREMENTS_TEXT}
-	                                            </p>
-	                                        </div>
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                {PASSWORD_REQUIREMENTS_TEXT}
+                                            </p>
+                                        </div>
 
                                         <div className="space-y-2">
                                             <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
