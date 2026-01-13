@@ -23,8 +23,20 @@ export function EmbedCheckoutWidget({
     const embedTheme = useMemo(() => normalizeEmbedTheme(theme), [theme]);
 
     useEffect(() => {
+        const root = document.documentElement;
+        const prevOffset = root.style.getPropertyValue('--nav-safe-offset');
+        root.style.setProperty('--nav-safe-offset', '0px');
+
         const node = shellRef.current;
-        if (!node) return;
+        if (!node) {
+            return () => {
+                if (prevOffset) {
+                    root.style.setProperty('--nav-safe-offset', prevOffset);
+                } else {
+                    root.style.removeProperty('--nav-safe-offset');
+                }
+            };
+        }
 
         const sendHeight = () => {
             const height = Math.ceil(node.getBoundingClientRect().height);
@@ -40,14 +52,27 @@ export function EmbedCheckoutWidget({
 
         if (typeof ResizeObserver === 'undefined') {
             sendHeight();
-            return;
+            return () => {
+                if (prevOffset) {
+                    root.style.setProperty('--nav-safe-offset', prevOffset);
+                } else {
+                    root.style.removeProperty('--nav-safe-offset');
+                }
+            };
         }
 
         const observer = new ResizeObserver(() => sendHeight());
         observer.observe(node);
         sendHeight();
 
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+            if (prevOffset) {
+                root.style.setProperty('--nav-safe-offset', prevOffset);
+            } else {
+                root.style.removeProperty('--nav-safe-offset');
+            }
+        };
     }, []);
 
     return (

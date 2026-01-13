@@ -51,8 +51,9 @@ export function Header() {
         pathname &&
         (/^\/events\/preview(\/|$)/.test(pathname) || /^\/events\/[^/]+\/preview$/.test(pathname))
     );
+    const isEmbedRoute = pathname?.startsWith('/embed');
 
-    if (isPreviewRoute) {
+    if (isPreviewRoute || isEmbedRoute) {
         return null;
     }
 
