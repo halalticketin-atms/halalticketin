@@ -211,7 +211,9 @@ function CheckInContent() {
     }
   };
 
-  const getMismatchDetails = (error: unknown) => {
+  const getMismatchDetails = (
+    error: unknown
+  ): { eventId: string; eventName?: string | null } | null => {
     if (!(error instanceof ApiError)) return null;
     const payload = error.payload;
     if (!payload || typeof payload !== 'object') return null;
@@ -221,9 +223,9 @@ function CheckInContent() {
     if (!details || typeof details !== 'object') return null;
 
     const mismatch = details as { eventId?: string; eventName?: string | null };
-    if (!mismatch.eventId) return null;
+    if (typeof mismatch.eventId !== 'string' || !mismatch.eventId) return null;
 
-    return mismatch;
+    return { eventId: mismatch.eventId, eventName: mismatch.eventName ?? null };
   };
 
   const handleScan = async (data: string) => {
