@@ -139,14 +139,14 @@ export function CheckInHeader({
                 </CardContent>
             </Card>
 
-            {/* Mode Toggle - Modern Switch */}
+            {/* Mode Toggle - Modern Switch (Solid Background) */}
             {showModeToggle && onModeChange && (
-                <div className="flex p-2 bg-black/5 rounded-3xl gap-1.5">
+                <div className="flex p-2 bg-white border-2 border-black/5 rounded-3xl gap-1.5 shadow-sm">
                     <Button
                         variant="ghost"
                         className={cn(
                             "flex-1 h-14 rounded-2xl transition-all duration-300 font-black text-sm tracking-wide",
-                            mode === 'scan' ? "bg-white shadow-md text-primary" : "text-muted-foreground hover:bg-white/50"
+                            mode === 'scan' ? "bg-primary/5 text-primary" : "text-muted-foreground hover:bg-black/5"
                         )}
                         onClick={() => onModeChange('scan')}
                     >
@@ -157,7 +157,7 @@ export function CheckInHeader({
                         variant="ghost"
                         className={cn(
                             "flex-1 h-14 rounded-2xl transition-all duration-300 font-black text-sm tracking-wide",
-                            mode === 'search' ? "bg-white shadow-md text-primary" : "text-muted-foreground hover:bg-white/50"
+                            mode === 'search' ? "bg-primary/5 text-primary" : "text-muted-foreground hover:bg-black/5"
                         )}
                         onClick={() => onModeChange('search')}
                     >
