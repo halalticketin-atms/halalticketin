@@ -1834,20 +1834,37 @@ export function EventWizard({
                                     {saveButtonLabel}
                                 </Button>
                                 <div className="text-left">
-                                    <p className="text-xs text-muted-foreground">{statusLabel}</p>
-                                    {actionError ? (
-                                        <p className="text-sm text-destructive mt-1">{actionError}</p>
-                                    ) : actionMessage ? (
+                                    <p className="text-xs text-muted-foreground underline mb-2 decoration-primary/30 underline-offset-4">{statusLabel}</p>
+
+                                    {(actionError || publishErrors.length > 0) && (
+                                        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 space-y-2">
+                                            {actionError && (
+                                                <div className="space-y-1">
+                                                    <p className="text-sm text-destructive font-medium leading-tight">{actionError}</p>
+                                                    {actionError.toLowerCase().includes('stripe') && activeOrganizerId && (
+                                                        <Link
+                                                            href={`${buildDashboardPath(activeOrganizerId)}/settings?tab=payments`}
+                                                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                                        >
+                                                            → Set up Stripe payments
+                                                        </Link>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {publishErrors.length > 0 && (
+                                                <ul className="text-xs text-destructive list-disc list-inside space-y-1">
+                                                    {publishErrors.filter(err => err !== actionError).map((error) => (
+                                                        <li key={error} className="leading-tight">{error}</li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {!actionError && actionMessage && (
                                         <p className="text-sm text-muted-foreground mt-1">{actionMessage}</p>
-                                    ) : null}
+                                    )}
                                 </div>
-                                {publishErrors.length > 0 ? (
-                                    <ul className="mt-2 text-sm text-destructive list-disc list-inside space-y-1">
-                                        {publishErrors.map((error) => (
-                                            <li key={error}>{error}</li>
-                                        ))}
-                                    </ul>
-                                ) : null}
                             </div>
                         </div>
                     </aside>
@@ -3296,10 +3313,6 @@ export function EventWizard({
                                                     <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
                                                         <Check className="h-4 w-4 text-primary" />
                                                         <span className="text-sm">Full Name</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
-                                                        <Check className="h-4 w-4 text-primary" />
-                                                        <span className="text-sm">Email</span>
                                                     </div>
                                                     <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
                                                         <Check className="h-4 w-4 text-primary" />
