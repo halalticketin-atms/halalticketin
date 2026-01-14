@@ -653,6 +653,7 @@ export default function SettingsPage() {
                                                 className={cn("glass-surface backdrop-blur-sm rounded-xl", user?.dateOfBirth && "opacity-60")}
                                                 maxDate={new Date()}
                                                 disabled={!!user?.dateOfBirth}
+                                                showYearMonthDropdowns
                                             />
                                             {user?.dateOfBirth && (
                                                 <p className="text-xs text-muted-foreground">Date of birth cannot be changed once set</p>

@@ -13,6 +13,7 @@ import api, { ApiError, setAuthToken, setRefreshToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { toast } from '@/lib/notifications';
 import { parseBackendError } from '@/lib/api-errors';
+import { getLastAuthMethod, setLastAuthMethod, type LastAuthMethod } from '@/lib/last-auth-method';
 
 interface LoginResponse {
     accessToken: string;
@@ -42,6 +43,7 @@ function LoginContent() {
     const [showResendVerification, setShowResendVerification] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [lastUsed, setLastUsed] = useState<LastAuthMethod | null>(null);
     const searchParams = useSearchParams();
     const router = useRouter();
     const { user, isLoading: authLoading, refresh, isOrganizer, needsOnboarding } = useAuth();
@@ -74,6 +76,11 @@ function LoginContent() {
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    useEffect(() => {
+        const stored = getLastAuthMethod();
+        setLastUsed(stored?.method ?? null);
     }, []);
 
     // Disable wave animation on mobile or when user prefers reduced motion
@@ -127,6 +134,8 @@ function LoginContent() {
 
             setAuthToken(response.accessToken);
             setRefreshToken(response.refreshToken);
+            setLastAuthMethod('password');
+            setLastUsed('password');
             await refresh();
 
             // Show success toast
@@ -146,7 +155,12 @@ function LoginContent() {
                 );
             } else {
                 toast.error(err, 'Unable to sign in');
-                setError(err instanceof Error ? err.message : 'Unable to sign in.');
+                const baseMessage = err instanceof Error ? err.message : 'Unable to sign in.';
+                const isInvalidCredentials = parsed?.code === 'INVALID_CREDENTIALS';
+                const hint = lastUsed === 'google' && isInvalidCredentials
+                    ? 'You last signed in with Google on this device. Try “Continue with Google”.'
+                    : null;
+                setError(hint ? `${baseMessage} ${hint}` : baseMessage);
             }
         } finally {
             setIsLoading(false);
@@ -189,6 +203,8 @@ function LoginContent() {
         setError(null);
 
         try {
+            setLastAuthMethod('google');
+            setLastUsed('google');
             const { error } = await getSupabase().auth.signInWithOAuth({
                 provider: 'google',
                 options: {
@@ -341,8 +357,13 @@ function LoginContent() {
                                     <Button
                                         type="submit"
                                         disabled={isLoading}
-                                        className="w-full h-12 font-semibold text-lg bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 rounded-xl"
+                                        className="w-full h-12 font-semibold text-lg bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 rounded-xl relative"
                                     >
+                                        {lastUsed === 'password' && (
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] px-2 py-0.5 rounded-full bg-white/25 text-white border border-white/30">
+                                                Last used
+                                            </span>
+                                        )}
                                         {isLoading ? (
                                             <Loader2 className="h-5 w-5 animate-spin" />
                                         ) : (
@@ -366,8 +387,13 @@ function LoginContent() {
                                         variant="outline"
                                         onClick={handleGoogleLogin}
                                         disabled={isLoading}
-                                        className="w-full h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl"
+                                        className="w-full h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl relative"
                                     >
+                                        {lastUsed === 'google' && (
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] px-2 py-0.5 rounded-full bg-slate-900/5 dark:bg-white/10 text-slate-600 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700/70">
+                                                Last used
+                                            </span>
+                                        )}
                                         <svg className="h-5 w-5 mr-3" viewBox="0 0 24 24">
                                             <path
                                                 fill="#4285F4"
