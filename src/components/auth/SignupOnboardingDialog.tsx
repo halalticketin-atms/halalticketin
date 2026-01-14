@@ -19,11 +19,15 @@ import {
     CreditCard,
     CheckCircle,
     Check,
+    Heart,
     Sparkles,
     Camera,
     X,
     Eye,
     EyeOff,
+
+    Globe,
+    Coins,
 } from 'lucide-react';
 import {
     Dialog,
@@ -45,19 +49,33 @@ import {
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+
 import api, { setAuthToken } from '@/lib/api';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/notifications';
 import { uploadOrganizerAvatar } from '@/lib/upload-api';
-import { COUNTRIES, CURRENCIES, TIMEZONES } from '@/lib/organizer-options';
+import { COUNTRIES, TIMEZONES } from '@/lib/organizer-options';
 import { getPasswordValidationError } from '@/lib/password';
 import { getLastAuthMethod, setLastAuthMethod, type LastAuthMethod } from '@/lib/last-auth-method';
 
 const TERMS_VERSION = '2024-12-20';
 const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
+
+const CURRENCIES = [
+    { code: 'GBP', name: 'British Pound', symbol: '£' },
+    { code: 'USD', name: 'US Dollar', symbol: '$' },
+    { code: 'EUR', name: 'Euro', symbol: '€' },
+    { code: 'CAD', name: 'Canadian Dollar', symbol: '$' },
+    { code: 'AUD', name: 'Australian Dollar', symbol: '$' },
+    { code: 'AED', name: 'UAE Dirham', symbol: 'dh' },
+    { code: 'SAR', name: 'Saudi Riyal', symbol: 'SR' },
+    { code: 'MYR', name: 'Malaysian Ringgit', symbol: 'RM' },
+    { code: 'SGD', name: 'Singapore Dollar', symbol: '$' },
+    { code: 'BDT', name: 'Bangladeshi Taka', symbol: '৳' }
+];
 
 const BUYER_STEPS = [
     { id: 'intent', title: 'Welcome', description: 'Choose your path', icon: Sparkles },
@@ -68,8 +86,11 @@ const BUYER_STEPS = [
 const ORGANIZER_STEPS = [
     { id: 'intent', title: 'Welcome', description: 'Choose your path', icon: Sparkles },
     { id: 'credentials', title: 'Account', description: 'Create your account', icon: User },
-    { id: 'profile', title: 'Organization', description: 'Your brand', icon: Building2 },
-    { id: 'stripe', title: 'Payments', description: 'Get paid', icon: CreditCard },
+    { id: 'about-you', title: 'About You', description: 'Personal info', icon: User },
+    { id: 'organization', title: 'Organization', description: 'Your brand', icon: Building2 },
+    { id: 'location', title: 'Location', description: 'Where you are', icon: Globe },
+    { id: 'currency', title: 'Currency', description: 'Get paid', icon: Coins },
+    { id: 'stripe', title: 'Payments', description: 'Connect Stripe', icon: CreditCard },
 ];
 
 // Simplified flow for users joining via invitation - no org creation needed
@@ -108,7 +129,7 @@ interface RegisterResponse {
     requiresEmailConfirmation?: boolean;
 }
 
-type Step = 'intent' | 'credentials' | 'profile' | 'stripe' | 'complete';
+type Step = 'intent' | 'credentials' | 'profile' | 'about-you' | 'organization' | 'location' | 'currency' | 'stripe' | 'complete';
 
 interface FormData {
     role: 'buyer' | 'organizer';
@@ -120,7 +141,8 @@ interface FormData {
     homeCountry: string;
     homeCity: string;
     organizerName: string;
-    organizerType: 'individual' | 'organization';
+    organizerType: 'individual' | 'organization' | 'charity';
+    organizerCharityNumber: string;
     organizerCountry: string;
     organizerCity: string;
     organizerCurrency: string;
@@ -138,6 +160,7 @@ const initialFormData: FormData = {
     homeCity: '',
     organizerName: '',
     organizerType: 'individual',
+    organizerCharityNumber: '',
     organizerCountry: '',
     organizerCity: '',
     organizerCurrency: 'GBP',
@@ -195,8 +218,11 @@ export function SignupOnboardingDialog({
     const [organizerId, setOrganizerId] = useState<string | null>(null);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [passwordFocused, setPasswordFocused] = useState(false);
     const [pendingEmailConfirmation, setPendingEmailConfirmation] = useState(false);
     const [lastUsed, setLastUsed] = useState<LastAuthMethod | null>(null);
+
+
 
     // Avatar upload state
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -213,6 +239,13 @@ export function SignupOnboardingDialog({
         : shouldSkipWelcome
             ? baseSteps.filter(s => s.id !== 'intent' && s.id !== 'credentials')
             : baseSteps;
+
+    // Filter steps for the initial Welcome screen to reduce cognitive load
+    // Only show "Welcome" initially
+    const sidebarSteps = step === 'intent'
+        ? steps.filter(s => s.id === 'intent')
+        : steps;
+
     const currentStepIndex = steps.findIndex(s => s.id === step);
     const canGoBack = currentStepIndex > 0;
 
@@ -340,19 +373,41 @@ export function SignupOnboardingDialog({
                         return;
                     }
                 }
-                setStep('profile');
+                // Organizers go through granular steps, buyers go to profile
+                setStep(formData.role === 'organizer' ? 'about-you' : 'profile');
+                break;
+            case 'about-you':
+                if (!formData.gender || !formData.dateOfBirth) {
+                    setError('Please complete all required fields');
+                    return;
+                }
+                setStep('organization');
+                break;
+            case 'organization':
+                if (formData.organizerType === 'charity' && !formData.organizerCharityNumber) {
+                    setError('Charity number is required');
+                    return;
+                }
+                if (!formData.organizerName) {
+                    setError('Organization name is required');
+                    return;
+                }
+                setStep('location');
+                break;
+            case 'location':
+                setStep('currency');
+                break;
+            case 'currency':
+                if (!acceptedTerms) {
+                    setError('You must accept the Terms of Use to create an account');
+                    return;
+                }
+                await handleRegister();
                 break;
             case 'profile':
-                if (!formData.gender) {
-                    setError('Gender is required');
-                    return;
-                }
-                if (!formData.dateOfBirth) {
-                    setError('Date of birth is required');
-                    return;
-                }
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.dateOfBirth)) {
-                    setError('Date of birth must be a valid date');
+                // Buyer profile
+                if (!formData.gender || !formData.dateOfBirth) {
+                    setError('Please complete all required fields');
                     return;
                 }
                 if (!acceptedTerms) {
@@ -369,9 +424,24 @@ export function SignupOnboardingDialog({
                 break;
         }
     };
-
     const handleBack = () => {
         setDirection(-1);
+
+        switch (step) {
+            case 'currency':
+                setStep('location');
+                return;
+            case 'location':
+                setStep('organization');
+                return;
+            case 'organization':
+                setStep('about-you');
+                return;
+            case 'about-you':
+                setStep('credentials');
+                return;
+        }
+
         const previousStep = currentStepIndex > 0
             ? (steps[currentStepIndex - 1]?.id as Step | undefined)
             : undefined;
@@ -408,6 +478,9 @@ export function SignupOnboardingDialog({
                 payload.organizer = {
                     name: organizerName || undefined,
                     type: formData.organizerType,
+                    charityNumber: formData.organizerType === 'charity'
+                        ? (formData.organizerCharityNumber.trim() || undefined)
+                        : undefined,
                     country: formData.organizerCountry || undefined,
                     city: formData.organizerCity || undefined,
                     currency: formData.organizerCurrency || undefined,
@@ -577,12 +650,12 @@ export function SignupOnboardingDialog({
                     </div>
                 )}
 
-                {/* Mobile Step Indicator */}
-                {step !== 'complete' && (
+                {/* Mobile Step Indicator - Hide on Welcome screen */}
+                {step !== 'complete' && step !== 'intent' && (
                     <div className="lg:hidden border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0 relative z-10">
                         <div className="px-4 py-4">
                             <div className="flex items-center justify-between">
-                                {steps.map((s, idx) => (
+                                {sidebarSteps.map((s, idx) => (
                                     <motion.button
                                         key={s.id}
                                         onClick={() => goToStep(s.id as Step)}
@@ -622,50 +695,72 @@ export function SignupOnboardingDialog({
                     {/* Desktop Sidebar */}
                     {step !== 'complete' && (
                         <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 p-5">
+
                             <div className="space-y-2">
-                                {steps.map((s, idx) => (
-                                    <motion.button
-                                        key={s.id}
-                                        onClick={() => goToStep(s.id as Step)}
-                                        disabled={idx > currentStepIndex}
-                                        whileHover={idx <= currentStepIndex ? { x: 4 } : {}}
-                                        whileTap={idx <= currentStepIndex ? { scale: 0.98 } : {}}
-                                        className={cn(
-                                            'w-full flex items-center gap-4 rounded-2xl p-4 text-left transition-all duration-300',
-                                            step === s.id
-                                                ? 'bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white shadow-xl shadow-cyan-500/20'
-                                                : idx < currentStepIndex
-                                                    ? 'bg-white/60 dark:bg-slate-700/40 hover:bg-white dark:hover:bg-slate-700/60 cursor-pointer'
-                                                    : 'bg-slate-100/50 dark:bg-slate-800/30 cursor-not-allowed opacity-50'
-                                        )}
-                                    >
-                                        <div
+                                {sidebarSteps.map((s, idx) => {
+                                    if (s.id === 'intent' && step === 'intent') {
+                                        return (
+                                            <div key={s.id} className="pb-6 px-2 text-center">
+                                                <h2 className="text-2xl font-bold font-display bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) bg-clip-text text-transparent mb-4">
+                                                    Welcome
+                                                </h2>
+                                                <div className="relative h-16 w-full mx-auto">
+                                                    <Image
+                                                        src="/images/HTlogocr.png"
+                                                        alt="Halal Ticketin"
+                                                        fill
+                                                        className="object-contain"
+                                                        priority
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <motion.button
+                                            key={s.id}
+                                            onClick={() => goToStep(s.id as Step)}
+                                            disabled={idx > currentStepIndex}
+                                            whileHover={idx <= currentStepIndex ? { x: 4 } : {}}
+                                            whileTap={idx <= currentStepIndex ? { scale: 0.98 } : {}}
                                             className={cn(
-                                                'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all',
+                                                'w-full flex items-center gap-4 rounded-2xl p-4 text-left transition-all duration-300',
                                                 step === s.id
-                                                    ? 'bg-white/20'
+                                                    ? 'bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white shadow-xl shadow-cyan-500/20'
                                                     : idx < currentStepIndex
-                                                        ? 'bg-linear-to-br from-emerald-400 to-emerald-500 text-white'
-                                                        : 'bg-slate-200/80 dark:bg-slate-700'
+                                                        ? 'bg-white/60 dark:bg-slate-700/40 hover:bg-white dark:hover:bg-slate-700/60 cursor-pointer'
+                                                        : 'bg-slate-100/50 dark:bg-slate-800/30 cursor-not-allowed opacity-50'
                                             )}
                                         >
-                                            {idx < currentStepIndex ? (
-                                                <Check className="h-5 w-5" />
-                                            ) : (
-                                                <s.icon className="h-5 w-5" />
-                                            )}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="font-semibold">{s.title}</p>
-                                            <p className={cn(
-                                                'text-sm truncate',
-                                                step === s.id ? 'text-white/70' : 'text-slate-500'
-                                            )}>
-                                                {s.description}
-                                            </p>
-                                        </div>
-                                    </motion.button>
-                                ))}
+                                            <div
+                                                className={cn(
+                                                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all',
+                                                    step === s.id
+                                                        ? 'bg-white/20'
+                                                        : idx < currentStepIndex
+                                                            ? 'bg-linear-to-br from-emerald-400 to-emerald-500 text-white'
+                                                            : 'bg-slate-200/80 dark:bg-slate-700'
+                                                )}
+                                            >
+                                                {idx < currentStepIndex ? (
+                                                    <Check className="h-5 w-5" />
+                                                ) : (
+                                                    <s.icon className="h-5 w-5" />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-semibold">{s.title}</p>
+                                                <p className={cn(
+                                                    'text-sm truncate',
+                                                    step === s.id ? 'text-white/70' : 'text-slate-500'
+                                                )}>
+                                                    {s.description}
+                                                </p>
+                                            </div>
+                                        </motion.button>
+                                    );
+                                })}
                             </div>
                         </aside>
                     )}
@@ -686,13 +781,26 @@ export function SignupOnboardingDialog({
                                     className="space-y-8"
                                 >
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show">
-                                        <motion.div variants={staggerItem} className="text-center lg:text-left">
-                                            <h2 className="text-3xl lg:text-4xl font-display font-bold bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
-                                                Welcome to Halal Ticketin&apos;
-                                            </h2>
-                                            <p className="text-slate-600 dark:text-slate-400 mt-2 text-lg">
-                                                How would you like to get started?
-                                            </p>
+                                        <motion.div variants={staggerItem} className="text-center lg:text-left space-y-6">
+                                            {/* Mobile Logo */}
+                                            <div className="lg:hidden relative h-16 w-32 mx-auto">
+                                                <Image
+                                                    src="/images/HTlogocr.png"
+                                                    alt="Halal Ticketin"
+                                                    fill
+                                                    className="object-contain"
+                                                    priority
+                                                />
+                                            </div>
+
+                                            <div className="lg:hidden">
+                                                <h2 className="text-3xl font-display font-bold bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                                                    Welcome to Halal Ticketin&apos;
+                                                </h2>
+                                                <p className="text-slate-600 dark:text-slate-400 mt-2 text-lg">
+                                                    How would you like to get started?
+                                                </p>
+                                            </div>
                                         </motion.div>
                                     </motion.div>
 
@@ -800,22 +908,22 @@ export function SignupOnboardingDialog({
                                                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
                                                 </div>
 
-	                                                <Button
-	                                                    variant="outline"
-	                                                    onClick={handleGoogleLogin}
-	                                                    disabled={isLoading}
-	                                                    className="w-full h-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl relative"
-	                                                >
-	                                                    {lastUsed === 'google' && (
-	                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] px-2 py-0.5 rounded-full bg-slate-900/5 dark:bg-white/10 text-slate-600 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700/70">
-	                                                            Last used
-	                                                        </span>
-	                                                    )}
-	                                                    <svg className="h-5 w-5 mr-3" viewBox="0 0 24 24">
-	                                                        <path
-	                                                            fill="#4285F4"
-	                                                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-	                                                        />
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={handleGoogleLogin}
+                                                    disabled={isLoading}
+                                                    className="w-full h-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl relative"
+                                                >
+                                                    {lastUsed === 'google' && (
+                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] px-2 py-0.5 rounded-full bg-slate-900/5 dark:bg-white/10 text-slate-600 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700/70">
+                                                            Last used
+                                                        </span>
+                                                    )}
+                                                    <svg className="h-5 w-5 mr-3" viewBox="0 0 24 24">
+                                                        <path
+                                                            fill="#4285F4"
+                                                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                                                        />
                                                         <path
                                                             fill="#34A853"
                                                             d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
@@ -925,6 +1033,8 @@ export function SignupOnboardingDialog({
                                                             placeholder="••••••••"
                                                             value={formData.password}
                                                             onChange={(e) => updateField('password', e.target.value)}
+                                                            onFocus={() => setPasswordFocused(true)}
+                                                            onBlur={() => setPasswordFocused(false)}
                                                             className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-(--brand-cyan) focus:ring-(--brand-cyan)/20 transition-all pr-12 rounded-xl"
                                                             required
                                                         />
@@ -939,38 +1049,49 @@ export function SignupOnboardingDialog({
                                                     </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                                    {(
-                                                        [
-                                                            { label: '8+ characters', regex: /.{8,}/ },
-                                                            { label: 'Upper & Lowercase', regex: /^(?=.*[a-z])(?=.*[A-Z]).+$/ },
-                                                            { label: 'Numbers', regex: /\d/ },
-                                                            { label: 'Symbols', regex: /[^A-Za-z0-9\s]/ },
-                                                        ]
-                                                    ).map((req) => {
-                                                        const isMet = req.regex.test(formData.password);
-                                                        return (
-                                                            <div key={req.label} className="flex items-center gap-2.5">
-                                                                <div className={cn(
-                                                                    "h-5 w-5 rounded-full flex items-center justify-center transition-all duration-300 border",
-                                                                    isMet
-                                                                        ? "bg-emerald-500 border-emerald-500 text-white"
-                                                                        : formData.password
-                                                                            ? "bg-slate-200 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-400"
-                                                                            : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-300"
-                                                                )}>
-                                                                    <Check className={cn("h-3 w-3 transition-transform duration-300", isMet ? "scale-100" : "scale-0")} />
-                                                                </div>
-                                                                <span className={cn(
-                                                                    "text-[13px] transition-colors duration-300",
-                                                                    isMet ? "text-slate-900 dark:text-slate-100 font-medium" : "text-slate-500"
-                                                                )}>
-                                                                    {req.label}
-                                                                </span>
+                                                {/* Password requirements - animated reveal on focus */}
+                                                <AnimatePresence>
+                                                    {(passwordFocused || formData.password.length > 0) && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                                                            animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                                                            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                                            transition={{ duration: 0.2, ease: 'easeOut' }}
+                                                            className="overflow-hidden"
+                                                        >
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                                                {([
+                                                                    { label: '8+ characters', regex: /.{8,}/ },
+                                                                    { label: 'Upper & Lowercase', regex: /^(?=.*[a-z])(?=.*[A-Z]).+$/ },
+                                                                    { label: 'Numbers', regex: /\d/ },
+                                                                    { label: 'Symbols', regex: /[^A-Za-z0-9\s]/ },
+                                                                ]).map((req) => {
+                                                                    const isMet = req.regex.test(formData.password);
+                                                                    return (
+                                                                        <div key={req.label} className="flex items-center gap-2.5">
+                                                                            <div className={cn(
+                                                                                "h-5 w-5 rounded-full flex items-center justify-center transition-all duration-300 border",
+                                                                                isMet
+                                                                                    ? "bg-emerald-500 border-emerald-500 text-white"
+                                                                                    : formData.password
+                                                                                        ? "bg-slate-200 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-400"
+                                                                                        : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-300"
+                                                                            )}>
+                                                                                <Check className={cn("h-3 w-3 transition-transform duration-300", isMet ? "scale-100" : "scale-0")} />
+                                                                            </div>
+                                                                            <span className={cn(
+                                                                                "text-[13px] transition-colors duration-300",
+                                                                                isMet ? "text-slate-900 dark:text-slate-100 font-medium" : "text-slate-500"
+                                                                            )}>
+                                                                                {req.label}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                             </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </motion.div>
                                         )}
                                     </motion.div>
@@ -1020,335 +1141,105 @@ export function SignupOnboardingDialog({
                                 >
                                     <div>
                                         <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">
-                                            {formData.role === 'organizer' ? 'Set up your organization' : 'Tell us about yourself'}
+                                            Tell us about yourself
                                         </h2>
                                         <p className="text-slate-600 dark:text-slate-400 mt-1">
-                                            {formData.role === 'organizer'
-                                                ? 'This helps attendees discover your events'
-                                                : 'Required fields are marked with *'}
+                                            Required fields are marked with *
                                         </p>
                                     </div>
 
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show">
-                                        {formData.role === 'buyer' ? (
-                                            <div className="space-y-4">
-                                                <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    <div className="space-y-2">
-                                                        <Label>
-                                                            Gender <span className="text-rose-500">*</span>
-                                                        </Label>
-                                                        <Select
-                                                            value={formData.gender}
-                                                            onValueChange={(value) => updateField('gender', value as 'male' | 'female')}
-                                                        >
-                                                            <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
-                                                                <SelectValue placeholder="Select gender" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="male">Male</SelectItem>
-                                                                <SelectItem value="female">Female</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <Label className="flex items-center gap-2">
-                                                            <Calendar className="h-4 w-4 text-slate-400" />
-                                                            Date of Birth <span className="text-rose-500">*</span>
-                                                        </Label>
-                                                        <DatePicker
-                                                            value={formData.dateOfBirth}
-                                                            onChange={(value) => updateField('dateOfBirth', value)}
-                                                            placeholder="Select date of birth"
-                                                            className="h-12 bg-white/70 dark:bg-slate-800/70"
-                                                            maxDate={new Date()}
-                                                            showYearMonthDropdowns
-                                                        />
-                                                    </div>
-                                                </motion.div>
-
-                                                <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    <div className="space-y-2">
-                                                        <Label className="flex items-center gap-2">
-                                                            <MapPin className="h-4 w-4 text-slate-400" />
-                                                            Country
-                                                        </Label>
-                                                        <Select
-                                                            value={formData.homeCountry}
-                                                            onValueChange={(value) => updateField('homeCountry', value)}
-                                                        >
-                                                            <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
-                                                                <SelectValue placeholder="Select country" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {COUNTRIES.map((country) => (
-                                                                    <SelectItem key={country.code} value={country.code}>
-                                                                        {country.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <Label>City</Label>
-                                                        <Input
-                                                            placeholder="Your city"
-                                                            value={formData.homeCity}
-                                                            onChange={(e) => updateField('homeCity', e.target.value)}
-                                                            className="h-12 bg-white/70 dark:bg-slate-800/70"
-                                                        />
-                                                    </div>
-                                                </motion.div>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                {/* Avatar Upload for Organizer */}
-                                                <motion.div variants={staggerItem} className="flex flex-col items-center gap-3">
-                                                    <Label className="text-sm text-slate-600 dark:text-slate-400">
-                                                        Brand Logo / Photo <span className="text-slate-400">(Optional)</span>
+                                        <div className="space-y-4">
+                                            <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label>
+                                                        Gender <span className="text-rose-500">*</span>
                                                     </Label>
-                                                    <div className="relative group">
-                                                        <input
-                                                            ref={avatarInputRef}
-                                                            type="file"
-                                                            accept={AVATAR_ACCEPT}
-                                                            onChange={handleAvatarSelect}
-                                                            className="hidden"
-                                                            id="avatar-upload-org"
-                                                        />
-                                                        <label
-                                                            htmlFor="avatar-upload-org"
-                                                            className={cn(
-                                                                'relative flex h-24 w-24 cursor-pointer items-center justify-center rounded-full border-2 border-dashed transition-all overflow-hidden',
-                                                                avatarPreview
-                                                                    ? 'border-transparent'
-                                                                    : 'border-slate-300 dark:border-slate-600 hover:border-(--brand-cyan) bg-slate-100 dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
-                                                            )}
-                                                        >
-                                                            {avatarPreview ? (
-                                                                <Image
-                                                                    src={avatarPreview}
-                                                                    alt="Avatar preview"
-                                                                    fill
-                                                                    sizes="96px"
-                                                                    className="object-cover"
-                                                                    unoptimized
-                                                                />
-                                                            ) : (
-                                                                <Camera className="h-8 w-8 text-slate-400" />
-                                                            )}
-                                                        </label>
-                                                        {avatarPreview && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={removeAvatar}
-                                                                className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors"
-                                                            >
-                                                                <X className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </motion.div>
+                                                    <Select
+                                                        value={formData.gender}
+                                                        onValueChange={(value) => updateField('gender', value as 'male' | 'female')}
+                                                    >
+                                                        <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
+                                                            <SelectValue placeholder="Select gender" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="male">Male</SelectItem>
+                                                            <SelectItem value="female">Female</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
 
-                                                <motion.div variants={staggerItem} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 p-4">
-                                                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                                                        About you
-                                                    </div>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                                        Required fields are marked with *
-                                                    </p>
-                                                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                        <div className="space-y-2">
-                                                            <Label>
-                                                                Gender <span className="text-rose-500">*</span>
-                                                            </Label>
-                                                            <Select
-                                                                value={formData.gender}
-                                                                onValueChange={(value) => updateField('gender', value as 'male' | 'female')}
-                                                            >
-                                                                <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
-                                                                    <SelectValue placeholder="Select gender" />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="male">Male</SelectItem>
-                                                                    <SelectItem value="female">Female</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-
-                                                        <div className="space-y-2">
-                                                            <Label className="flex items-center gap-2">
-                                                                <Calendar className="h-4 w-4 text-slate-400" />
-                                                                Date of Birth <span className="text-rose-500">*</span>
-                                                            </Label>
-                                                            <DatePicker
-                                                                value={formData.dateOfBirth}
-                                                                onChange={(value) => updateField('dateOfBirth', value)}
-                                                                placeholder="Select date of birth"
-                                                                className="h-12 bg-white/70 dark:bg-slate-800/70"
-                                                                maxDate={new Date()}
-                                                                showYearMonthDropdowns
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </motion.div>
-
-                                                <motion.div variants={staggerItem} className="space-y-2">
+                                                <div className="space-y-2">
                                                     <Label className="flex items-center gap-2">
-                                                        <Building2 className="h-4 w-4 text-slate-400" />
-                                                        Organization / Brand Name
+                                                        <Calendar className="h-4 w-4 text-slate-400" />
+                                                        Date of Birth <span className="text-rose-500">*</span>
                                                     </Label>
+                                                    <DatePicker
+                                                        value={formData.dateOfBirth}
+                                                        onChange={(value) => updateField('dateOfBirth', value)}
+                                                        placeholder="Select date of birth"
+                                                        className="h-12 bg-white/70 dark:bg-slate-800/70"
+                                                        maxDate={new Date()}
+                                                        showYearMonthDropdowns
+                                                    />
+                                                </div>
+                                            </motion.div>
+
+                                            <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label className="flex items-center gap-2">
+                                                        <MapPin className="h-4 w-4 text-slate-400" />
+                                                        Country
+                                                    </Label>
+                                                    <Select
+                                                        value={formData.homeCountry}
+                                                        onValueChange={(value) => updateField('homeCountry', value)}
+                                                    >
+                                                        <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
+                                                            <SelectValue placeholder="Select country" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {COUNTRIES.map((country) => (
+                                                                <SelectItem key={country.code} value={country.code}>
+                                                                    {country.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label>City</Label>
                                                     <Input
-                                                        placeholder="Your brand or organization name"
-                                                        value={formData.organizerName}
-                                                        onChange={(e) => updateField('organizerName', e.target.value)}
+                                                        placeholder="Your city"
+                                                        value={formData.homeCity}
+                                                        onChange={(e) => updateField('homeCity', e.target.value)}
                                                         className="h-12 bg-white/70 dark:bg-slate-800/70"
                                                     />
-                                                </motion.div>
+                                                </div>
+                                            </motion.div>
+                                        </div>
+                                    </motion.div>
 
-                                                <motion.div variants={staggerItem} className="space-y-2">
-                                                    <Label>Organization Type</Label>
-                                                    <RadioGroup
-                                                        value={formData.organizerType}
-                                                        onValueChange={(value) => updateField('organizerType', value as 'individual' | 'organization')}
-                                                        className="flex gap-4"
-                                                    >
-                                                        <Label
-                                                            htmlFor="type-individual"
-                                                            className={cn(
-                                                                'flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all',
-                                                                formData.organizerType === 'individual'
-                                                                    ? 'border-(--brand-cyan) bg-cyan-50/50'
-                                                                    : 'border-slate-200 hover:border-slate-300'
-                                                            )}
-                                                        >
-                                                            <RadioGroupItem value="individual" id="type-individual" />
-                                                            Individual
-                                                        </Label>
-                                                        <Label
-                                                            htmlFor="type-org"
-                                                            className={cn(
-                                                                'flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all',
-                                                                formData.organizerType === 'organization'
-                                                                    ? 'border-(--brand-cyan) bg-cyan-50/50'
-                                                                    : 'border-slate-200 hover:border-slate-300'
-                                                            )}
-                                                        >
-                                                            <RadioGroupItem value="organization" id="type-org" />
-                                                            Organization
-                                                        </Label>
-                                                    </RadioGroup>
-                                                </motion.div>
-
-                                                <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    <div className="space-y-2">
-                                                        <Label>Country</Label>
-                                                        <Select
-                                                            value={formData.organizerCountry}
-                                                            onValueChange={(value) => updateField('organizerCountry', value)}
-                                                        >
-                                                            <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
-                                                                <SelectValue placeholder="Select country" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {COUNTRIES.map((country) => (
-                                                                    <SelectItem key={country.code} value={country.code}>
-                                                                        {country.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <Label>City</Label>
-                                                        <Input
-                                                            placeholder="City"
-                                                            value={formData.organizerCity}
-                                                            onChange={(e) => updateField('organizerCity', e.target.value)}
-                                                            className="h-12 bg-white/70 dark:bg-slate-800/70"
-                                                        />
-                                                    </div>
-                                                </motion.div>
-
-                                                <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    <div className="space-y-2">
-                                                        <Label>Currency</Label>
-                                                        <Select
-                                                            value={formData.organizerCurrency}
-                                                            onValueChange={(value) => updateField('organizerCurrency', value)}
-                                                        >
-                                                            <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {CURRENCIES.map((currency) => (
-                                                                    <SelectItem key={currency.code} value={currency.code}>
-                                                                        {currency.code} - {currency.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <Label>Timezone</Label>
-                                                        <Select
-                                                            value={formData.organizerTimezone}
-                                                            onValueChange={(value) => updateField('organizerTimezone', value)}
-                                                        >
-                                                            <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {TIMEZONES.map((tz) => (
-                                                                    <SelectItem key={tz.value} value={tz.value}>
-                                                                        {tz.label}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                </motion.div>
-                                            </div>
-                                        )}
-
-                                        {/* Terms of Use Checkbox */}
-                                        <motion.div variants={staggerItem} className="pt-4">
-                                            <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700">
-                                                <Checkbox
-                                                    id="terms-of-use"
-                                                    checked={acceptedTerms}
-                                                    onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-                                                    className="mt-0.5 h-5 w-5 border-2 border-slate-400 dark:border-slate-500 data-[state=checked]:bg-[var(--brand-teal)] data-[state=checked]:border-(--brand-teal)"
-                                                />
-                                                <Label
-                                                    htmlFor="terms-of-use"
-                                                    className="flex-1 block text-sm text-slate-600 dark:text-slate-400 cursor-pointer leading-relaxed"
-                                                >
-                                                    I agree to the{' '}
-                                                    <a
-                                                        href="/terms"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors"
-                                                    >
-                                                        Terms of Use
-                                                    </a>{' '}
-                                                    and{' '}
-                                                    <a
-                                                        href="/privacy"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors"
-                                                    >
-                                                        Privacy Policy
-                                                    </a>
-                                                    <span className="text-rose-500 ml-1">*</span>
-                                                </Label>
-                                            </div>
-                                        </motion.div>
+                                    <motion.div variants={staggerItem} className="pt-4">
+                                        <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700">
+                                            <Checkbox
+                                                id="terms-of-use"
+                                                checked={acceptedTerms}
+                                                onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                                                className="mt-0.5 h-5 w-5 border-2 border-slate-400 dark:border-slate-500 data-[state=checked]:bg-[var(--brand-teal)] data-[state=checked]:border-(--brand-teal)"
+                                            />
+                                            <Label
+                                                htmlFor="terms-of-use"
+                                                className="flex-1 block text-sm text-slate-600 dark:text-slate-400 cursor-pointer leading-relaxed"
+                                            >
+                                                I agree to the{' '}
+                                                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors">Terms of Use</a>{' '}
+                                                and{' '}
+                                                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors">Privacy Policy</a>
+                                                <span className="text-rose-500 ml-1">*</span>
+                                            </Label>
+                                        </div>
                                     </motion.div>
 
                                     {error && (
@@ -1387,6 +1278,390 @@ export function SignupOnboardingDialog({
                                                     <ArrowRight className="ml-2 h-5 w-5" />
                                                 </>
                                             )}
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* Step: About You (Organizer) */}
+                            {step === 'about-you' && (
+                                <motion.div
+                                    key="about-you"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                    className="space-y-6"
+                                >
+                                    <div>
+                                        <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">
+                                            Tell us about you
+                                        </h2>
+                                        <p className="text-slate-600 dark:text-slate-400 mt-1">
+                                            Basic information for your personal profile
+                                        </p>
+                                    </div>
+
+                                    <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label>Gender <span className="text-rose-500">*</span></Label>
+                                            <Select
+                                                value={formData.gender}
+                                                onValueChange={(value) => updateField('gender', value as 'male' | 'female')}
+                                            >
+                                                <SelectTrigger className="h-11 bg-white dark:bg-slate-800">
+                                                    <SelectValue placeholder="Select gender" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="male">Male</SelectItem>
+                                                    <SelectItem value="female">Female</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Date of Birth <span className="text-rose-500">*</span></Label>
+                                            <DatePicker
+                                                value={formData.dateOfBirth}
+                                                onChange={(value) => updateField('dateOfBirth', value)}
+                                                placeholder="Select date of birth"
+                                                className="h-11 bg-white dark:bg-slate-800"
+                                                maxDate={new Date()}
+                                                showYearMonthDropdowns
+                                            />
+                                        </div>
+                                    </motion.div>
+
+                                    {error && (
+                                        <motion.p
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
+                                        >
+                                            {error}
+                                        </motion.p>
+                                    )}
+
+                                    <div className="flex gap-3 pt-2">
+                                        <Button variant="outline" onClick={handleBack} disabled={isLoading} className="h-12 px-6 border-2">
+                                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                                        </Button>
+                                        <Button
+                                            onClick={handleNext}
+                                            disabled={isLoading}
+                                            className="flex-1 h-12 font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal)"
+                                        >
+                                            Next Step <ArrowRight className="ml-2 h-5 w-5" />
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* Step: Organization Details */}
+                            {step === 'organization' && (
+                                <motion.div
+                                    key="organization"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                    className="space-y-6"
+                                >
+                                    <div>
+                                        <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">Organization Details</h2>
+                                        <p className="text-slate-600 dark:text-slate-400 mt-1">Tell us about your brand or organization</p>
+                                    </div>
+
+                                    <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="relative group">
+                                                <input
+                                                    ref={avatarInputRef}
+                                                    type="file"
+                                                    accept={AVATAR_ACCEPT}
+                                                    onChange={handleAvatarSelect}
+                                                    className="hidden"
+                                                    id="avatar-upload-org"
+                                                />
+                                                <label
+                                                    htmlFor="avatar-upload-org"
+                                                    className={cn(
+                                                        'relative flex h-16 w-16 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed transition-all overflow-hidden',
+                                                        avatarPreview
+                                                            ? 'border-transparent'
+                                                            : 'border-slate-300 dark:border-slate-600 hover:border-(--brand-cyan) bg-slate-50 dark:bg-slate-800'
+                                                    )}
+                                                >
+                                                    {avatarPreview ? (
+                                                        <Image
+                                                            src={avatarPreview}
+                                                            alt="Avatar preview"
+                                                            fill
+                                                            sizes="64px"
+                                                            className="object-cover"
+                                                            unoptimized
+                                                        />
+                                                    ) : (
+                                                        <Camera className="h-5 w-5 text-slate-400" />
+                                                    )}
+                                                </label>
+                                                {avatarPreview && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={removeAvatar}
+                                                        className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors z-10"
+                                                    >
+                                                        <X className="h-2.5 w-2.5" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Upload Logo</p>
+                                                <p className="text-xs text-slate-500">400x400px, JPG/PNG, 2MB max</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Organization Name</Label>
+                                            <Input
+                                                placeholder="Brand or organization name"
+                                                value={formData.organizerName}
+                                                onChange={(e) => updateField('organizerName', e.target.value)}
+                                                className="h-11 bg-white dark:bg-slate-800"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Type</Label>
+                                            <RadioGroup
+                                                value={formData.organizerType}
+                                                onValueChange={(value) => updateField('organizerType', value as any)}
+                                                className="grid grid-cols-3 gap-2"
+                                            >
+                                                {['individual', 'organization', 'charity'].map((type) => (
+                                                    <Label
+                                                        key={type}
+                                                        htmlFor={`type-${type}`}
+                                                        className={cn(
+                                                            'flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 cursor-pointer transition-all text-center',
+                                                            formData.organizerType === type
+                                                                ? 'border-(--brand-cyan) bg-cyan-50/50 dark:bg-cyan-950/20'
+                                                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                                                        )}
+                                                    >
+                                                        <RadioGroupItem value={type} id={`type-${type}`} className="sr-only" />
+                                                        {type === 'individual' && <User className="h-4 w-4 opacity-70" />}
+                                                        {type === 'organization' && <Building2 className="h-4 w-4 opacity-70" />}
+                                                        {type === 'charity' && <Heart className="h-4 w-4 opacity-70" />}
+                                                        <span className="text-xs font-medium capitalize">{type}</span>
+                                                    </Label>
+                                                ))}
+                                            </RadioGroup>
+                                        </div>
+
+                                        {formData.organizerType === 'charity' && (
+                                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
+                                                <Label>Charity Number <span className="text-rose-500">*</span></Label>
+                                                <Input
+                                                    placeholder="Registration number"
+                                                    value={formData.organizerCharityNumber}
+                                                    onChange={(e) => updateField('organizerCharityNumber', e.target.value)}
+                                                    className="h-11 bg-white dark:bg-slate-800"
+                                                />
+                                            </motion.div>
+                                        )}
+                                    </motion.div>
+
+                                    {error && (
+                                        <motion.p
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
+                                        >
+                                            {error}
+                                        </motion.p>
+                                    )}
+
+                                    <div className="flex gap-3 pt-2">
+                                        <Button variant="outline" onClick={handleBack} disabled={isLoading} className="h-12 px-6 border-2">
+                                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                                        </Button>
+                                        <Button
+                                            onClick={handleNext}
+                                            disabled={isLoading}
+                                            className="flex-1 h-12 font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal)"
+                                        >
+                                            Next Step <ArrowRight className="ml-2 h-5 w-5" />
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* Step: Location */}
+                            {step === 'location' && (
+                                <motion.div
+                                    key="location"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                    className="space-y-6"
+                                >
+                                    <div>
+                                        <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">Location & Timezone</h2>
+                                        <p className="text-slate-600 dark:text-slate-400 mt-1">Set your default location preferences</p>
+                                    </div>
+
+                                    <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label>Country</Label>
+                                            <Select
+                                                value={formData.organizerCountry}
+                                                onValueChange={(value) => updateField('organizerCountry', value)}
+                                            >
+                                                <SelectTrigger className="h-11 bg-white dark:bg-slate-800">
+                                                    <SelectValue placeholder="Select country" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {COUNTRIES.map((country) => (
+                                                        <SelectItem key={country.code} value={country.code}>
+                                                            {country.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>City</Label>
+                                            <Input
+                                                placeholder="City"
+                                                value={formData.organizerCity}
+                                                onChange={(e) => updateField('organizerCity', e.target.value)}
+                                                className="h-11 bg-white dark:bg-slate-800"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Timezone</Label>
+                                            <Select
+                                                value={formData.organizerTimezone}
+                                                onValueChange={(value) => updateField('organizerTimezone', value)}
+                                            >
+                                                <SelectTrigger className="h-11 bg-white dark:bg-slate-800">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {TIMEZONES.map((tz) => (
+                                                        <SelectItem key={tz.value} value={tz.value}>
+                                                            {tz.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </motion.div>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <Button variant="outline" onClick={handleBack} disabled={isLoading} className="h-12 px-6 border-2">
+                                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                                        </Button>
+                                        <Button
+                                            onClick={handleNext}
+                                            disabled={isLoading}
+                                            className="flex-1 h-12 font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal)"
+                                        >
+                                            Next Step <ArrowRight className="ml-2 h-5 w-5" />
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* Step: Currency */}
+                            {step === 'currency' && (
+                                <motion.div
+                                    key="currency"
+                                    custom={direction}
+                                    variants={slideVariants}
+                                    initial="enter"
+                                    animate="center"
+                                    exit="exit"
+                                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                    className="space-y-6"
+                                >
+                                    <div>
+                                        <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">Currency</h2>
+                                        <p className="text-slate-600 dark:text-slate-400 mt-1">Select your preferred currency for payouts</p>
+                                    </div>
+
+                                    <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {CURRENCIES.map((currency) => (
+                                                <div
+                                                    key={currency.code}
+                                                    onClick={() => updateField('organizerCurrency', currency.code)}
+                                                    className={cn(
+                                                        "cursor-pointer flex items-center justify-between p-3 rounded-lg border-2 transition-all",
+                                                        formData.organizerCurrency === currency.code
+                                                            ? "border-(--brand-cyan) bg-cyan-50/50 dark:bg-cyan-950/20"
+                                                            : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex items-center justify-center w-7 h-7 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 font-bold text-xs">{currency.symbol}</div>
+                                                        <span className="text-sm font-medium">{currency.name}</span>
+                                                    </div>
+                                                    {formData.organizerCurrency === currency.code && <Check className="w-4 h-4 text-(--brand-cyan)" />}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="pt-6 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                            <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700">
+                                                <Checkbox
+                                                    id="terms-of-use-org"
+                                                    checked={acceptedTerms}
+                                                    onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                                                    className="mt-0.5 h-4 w-4 border-2 border-slate-400 dark:border-slate-500 data-[state=checked]:bg-(--brand-teal) data-[state=checked]:border-(--brand-teal)"
+                                                />
+                                                <Label
+                                                    htmlFor="terms-of-use-org"
+                                                    className="flex-1 block text-sm text-slate-600 dark:text-slate-400 cursor-pointer leading-relaxed"
+                                                >
+                                                    I agree to the{' '}
+                                                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors">Terms of Use</a>{' '}
+                                                    and{' '}
+                                                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors">Privacy Policy</a>
+                                                    <span className="text-rose-500 ml-1">*</span>
+                                                </Label>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+
+                                    {error && (
+                                        <motion.p
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
+                                        >
+                                            {error}
+                                        </motion.p>
+                                    )}
+
+                                    <div className="flex gap-3 pt-2">
+                                        <Button variant="outline" onClick={handleBack} disabled={isLoading} className="h-12 px-6 border-2">
+                                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                                        </Button>
+                                        <Button
+                                            onClick={handleNext}
+                                            disabled={isLoading}
+                                            className="flex-1 h-12 font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal)"
+                                        >
+                                            Create Account <ArrowRight className="ml-2 h-5 w-5" />
                                         </Button>
                                     </div>
                                 </motion.div>
@@ -1551,6 +1826,6 @@ export function SignupOnboardingDialog({
                     </div>
                 </div>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }

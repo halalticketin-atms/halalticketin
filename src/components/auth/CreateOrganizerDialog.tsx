@@ -88,7 +88,8 @@ export function CreateOrganizerDialog({
 
     // Form fields
     const [name, setName] = useState('');
-    const [organizerType, setOrganizerType] = useState<'individual' | 'organization'>('individual');
+    const [organizerType, setOrganizerType] = useState<'individual' | 'organization' | 'charity'>('individual');
+    const [charityNumber, setCharityNumber] = useState('');
     const [country, setCountry] = useState('');
     const [city, setCity] = useState('');
     const [currency, setCurrency] = useState('GBP');
@@ -146,6 +147,10 @@ export function CreateOrganizerDialog({
             setError('Please enter an organiser name');
             return;
         }
+        if (organizerType === 'charity' && !charityNumber.trim()) {
+            setError('Please enter your charity number');
+            return;
+        }
 
         try {
             setIsLoading(true);
@@ -156,6 +161,7 @@ export function CreateOrganizerDialog({
             }>('/api/v1/organizers', {
                 name: name.trim(),
                 organizerType,
+                charityNumber: organizerType === 'charity' ? charityNumber.trim() : undefined,
                 country: country || undefined,
                 city: city.trim() || undefined,
                 defaultTimezone: timezone,
@@ -508,7 +514,7 @@ export function CreateOrganizerDialog({
                                                 <Label>Organization Type</Label>
                                                 <RadioGroup
                                                     value={organizerType}
-                                                    onValueChange={(value) => setOrganizerType(value as 'individual' | 'organization')}
+                                                    onValueChange={(value) => setOrganizerType(value as 'individual' | 'organization' | 'charity')}
                                                     className="flex gap-4"
                                                 >
                                                     <Label
@@ -535,8 +541,37 @@ export function CreateOrganizerDialog({
                                                         <RadioGroupItem value="organization" id="type-org" />
                                                         Organization
                                                     </Label>
+                                                    <Label
+                                                        htmlFor="type-charity"
+                                                        className={cn(
+                                                            'flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all flex-1',
+                                                            organizerType === 'charity'
+                                                                ? 'border-[var(--brand-cyan)] bg-cyan-50/50 dark:bg-cyan-950/30'
+                                                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                                                        )}
+                                                    >
+                                                        <RadioGroupItem value="charity" id="type-charity" />
+                                                        Charity
+                                                    </Label>
                                                 </RadioGroup>
                                             </motion.div>
+
+                                            {organizerType === 'charity' && (
+                                                <motion.div variants={staggerItem} className="space-y-2 mt-4">
+                                                    <Label>
+                                                        Charity number <span className="text-rose-500">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        placeholder="Charity registration number"
+                                                        value={charityNumber}
+                                                        onChange={(event) => setCharityNumber(event.target.value)}
+                                                        className="h-12 bg-white/70 dark:bg-slate-800/70"
+                                                    />
+                                                    <p className="text-xs text-slate-500">
+                                                        Auto-approved on submission, visible in the admin dashboard.
+                                                    </p>
+                                                </motion.div>
+                                            )}
 
                                             {/* Country & City */}
                                             <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">

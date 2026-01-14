@@ -65,6 +65,7 @@ export default function ProfilePage() {
     const avatarImage = avatarPreview || user?.avatarUrl || '';
     const avatarFallback = displayName.charAt(0).toUpperCase();
     const activeOrganizer = organizers.find((organizer) => organizer.id === activeOrganizerId) ?? null;
+    const isCharity = Boolean(activeOrganizer?.isCharityVerified && activeOrganizer?.charityNumber);
     const resolveCountryName = (code?: string | null) => {
         if (!code) return '';
         return COUNTRIES.find((country) => country.code === code)?.name ?? code;
@@ -244,8 +245,15 @@ export default function ProfilePage() {
                                     <div className="flex flex-wrap items-center gap-3 mb-1">
                                         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{displayName}</h1>
                                         {memberships.length > 0 ? (
-                                            <Badge variant="secondary" className="font-normal border-primary/20 bg-primary/5 text-primary">
-                                                Organiser
+                                            <Badge
+                                                variant="secondary"
+                                                className={
+                                                    isCharity
+                                                        ? 'font-normal border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
+                                                        : 'font-normal border-primary/20 bg-primary/5 text-primary'
+                                                }
+                                            >
+                                                {isCharity ? 'Charity' : 'Organiser'}
                                             </Badge>
                                         ) : user && (
                                             <div className="flex items-center gap-2">

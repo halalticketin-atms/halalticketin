@@ -30,6 +30,8 @@ export interface OrganizerSummary {
     defaultCurrency?: string;
     metaPixelId: string | null;
     feeTier: 'payg' | 'token' | 'charity';
+    charityNumber: string | null;
+    isCharityVerified: boolean;
     role: string;
     status: string;
     membershipId: string;

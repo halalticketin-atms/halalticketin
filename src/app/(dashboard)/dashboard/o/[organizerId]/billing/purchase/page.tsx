@@ -6,7 +6,7 @@ import { ArrowLeft, CreditCard, CheckCircle2 } from 'lucide-react';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizers } from '@/context/organizer-context';
 import { createCreditPurchaseSession } from '@/lib/credits-api';
-import { calculateCreditPrice, MAX_PRICE_GBP, MIN_PRICE_GBP } from '@/lib/fees';
+import { CHARITY_CREDIT_DISCOUNT_RATE, applyCharityCreditDiscount, calculateCreditPrice } from '@/lib/fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -19,6 +19,7 @@ export default function PurchaseCreditsPage() {
     const { organizers } = useOrganizers();
     const { rates } = useExchangeRates();
     const organizer = organizers.find((item) => item.id === organizerId);
+    const isCharity = Boolean(organizer?.isCharityVerified && organizer?.charityNumber);
     const organizerCurrency = (organizer?.defaultCurrency || 'GBP').toUpperCase();
     const exchangeRate = rates[organizerCurrency] ?? 1;
 
@@ -29,21 +30,28 @@ export default function PurchaseCreditsPage() {
     const [error, setError] = useState<string | null>(null);
 
     const pricing = useMemo(() => {
-        const pricePerCreditGBP = calculateCreditPrice(credits);
-        const pricePerCredit = pricePerCreditGBP * exchangeRate;
-        const subtotal = credits * pricePerCredit;
+        const basePricePerCreditGBP = calculateCreditPrice(credits);
+        const discountRate = isCharity ? CHARITY_CREDIT_DISCOUNT_RATE : 0;
+        const discountedPricePerCreditGBP = applyCharityCreditDiscount(basePricePerCreditGBP, discountRate);
+        const basePricePerCredit = basePricePerCreditGBP * exchangeRate;
+        const pricePerCredit = discountedPricePerCreditGBP * exchangeRate;
+        const subtotal = credits * basePricePerCredit;
+        const discountedSubtotal = credits * pricePerCredit;
+        const discountAmount = Math.max(0, subtotal - discountedSubtotal);
         const vatRate = 0.23;
-        const vat = subtotal * vatRate;
-        const total = subtotal + vat;
+        const vat = discountedSubtotal * vatRate;
+        const total = discountedSubtotal + vat;
 
         return {
+            basePricePerCredit,
             pricePerCredit,
             subtotal,
+            discountAmount,
             vat,
             total,
             currency: organizerCurrency
         };
-    }, [credits, exchangeRate, organizerCurrency]);
+    }, [credits, exchangeRate, isCharity, organizerCurrency]);
 
     const formatCurrency = (amount: number, currency: string) => {
         return new Intl.NumberFormat('en-IE', {
@@ -123,10 +131,16 @@ export default function PurchaseCreditsPage() {
                     <div className="border-t border-b border-border py-4 space-y-3">
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">
-                                {credits.toLocaleString()} credits × {formatCurrency(pricing.pricePerCredit, pricing.currency)}
+                                {credits.toLocaleString()} credits × {formatCurrency(pricing.basePricePerCredit, pricing.currency)}
                             </span>
                             <span>{formatCurrency(pricing.subtotal, pricing.currency)}</span>
                         </div>
+                        {pricing.discountAmount > 0 && (
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Charity discount (25%)</span>
+                                <span>-{formatCurrency(pricing.discountAmount, pricing.currency)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">VAT (23%)</span>
                             <span>{formatCurrency(pricing.vat, pricing.currency)}</span>
@@ -166,6 +180,12 @@ export default function PurchaseCreditsPage() {
                             <CheckCircle2 className="h-4 w-4 text-green-500" />
                             <span>Save up to 50%</span>
                         </div>
+                        {isCharity && (
+                            <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                <span>Charity discount applied</span>
+                            </div>
+                        )}
                         <div className="flex items-center gap-1.5">
                             <CheckCircle2 className="h-4 w-4 text-green-500" />
                             <span>Never expires</span>

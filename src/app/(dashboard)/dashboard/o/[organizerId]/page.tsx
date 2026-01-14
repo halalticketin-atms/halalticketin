@@ -87,6 +87,8 @@ export default function DashboardPage() {
     // Get the current user's role for this organizer
     const activeOrganizer = organizers.find((org) => org.id === organizerId);
     const userRole = activeOrganizer?.role;
+    const isCharity = Boolean(activeOrganizer?.isCharityVerified && activeOrganizer?.charityNumber);
+    const showCharityBanner = Boolean(organizerId && isCharity);
 
     // Redirect check-in users to the check-in page
     useEffect(() => {
@@ -259,6 +261,19 @@ export default function DashboardPage() {
                     <h1 className="font-display text-2xl sm:text-3xl font-bold">{welcomeTitle}</h1>
                     <p className="text-muted-foreground mt-1">{welcomeSubtitle}</p>
                 </motion.div>
+
+                {showCharityBanner && (
+                    <div className="mb-6 rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p className="font-semibold">Charity discounts active</p>
+                                <p className="text-emerald-900/80">
+                                    50% off platform fees and 25% off credits are applied automatically.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {showLowCredits && organizerId && (
                     <div className="mb-6 rounded-xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">

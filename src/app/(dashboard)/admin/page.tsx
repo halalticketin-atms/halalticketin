@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { CalendarPlus, Ticket, UserPlus, TrendingUp, Shield, Sparkles } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import api, { ApiError } from '@/lib/api';
 
@@ -29,6 +30,25 @@ type AdminOverviewResponse = {
         tickets: number;
     };
     activity: ActivityItem[];
+};
+
+type CharityItem = {
+    id: string;
+    name: string;
+    charityNumber: string | null;
+    isCharityVerified: boolean;
+    organizerType: string;
+    createdAt: string;
+    updatedAt: string;
+};
+
+type CharityResponse = {
+    data: CharityItem[];
+    pagination: {
+        limit: number;
+        offset: number;
+        total: number;
+    };
 };
 
 const activityIcons = {
@@ -76,6 +96,11 @@ export default function AdminDashboardPage() {
     const [overview, setOverview] = useState<AdminOverviewResponse | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [charities, setCharities] = useState<CharityItem[]>([]);
+    const [charityTotal, setCharityTotal] = useState(0);
+    const [charityError, setCharityError] = useState<string | null>(null);
+    const [isCharityLoading, setIsCharityLoading] = useState(true);
+    const [updatingCharityId, setUpdatingCharityId] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -113,7 +138,43 @@ export default function AdminDashboardPage() {
             }
         };
 
+        const fetchCharities = async () => {
+            setIsCharityLoading(true);
+            try {
+                const response = await api.get<CharityResponse>('/api/v1/admin/charities', {
+                    params: { status: 'all', limit: '12', offset: '0' },
+                });
+                if (!cancelled) {
+                    setCharities(response.data);
+                    setCharityTotal(response.pagination.total ?? response.data.length);
+                    setCharityError(null);
+                }
+            } catch (err) {
+                if (cancelled) {
+                    return;
+                }
+                if (err instanceof ApiError) {
+                    if (err.status === 403) {
+                        setCharityError('You do not have access to charity requests.');
+                    } else if (err.status === 401) {
+                        setCharityError('Please sign in to view charity requests.');
+                    } else {
+                        setCharityError(err.message || 'Unable to load charity requests.');
+                    }
+                } else {
+                    setCharityError('Unable to load charity requests.');
+                }
+                setCharities([]);
+                setCharityTotal(0);
+            } finally {
+                if (!cancelled) {
+                    setIsCharityLoading(false);
+                }
+            }
+        };
+
         void fetchOverview();
+        void fetchCharities();
 
         return () => {
             cancelled = true;
@@ -159,6 +220,26 @@ export default function AdminDashboardPage() {
         const users = (overview?.activity ?? []).filter(item => item.type === 'user');
         return { eventActivity: events.slice(0, 6), userActivity: users.slice(0, 6) };
     }, [overview]);
+
+    const handleRevokeCharity = async (organizerId: string) => {
+        setUpdatingCharityId(organizerId);
+        try {
+            await api.patch(`/api/v1/admin/organizers/${organizerId}/charity`, {
+                isCharityVerified: false,
+            });
+            setCharities((prev) =>
+                prev.map((item) =>
+                    item.id === organizerId
+                        ? { ...item, isCharityVerified: false, updatedAt: new Date().toISOString() }
+                        : item
+                )
+            );
+        } catch (err) {
+            setCharityError(err instanceof Error ? err.message : 'Unable to update charity status.');
+        } finally {
+            setUpdatingCharityId(null);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -403,6 +484,76 @@ export default function AdminDashboardPage() {
                         </Card>
                     </motion.div>
                 )}
+
+                {/* Charity Signups */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.55 }}
+                >
+                    <Card className="border-border/60">
+                        <CardHeader className="flex flex-row items-center justify-between pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
+                                    <Sparkles className="h-4 w-4 text-white" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-lg">Charity Signups</CardTitle>
+                                    <p className="text-xs text-muted-foreground">Auto-approved, reviewable here</p>
+                                </div>
+                            </div>
+                            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                                {charityTotal} total
+                            </Badge>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            {isCharityLoading ? (
+                                <p className="text-sm text-muted-foreground py-4 text-center">Loading charity signups...</p>
+                            ) : charityError ? (
+                                <p className="text-sm text-muted-foreground py-4 text-center">{charityError}</p>
+                            ) : charities.length === 0 ? (
+                                <p className="text-sm text-muted-foreground py-4 text-center">No charity signups yet.</p>
+                            ) : (
+                                charities.map((item) => (
+                                    <div
+                                        key={`charity-${item.id}`}
+                                        className="flex flex-col gap-3 rounded-lg border border-border/40 bg-background/50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium truncate">{item.name}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Charity number: {item.charityNumber || 'Not provided'}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Submitted {formatRelativeTime(item.createdAt)}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge
+                                                variant="secondary"
+                                                className={item.isCharityVerified
+                                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}
+                                            >
+                                                {item.isCharityVerified ? 'Verified' : 'Revoked'}
+                                            </Badge>
+                                            {item.isCharityVerified && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleRevokeCharity(item.id)}
+                                                    disabled={updatingCharityId === item.id}
+                                                >
+                                                    {updatingCharityId === item.id ? 'Revoking...' : 'Revoke'}
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
+                    </Card>
+                </motion.div>
 
                 {/* Footer */}
                 <motion.div
