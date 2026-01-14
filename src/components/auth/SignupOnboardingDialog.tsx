@@ -1023,6 +1023,7 @@ export function SignupOnboardingDialog({
                                                             placeholder="Select date of birth"
                                                             className="h-12 bg-white/70 dark:bg-slate-800/70"
                                                             maxDate={new Date()}
+                                                            showYearMonthDropdowns
                                                         />
                                                     </div>
                                                 </motion.div>

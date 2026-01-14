@@ -36,6 +36,14 @@ interface DatePickerProps {
     id?: string
     /** Name for form association */
     name?: string
+    /** Enable year/month dropdowns for quick navigation (useful for birth dates) */
+    showYearMonthDropdowns?: boolean
+    /** Starting year for dropdown (defaults to 100 years ago) */
+    fromYear?: number
+    /** Ending year for dropdown (defaults to current year) */
+    toYear?: number
+    /** Default month to show when no value is set */
+    defaultMonth?: Date
 }
 
 /**
@@ -54,6 +62,10 @@ function DatePicker({
     disablePast = false,
     id,
     name,
+    showYearMonthDropdowns = false,
+    fromYear,
+    toYear,
+    defaultMonth,
 }: DatePickerProps) {
     const [open, setOpen] = React.useState(false)
 
@@ -84,6 +96,22 @@ function DatePicker({
         setOpen(false)
     }
 
+    // Calculate year range for dropdowns
+    const currentYear = new Date().getFullYear()
+    const effectiveFromYear = fromYear ?? currentYear - 100
+    const effectiveToYear = toYear ?? currentYear
+
+    // Calculate default month - if no value, use provided default or a sensible one for birth dates
+    const effectiveDefaultMonth = React.useMemo(() => {
+        if (dateValue) return dateValue
+        if (defaultMonth) return defaultMonth
+        // For birth date selectors, default to 25 years ago
+        if (showYearMonthDropdowns) {
+            return new Date(currentYear - 25, 0, 1)
+        }
+        return undefined
+    }, [dateValue, defaultMonth, showYearMonthDropdowns, currentYear])
+
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
@@ -107,6 +135,10 @@ function DatePicker({
                     mode="single"
                     selected={dateValue}
                     onSelect={handleSelect}
+                    defaultMonth={effectiveDefaultMonth}
+                    captionLayout={showYearMonthDropdowns ? "dropdown" : "label"}
+                    fromYear={showYearMonthDropdowns ? effectiveFromYear : undefined}
+                    toYear={showYearMonthDropdowns ? effectiveToYear : undefined}
                     disabled={(date) => {
                         if (effectiveMinDate && date < effectiveMinDate) return true
                         if (maxDate && date > maxDate) return true
