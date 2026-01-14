@@ -538,7 +538,7 @@ export function SignupOnboardingDialog({
                 {step !== 'complete' && (
                     <div className="h-1.5 bg-slate-200/50 dark:bg-slate-700/50 relative z-10 shrink-0">
                         <motion.div
-                            className="h-full bg-gradient-to-r from-[var(--brand-cyan)] via-[var(--brand-teal)] to-emerald-500"
+                            className="h-full bg-linear-to-r from-(--brand-cyan) via-(--brand-teal) to-emerald-500"
                             initial={{ width: 0 }}
                             animate={{ width: `${progressPercentage}%` }}
                             transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
@@ -564,9 +564,9 @@ export function SignupOnboardingDialog({
                                             className={cn(
                                                 'flex h-10 w-10 items-center justify-center rounded-xl text-sm font-semibold transition-all relative',
                                                 step === s.id
-                                                    ? 'bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-lg shadow-cyan-500/25'
+                                                    ? 'bg-linear-to-br from-(--brand-cyan) to-(--brand-teal) text-white shadow-lg shadow-cyan-500/25'
                                                     : idx < currentStepIndex
-                                                        ? 'bg-gradient-to-br from-emerald-400 to-emerald-500 text-white'
+                                                        ? 'bg-linear-to-br from-emerald-400 to-emerald-500 text-white'
                                                         : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
                                             )}
                                             animate={step === s.id ? { scale: [1, 1.05, 1] } : {}}
@@ -576,7 +576,7 @@ export function SignupOnboardingDialog({
                                         </motion.div>
                                         <span className={cn(
                                             'text-xs font-medium transition-colors',
-                                            step === s.id ? 'text-[var(--brand-teal)]' : 'text-slate-500'
+                                            step === s.id ? 'text-(--brand-teal)' : 'text-slate-500'
                                         )}>
                                             {s.title}
                                         </span>
@@ -602,7 +602,7 @@ export function SignupOnboardingDialog({
                                         className={cn(
                                             'w-full flex items-center gap-4 rounded-2xl p-4 text-left transition-all duration-300',
                                             step === s.id
-                                                ? 'bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-xl shadow-cyan-500/20'
+                                                ? 'bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white shadow-xl shadow-cyan-500/20'
                                                 : idx < currentStepIndex
                                                     ? 'bg-white/60 dark:bg-slate-700/40 hover:bg-white dark:hover:bg-slate-700/60 cursor-pointer'
                                                     : 'bg-slate-100/50 dark:bg-slate-800/30 cursor-not-allowed opacity-50'
@@ -614,7 +614,7 @@ export function SignupOnboardingDialog({
                                                 step === s.id
                                                     ? 'bg-white/20'
                                                     : idx < currentStepIndex
-                                                        ? 'bg-gradient-to-br from-emerald-400 to-emerald-500 text-white'
+                                                        ? 'bg-linear-to-br from-emerald-400 to-emerald-500 text-white'
                                                         : 'bg-slate-200/80 dark:bg-slate-700'
                                             )}
                                         >
@@ -676,7 +676,7 @@ export function SignupOnboardingDialog({
                                                 className={cn(
                                                     'flex items-start gap-5 p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden group',
                                                     formData.role === 'organizer'
-                                                        ? 'border-[var(--brand-teal)] bg-teal-50 dark:bg-teal-950/30 shadow-lg shadow-teal-500/10'
+                                                        ? 'border-(--brand-teal) bg-teal-50 dark:bg-teal-950/30 shadow-lg shadow-teal-500/10'
                                                         : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800'
                                                 )}
                                             >
@@ -684,7 +684,7 @@ export function SignupOnboardingDialog({
                                                 <div className={cn(
                                                     'w-14 h-14 rounded-2xl flex items-center justify-center transition-all',
                                                     formData.role === 'organizer'
-                                                        ? 'bg-gradient-to-br from-[var(--brand-teal)] to-emerald-500 text-white shadow-lg'
+                                                        ? 'bg-linear-to-br from-(--brand-teal) to-emerald-500 text-white shadow-lg'
                                                         : 'bg-slate-100 dark:bg-slate-700 text-slate-500 group-hover:bg-slate-200'
                                                 )}>
                                                     <Megaphone className="h-7 w-7" />
@@ -699,7 +699,7 @@ export function SignupOnboardingDialog({
                                                     <motion.div
                                                         initial={{ scale: 0 }}
                                                         animate={{ scale: 1 }}
-                                                        className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gradient-to-br from-[var(--brand-teal)] to-emerald-500 flex items-center justify-center"
+                                                        className="absolute top-4 right-4 w-8 h-8 rounded-full bg-linear-to-br from-(--brand-teal) to-emerald-500 flex items-center justify-center"
                                                     >
                                                         <Check className="h-5 w-5 text-white" />
                                                     </motion.div>
@@ -713,7 +713,7 @@ export function SignupOnboardingDialog({
                                                 className={cn(
                                                     'flex items-start gap-5 p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden group',
                                                     formData.role === 'buyer'
-                                                        ? 'border-[var(--brand-cyan)] bg-cyan-50 dark:bg-cyan-950/30 shadow-lg shadow-cyan-500/10'
+                                                        ? 'border-(--brand-cyan) bg-cyan-50 dark:bg-cyan-950/30 shadow-lg shadow-cyan-500/10'
                                                         : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800'
                                                 )}
                                             >
@@ -721,7 +721,7 @@ export function SignupOnboardingDialog({
                                                 <div className={cn(
                                                     'w-14 h-14 rounded-2xl flex items-center justify-center transition-all',
                                                     formData.role === 'buyer'
-                                                        ? 'bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-lg'
+                                                        ? 'bg-linear-to-br from-(--brand-cyan) to-(--brand-teal) text-white shadow-lg'
                                                         : 'bg-slate-100 dark:bg-slate-700 text-slate-500 group-hover:bg-slate-200'
                                                 )}>
                                                     <ShoppingBag className="h-7 w-7" />
@@ -736,7 +736,7 @@ export function SignupOnboardingDialog({
                                                     <motion.div
                                                         initial={{ scale: 0 }}
                                                         animate={{ scale: 1 }}
-                                                        className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] flex items-center justify-center"
+                                                        className="absolute top-4 right-4 w-8 h-8 rounded-full bg-linear-to-br from-(--brand-cyan) to-(--brand-teal) flex items-center justify-center"
                                                     >
                                                         <Check className="h-5 w-5 text-white" />
                                                     </motion.div>
@@ -753,7 +753,7 @@ export function SignupOnboardingDialog({
                                     >
                                         <Button
                                             onClick={handleNext}
-                                            className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5"
+                                            className="w-full h-14 text-lg font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-[var(--brand-teal)] hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5"
                                         >
                                             Continue
                                             <ArrowRight className="ml-2 h-5 w-5" />
@@ -840,7 +840,7 @@ export function SignupOnboardingDialog({
                                                 onChange={(e) => updateField('name', e.target.value)}
                                                 minLength={2}
                                                 maxLength={80}
-                                                className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all"
+                                                className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-(--brand-cyan) focus:ring-(--brand-cyan)/20 transition-all"
                                             />
                                         </motion.div>
 
@@ -868,43 +868,73 @@ export function SignupOnboardingDialog({
                                                 disabled={isInviteFlow || isAuthenticatedOnboarding}
                                                 maxLength={254}
                                                 className={cn(
-                                                    "h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all",
+                                                    "h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-(--brand-cyan) focus:ring-(--brand-cyan)/20 transition-all rounded-xl",
                                                     (isInviteFlow || isAuthenticatedOnboarding) && "bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-80"
                                                 )}
                                                 required
                                             />
                                         </motion.div>
 
-	                                        {!isAuthenticatedOnboarding && (
-	                                            <motion.div variants={staggerItem} className="space-y-2">
-	                                                <Label htmlFor="password" className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-	                                                    <Lock className="h-4 w-4 text-slate-400" />
-	                                                    Password <span className="text-rose-500">*</span>
-	                                                </Label>
-	                                                <div className="relative">
-                                                    <Input
-                                                        id="password"
-                                                        type={showPassword ? 'text' : 'password'}
-                                                        placeholder="8+ chars, upper/lower/number/symbol"
-                                                        value={formData.password}
-                                                        onChange={(e) => updateField('password', e.target.value)}
-                                                        minLength={8}
-                                                        maxLength={128}
-                                                        className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all pr-12"
-                                                        required
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowPassword(!showPassword)}
-                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                                                    >
-                                                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                                    </button>
+                                        {!isAuthenticatedOnboarding && (
+                                            <motion.div variants={staggerItem} className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="password" className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
+                                                        <Lock className="h-4 w-4 text-slate-400" />
+                                                        Choose a password <span className="text-rose-500">*</span>
+                                                    </Label>
+                                                    <div className="relative group">
+                                                        <Input
+                                                            id="password"
+                                                            type={showPassword ? 'text' : 'password'}
+                                                            placeholder="••••••••"
+                                                            value={formData.password}
+                                                            onChange={(e) => updateField('password', e.target.value)}
+                                                            className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-(--brand-cyan) focus:ring-(--brand-cyan)/20 transition-all pr-12 rounded-xl"
+                                                            required
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowPassword(!showPassword)}
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                                        >
+                                                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                    {PASSWORD_REQUIREMENTS_TEXT}
-                                                </p>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                                    {(
+                                                        [
+                                                            { label: '8+ characters', regex: /.{8,}/ },
+                                                            { label: 'Upper & Lowercase', regex: /^(?=.*[a-z])(?=.*[A-Z]).+$/ },
+                                                            { label: 'Numbers', regex: /\d/ },
+                                                            { label: 'Symbols', regex: /[^A-Za-z0-9\s]/ },
+                                                        ]
+                                                    ).map((req) => {
+                                                        const isMet = req.regex.test(formData.password);
+                                                        return (
+                                                            <div key={req.label} className="flex items-center gap-2.5">
+                                                                <div className={cn(
+                                                                    "h-5 w-5 rounded-full flex items-center justify-center transition-all duration-300 border",
+                                                                    isMet
+                                                                        ? "bg-emerald-500 border-emerald-500 text-white"
+                                                                        : formData.password
+                                                                            ? "bg-slate-200 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-400"
+                                                                            : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-300"
+                                                                )}>
+                                                                    <Check className={cn("h-3 w-3 transition-transform duration-300", isMet ? "scale-100" : "scale-0")} />
+                                                                </div>
+                                                                <span className={cn(
+                                                                    "text-[13px] transition-colors duration-300",
+                                                                    isMet ? "text-slate-900 dark:text-slate-100 font-medium" : "text-slate-500"
+                                                                )}>
+                                                                    {req.label}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </motion.div>
                                         )}
                                     </motion.div>
@@ -930,7 +960,7 @@ export function SignupOnboardingDialog({
                                         </Button>
                                         <Button
                                             onClick={handleNext}
-                                            className="flex-1 h-12 font-semibold bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 shadow-lg shadow-cyan-500/20"
+                                            className="flex-1 h-12 font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-[var(--brand-teal)] hover:to-emerald-500 shadow-lg shadow-cyan-500/20"
                                         >
                                             Continue
                                             <ArrowRight className="ml-2 h-4 w-4" />
@@ -1053,7 +1083,7 @@ export function SignupOnboardingDialog({
                                                                 'relative flex h-24 w-24 cursor-pointer items-center justify-center rounded-full border-2 border-dashed transition-all overflow-hidden',
                                                                 avatarPreview
                                                                     ? 'border-transparent'
-                                                                    : 'border-slate-300 dark:border-slate-600 hover:border-[var(--brand-cyan)] bg-slate-100 dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                                                    : 'border-slate-300 dark:border-slate-600 hover:border-(--brand-cyan) bg-slate-100 dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
                                                             )}
                                                         >
                                                             {avatarPreview ? (
@@ -1106,7 +1136,7 @@ export function SignupOnboardingDialog({
                                                             className={cn(
                                                                 'flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all',
                                                                 formData.organizerType === 'individual'
-                                                                    ? 'border-[var(--brand-cyan)] bg-cyan-50/50'
+                                                                    ? 'border-(--brand-cyan) bg-cyan-50/50'
                                                                     : 'border-slate-200 hover:border-slate-300'
                                                             )}
                                                         >
@@ -1118,7 +1148,7 @@ export function SignupOnboardingDialog({
                                                             className={cn(
                                                                 'flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all',
                                                                 formData.organizerType === 'organization'
-                                                                    ? 'border-[var(--brand-cyan)] bg-cyan-50/50'
+                                                                    ? 'border-(--brand-cyan) bg-cyan-50/50'
                                                                     : 'border-slate-200 hover:border-slate-300'
                                                             )}
                                                         >
@@ -1208,7 +1238,7 @@ export function SignupOnboardingDialog({
                                                     id="terms-of-use"
                                                     checked={acceptedTerms}
                                                     onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-                                                    className="mt-0.5 h-5 w-5 border-2 border-slate-400 dark:border-slate-500 data-[state=checked]:bg-[var(--brand-teal)] data-[state=checked]:border-[var(--brand-teal)]"
+                                                    className="mt-0.5 h-5 w-5 border-2 border-slate-400 dark:border-slate-500 data-[state=checked]:bg-[var(--brand-teal)] data-[state=checked]:border-(--brand-teal)"
                                                 />
                                                 <Label
                                                     htmlFor="terms-of-use"
@@ -1219,7 +1249,7 @@ export function SignupOnboardingDialog({
                                                         href="/terms"
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-[var(--brand-teal)] hover:text-[var(--brand-cyan)] font-medium underline underline-offset-2 transition-colors"
+                                                        className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors"
                                                     >
                                                         Terms of Use
                                                     </a>{' '}
@@ -1228,7 +1258,7 @@ export function SignupOnboardingDialog({
                                                         href="/privacy"
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-[var(--brand-teal)] hover:text-[var(--brand-cyan)] font-medium underline underline-offset-2 transition-colors"
+                                                        className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors"
                                                     >
                                                         Privacy Policy
                                                     </a>
@@ -1261,7 +1291,7 @@ export function SignupOnboardingDialog({
                                         <Button
                                             onClick={handleNext}
                                             disabled={isLoading}
-                                            className="flex-1 h-12 font-semibold bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 shadow-lg shadow-cyan-500/20"
+                                            className="flex-1 h-12 font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-(--brand-teal) hover:to-emerald-500 shadow-lg shadow-cyan-500/20"
                                         >
                                             {isLoading ? (
                                                 <>
@@ -1304,7 +1334,7 @@ export function SignupOnboardingDialog({
                                         initial={{ scale: 0.9, opacity: 0 }}
                                         animate={{ scale: 1, opacity: 1 }}
                                         transition={{ delay: 0.2 }}
-                                        className="bg-gradient-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-violet-950/30 dark:via-indigo-950/30 dark:to-purple-950/30 rounded-3xl p-10 text-center relative overflow-hidden"
+                                        className="bg-linear-to-br from-violet-50 via-indigo-50 to-purple-50 dark:from-violet-950/30 dark:via-indigo-950/30 dark:to-purple-950/30 rounded-3xl p-10 text-center relative overflow-hidden"
                                     >
                                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(139,92,246,0.15),transparent_50%)]" />
                                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(99,102,241,0.15),transparent_50%)]" />
@@ -1312,7 +1342,7 @@ export function SignupOnboardingDialog({
                                             <motion.div
                                                 animate={{ y: [0, -5, 0] }}
                                                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                                                className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-500/30"
+                                                className="w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-violet-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-500/30"
                                             >
                                                 <CreditCard className="h-10 w-10 text-white" />
                                             </motion.div>
@@ -1380,8 +1410,8 @@ export function SignupOnboardingDialog({
                                         transition={{ delay: 0.2, type: 'spring', stiffness: 200, damping: 15 }}
                                         className="relative inline-block"
                                     >
-                                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full blur-2xl opacity-30 animate-pulse" />
-                                        <div className="relative w-24 h-24 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center shadow-2xl shadow-emerald-500/30">
+                                        <div className="absolute inset-0 bg-linear-to-br from-emerald-400 to-green-500 rounded-full blur-2xl opacity-30 animate-pulse" />
+                                        <div className="relative w-24 h-24 bg-linear-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center shadow-2xl shadow-emerald-500/30">
                                             <CheckCircle className="h-12 w-12 text-white" />
                                         </div>
                                     </motion.div>
@@ -1411,7 +1441,7 @@ export function SignupOnboardingDialog({
                                         <div className="space-y-3">
                                             <Button
                                                 onClick={handleComplete}
-                                                className="h-14 px-10 text-lg font-semibold bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 transition-all w-full"
+                                                className="h-14 px-10 text-lg font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-(--brand-teal) hover:to-emerald-500 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 transition-all w-full"
                                                 disabled={isLoading}
                                             >
                                                 {pendingEmailConfirmation

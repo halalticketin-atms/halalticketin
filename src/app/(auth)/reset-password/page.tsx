@@ -4,11 +4,12 @@ import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
-import { Loader2, Lock, Eye, EyeOff, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, Lock, Eye, EyeOff, CheckCircle, ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getSupabase } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
 import { getPasswordValidationError, PASSWORD_REQUIREMENTS_TEXT } from '@/lib/password';
 
 const staggerContainer = {
@@ -143,8 +144,8 @@ function ResetPasswordContent() {
     // Loading state while checking session
     if (isValidSession === null) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
-                <div className="h-12 w-12 rounded-full border-4 border-[var(--brand-cyan)] border-t-transparent animate-spin" />
+            <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
+                <div className="h-12 w-12 rounded-full border-4 border-(--brand-cyan) border-t-transparent animate-spin" />
             </div>
         );
     }
@@ -152,10 +153,10 @@ function ResetPasswordContent() {
     // Invalid/expired session
     if (isValidSession === false) {
         return (
-            <div className="min-h-screen flex items-center justify-center p-4 md:p-6 relative overflow-hidden bg-gradient-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
+            <div className="min-h-screen flex items-center justify-center p-4 md:p-6 relative overflow-hidden bg-linear-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
                 <div className="absolute inset-0 overflow-hidden pointer-events-none hidden md:block">
-                    <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-gradient-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-3xl" />
-                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-gradient-to-tr from-teal-400/15 to-emerald-400/15 rounded-full blur-3xl" />
+                    <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-linear-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-3xl" />
+                    <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-linear-to-tr from-teal-400/15 to-emerald-400/15 rounded-full blur-3xl" />
                 </div>
 
                 <motion.div
@@ -163,13 +164,13 @@ function ResetPasswordContent() {
                     className="w-full max-w-md relative z-10"
                 >
                     <div className="relative">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 via-teal-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-70 hidden md:block" />
+                        <div className="absolute -inset-1 bg-linear-to-r from-cyan-500/20 via-teal-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-70 hidden md:block" />
 
                         <div className="relative bg-white/95 md:bg-white/80 dark:bg-slate-900/80 md:backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/50 dark:border-slate-700/50 overflow-hidden">
-                            <div className="h-1.5 bg-gradient-to-r from-rose-500 via-orange-500 to-amber-500" />
+                            <div className="h-1.5 bg-linear-to-r from-rose-500 via-orange-500 to-amber-500" />
 
                             <div className="p-8 sm:p-10 text-center space-y-6">
-                                <div className="h-16 w-16 mx-auto rounded-full bg-gradient-to-br from-rose-400 to-orange-500 flex items-center justify-center">
+                                <div className="h-16 w-16 mx-auto rounded-full bg-linear-to-br from-rose-400 to-orange-500 flex items-center justify-center">
                                     <Lock className="h-8 w-8 text-white" />
                                 </div>
 
@@ -183,14 +184,14 @@ function ResetPasswordContent() {
                                 </div>
 
                                 <Link href="/forgot-password">
-                                    <Button className="w-full h-12 font-semibold text-lg bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 rounded-xl">
+                                    <Button className="w-full h-12 font-semibold text-lg bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-(--brand-teal) hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 rounded-xl">
                                         Request New Link
                                     </Button>
                                 </Link>
 
                                 <Link
                                     href="/login"
-                                    className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-[var(--brand-cyan)] transition-colors"
+                                    className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-(--brand-cyan) transition-colors"
                                 >
                                     <ArrowLeft className="h-4 w-4" />
                                     Back to login
@@ -204,12 +205,12 @@ function ResetPasswordContent() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 md:p-6 relative overflow-hidden bg-gradient-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
+        <div className="min-h-screen flex items-center justify-center p-4 md:p-6 relative overflow-hidden bg-linear-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
             {/* Ambient background glows */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none hidden md:block">
-                <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-gradient-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-3xl" />
-                <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-gradient-to-tr from-teal-400/15 to-emerald-400/15 rounded-full blur-3xl" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-cyan-300/10 via-transparent to-teal-300/10 rounded-full blur-3xl" />
+                <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-linear-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-3xl" />
+                <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-linear-to-tr from-teal-400/15 to-emerald-400/15 rounded-full blur-3xl" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-linear-to-br from-cyan-300/10 via-transparent to-teal-300/10 rounded-full blur-3xl" />
             </div>
 
             <motion.div
@@ -219,11 +220,11 @@ function ResetPasswordContent() {
                 {/* Premium Glass Card */}
                 <div className="relative">
                     {/* Glow effect behind card */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 via-teal-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-70 hidden md:block" />
+                    <div className="absolute -inset-1 bg-linear-to-r from-cyan-500/20 via-teal-500/20 to-emerald-500/20 rounded-3xl blur-xl opacity-70 hidden md:block" />
 
                     <div className="relative bg-white/95 md:bg-white/80 dark:bg-slate-900/80 md:backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/50 dark:border-slate-700/50 overflow-hidden">
                         {/* Top gradient accent */}
-                        <div className="h-1.5 bg-gradient-to-r from-[var(--brand-cyan)] via-[var(--brand-teal)] to-emerald-500" />
+                        <div className="h-1.5 bg-linear-to-r from-(--brand-cyan) via-(--brand-teal) to-emerald-500" />
 
                         <div className="p-8 sm:p-10">
                             <motion.div
@@ -233,7 +234,7 @@ function ResetPasswordContent() {
                                 {/* Header */}
                                 <motion.div {...staggerItemProps} className="text-center space-y-2">
                                     <h1 className="text-3xl font-display font-bold">
-                                        <span className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                                        <span className="bg-linear-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
                                             {isSuccess ? 'Password Reset!' : 'Set New Password'}
                                         </span>
                                     </h1>
@@ -251,7 +252,7 @@ function ResetPasswordContent() {
                                         className="text-center space-y-6"
                                     >
                                         <div className="flex justify-center">
-                                            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
+                                            <div className="h-16 w-16 rounded-full bg-linear-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
                                                 <CheckCircle className="h-8 w-8 text-white" />
                                             </div>
                                         </div>
@@ -264,7 +265,7 @@ function ResetPasswordContent() {
                                             </p>
                                         </div>
                                         <Link href="/login">
-                                            <Button className="w-full h-12 font-semibold text-lg bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 rounded-xl">
+                                            <Button className="w-full h-12 font-semibold text-lg bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-(--brand-teal) hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 rounded-xl">
                                                 Go to Login
                                             </Button>
                                         </Link>
@@ -276,35 +277,64 @@ function ResetPasswordContent() {
                                         onSubmit={handleSubmit}
                                         className="space-y-5"
                                     >
-	                                        <div className="space-y-2">
-	                                            <Label htmlFor="password" className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
-	                                                <Lock className="h-4 w-4 text-slate-400" />
-	                                                New Password
-	                                            </Label>
-	                                            <div className="relative">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="password" className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
+                                                <Lock className="h-4 w-4 text-slate-400" />
+                                                New Password
+                                            </Label>
+                                            <div className="relative group">
                                                 <Input
                                                     id="password"
                                                     type={showPassword ? 'text' : 'password'}
-                                                    placeholder="8+ chars, upper/lower/number/symbol"
+                                                    placeholder="••••••••"
                                                     value={password}
                                                     onChange={(e) => setPassword(e.target.value)}
-                                                    className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all rounded-xl pr-12"
+                                                    className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-(--brand-cyan) focus:ring-(--brand-cyan)/20 transition-all rounded-xl pr-12"
                                                     required
                                                     minLength={8}
-                                                    maxLength={128}
                                                 />
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowPassword(!showPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
                                                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                                                 >
                                                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                                 </button>
                                             </div>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                {PASSWORD_REQUIREMENTS_TEXT}
-                                            </p>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                                {(
+                                                    [
+                                                        { label: '8+ characters', regex: /.{8,}/ },
+                                                        { label: 'Upper & Lowercase', regex: /^(?=.*[a-z])(?=.*[A-Z]).+$/ },
+                                                        { label: 'Numbers', regex: /\d/ },
+                                                        { label: 'Symbols', regex: /[^A-Za-z0-9\s]/ },
+                                                    ]
+                                                ).map((req) => {
+                                                    const isMet = req.regex.test(password);
+                                                    return (
+                                                        <div key={req.label} className="flex items-center gap-2">
+                                                            <div className={cn(
+                                                                "h-4 w-4 rounded-full flex items-center justify-center transition-all duration-300 border",
+                                                                isMet
+                                                                    ? "bg-emerald-500 border-emerald-500 text-white"
+                                                                    : password
+                                                                        ? "bg-slate-200 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-400"
+                                                                        : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-300"
+                                                            )}>
+                                                                <Check className={cn("h-2.5 w-2.5 transition-transform duration-300", isMet ? "scale-100" : "scale-0")} />
+                                                            </div>
+                                                            <span className={cn(
+                                                                "text-[12px] transition-colors duration-300",
+                                                                isMet ? "text-slate-900 dark:text-slate-100 font-medium" : "text-slate-500"
+                                                            )}>
+                                                                {req.label}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
 
                                         <div className="space-y-2">
@@ -319,7 +349,7 @@ function ResetPasswordContent() {
                                                     placeholder="Confirm new password"
                                                     value={confirmPassword}
                                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                                    className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all rounded-xl pr-12"
+                                                    className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-(--brand-cyan) focus:ring-(--brand-cyan)/20 transition-all rounded-xl pr-12"
                                                     required
                                                     minLength={8}
                                                     maxLength={128}
@@ -348,7 +378,7 @@ function ResetPasswordContent() {
                                         <Button
                                             type="submit"
                                             disabled={isLoading}
-                                            className="w-full h-12 font-semibold text-lg bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 rounded-xl"
+                                            className="w-full h-12 font-semibold text-lg bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-(--brand-teal) hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 rounded-xl"
                                         >
                                             {isLoading ? (
                                                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -369,11 +399,11 @@ function ResetPasswordContent() {
                     className="mt-8 text-center text-sm text-slate-500"
                 >
                     By continuing, you agree to our{' '}
-                    <Link href="/terms" className="text-[var(--brand-cyan)] hover:text-[var(--brand-teal)] transition-colors font-medium">
+                    <Link href="/terms" className="text-(--brand-cyan) hover:text-(--brand-teal) transition-colors font-medium">
                         Terms
                     </Link>
                     {' '}and{' '}
-                    <Link href="/privacy" className="text-[var(--brand-cyan)] hover:text-[var(--brand-teal)] transition-colors font-medium">
+                    <Link href="/privacy" className="text-(--brand-cyan) hover:text-(--brand-teal) transition-colors font-medium">
                         Privacy Policy
                     </Link>
                 </motion.div>
@@ -384,8 +414,8 @@ function ResetPasswordContent() {
 
 function ResetPasswordFallback() {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
-            <div className="h-12 w-12 rounded-full border-4 border-[var(--brand-cyan)] border-t-transparent animate-spin" />
+        <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
+            <div className="h-12 w-12 rounded-full border-4 border-(--brand-cyan) border-t-transparent animate-spin" />
         </div>
     );
 }
