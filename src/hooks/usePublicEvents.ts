@@ -7,6 +7,8 @@ import {
     PublicEventRecord,
     PublicTicketRecord,
 } from '@/lib/events-api';
+import { ApiError } from '@/lib/api';
+import { getBackendErrorMessage, parseBackendError } from '@/lib/api-errors';
 
 /**
  * Hook for fetching public events list with pagination support.
@@ -85,11 +87,15 @@ export function usePublicEvent(slug: string | null) {
     const [tickets, setTickets] = useState<PublicTicketRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [accessStatus, setAccessStatus] = useState<'required' | 'denied' | null>(null);
+    const [accessCode, setAccessCode] = useState<string | null>(null);
 
     const fetch = useCallback(async () => {
         if (!slug) {
             setEvent(null);
             setTickets([]);
+            setAccessStatus(null);
+            setError(null);
             setIsLoading(false);
             return;
         }
@@ -98,18 +104,33 @@ export function usePublicEvent(slug: string | null) {
         setError(null);
 
         try {
-            const response = await fetchPublicEventBySlug(slug);
+            const response = await fetchPublicEventBySlug(slug, {
+                accessCode: accessCode ?? undefined,
+            });
             setEvent(response.event);
             setTickets(response.tickets);
+            setAccessStatus(null);
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Event not found';
+            let message = err instanceof Error ? err.message : 'Event not found';
+            let nextAccessStatus: 'required' | 'denied' | null = null;
+            if (err instanceof ApiError) {
+                const parsed = parseBackendError(err.payload);
+                message = getBackendErrorMessage(err.payload, message);
+                if (parsed?.code === 'EVENT_ACCESS_REQUIRED') {
+                    nextAccessStatus = 'required';
+                }
+                if (parsed?.code === 'EVENT_ACCESS_DENIED') {
+                    nextAccessStatus = 'denied';
+                }
+            }
             setError(message);
+            setAccessStatus(nextAccessStatus);
             setEvent(null);
             setTickets([]);
         } finally {
             setIsLoading(false);
         }
-    }, [slug]);
+    }, [accessCode, slug]);
 
     useEffect(() => {
         fetch();
@@ -120,6 +141,9 @@ export function usePublicEvent(slug: string | null) {
         tickets,
         isLoading,
         error,
+        accessStatus,
+        accessCode,
+        setAccessCode,
         refresh: fetch,
     };
 }

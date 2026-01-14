@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition, type FormEvent } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
@@ -23,6 +23,7 @@ import {
     ArrowRight,
     Check,
     Navigation,
+    Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -73,6 +74,10 @@ interface PublicEventPageContentProps {
     isPreview?: boolean;
     organizerNameOverride?: string | null;
     embedMode?: 'checkout' | 'full';
+    accessStatus?: 'required' | 'denied' | null;
+    accessMessage?: string | null;
+    accessCode?: string | null;
+    onAccessSubmit?: (code: string) => void;
 }
 
 // Per-ticket attendee info structure
@@ -248,8 +253,25 @@ export function PublicEventPageContent({
     isPreview = false,
     organizerNameOverride = null,
     embedMode = 'full',
+    accessStatus = null,
+    accessMessage = null,
+    accessCode = null,
+    onAccessSubmit,
 }: PublicEventPageContentProps) {
     const isEmbedCheckout = embedMode === 'checkout';
+    const [accessCodeInput, setAccessCodeInput] = useState('');
+
+    const handleAccessSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!onAccessSubmit) {
+            return;
+        }
+        const trimmed = accessCodeInput.trim();
+        if (!trimmed) {
+            return;
+        }
+        onAccessSubmit(trimmed);
+    }, [accessCodeInput, onAccessSubmit]);
     const safeTickets = Array.isArray(tickets) ? tickets : [];
     const visibleTickets = useMemo(
         () => safeTickets.filter((ticket) => ('visibility' in ticket ? ticket.visibility !== 'hidden' : true)),
@@ -591,7 +613,13 @@ export function PublicEventPageContent({
             quantity: item.quantity,
             unitPrice: item.ticket.type === 'donation' ? item.subtotal : undefined
         }));
-        const result = await validatePromoCode(event.id, trimmedCode, promoItems, totalAmount);
+        const result = await validatePromoCode(
+            event.id,
+            trimmedCode,
+            promoItems,
+            totalAmount,
+            accessCode ?? undefined
+        );
 
         if (result.valid) {
             setAppliedPromo(result);
@@ -611,7 +639,11 @@ export function PublicEventPageContent({
                         setPromoError('Code is valid but no hidden tickets are currently available.');
                     }
                 } else {
-                    const unlocked = await fetchUnlockedTickets(event.slug || '', trimmedCode);
+                    const unlocked = await fetchUnlockedTickets(
+                        event.slug || '',
+                        trimmedCode,
+                        accessCode ?? undefined
+                    );
                     if (unlocked.length > 0) {
                         setUnlockedTickets(unlocked as TicketLike[]);
                         toast.success(`Unlocked ${unlocked.length} hidden ticket${unlocked.length === 1 ? '' : 's'}!`);
@@ -872,6 +904,8 @@ export function PublicEventPageContent({
                     unitPrice: item.ticket.type === 'donation' ? item.subtotal : undefined
                 })),
                 promoCode: appliedPromo?.code
+            }, {
+                accessCode: accessCode ?? undefined
             });
             if (!cancelled) {
                 setCheckoutQuote(quote);
@@ -882,7 +916,7 @@ export function PublicEventPageContent({
             cancelled = true;
             window.clearTimeout(timer);
         };
-    }, [event?.id, cartItems, appliedPromo?.code]);
+    }, [event?.id, cartItems, appliedPromo?.code, accessCode]);
 
     // Step-based checkout: Step 0 = Buyer, Step 1..N = Tickets (if per-ticket), Final = Confirm
     const totalCheckoutSteps = requiresPerTicket ? 1 + totalTickets + 1 : 2;
@@ -1093,7 +1127,7 @@ export function PublicEventPageContent({
                 ticketAttendees: ticketAttendeePayload,
                 promoCode: appliedPromo?.code || promoCode.trim() || undefined,
             },
-            { redirectTarget: isEmbedCheckout ? 'top' : 'self' },
+            { redirectTarget: isEmbedCheckout ? 'top' : 'self', accessCode: accessCode ?? undefined },
         );
 
         if (!result.success) {
@@ -1160,8 +1194,61 @@ export function PublicEventPageContent({
         return { date, time, endTime };
     }, [startDatetime, endDatetime]);
     const refundPolicyText = event?.refundPolicy?.trim() ?? '';
+    const showAccessGate = Boolean(accessStatus) && Boolean(onAccessSubmit);
+    const accessSubmitting = isLoading && showAccessGate;
+    const accessTitle = accessStatus === 'denied' ? 'Access code incorrect' : 'Access code required';
+    const accessDescription =
+        accessStatus === 'denied'
+            ? accessMessage || 'The access code you entered is not valid. Try again.'
+            : accessMessage || 'Enter the access code to view this event.';
 
     // Loading state
+    if (showAccessGate) {
+        return (
+            <div className={cn(isEmbedCheckout ? 'bg-transparent' : 'min-h-screen bg-muted/30', 'flex items-center justify-center px-4')}>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="max-w-lg w-full rounded-3xl border bg-background p-8 text-center shadow-lg"
+                >
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                        <Lock className="h-6 w-6" />
+                    </div>
+                    <h1 className="mt-4 font-display text-2xl font-bold">{accessTitle}</h1>
+                    <p className="mt-2 text-sm text-muted-foreground">{accessDescription}</p>
+                    <form onSubmit={handleAccessSubmit} className="mt-6 space-y-3">
+                        <div className="space-y-1.5 text-left">
+                            <Label htmlFor="accessCode" className="text-xs uppercase tracking-wide text-muted-foreground">Access code</Label>
+                            <Input
+                                id="accessCode"
+                                type="password"
+                                value={accessCodeInput}
+                                onChange={(event) => setAccessCodeInput(event.target.value)}
+                                placeholder="Enter access code"
+                                className={cn(
+                                    'h-11',
+                                    accessStatus === 'denied' ? 'border-destructive focus-visible:ring-destructive' : ''
+                                )}
+                            />
+                        </div>
+                        <Button
+                            type="submit"
+                            className="w-full gap-2"
+                            disabled={!accessCodeInput.trim() || accessSubmitting}
+                        >
+                            {accessSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                            Unlock event
+                        </Button>
+                    </form>
+                    <p className="mt-4 text-xs text-muted-foreground">
+                        Don&apos;t have the code? Contact the organiser for access.
+                    </p>
+                </motion.div>
+            </div>
+        );
+    }
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-muted/30 flex items-center justify-center">

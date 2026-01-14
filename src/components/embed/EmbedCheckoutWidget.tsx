@@ -14,12 +14,20 @@ export function EmbedCheckoutWidget({
     isLoading,
     error,
     theme,
+    accessStatus,
+    accessMessage,
+    accessCode,
+    onAccessSubmit,
 }: {
     event: PublicEventRecord | null;
     tickets: PublicTicketRecord[];
     isLoading: boolean;
     error: string | null;
     theme: string;
+    accessStatus?: 'required' | 'denied' | null;
+    accessMessage?: string | null;
+    accessCode?: string | null;
+    onAccessSubmit?: (code: string) => void;
 }) {
     const shellRef = useRef<HTMLDivElement | null>(null);
     const embedTheme = useMemo(() => normalizeEmbedTheme(theme), [theme]);
@@ -120,6 +128,10 @@ export function EmbedCheckoutWidget({
                 error={error}
                 embedMode="checkout"
                 organizerNameOverride={event?.organizerName ?? null}
+                accessStatus={accessStatus}
+                accessMessage={accessMessage}
+                accessCode={accessCode}
+                onAccessSubmit={onAccessSubmit}
             />
             <div className={cn('container pb-6 pt-2 flex items-center gap-2 text-xs', isDark ? 'text-slate-300' : 'text-muted-foreground')}>
                 <img

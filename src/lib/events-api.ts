@@ -47,6 +47,8 @@ export interface EventRecord {
     currency: string;
     refundPolicy: string | null;
     isListedPublicly: boolean;
+    isPubliclyAccessible: boolean;
+    hasAccessPassword: boolean;
     slug: string | null;
     category: string | null;
     feeTier: BackendFeeTier;
@@ -108,6 +110,9 @@ export interface UpsertEventPayload {
     currency?: string;
     refundPolicy?: string | null;
     isListedPublicly?: boolean;
+    isPubliclyAccessible?: boolean;
+    accessPassword?: string;
+    clearAccessPassword?: boolean;
     category?: string | null;
     absorbFee?: boolean;
     attendeeInfoMode?: 'per_ticket' | 'buyer_choice';
@@ -318,8 +323,16 @@ export const fetchPublicEvents = async (options?: { limit?: number; offset?: num
 };
 
 
-export const fetchPublicEventBySlug = async (slug: string) => {
+export const fetchPublicEventBySlug = async (
+    slug: string,
+    options?: { accessCode?: string },
+) => {
+    const headers: Record<string, string> = {};
+    if (options?.accessCode) {
+        headers['x-event-access-code'] = options.accessCode;
+    }
     return api.get<{ event: PublicEventRecord; tickets: PublicTicketRecord[] }>(
         `/api/v1/public/events/${slug}`,
+        Object.keys(headers).length > 0 ? { headers } : undefined,
     );
 };

@@ -26,6 +26,8 @@ const ERROR_CODE_FALLBACKS: Record<string, string> = {
     EMAIL_NOT_CONFIRMED: 'Please verify your email first. Check your inbox/spam for the confirmation link.',
     ORGANIZER_ONBOARDING_REQUIRED: 'Organizer onboarding is required to continue.',
     STRIPE_CONNECT_REQUIRED: 'Payment setup is incomplete for this organizer.',
+    EVENT_ACCESS_REQUIRED: 'This event requires an access code.',
+    EVENT_ACCESS_DENIED: 'That access code is incorrect.',
 };
 
 export function parseBackendError(payload: unknown): ParsedBackendError | null {

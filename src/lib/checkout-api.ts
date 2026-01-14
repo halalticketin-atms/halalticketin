@@ -76,12 +76,17 @@ export interface CheckoutQuoteResponse {
 
 export async function getCheckoutQuote(
     eventId: string,
-    request: { items: CartItem[]; promoCode?: string }
+    request: { items: CartItem[]; promoCode?: string },
+    options?: { accessCode?: string }
 ): Promise<CheckoutQuoteResponse | null> {
     try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (options?.accessCode) {
+            headers['x-event-access-code'] = options.accessCode;
+        }
         const response = await fetch(`${API_URL}/api/v1/events/${eventId}/checkout/quote`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(request)
         });
 
@@ -101,7 +106,8 @@ export async function getCheckoutQuote(
 export async function createCheckoutSession(
     eventId: string,
     request: CheckoutRequest,
-    accessToken?: string
+    accessToken?: string,
+    accessCode?: string
 ): Promise<CheckoutResponse> {
     try {
         const headers: Record<string, string> = {
@@ -110,6 +116,9 @@ export async function createCheckoutSession(
 
         if (accessToken) {
             headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+        if (accessCode) {
+            headers['x-event-access-code'] = accessCode;
         }
 
         const response = await fetch(
@@ -189,6 +198,7 @@ export async function handleCheckout(
     request: CheckoutRequest,
     options?: {
         redirectTarget?: 'self' | 'top';
+        accessCode?: string;
     },
 ): Promise<{
     success: boolean;
@@ -197,7 +207,7 @@ export async function handleCheckout(
     tickets?: CheckoutSuccessResponse['tickets'];
     error?: string;
 }> {
-    const result = await createCheckoutSession(eventId, request);
+    const result = await createCheckoutSession(eventId, request, undefined, options?.accessCode);
 
     if (!result.success) {
         const issuesSuffix = result.issues && result.issues.length > 0
@@ -257,9 +267,14 @@ export async function validatePromoCode(
     eventId: string,
     promoCode: string,
     items: CartItem[],
-    subtotal?: number
+    subtotal?: number,
+    accessCode?: string
 ): Promise<ValidatePromoResult> {
     try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (accessCode) {
+            headers['x-event-access-code'] = accessCode;
+        }
         const payload: { promoCode: string; items: CartItem[]; subtotal?: number } = { promoCode, items };
         if (typeof subtotal === 'number') {
             payload.subtotal = subtotal;
@@ -268,7 +283,7 @@ export async function validatePromoCode(
             `${API_URL}/api/v1/events/${eventId}/checkout/validate-promo`,
             {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify(payload)
             }
         );
@@ -290,14 +305,19 @@ export async function validatePromoCode(
  */
 export async function fetchUnlockedTickets(
     eventSlug: string,
-    promoCode: string
+    promoCode: string,
+    accessCode?: string
 ): Promise<{ id: string; name: string; description: string | null; price: string; currency: string; type: string; customFee?: number | null; earlyBirdPrice?: string | null; earlyBirdEndDate?: string | null }[]> {
     try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (accessCode) {
+            headers['x-event-access-code'] = accessCode;
+        }
         const response = await fetch(
             `${API_URL}/api/v1/public/events/${eventSlug}/unlocked-tickets`,
             {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ promoCode })
             }
         );

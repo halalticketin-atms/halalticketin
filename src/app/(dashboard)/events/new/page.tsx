@@ -303,6 +303,13 @@ function NewEventChooserPageContent() {
       ...draft,
       eventId: undefined,
       eventStatus: undefined,
+      formData: draft.formData
+        ? {
+          ...draft.formData,
+          accessCodeEnabled: false,
+          accessCode: '',
+        }
+        : draft.formData,
       tickets: draft.tickets?.map((ticket, index) => ({
         ...ticket,
         id: makeTempId(index),

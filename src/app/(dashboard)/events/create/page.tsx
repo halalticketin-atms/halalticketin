@@ -240,6 +240,9 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
     const locationType = mapLocationType(formData.locationType);
     const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
     const isOnline = locationType === 'online' || locationType === 'hybrid';
+    const isPrivate = formData.visibility === 'private';
+    const accessCodeEnabled = isPrivate && formData.accessCodeEnabled;
+    const accessCode = formData.accessCode.trim();
 
     return {
         title: formData.title.trim(),
@@ -259,6 +262,9 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         currency: formData.currency,
         refundPolicy: formData.refundPolicy.trim() ? formData.refundPolicy.trim() : null,
         isListedPublicly: formData.visibility === 'public',
+        isPubliclyAccessible: true,
+        accessPassword: accessCodeEnabled && accessCode ? accessCode : undefined,
+        clearAccessPassword: !accessCodeEnabled,
         category: formData.categories.length > 0 ? formData.categories.join(',') : null,
         // absorbFee removed - now handled per-ticket
         attendeeInfoMode: formData.attendeeInfoMode,
@@ -440,7 +446,7 @@ const deriveFieldErrorsFromMessages = (errors: string[]) => {
 const getStepForFieldErrors = (errors: Record<string, string>) => {
     const keys = new Set(Object.keys(errors));
     const stepFields: Array<{ step: number; fields: string[] }> = [
-        { step: 1, fields: ['title', 'description', 'bannerImageDataUrl', 'categories', 'visibility'] },
+        { step: 1, fields: ['title', 'description', 'bannerImageDataUrl', 'categories', 'visibility', 'accessCode'] },
         { step: 2, fields: ['date', 'startTime', 'endDate', 'endTime', 'timezone'] },
         { step: 3, fields: ['locationType', 'venue', 'address', 'city', 'onlineUrl'] },
         { step: 4, fields: ['tickets', 'currency', 'refundPolicy'] },
@@ -463,11 +469,16 @@ const publishRequiredFieldsByStep: Record<number, string[]> = {
     4: ['tickets', 'currency', 'refundPolicy'],
 };
 
-const validatePublishForm = (formData: DraftFormData, tickets: DraftTicketType[]) => {
+const validatePublishForm = (
+    formData: DraftFormData,
+    tickets: DraftTicketType[],
+    hasExistingAccessCode: boolean,
+) => {
     const errors: Record<string, string> = {};
     const locationType = mapLocationType(formData.locationType);
     const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
     const isOnline = locationType === 'online' || locationType === 'hybrid';
+    const isPrivate = formData.visibility === 'private';
     const hasCoordinates =
         Number.isFinite(formData.latitude) && Number.isFinite(formData.longitude);
 
@@ -553,6 +564,17 @@ const validatePublishForm = (formData: DraftFormData, tickets: DraftTicketType[]
         errors.refundPolicy = 'Refund policy must be 500 characters or less.';
     }
 
+    if (isPrivate && formData.accessCodeEnabled) {
+        const trimmedAccessCode = formData.accessCode.trim();
+        if (!trimmedAccessCode && !hasExistingAccessCode) {
+            errors.accessCode = 'Add an access code or disable access protection.';
+        } else if (trimmedAccessCode && trimmedAccessCode.length < 4) {
+            errors.accessCode = 'Access code must be at least 4 characters.';
+        } else if (trimmedAccessCode && trimmedAccessCode.length > 128) {
+            errors.accessCode = 'Access code must be 128 characters or less.';
+        }
+    }
+
     return errors;
 };
 
@@ -633,6 +655,11 @@ export function EventWizard({
         appliedBannerFileRef.current = null;
         setBannerWasRemoved(false);
     }, [initialDraft?.eventId]);
+
+    useEffect(() => {
+        setHasExistingAccessCode(initialDraft?.formData?.accessCodeEnabled ?? false);
+    }, [initialDraft?.eventId, initialDraft?.formData?.accessCodeEnabled]);
+
 
     // Sync currency from organizer default if likely untouched
     useEffect(() => {
@@ -715,6 +742,9 @@ export function EventWizard({
     const [draftEmbedStatus, setDraftEmbedStatus] = useState<'draft' | 'published' | 'cancelled' | 'archived' | null>(
         embedCheckout?.status ?? initialDraft?.eventStatus ?? null,
     );
+    const [hasExistingAccessCode, setHasExistingAccessCode] = useState<boolean>(
+        initialDraft?.formData?.accessCodeEnabled ?? false,
+    );
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -730,7 +760,10 @@ export function EventWizard({
     type TicketSectionType = 'tickets' | 'donation' | 'promo' | null;
     const [openTicketSection, setOpenTicketSection] = useState<TicketSectionType>('tickets');
 
-    const publishRequirementErrors = useMemo(() => validatePublishForm(formData, tickets), [formData, tickets]);
+    const publishRequirementErrors = useMemo(
+        () => validatePublishForm(formData, tickets, hasExistingAccessCode),
+        [formData, tickets, hasExistingAccessCode],
+    );
     const stepStatuses = useMemo(
         () =>
             steps.map((step) => {
@@ -851,6 +884,19 @@ export function EventWizard({
             return updated ? next : prev;
         });
     }, []);
+
+    useEffect(() => {
+        if (formData.visibility !== 'public' || !formData.accessCodeEnabled) {
+            return;
+        }
+        setFormData((prev) => ({
+            ...prev,
+            accessCodeEnabled: false,
+            accessCode: ''
+        }));
+        setHasExistingAccessCode(false);
+        clearFieldErrors('accessCode');
+    }, [clearFieldErrors, formData.accessCodeEnabled, formData.visibility, setFormData]);
 
     useEffect(() => {
         const normalized = formData.refundPolicy.trim();
@@ -1170,6 +1216,12 @@ export function EventWizard({
                     setDraftEmbedSlug(response.event.slug ?? null);
                     setDraftEmbedStatus(response.event.status ?? 'draft');
                 }
+
+                const accessCodeShouldPersist =
+                    formData.visibility === 'private' &&
+                    formData.accessCodeEnabled &&
+                    (formData.accessCode.trim().length > 0 || hasExistingAccessCode);
+                setHasExistingAccessCode(accessCodeShouldPersist);
 
                 const ticketPayloads = buildTicketPayloads(tickets, formData.currency, formData.timezone, {
                     includeIds: Boolean(nextEventId),
@@ -1502,7 +1554,7 @@ export function EventWizard({
                 setIsSaving(false);
             }
         },
-        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, isSaving, markSnapshotAsSaved, maxPromoFixed, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
+        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
@@ -1521,15 +1573,26 @@ export function EventWizard({
                 return;
             }
 
-            await publishEvent(savedEventId, formData.visibility);
+            const publishResult = await publishEvent(savedEventId, formData.visibility);
             setFieldErrors({});
             setPublishErrors([]);
             setActionMessage('Event published successfully. Redirecting...');
             markSnapshotAsSaved();
-            const destination = activeOrganizerId
-                ? `${buildDashboardPath(activeOrganizerId)}/events`
-                : '/dashboard';
-            router.push(destination);
+
+            // Build success page URL with event details
+            const eventSlug = publishResult?.event?.slug || draftEmbedSlug || savedEventId;
+            const successParams = new URLSearchParams();
+            successParams.set('slug', eventSlug);
+            successParams.set('title', formData.title.trim());
+            if (formData.date) successParams.set('date', formData.date);
+            if (formData.startTime) successParams.set('time', formData.startTime);
+            if (formData.venue) successParams.set('venue', formData.venue);
+            if (formData.city) successParams.set('city', formData.city);
+            if (formData.visibility === 'private') successParams.set('private', 'true');
+            if (activeOrganizerId) successParams.set('organizer', activeOrganizerId);
+
+            const successUrl = `/events/published?${successParams.toString()}`;
+            router.push(successUrl);
         } catch (error) {
             if (error instanceof ApiError) {
                 const details = getBackendErrorDetails<{
@@ -1632,7 +1695,7 @@ export function EventWizard({
             setActionError(`Please add options for: ${questionLabels}`);
             return;
         }
-        const publishFieldErrors = validatePublishForm(formData, tickets);
+        const publishFieldErrors = validatePublishForm(formData, tickets, hasExistingAccessCode);
         if (Object.keys(publishFieldErrors).length > 0) {
             setFieldErrors(publishFieldErrors);
             setPublishErrors([]);
@@ -1667,7 +1730,7 @@ export function EventWizard({
         }
 
         await executePublish();
-    }, [activeOrganizerId, canUseCredits, executePublish, formData, isPublishing, tickets]);
+    }, [activeOrganizerId, canUseCredits, executePublish, formData, hasExistingAccessCode, isPublishing, tickets]);
 
     const handlePreviewClick = useCallback(async () => {
         // Save draft before previewing (silent save)
@@ -1685,6 +1748,7 @@ export function EventWizard({
     }, [saveDraft]);
 
     const isBusy = isSaving || isPublishing;
+    const isPrivate = formData.visibility === 'private';
     const statusLabel = !activeOrganizerId
         ? 'Select or create an organiser to save progress.'
         : hasUnsavedChanges
@@ -1699,7 +1763,7 @@ export function EventWizard({
     const isAlreadyPublished = eventStatus === 'published';
     const embedSlug = embedCheckout?.slug ?? draftEmbedSlug;
     const embedStatus = embedCheckout?.status ?? draftEmbedStatus ?? (eventId ? 'draft' : null);
-    const embedIsPublic = embedCheckout?.isPublic ?? formData.visibility === 'public';
+    const embedIsPublic = embedCheckout?.isPublic ?? true;
     const embedCanCopy = Boolean(embedSlug);
     const embedIsLive = embedStatus === 'published' && embedIsPublic;
     const showEmbedSnippet = mode === 'edit' || Boolean(eventId) || Boolean(embedSlug);
@@ -2051,6 +2115,102 @@ export function EventWizard({
                                                             </div>
                                                         )}
                                                     </label>
+                                                </div>
+
+                                                <div className="rounded-xl border border-border/60 bg-muted/10 p-4 space-y-3">
+                                                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                                        <Settings2 className="h-4 w-4 text-primary" />
+                                                        Visibility &amp; access
+                                                    </div>
+                                                    <div className="grid gap-2 sm:grid-cols-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFormData((prev) => ({ ...prev, visibility: 'public' }))}
+                                                            className={cn(
+                                                                'flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
+                                                                formData.visibility === 'public'
+                                                                    ? 'border-primary bg-primary/10 text-primary'
+                                                                    : 'border-border/60 bg-background hover:border-primary/40 hover:text-foreground'
+                                                            )}
+                                                        >
+                                                            <Globe className="h-3.5 w-3.5" />
+                                                            Public
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFormData((prev) => ({ ...prev, visibility: 'private' }))}
+                                                            className={cn(
+                                                                'flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
+                                                                formData.visibility === 'private'
+                                                                    ? 'border-slate-400/60 bg-slate-100/70 text-slate-700'
+                                                                    : 'border-border/60 bg-background hover:border-slate-300/70 hover:text-foreground'
+                                                            )}
+                                                        >
+                                                            <EyeOff className="h-3.5 w-3.5" />
+                                                            Private
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Public events appear in listings. Private events stay off listings but remain shareable by link.
+                                                    </p>
+                                                    {isPrivate ? (
+                                                        <div className="rounded-lg border border-border/50 bg-background/70 p-3 space-y-3">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                                                    <Lock className="h-4 w-4 text-muted-foreground" />
+                                                                    Access code (optional)
+                                                                </div>
+                                                                <Switch
+                                                                    checked={formData.accessCodeEnabled}
+                                                                    onCheckedChange={(checked) => {
+                                                                        setFormData((prev) => ({
+                                                                            ...prev,
+                                                                            accessCodeEnabled: checked,
+                                                                            accessCode: checked ? prev.accessCode : ''
+                                                                        }));
+                                                                        if (!checked) {
+                                                                            setHasExistingAccessCode(false);
+                                                                        }
+                                                                        clearFieldErrors('accessCode');
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            {formData.accessCodeEnabled ? (
+                                                                <div className="space-y-1.5">
+                                                                    <Label htmlFor="accessCode">Access code</Label>
+                                                                    <Input
+                                                                        id="accessCode"
+                                                                        name="accessCode"
+                                                                        type="password"
+                                                                        placeholder={hasExistingAccessCode
+                                                                            ? 'Leave blank to keep current code'
+                                                                            : 'Create an access code'}
+                                                                        value={formData.accessCode}
+                                                                        onChange={handleFieldChange}
+                                                                        className={cn(
+                                                                            'h-11',
+                                                                            fieldErrors.accessCode ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                        )}
+                                                                    />
+                                                                    {fieldErrors.accessCode ? (
+                                                                        <p className="text-xs text-destructive">{fieldErrors.accessCode}</p>
+                                                                    ) : hasExistingAccessCode && !formData.accessCode.trim() ? (
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            Access code is already set. Enter a new one to replace it.
+                                                                        </p>
+                                                                    ) : (
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            Share this code privately with attendees.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Add a code to require password access for this link.
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    ) : null}
                                                 </div>
 
 
@@ -2783,7 +2943,7 @@ export function EventWizard({
                                                                                     <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
                                                                                         <Label className="text-xs font-medium">Min Per Order</Label>
                                                                                         <Switch
-                                                                                            checked={Boolean(ticket.minPerOrder)}
+                                                                                            checked={ticket.minPerOrder !== 0}
                                                                                             onCheckedChange={(checked) => {
                                                                                                 if (checked) {
                                                                                                     updateTicket(ticket.id, 'minPerOrder', 1);
@@ -2793,26 +2953,31 @@ export function EventWizard({
                                                                                             }}
                                                                                         />
                                                                                     </div>
-                                                                                    {ticket.minPerOrder ? (
+                                                                                    {ticket.minPerOrder !== 0 ? (
                                                                                         <Input
                                                                                             type="number"
-                                                                                            value={ticket.minPerOrder || ''}
+                                                                                            value={ticket.minPerOrder > 0 ? ticket.minPerOrder : ''}
                                                                                             onChange={(e) => {
                                                                                                 const value = e.target.value;
                                                                                                 if (value === '') {
-                                                                                                    updateTicket(ticket.id, 'minPerOrder', 1);
+                                                                                                    updateTicket(ticket.id, 'minPerOrder', -1);
                                                                                                     return;
                                                                                                 }
                                                                                                 const numericValue = Number.parseInt(value, 10);
-                                                                                                if (Number.isNaN(numericValue) || numericValue < 1) {
+                                                                                                if (Number.isNaN(numericValue) || numericValue < 0) {
                                                                                                     return;
                                                                                                 }
-                                                                                                const maxLimit = ticket.maxPerOrder || MAX_PER_ORDER;
+                                                                                                const maxLimit = ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER;
                                                                                                 updateTicket(ticket.id, 'minPerOrder', Math.min(numericValue, maxLimit));
+                                                                                            }}
+                                                                                            onBlur={() => {
+                                                                                                if (ticket.minPerOrder < 1) {
+                                                                                                    updateTicket(ticket.id, 'minPerOrder', 1);
+                                                                                                }
                                                                                             }}
                                                                                             className="h-9"
                                                                                             min={1}
-                                                                                            max={ticket.maxPerOrder || MAX_PER_ORDER}
+                                                                                            max={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER}
                                                                                         />
                                                                                     ) : null}
                                                                                 </div>
@@ -2821,10 +2986,10 @@ export function EventWizard({
                                                                                     <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
                                                                                         <Label className="text-xs font-medium">Max Per Order</Label>
                                                                                         <Switch
-                                                                                            checked={Boolean(ticket.maxPerOrder)}
+                                                                                            checked={ticket.maxPerOrder !== 0}
                                                                                             onCheckedChange={(checked) => {
                                                                                                 if (checked) {
-                                                                                                    updateTicket(ticket.id, 'maxPerOrder', MAX_PER_ORDER);
+                                                                                                    updateTicket(ticket.id, 'maxPerOrder', 15);
                                                                                                 } else {
                                                                                                     updateTicket(ticket.id, 'maxPerOrder', 0);
                                                                                                     clearTicketError(ticket.id, 'maxPerOrder');
@@ -2832,32 +2997,36 @@ export function EventWizard({
                                                                                             }}
                                                                                         />
                                                                                     </div>
-                                                                                    {ticket.maxPerOrder ? (
+                                                                                    {ticket.maxPerOrder !== 0 ? (
                                                                                         <Input
                                                                                             type="number"
-                                                                                            value={ticket.maxPerOrder || ''}
+                                                                                            value={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : ''}
                                                                                             onChange={(e) => {
                                                                                                 const value = e.target.value;
                                                                                                 if (value === '') {
-                                                                                                    updateTicket(ticket.id, 'maxPerOrder', 1);
+                                                                                                    updateTicket(ticket.id, 'maxPerOrder', -1);
                                                                                                     return;
                                                                                                 }
                                                                                                 const numericValue = Number.parseInt(value, 10);
-                                                                                                if (Number.isNaN(numericValue) || numericValue < 1) {
+                                                                                                if (Number.isNaN(numericValue) || numericValue < 0) {
                                                                                                     return;
                                                                                                 }
-                                                                                                const maxLimit = Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1));
-                                                                                                updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, maxLimit));
+                                                                                                updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, MAX_PER_ORDER));
                                                                                                 if (numericValue >= 1) {
                                                                                                     clearTicketError(ticket.id, 'maxPerOrder');
+                                                                                                }
+                                                                                            }}
+                                                                                            onBlur={() => {
+                                                                                                if (ticket.maxPerOrder < 1) {
+                                                                                                    updateTicket(ticket.id, 'maxPerOrder', 15);
                                                                                                 }
                                                                                             }}
                                                                                             className={cn(
                                                                                                 'h-9',
                                                                                                 ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
                                                                                             )}
-                                                                                            min={ticket.minPerOrder || 1}
-                                                                                            max={Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1))}
+                                                                                            min={ticket.minPerOrder > 0 ? ticket.minPerOrder : 1}
+                                                                                            max={MAX_PER_ORDER}
                                                                                         />
                                                                                     ) : null}
                                                                                     {ticketErrors[ticket.id]?.maxPerOrder ? (
@@ -3766,55 +3935,6 @@ export function EventWizard({
                             ) : (
                                 <p className="text-xs text-muted-foreground truncate">{statusLabel}</p>
                             )}
-                        </div>
-
-                        {/* Visibility Toggle - Mobile (tap to toggle) */}
-                        <button
-                            onClick={() => setFormData(prev => ({
-                                ...prev,
-                                visibility: prev.visibility === 'public' ? 'private' : 'public'
-                            }))}
-                            className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border/50 bg-card hover:bg-muted transition-colors"
-                        >
-                            {formData.visibility === 'public' ? (
-                                <>
-                                    <Globe className="h-3 w-3 text-primary" />
-                                    Public
-                                </>
-                            ) : (
-                                <>
-                                    <EyeOff className="h-3 w-3 text-muted-foreground" />
-                                    Private
-                                </>
-                            )}
-                        </button>
-
-                        {/* Visibility Toggle - Desktop (segmented control) */}
-                        <div className="hidden sm:flex items-center rounded-lg border border-border/50 overflow-hidden">
-                            <button
-                                onClick={() => setFormData(prev => ({ ...prev, visibility: 'public' }))}
-                                className={cn(
-                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
-                                    formData.visibility === 'public'
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'bg-card hover:bg-muted'
-                                )}
-                            >
-                                <Globe className="h-3 w-3" />
-                                Public
-                            </button>
-                            <button
-                                onClick={() => setFormData(prev => ({ ...prev, visibility: 'private' }))}
-                                className={cn(
-                                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
-                                    formData.visibility === 'private'
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'bg-card hover:bg-muted'
-                                )}
-                            >
-                                <EyeOff className="h-3 w-3" />
-                                Private
-                            </button>
                         </div>
 
                         {/* Action Buttons - Right */}

@@ -10,7 +10,7 @@ export default function EmbedCheckoutPage() {
     const slug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug;
     const theme = searchParams.get('theme') ?? 'light';
 
-    const { event, tickets, isLoading, error } = usePublicEvent(slug ?? null);
+    const { event, tickets, isLoading, error, accessStatus, accessCode, setAccessCode } = usePublicEvent(slug ?? null);
 
     return (
         <EmbedCheckoutWidget
@@ -19,6 +19,10 @@ export default function EmbedCheckoutPage() {
             isLoading={isLoading}
             error={error}
             theme={theme}
+            accessStatus={accessStatus}
+            accessMessage={error}
+            accessCode={accessCode}
+            onAccessSubmit={setAccessCode}
         />
     );
 }

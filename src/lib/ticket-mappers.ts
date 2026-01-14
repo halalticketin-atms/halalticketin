@@ -73,6 +73,8 @@ export const buildDraftFromEventRecord = (
         bannerImageDataUrl: event.bannerImageUrl ?? '', // FIX: Populate from backend's bannerImageUrl
         categories: event.category ? event.category.split(',').map((c) => c.trim()) : [],
         visibility: event.isListedPublicly ? 'public' : 'private',
+        accessCodeEnabled: !event.isListedPublicly && (event.hasAccessPassword ?? false),
+        accessCode: '',
         date: isoToDate(event.startDatetime, event.timezone),
         endDate: isoToDate(event.endDatetime, event.timezone),
         isMultiDay: event.isMultiDay,

@@ -52,7 +52,7 @@ export default function EditEventPage() {
                 setEmbedMeta({
                     slug: eventResponse.event.slug ?? null,
                     status: eventResponse.event.status,
-                    isPublic: eventResponse.event.isListedPublicly,
+                    isPublic: eventResponse.event.isPubliclyAccessible,
                 });
                 setInitialDraft(
                     buildDraftFromEventRecord(

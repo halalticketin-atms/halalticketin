@@ -8,7 +8,7 @@ export const LIMITS_GBP = {
 };
 
 export const MAX_TICKET_QUANTITY = 100_000;
-export const MAX_PER_ORDER = 15;
+export const MAX_PER_ORDER = 50;
 export const PROMO_CODE_MIN_LENGTH = 3;
 export const PROMO_CODE_MAX_LENGTH = 15;
 

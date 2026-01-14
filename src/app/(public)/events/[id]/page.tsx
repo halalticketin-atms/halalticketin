@@ -7,7 +7,7 @@ import { PublicEventPageContent } from '@/components/events/PublicEventPageConte
 export default function EventDetailsPage() {
     const params = useParams();
     const slug = Array.isArray(params?.id) ? params?.id[0] : params?.id;
-    const { event, tickets, isLoading, error } = usePublicEvent(slug ?? null);
+    const { event, tickets, isLoading, error, accessStatus, accessCode, setAccessCode } = usePublicEvent(slug ?? null);
 
     return (
         <PublicEventPageContent
@@ -15,6 +15,10 @@ export default function EventDetailsPage() {
             tickets={tickets}
             isLoading={isLoading}
             error={error}
+            accessStatus={accessStatus}
+            accessMessage={error}
+            accessCode={accessCode}
+            onAccessSubmit={setAccessCode}
         />
     );
 }

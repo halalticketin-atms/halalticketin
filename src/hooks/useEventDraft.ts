@@ -19,6 +19,8 @@ export interface DraftFormData {
   bannerImageDataUrl: string;
   categories: string[];
   visibility: 'public' | 'private';
+  accessCodeEnabled: boolean;
+  accessCode: string;
   date: string;
   endDate: string;
   isMultiDay: boolean;
@@ -89,6 +91,8 @@ const defaultFormData: DraftFormData = {
   bannerImageDataUrl: '',
   categories: [],
   visibility: 'public',
+  accessCodeEnabled: false,
+  accessCode: '',
   date: '',
   endDate: '',
   isMultiDay: false,
@@ -177,11 +181,23 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
     });
   };
 
+  const normalizeVisibility = (value?: string): 'public' | 'private' | undefined => {
+    if (value === 'private' || value === 'unlisted') {
+      return 'private';
+    }
+    if (value === 'public') {
+      return 'public';
+    }
+    return undefined;
+  };
+
+  const normalizedVisibility = normalizeVisibility(initial?.formData?.visibility);
   const normalizedInitialFormData = initial?.formData
     ? {
       ...initial.formData,
+      ...(normalizedVisibility && { visibility: normalizedVisibility }),
       customQuestions: normalizeCustomQuestions(initial.formData.customQuestions),
-    }
+    } as Partial<DraftFormData>
     : undefined;
 
   const [currentStep, setCurrentStep] = useState(initial?.currentStep ?? 1);

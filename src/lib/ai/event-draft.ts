@@ -8,8 +8,11 @@ import type {
   DraftPromoCode,
 } from '@/hooks/useEventDraft';
 
+type AiVisibility = 'public' | 'private' | 'unlisted' | null;
+type AiDraftFormData = Omit<DraftFormData, 'visibility'> & { visibility?: AiVisibility };
+
 type AiDraftResponse = {
-  formData?: Partial<DraftFormData> | null;
+  formData?: Partial<AiDraftFormData> | null;
   tickets?: Partial<DraftTicketType>[] | null;
   promoCodes?: Partial<DraftPromoCode>[] | null;
 };
@@ -103,7 +106,7 @@ function buildDraftFromAiPayload(
 }
 
 function normalizeFormData(
-  raw: Partial<DraftFormData>,
+  raw: Partial<AiDraftFormData>,
   titleHint: string,
 ): DraftFormData {
   const safeTitleHint = titleHint
@@ -130,6 +133,8 @@ function normalizeFormData(
     bannerImageDataUrl: raw.bannerImageDataUrl ?? '',
     categories: parseCategories(raw),
     visibility: raw.visibility === 'private' ? 'private' : 'public',
+    accessCodeEnabled: false,
+    accessCode: '',
     date: raw.date ?? '',
     endDate: raw.endDate ?? '',
     isMultiDay: Boolean(raw.isMultiDay),
@@ -151,7 +156,7 @@ function normalizeFormData(
   };
 }
 
-function parseCategories(raw: Partial<DraftFormData>): string[] {
+function parseCategories(raw: Partial<AiDraftFormData>): string[] {
   if (Array.isArray(raw.categories)) {
     return raw.categories.filter((c): c is string => typeof c === 'string' && c.trim().length > 0);
   }
