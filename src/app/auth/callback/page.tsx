@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { setAuthToken, setRefreshToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
+import { setLastAuthMethod } from '@/lib/last-auth-method';
 
 function CallbackContent() {
     const router = useRouter();
@@ -30,6 +31,14 @@ function CallbackContent() {
                     // Store the access token
                     setAuthToken(session.access_token);
                     setRefreshToken(session.refresh_token ?? null);
+
+                    const provider = session.user?.app_metadata?.provider;
+                    const providers = session.user?.app_metadata?.providers;
+                    const providerList = Array.isArray(providers) ? providers : [];
+                    const isGoogle = provider === 'google' || providerList.includes('google');
+                    if (isGoogle) {
+                        setLastAuthMethod('google');
+                    }
 
                     await refresh();
                     setRedirectPending(true);
@@ -58,10 +67,13 @@ function CallbackContent() {
 
         const nextParam = searchParams.get('next');
         if (needsOnboarding) {
+            const roleParam = searchParams.get('role');
+            const safeRoleParam = roleParam === 'organizer' || roleParam === 'buyer' ? roleParam : null;
             const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
-            const onboardingPath = safeNextParam
-                ? `/register?next=${encodeURIComponent(safeNextParam)}`
-                : '/register';
+            const params = new URLSearchParams();
+            if (safeRoleParam) params.set('role', safeRoleParam);
+            if (safeNextParam) params.set('next', safeNextParam);
+            const onboardingPath = params.size > 0 ? `/register?${params.toString()}` : '/register';
             router.push(onboardingPath);
             return;
         }

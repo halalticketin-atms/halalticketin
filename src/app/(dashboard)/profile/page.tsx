@@ -245,7 +245,7 @@ export default function ProfilePage() {
                                         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{displayName}</h1>
                                         {memberships.length > 0 ? (
                                             <Badge variant="secondary" className="font-normal border-primary/20 bg-primary/5 text-primary">
-                                                Organizer
+                                                Organiser
                                             </Badge>
                                         ) : user && (
                                             <div className="flex items-center gap-2">
@@ -399,7 +399,7 @@ export default function ProfilePage() {
                                     <EmptyState
                                         icon={Users}
                                         title="Not following anyone"
-                                        description="Organizers you follow will appear here."
+                                        description="Organisers you follow will appear here."
                                         actionLabel="Discover Events"
                                         actionHref="/events"
                                     />

@@ -2591,7 +2591,7 @@ export function EventWizard({
                                                                     </div>
                                                                     {canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
                                                                         <div className="space-y-1.5">
-                                                                            <Label>Organizer Fee ({getCurrencySymbol(formData.currency)})</Label>
+                                                                            <Label>Organiser Fee ({getCurrencySymbol(formData.currency)})</Label>
                                                                             <Input
                                                                                 type="number"
                                                                                 placeholder="0.55"

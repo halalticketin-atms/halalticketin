@@ -52,9 +52,12 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/lib/notifications';
 import { uploadOrganizerAvatar } from '@/lib/upload-api';
 import { COUNTRIES, CURRENCIES, TIMEZONES } from '@/lib/organizer-options';
-import { getPasswordValidationError, PASSWORD_REQUIREMENTS_TEXT } from '@/lib/password';
+import { getPasswordValidationError } from '@/lib/password';
+import { getLastAuthMethod, setLastAuthMethod, type LastAuthMethod } from '@/lib/last-auth-method';
 
 const TERMS_VERSION = '2024-12-20';
+const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
 
 const BUYER_STEPS = [
     { id: 'intent', title: 'Welcome', description: 'Choose your path', icon: Sparkles },
@@ -173,9 +176,12 @@ export function SignupOnboardingDialog({
     // Invite mode: user is joining an existing org via invitation
     const isInviteFlow = Boolean(inviteEmail);
     const isAuthenticatedOnboarding = authMode === 'existing';
+    const shouldSkipWelcome = isAuthenticatedOnboarding && Boolean(defaultRole) && !isInviteFlow;
 
     // In invite mode, start at credentials step (skip role selection)
-    const [step, setStep] = useState<Step>(isInviteFlow ? 'credentials' : 'intent');
+    const [step, setStep] = useState<Step>(
+        isInviteFlow ? 'credentials' : (shouldSkipWelcome ? 'profile' : 'intent')
+    );
     const [direction, setDirection] = useState(1);
     const [formData, setFormData] = useState<FormData>({
         ...initialFormData,
@@ -190,6 +196,7 @@ export function SignupOnboardingDialog({
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [pendingEmailConfirmation, setPendingEmailConfirmation] = useState(false);
+    const [lastUsed, setLastUsed] = useState<LastAuthMethod | null>(null);
 
     // Avatar upload state
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -200,10 +207,14 @@ export function SignupOnboardingDialog({
     const { refresh } = useAuth();
 
     // Use simplified steps for invite flow (no org creation needed)
+    const baseSteps = formData.role === 'organizer' ? ORGANIZER_STEPS : BUYER_STEPS;
     const steps = isInviteFlow
         ? INVITE_STEPS
-        : (formData.role === 'organizer' ? ORGANIZER_STEPS : BUYER_STEPS);
+        : shouldSkipWelcome
+            ? baseSteps.filter(s => s.id !== 'intent' && s.id !== 'credentials')
+            : baseSteps;
     const currentStepIndex = steps.findIndex(s => s.id === step);
+    const canGoBack = currentStepIndex > 0;
 
     const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
@@ -226,19 +237,24 @@ export function SignupOnboardingDialog({
         });
     }, [inviteEmail, prefill]);
 
+    useEffect(() => {
+        const stored = getLastAuthMethod();
+        setLastUsed(stored?.method ?? null);
+    }, []);
+
     const handleAvatarSelect = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         // Validate file type
-        if (!file.type.startsWith('image/')) {
-            setError('Please select an image file');
+        if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type as (typeof ALLOWED_AVATAR_MIME_TYPES)[number])) {
+            setError('Please upload a JPG, PNG, GIF, or WebP image');
             return;
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            setError('Image must be less than 5MB');
+            setError('Image must be 5MB or less');
             return;
         }
 
@@ -278,10 +294,16 @@ export function SignupOnboardingDialog({
         setError(null);
 
         try {
+            const callbackUrl = new URL('/auth/callback', window.location.origin);
+            callbackUrl.searchParams.set('role', formData.role);
+            if (redirectAfterComplete) {
+                callbackUrl.searchParams.set('next', redirectAfterComplete);
+            }
+
             const { error } = await getSupabase().auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback${redirectAfterComplete ? `?next=${encodeURIComponent(redirectAfterComplete)}` : ''}`,
+                    redirectTo: callbackUrl.toString(),
                 },
             });
 
@@ -321,6 +343,18 @@ export function SignupOnboardingDialog({
                 setStep('profile');
                 break;
             case 'profile':
+                if (!formData.gender) {
+                    setError('Gender is required');
+                    return;
+                }
+                if (!formData.dateOfBirth) {
+                    setError('Date of birth is required');
+                    return;
+                }
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.dateOfBirth)) {
+                    setError('Date of birth must be a valid date');
+                    return;
+                }
                 if (!acceptedTerms) {
                     setError('You must accept the Terms of Use to create an account');
                     return;
@@ -338,16 +372,11 @@ export function SignupOnboardingDialog({
 
     const handleBack = () => {
         setDirection(-1);
-        switch (step) {
-            case 'credentials':
-                setStep('intent');
-                break;
-            case 'profile':
-                setStep('credentials');
-                break;
-            case 'stripe':
-                setStep('profile');
-                break;
+        const previousStep = currentStepIndex > 0
+            ? (steps[currentStepIndex - 1]?.id as Step | undefined)
+            : undefined;
+        if (previousStep) {
+            setStep(previousStep);
         }
     };
 
@@ -420,6 +449,8 @@ export function SignupOnboardingDialog({
                 });
 
                 setAuthToken(loginResponse.accessToken);
+                setLastAuthMethod('password');
+                setLastUsed('password');
                 await refresh();
             }
 
@@ -473,7 +504,7 @@ export function SignupOnboardingDialog({
 
     const handleStripeConnect = async () => {
         if (!organizerId) {
-            setError('No organizer found. Please try again.');
+            setError('No organiser found. Please try again.');
             return;
         }
 
@@ -769,17 +800,22 @@ export function SignupOnboardingDialog({
                                                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
                                                 </div>
 
-                                                <Button
-                                                    variant="outline"
-                                                    onClick={handleGoogleLogin}
-                                                    disabled={isLoading}
-                                                    className="w-full h-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl"
-                                                >
-                                                    <svg className="h-5 w-5 mr-3" viewBox="0 0 24 24">
-                                                        <path
-                                                            fill="#4285F4"
-                                                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                                                        />
+	                                                <Button
+	                                                    variant="outline"
+	                                                    onClick={handleGoogleLogin}
+	                                                    disabled={isLoading}
+	                                                    className="w-full h-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl relative"
+	                                                >
+	                                                    {lastUsed === 'google' && (
+	                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] px-2 py-0.5 rounded-full bg-slate-900/5 dark:bg-white/10 text-slate-600 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700/70">
+	                                                            Last used
+	                                                        </span>
+	                                                    )}
+	                                                    <svg className="h-5 w-5 mr-3" viewBox="0 0 24 24">
+	                                                        <path
+	                                                            fill="#4285F4"
+	                                                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+	                                                        />
                                                         <path
                                                             fill="#34A853"
                                                             d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
@@ -953,6 +989,7 @@ export function SignupOnboardingDialog({
                                         <Button
                                             variant="outline"
                                             onClick={handleBack}
+                                            disabled={isLoading || !canGoBack}
                                             className="h-12 px-6 border-2 hover:bg-slate-50 dark:hover:bg-slate-800"
                                         >
                                             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -988,7 +1025,7 @@ export function SignupOnboardingDialog({
                                         <p className="text-slate-600 dark:text-slate-400 mt-1">
                                             {formData.role === 'organizer'
                                                 ? 'This helps attendees discover your events'
-                                                : 'All fields are optional'}
+                                                : 'Required fields are marked with *'}
                                         </p>
                                     </div>
 
@@ -997,7 +1034,9 @@ export function SignupOnboardingDialog({
                                             <div className="space-y-4">
                                                 <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     <div className="space-y-2">
-                                                        <Label>Gender</Label>
+                                                        <Label>
+                                                            Gender <span className="text-rose-500">*</span>
+                                                        </Label>
                                                         <Select
                                                             value={formData.gender}
                                                             onValueChange={(value) => updateField('gender', value as 'male' | 'female')}
@@ -1015,7 +1054,7 @@ export function SignupOnboardingDialog({
                                                     <div className="space-y-2">
                                                         <Label className="flex items-center gap-2">
                                                             <Calendar className="h-4 w-4 text-slate-400" />
-                                                            Date of Birth
+                                                            Date of Birth <span className="text-rose-500">*</span>
                                                         </Label>
                                                         <DatePicker
                                                             value={formData.dateOfBirth}
@@ -1073,7 +1112,7 @@ export function SignupOnboardingDialog({
                                                         <input
                                                             ref={avatarInputRef}
                                                             type="file"
-                                                            accept="image/*"
+                                                            accept={AVATAR_ACCEPT}
                                                             onChange={handleAvatarSelect}
                                                             className="hidden"
                                                             id="avatar-upload-org"
@@ -1109,6 +1148,49 @@ export function SignupOnboardingDialog({
                                                                 <X className="h-3.5 w-3.5" />
                                                             </button>
                                                         )}
+                                                    </div>
+                                                </motion.div>
+
+                                                <motion.div variants={staggerItem} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 p-4">
+                                                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                                        About you
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                                        Required fields are marked with *
+                                                    </p>
+                                                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        <div className="space-y-2">
+                                                            <Label>
+                                                                Gender <span className="text-rose-500">*</span>
+                                                            </Label>
+                                                            <Select
+                                                                value={formData.gender}
+                                                                onValueChange={(value) => updateField('gender', value as 'male' | 'female')}
+                                                            >
+                                                                <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
+                                                                    <SelectValue placeholder="Select gender" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="male">Male</SelectItem>
+                                                                    <SelectItem value="female">Female</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <Label className="flex items-center gap-2">
+                                                                <Calendar className="h-4 w-4 text-slate-400" />
+                                                                Date of Birth <span className="text-rose-500">*</span>
+                                                            </Label>
+                                                            <DatePicker
+                                                                value={formData.dateOfBirth}
+                                                                onChange={(value) => updateField('dateOfBirth', value)}
+                                                                placeholder="Select date of birth"
+                                                                className="h-12 bg-white/70 dark:bg-slate-800/70"
+                                                                maxDate={new Date()}
+                                                                showYearMonthDropdowns
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </motion.div>
 
@@ -1283,7 +1365,7 @@ export function SignupOnboardingDialog({
                                         <Button
                                             variant="outline"
                                             onClick={handleBack}
-                                            disabled={isLoading}
+                                            disabled={isLoading || !canGoBack}
                                             className="h-12 px-6 border-2"
                                         >
                                             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -1429,7 +1511,7 @@ export function SignupOnboardingDialog({
                                             {pendingEmailConfirmation
                                                 ? 'We sent a verification link. Click it to confirm your email and sign in.'
                                                 : (formData.role === 'organizer'
-                                                    ? 'Your organizer account is ready. Let\'s create your first event!'
+                                                    ? 'Your organiser account is ready. Let\'s create your first event!'
                                                     : 'Welcome! Explore amazing events happening near you.')}
                                         </p>
                                     </motion.div>

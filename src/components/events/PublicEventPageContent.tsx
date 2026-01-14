@@ -672,7 +672,7 @@ export function PublicEventPageContent({
             const noteCurrency = ticket.currency ?? currencyCode;
             notes.set(
                 ticket.id,
-                `Organizer fee: ${formatCurrency(resolvedFee, noteCurrency)} per ticket`
+                `Organiser fee: ${formatCurrency(resolvedFee, noteCurrency)} per ticket`
             );
         }
 
@@ -1338,7 +1338,7 @@ export function PublicEventPageContent({
 
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-                                                        Event Organizer
+                                                        Event Organiser
                                                     </p>
                                                     <p className="font-semibold text-lg group-hover:text-primary transition-colors truncate">
                                                         {organizerName}
@@ -1674,7 +1674,7 @@ export function PublicEventPageContent({
                                             )}
                                             {organizerFeeAmount > 0 && (
                                                 <div className="flex justify-between text-sm text-muted-foreground">
-                                                    <span>{hasOrganizerFeeOverride ? 'Organizer fee (custom)' : 'Organizer fee'}</span>
+                                                    <span>{hasOrganizerFeeOverride ? 'Organiser fee (custom)' : 'Organiser fee'}</span>
                                                     <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
                                                 </div>
                                             )}
@@ -1707,7 +1707,7 @@ export function PublicEventPageContent({
                                             )}
                                             {finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount > 0 && processingFeeAmount > 0 && (
                                                 <p className="text-xs text-muted-foreground text-center">
-                                                    Organizer fee and processing fee apply.
+                                                    Organiser fee and processing fee apply.
                                                 </p>
                                             )}
                                             {creditSplitNote && (
@@ -1780,7 +1780,7 @@ export function PublicEventPageContent({
                                     const isDonation = item.ticket.type === 'donation';
                                     const feeDetail = !isDonation ? organizerFeeDetails.get(item.ticket.id) : undefined;
                                     const feeNote = feeDetail
-                                        ? `Organizer fee: ${formatCurrency(feeDetail.feePerTicket, currencyCode)} per ticket` +
+                                        ? `Organiser fee: ${formatCurrency(feeDetail.feePerTicket, currencyCode)} per ticket` +
                                         (feeDetail.creditQuantity < feeDetail.quantity
                                             ? ` (applies to ${feeDetail.creditQuantity} of ${feeDetail.quantity})`
                                             : '')
@@ -1835,7 +1835,7 @@ export function PublicEventPageContent({
 
                                 {organizerFeeAmount > 0 && (
                                     <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                        <span>{hasOrganizerFeeOverride ? 'Organizer fee (custom)' : 'Organizer fee'}</span>
+                                        <span>{hasOrganizerFeeOverride ? 'Organiser fee (custom)' : 'Organiser fee'}</span>
                                         <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
                                     </div>
                                 )}
@@ -2203,7 +2203,7 @@ export function PublicEventPageContent({
                                                             const isDonation = item.ticket.type === 'donation';
                                                             const feeDetail = !isDonation ? organizerFeeDetails.get(item.ticket.id) : undefined;
                                                             const feeNote = feeDetail
-                                                                ? `Organizer fee: ${formatCurrency(feeDetail.feePerTicket, currencyCode)} per ticket` +
+                                                                ? `Organiser fee: ${formatCurrency(feeDetail.feePerTicket, currencyCode)} per ticket` +
                                                                 (feeDetail.creditQuantity < feeDetail.quantity
                                                                     ? ` (applies to ${feeDetail.creditQuantity} of ${feeDetail.quantity})`
                                                                     : '')
@@ -2228,7 +2228,7 @@ export function PublicEventPageContent({
                                                         )}
                                                         {organizerFeeAmount > 0 && (
                                                             <div className="flex justify-between text-muted-foreground">
-                                                                <span>{hasOrganizerFeeOverride ? 'Organizer fee (custom)' : 'Organizer fee'}</span>
+                                                                <span>{hasOrganizerFeeOverride ? 'Organiser fee (custom)' : 'Organiser fee'}</span>
                                                                 <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
                                                             </div>
                                                         )}

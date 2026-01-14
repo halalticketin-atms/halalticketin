@@ -113,7 +113,7 @@ export function FeeBreakdown({
                     {breakdown.organizerFee > 0 && (
                         <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground flex items-center gap-1">
-                                Organizer fee
+                                Organiser fee
                                 <span className="text-xs">({formatCurrency(breakdown.organizerFeePerTicket)}/ticket)</span>
                             </span>
                             <span>+{formatCurrency(breakdown.organizerFee)}</span>
@@ -156,7 +156,7 @@ export function FeeBreakdown({
                         {feeTier === 'charity'
                             ? `Charity rate: £${CHARITY_FEE_GBP.toFixed(2)} per ticket (requires verified charity status)`
                             : feeTier === 'token'
-                                ? 'Using credits: platform fees are waived. Optional organizer fee is paid directly to the organizer.'
+                                ? 'Using credits: platform fees are waived. Optional organiser fee is paid directly to the organiser.'
                                 : `Standard rate: £${PAYG_FEE_GBP.toFixed(2)} per ticket. Buy credits to reduce fees.`
                         }
                         {' '}

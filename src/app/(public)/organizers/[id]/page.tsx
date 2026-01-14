@@ -225,7 +225,7 @@ export default function OrganizerProfilePage() {
                 setPastEvents(data.pastEvents);
             } catch (err) {
                 console.error('Failed to load organizer profile:', err);
-                setError('This organizer profile could not be found.');
+                setError('This organiser profile could not be found.');
             } finally {
                 setIsLoading(false);
             }
@@ -304,9 +304,9 @@ export default function OrganizerProfilePage() {
                     className="max-w-md rounded-2xl border bg-background p-8 text-center shadow-lg"
                 >
                     <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h1 className="font-display text-2xl font-bold">Organizer not found</h1>
+                    <h1 className="font-display text-2xl font-bold">Organiser not found</h1>
                     <p className="mt-2 text-muted-foreground">
-                        {error || "This organizer profile doesn't exist."}
+                        {error || "This organiser profile doesn't exist."}
                     </p>
                     <Button asChild className="mt-6">
                         <Link href="/events">Browse Events</Link>
@@ -321,8 +321,8 @@ export default function OrganizerProfilePage() {
             <ShareDialog
                 open={isShareOpen}
                 onOpenChange={setIsShareOpen}
-                title={organizer.name || 'Organizer profile'}
-                text="Organizer profile"
+                title={organizer.name || 'Organiser profile'}
+                text="Organiser profile"
             />
             {/* Hero Section */}
             <div className="relative">

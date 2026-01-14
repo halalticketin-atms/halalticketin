@@ -21,7 +21,7 @@ const SUBJECT_OPTIONS = [
     { value: 'general', label: 'General Inquiry' },
     { value: 'sales', label: 'Sales & Pricing' },
     { value: 'partnerships', label: 'Partnerships & Collaborations' },
-    { value: 'organizer', label: 'Become an Organizer' },
+    { value: 'organizer', label: 'Become an Organiser' },
     { value: 'support', label: 'Technical Support' },
     { value: 'billing', label: 'Billing & Payments' },
     { value: 'refunds', label: 'Refunds & Cancellations' },

@@ -28,7 +28,9 @@ function RegisterPageContent() {
 
     // Get params from URL
     const roleParam = searchParams.get('role');
-    const defaultRole = roleParam === 'organizer' ? 'organizer' : undefined;
+    const defaultRole = roleParam === 'organizer'
+        ? 'organizer'
+        : (roleParam === 'buyer' ? 'buyer' : undefined);
     const nextParam = searchParams.get('next');
     const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
     const redirectPath = safeNextParam ?? '/dashboard';

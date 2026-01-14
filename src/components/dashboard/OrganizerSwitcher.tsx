@@ -158,7 +158,7 @@ export function OrganizerSwitcher({ variant = 'sidebar', size = 'md', showLabel 
             <div className={variant === 'sidebar' ? 'px-4 py-3' : ''}>
                 {showLabel && variant === 'sidebar' && (
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                        Organizer
+                        Organiser
                     </p>
                 )}
                 <DropdownMenu>

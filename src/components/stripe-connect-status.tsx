@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle, AlertCircle, ExternalLink, CreditCard, Loader2, Bug, Link2Off } from 'lucide-react';
+import { CheckCircle, AlertCircle, ExternalLink, CreditCard, Loader2, Link2Off } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,40 +39,17 @@ type BlockingEvent = {
     title: string;
 };
 
-// Check if we're in dev mode
-const isDevMode = () => {
-    if (typeof window === 'undefined') return false;
-    return process.env.NODE_ENV === 'development' ||
-        process.env.NEXT_PUBLIC_DEV_MODE === 'true' ||
-        window.location.hostname === 'localhost';
-};
-
 export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
     const [status, setStatus] = useState<StripeStatusResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [devModeSkipped, setDevModeSkipped] = useState(false);
     const [confirmDisconnectOpen, setConfirmDisconnectOpen] = useState(false);
     const [blockDialogOpen, setBlockDialogOpen] = useState(false);
     const [blockDialogEvents, setBlockDialogEvents] = useState<BlockingEvent[]>([]);
 
     const fetchStatus = useCallback(async () => {
-        // If dev mode skipped, return simulated completed status
-        if (devModeSkipped) {
-            setStatus({
-                hasStripeAccount: true,
-                accountId: 'acct_dev_simulated',
-                onboardingStatus: 'completed',
-                chargesEnabled: true,
-                payoutsEnabled: true,
-                detailsSubmitted: true
-            });
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             setError(null);
@@ -81,20 +58,11 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
             );
             setStatus(response);
         } catch (err) {
-            // In dev mode, allow continuing even if API fails
-            if (isDevMode()) {
-                setStatus({
-                    hasStripeAccount: false,
-                    onboardingStatus: 'pending'
-                });
-                setError(null);
-            } else {
-                setError(err instanceof Error ? err.message : 'Failed to load Stripe status');
-            }
+            setError(err instanceof Error ? err.message : 'Failed to load Stripe status');
         } finally {
             setLoading(false);
         }
-    }, [organizerId, devModeSkipped]);
+    }, [organizerId]);
 
     useEffect(() => {
         fetchStatus();
@@ -115,36 +83,6 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
         }
     };
 
-    const handleDevSkip = async () => {
-        try {
-            // Call backend to create simulated Stripe account in database
-            await api.post(`/api/v1/organizers/${organizerId}/stripe/dev-bypass`);
-
-            // Update local state to show completed
-            setDevModeSkipped(true);
-            setStatus({
-                hasStripeAccount: true,
-                accountId: 'acct_dev_simulated',
-                onboardingStatus: 'completed',
-                chargesEnabled: true,
-                payoutsEnabled: true,
-                detailsSubmitted: true
-            });
-            setError(null);
-        } catch {
-            // Fallback to local-only simulation if backend fails
-            setDevModeSkipped(true);
-            setStatus({
-                hasStripeAccount: true,
-                accountId: 'acct_dev_simulated',
-                onboardingStatus: 'completed',
-                chargesEnabled: true,
-                payoutsEnabled: true,
-                detailsSubmitted: true
-            });
-        }
-    };
-
     const handleDisconnect = () => {
         if (disconnectBlocked) {
             setBlockDialogEvents(blockingEvents);
@@ -161,7 +99,6 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
             setDisconnecting(true);
             setError(null);
             await api.post(`/api/v1/organizers/${organizerId}/stripe/disconnect`);
-            setDevModeSkipped(false);
             await fetchStatus();
         } catch (err) {
             if (err instanceof ApiError) {
@@ -195,30 +132,23 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
     const isComplete = status?.onboardingStatus === 'completed';
     const isInProgress = status?.onboardingStatus === 'in_progress';
     const isPending = !status?.hasStripeAccount || status?.onboardingStatus === 'pending';
-    const showDevMode = isDevMode();
     const blockingEvents = status?.blockingEvents ?? [];
     const disconnectBlocked = Boolean(status?.disconnectBlocked && blockingEvents.length > 0);
 
     return (
         <>
             <Card className={isComplete ? 'border-green-200 dark:border-green-800' : ''}>
-                <CardHeader>
+                <CardHeader className="bg-(--brand-cyan)/5 border-b border-border/40 px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <CreditCard className="h-5 w-5" />
-                            <CardTitle>Payment Setup</CardTitle>
+                            <CreditCard className="h-5 w-5 text-foreground" />
+                            <CardTitle className="text-base font-medium">Payment Setup</CardTitle>
                         </div>
                         <div className="flex items-center gap-2">
-                            {devModeSkipped && (
-                                <Badge variant="outline" className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
-                                    <Bug className="h-3 w-3 mr-1" />
-                                    Dev Mode
-                                </Badge>
-                            )}
                             {isComplete && (
                                 <Badge variant="default" className="bg-green-500 hover:bg-green-600">
                                     <CheckCircle className="h-3 w-3 mr-1" />
-                                    {devModeSkipped ? 'Simulated' : 'Connected'}
+                                    Connected
                                 </Badge>
                             )}
                             {isInProgress && (
@@ -234,45 +164,16 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                             )}
                         </div>
                     </div>
-                    <CardDescription>
-                        {devModeSkipped
-                            ? 'Development mode: Stripe Connect simulated as complete. Paid event publishing is enabled for testing.'
-                            : isComplete
-                                ? 'Your Stripe account is connected. You can receive payments for your events.'
-                                : isInProgress
-                                    ? 'Please complete your Stripe account setup to receive payments.'
-                                    : 'Connect your Stripe account to accept payments for paid events.'
+                    <CardDescription className="text-xs">
+                        {isComplete
+                            ? 'Your Stripe account is connected. You can receive payments for your events.'
+                            : isInProgress
+                                ? 'Please complete your Stripe account setup to receive payments.'
+                                : 'Connect your Stripe account to accept payments for paid events.'
                         }
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {/* Dev Mode Banner */}
-                    {showDevMode && !devModeSkipped && !isComplete && (
-                        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-                            <div className="flex items-start gap-3">
-                                <Bug className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5" />
-                                <div className="flex-1">
-                                    <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
-                                        Development Testing Mode
-                                    </p>
-                                    <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
-                                        Skip Stripe setup to test paid event flows without creating a real account.
-                                        This simulates a completed Stripe Connect account.
-                                    </p>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleDevSkip}
-                                        className="mt-3 border-purple-300 text-purple-700 hover:bg-purple-100 dark:border-purple-600 dark:text-purple-300 dark:hover:bg-purple-900/30"
-                                    >
-                                        <Bug className="h-3 w-3 mr-1" />
-                                        Skip for Development Testing
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {error && (
                         <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3">
                             {error}
@@ -297,7 +198,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                     )}
 
                     <div className="flex flex-col sm:flex-row gap-3">
-                        {isPending && !devModeSkipped && (
+                        {isPending && (
                             <Button onClick={handleConnect} disabled={connecting} className="gap-2">
                                 {connecting ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -319,7 +220,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                             </Button>
                         )}
 
-                        {isComplete && !devModeSkipped && (
+                        {isComplete && (
                             <Button
                                 variant="outline"
                                 asChild
@@ -336,7 +237,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                             </Button>
                         )}
 
-                        {status?.hasStripeAccount && !devModeSkipped && (
+                        {status?.hasStripeAccount && (
                             <Button
                                 variant="destructive"
                                 onClick={handleDisconnect}
@@ -352,24 +253,12 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                             </Button>
                         )}
 
-                        {devModeSkipped && (
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setDevModeSkipped(false);
-                                    fetchStatus();
-                                }}
-                            >
-                                Exit Dev Mode
-                            </Button>
-                        )}
-
                         <Button variant="ghost" onClick={fetchStatus} disabled={loading}>
                             Refresh Status
                         </Button>
                     </div>
 
-                    {isPending && !devModeSkipped && !showDevMode && (
+                    {isPending && (
                         <p className="text-xs text-muted-foreground">
                             You&apos;ll need to complete Stripe verification to publish paid events.
                             Free events can be published without Stripe.

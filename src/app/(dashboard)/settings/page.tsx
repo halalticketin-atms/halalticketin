@@ -23,11 +23,8 @@ import {
     CheckCircle,
     User,
     Coins,
-    Target,
     CreditCard,
     ExternalLink,
-    Calendar,
-    MapPin,
     Camera,
     Building,
     Globe,
@@ -36,7 +33,8 @@ import {
     Linkedin,
     X,
     Youtube,
-    Upload
+    Upload,
+    Lock
 } from 'lucide-react';
 import { SUPPORTED_CURRENCIES } from '@/lib/fees';
 import { COUNTRIES } from '@/lib/organizer-options';
@@ -57,9 +55,9 @@ interface TabItem {
 
 const TABS: TabItem[] = [
     { id: 'profile', label: 'Profile', icon: User },
-    { id: 'organizer-profile', label: 'Organizer', icon: Building, organizerOnly: true },
+    { id: 'organizer-profile', label: 'Organiser', icon: Building, organizerOnly: true },
     { id: 'currency', label: 'Currency', icon: Coins, organizerOnly: true },
-    { id: 'marketing', label: 'Marketing', icon: Target, organizerOnly: true },
+    // { id: 'marketing', label: 'Marketing', icon: Target, organizerOnly: true }, // Hidden: not in use
     { id: 'payments', label: 'Payments', icon: CreditCard, organizerOnly: true },
 ];
 
@@ -80,6 +78,9 @@ interface OrganizerProfileFormData {
     linkedin: string;
     youtube: string;
 }
+
+const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
 
 export default function SettingsPage() {
     const { user, isLoading: authLoading, refresh: refreshAuth } = useAuth();
@@ -194,15 +195,15 @@ export default function SettingsPage() {
         if (!file) return;
 
         // Validate file type
-        if (!file.type.startsWith('image/')) {
-            setAvatarError('Please select an image file');
+        if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type as (typeof ALLOWED_AVATAR_MIME_TYPES)[number])) {
+            setAvatarError('Please upload a JPG, PNG, GIF, or WebP image');
             setAvatarUploadStatus('error');
             return;
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            setAvatarError('Image must be less than 5MB');
+            setAvatarError('Image must be 5MB or less');
             setAvatarUploadStatus('error');
             return;
         }
@@ -259,12 +260,12 @@ export default function SettingsPage() {
         if (!file) return;
 
         // Validate file type and size
-        if (!file.type.startsWith('image/')) {
-            setOrgAvatarError('Please select an image file');
+        if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type as (typeof ALLOWED_AVATAR_MIME_TYPES)[number])) {
+            setOrgAvatarError('Please upload a JPG, PNG, GIF, or WebP image');
             return;
         }
         if (file.size > 5 * 1024 * 1024) {
-            setOrgAvatarError('Image must be less than 5MB');
+            setOrgAvatarError('Image must be 5MB or less');
             return;
         }
 
@@ -414,7 +415,7 @@ export default function SettingsPage() {
             await refresh();
             setTimeout(() => setOrganizerProfileSaveStatus(null), 2000);
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Failed to update organizer profile. Please try again.';
+            const message = error instanceof Error ? error.message : 'Failed to update organiser profile. Please try again.';
             setOrganizerProfileSaveStatus('error');
             setOrganizerProfileError(message);
         } finally {
@@ -504,233 +505,183 @@ export default function SettingsPage() {
                             {/* Profile Tab */}
                             {activeTab === 'profile' && (
                                 <div className="space-y-6 animate-fade-up" style={{ '--fade-delay': '0s' } as React.CSSProperties}>
-                                    <div>
-                                        <h2 className="text-xl font-semibold mb-1">Profile</h2>
-                                        <p className="text-muted-foreground text-sm">Update your personal information</p>
-                                    </div>
 
-                                    {/* Avatar Upload Section */}
-                                    <div className="flex items-start gap-6 p-4 rounded-2xl bg-muted/30 border border-border/50">
-                                        <div className="relative group">
-                                            <Avatar className="h-24 w-24 border-4 border-background shadow-lg text-2xl">
+                                    {/* Profile Header Card - Full Width */}
+                                    <div className="flex items-center gap-4 p-4 rounded-xl border border-border/60 bg-card/50">
+                                        <div className="relative">
+                                            <Avatar className="h-14 w-14 text-lg">
                                                 <AvatarImage
                                                     src={avatarPreview || user?.avatarUrl || ''}
                                                     alt={user?.name || 'User'}
                                                     className="object-cover"
                                                 />
-                                                <AvatarFallback className="bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white">
+                                                <AvatarFallback className="bg-linear-to-br from-(--brand-cyan) to-(--brand-teal) text-white font-semibold">
                                                     {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <button
                                                 type="button"
                                                 onClick={() => avatarInputRef.current?.click()}
-                                                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-background border shadow-sm hover:bg-muted transition-colors cursor-pointer group-hover:scale-110 duration-200"
+                                                className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-background border border-border hover:bg-muted transition-colors"
                                             >
-                                                <Camera className="h-4 w-4 text-muted-foreground" />
+                                                <Camera className="h-3 w-3 text-muted-foreground" />
                                             </button>
                                             <input
                                                 ref={avatarInputRef}
                                                 type="file"
-                                                accept="image/jpeg,image/png,image/gif,image/webp"
+                                                accept={AVATAR_ACCEPT}
                                                 onChange={handleAvatarSelect}
                                                 className="hidden"
                                             />
                                         </div>
-                                        <div className="flex-1 space-y-2">
-                                            <div>
-                                                <h3 className="font-medium">Profile Picture</h3>
-                                                <p className="text-sm text-muted-foreground">Click the camera icon to upload a new photo</p>
-                                                <p className="text-xs text-muted-foreground mt-1">Max 5MB • JPEG, PNG, GIF, or WebP • 400×400px recommended</p>
-                                            </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-foreground truncate">{user?.name || 'Your Name'}</p>
+                                            <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
                                             {avatarFile && (
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={handleAvatarUpload}
-                                                        disabled={isUploadingAvatar}
-                                                        className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white"
-                                                    >
-                                                        {isUploadingAvatar ? (
-                                                            <>
-                                                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                                                Uploading...
-                                                            </>
-                                                        ) : (
-                                                            'Upload'
-                                                        )}
+                                                <div className="flex gap-2 mt-2">
+                                                    <Button size="sm" variant="default" onClick={handleAvatarUpload} disabled={isUploadingAvatar}>
+                                                        {isUploadingAvatar ? <><Loader2 className="mr-1 h-3 w-3 animate-spin" />Uploading</> : 'Upload'}
                                                     </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={cancelAvatarUpload}
-                                                        disabled={isUploadingAvatar}
-                                                    >
-                                                        Cancel
-                                                    </Button>
+                                                    <Button size="sm" variant="ghost" onClick={cancelAvatarUpload} disabled={isUploadingAvatar}>Cancel</Button>
                                                 </div>
                                             )}
-                                            {avatarUploadStatus === 'success' && (
-                                                <p className="text-sm text-green-600 flex items-center gap-1">
-                                                    <Check className="h-4 w-4" />
-                                                    Avatar updated successfully
-                                                </p>
-                                            )}
-                                            {avatarUploadStatus === 'error' && (
-                                                <p className="text-sm text-destructive flex items-center gap-1">
-                                                    <AlertCircle className="h-4 w-4" />
-                                                    {avatarError || 'Failed to upload avatar'}
-                                                </p>
-                                            )}
+                                            {avatarUploadStatus === 'success' && <p className="text-xs text-emerald-600 mt-1">Photo updated</p>}
+                                            {avatarUploadStatus === 'error' && <p className="text-xs text-destructive mt-1">{avatarError || 'Upload failed'}</p>}
                                         </div>
                                     </div>
 
-                                    <div className="space-y-5 max-w-xl">
-                                        {/* Display Name */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="name" className="text-muted-foreground flex items-center gap-2">
-                                                <User className="h-4 w-4" />
-                                                Display Name
-                                            </Label>
-                                            <Input
-                                                id="name"
-                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                                placeholder="Your display name"
-                                                value={profileForm.name}
-                                                onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
-                                                minLength={2}
-                                                maxLength={80}
-                                            />
+                                    {/* Two-column grid on desktop */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                                        {/* Left Column: Personal Info Card */}
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                <h3 className="text-sm font-medium text-foreground">Personal Info</h3>
+                                            </div>
+                                            <div className="p-4 space-y-4">
+                                                {/* Display Name */}
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="name" className="text-xs text-muted-foreground uppercase tracking-wide">Display Name</Label>
+                                                    <Input
+                                                        id="name"
+                                                        placeholder="Your display name"
+                                                        value={profileForm.name}
+                                                        onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
+                                                        className="h-10"
+                                                    />
+                                                </div>
+
+                                                {/* Email - locked */}
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="email" className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                                        Email <Lock className="h-3 w-3" />
+                                                    </Label>
+                                                    <Input
+                                                        id="email"
+                                                        type="email"
+                                                        defaultValue={user?.email || ''}
+                                                        disabled
+                                                        className="h-10 bg-muted/40 border-transparent"
+                                                    />
+                                                </div>
+
+                                                {/* Gender */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                                        Gender {user?.gender && <Lock className="h-3 w-3" />}
+                                                    </Label>
+                                                    <Select
+                                                        value={profileForm.gender}
+                                                        onValueChange={(value) => setProfileForm(prev => ({ ...prev, gender: value as 'male' | 'female' | '' }))}
+                                                        disabled={!!user?.gender}
+                                                    >
+                                                        <SelectTrigger className={cn("h-10", user?.gender && "bg-muted/40 border-transparent")}>
+                                                            <SelectValue placeholder="Select gender" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="male">Male</SelectItem>
+                                                            <SelectItem value="female">Female</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                {/* Date of Birth */}
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                                        Date of Birth {user?.dateOfBirth && <Lock className="h-3 w-3" />}
+                                                    </Label>
+                                                    <DatePicker
+                                                        id="dateOfBirth"
+                                                        value={profileForm.dateOfBirth}
+                                                        onChange={(value) => setProfileForm(prev => ({ ...prev, dateOfBirth: value }))}
+                                                        placeholder="Select date"
+                                                        className={cn("h-10", user?.dateOfBirth && "bg-muted/40 border-transparent")}
+                                                        maxDate={new Date()}
+                                                        disabled={!!user?.dateOfBirth}
+                                                        showYearMonthDropdowns
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        {/* Email (read-only) */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="email" className="text-muted-foreground">Email</Label>
-                                            <Input
-                                                id="email"
-                                                type="email"
-                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 opacity-60"
-                                                placeholder="your@email.com"
-                                                defaultValue={user?.email || ''}
-                                                maxLength={254}
-                                                disabled
-                                            />
-                                            <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+                                        {/* Right Column: Location Card */}
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden h-fit">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                <h3 className="text-sm font-medium text-foreground">Location</h3>
+                                            </div>
+                                            <div className="p-4 space-y-4">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Country</Label>
+                                                    <Select
+                                                        value={profileForm.homeCountry}
+                                                        onValueChange={(value) => setProfileForm(prev => ({ ...prev, homeCountry: value }))}
+                                                    >
+                                                        <SelectTrigger className="h-10">
+                                                            <SelectValue placeholder="Select country" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {COUNTRIES.map((country) => (
+                                                                <SelectItem key={country.code} value={country.code}>
+                                                                    {country.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label htmlFor="homeCity" className="text-xs text-muted-foreground uppercase tracking-wide">City</Label>
+                                                    <Input
+                                                        id="homeCity"
+                                                        placeholder="Your city"
+                                                        value={profileForm.homeCity}
+                                                        onChange={(e) => setProfileForm(prev => ({ ...prev, homeCity: e.target.value }))}
+                                                        className="h-10"
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
+                                    </div>
 
-                                        {/* Gender */}
-                                        <div className="space-y-2">
-                                            <Label className="text-muted-foreground">Gender</Label>
-                                            <Select
-                                                value={profileForm.gender}
-                                                onValueChange={(value) => setProfileForm(prev => ({ ...prev, gender: value as 'male' | 'female' | '' }))}
-                                                disabled={!!user?.gender}
-                                            >
-                                                <SelectTrigger className={cn("glass-surface backdrop-blur-sm rounded-xl", user?.gender && "opacity-60")}>
-                                                    <SelectValue placeholder="Select gender" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="male">Male</SelectItem>
-                                                    <SelectItem value="female">Female</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {user?.gender && (
-                                                <p className="text-xs text-muted-foreground">Gender cannot be changed once set</p>
+                                    {/* Save Section - Full Width */}
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            {profileSaveStatus === 'success' && (
+                                                <p className="text-sm text-emerald-600 flex items-center gap-1.5">
+                                                    <Check className="h-4 w-4" /> Saved
+                                                </p>
+                                            )}
+                                            {profileSaveStatus === 'error' && (
+                                                <p className="text-sm text-destructive flex items-center gap-1.5">
+                                                    <AlertCircle className="h-4 w-4" /> {profileError || 'Save failed'}
+                                                </p>
                                             )}
                                         </div>
-
-                                        {/* Date of Birth */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="dateOfBirth" className="text-muted-foreground flex items-center gap-2">
-                                                <Calendar className="h-4 w-4" />
-                                                Date of Birth
-                                            </Label>
-                                            <DatePicker
-                                                id="dateOfBirth"
-                                                value={profileForm.dateOfBirth}
-                                                onChange={(value) => setProfileForm(prev => ({ ...prev, dateOfBirth: value }))}
-                                                placeholder="Select date of birth"
-                                                className={cn("glass-surface backdrop-blur-sm rounded-xl", user?.dateOfBirth && "opacity-60")}
-                                                maxDate={new Date()}
-                                                disabled={!!user?.dateOfBirth}
-                                                showYearMonthDropdowns
-                                            />
-                                            {user?.dateOfBirth && (
-                                                <p className="text-xs text-muted-foreground">Date of birth cannot be changed once set</p>
-                                            )}
-                                        </div>
-
-                                        {/* Country */}
-                                        <div className="space-y-2">
-                                            <Label className="text-muted-foreground flex items-center gap-2">
-                                                <MapPin className="h-4 w-4" />
-                                                Country
-                                            </Label>
-                                            <Select
-                                                value={profileForm.homeCountry}
-                                                onValueChange={(value) => setProfileForm(prev => ({ ...prev, homeCountry: value }))}
-                                            >
-                                                <SelectTrigger className="glass-surface backdrop-blur-sm rounded-xl">
-                                                    <SelectValue placeholder="Select country" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {COUNTRIES.map((country) => (
-                                                        <SelectItem key={country.code} value={country.code}>
-                                                            {country.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        {/* City */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="homeCity" className="text-muted-foreground">City</Label>
-                                            <Input
-                                                id="homeCity"
-                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                                placeholder="Your city"
-                                                value={profileForm.homeCity}
-                                                onChange={(e) => setProfileForm(prev => ({ ...prev, homeCity: e.target.value }))}
-                                            />
-                                        </div>
-
-                                        {/* Status messages */}
-                                        {profileSaveStatus === 'success' && (
-                                            <p className="text-sm text-green-600 flex items-center gap-1">
-                                                <Check className="h-4 w-4" />
-                                                Profile updated successfully.
-                                            </p>
-                                        )}
-                                        {profileSaveStatus === 'error' && (
-                                            <p className="text-sm text-destructive flex items-center gap-1">
-                                                <AlertCircle className="h-4 w-4" />
-                                                {profileError || 'Unable to save profile.'}
-                                            </p>
-                                        )}
-
-                                        {/* Save Button */}
-                                        <div className="pt-2">
-                                            <Button
-                                                onClick={handleSaveProfile}
-                                                disabled={isSavingProfile || !profileHasChanges}
-                                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
-                                            >
-                                                {isSavingProfile ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Saving...
-                                                    </>
-                                                ) : profileSaveStatus === 'success' ? (
-                                                    <>
-                                                        <Check className="mr-2 h-4 w-4" />
-                                                        Updated
-                                                    </>
-                                                ) : (
-                                                    'Save Changes'
-                                                )}
-                                            </Button>
-                                        </div>
+                                        <Button
+                                            onClick={handleSaveProfile}
+                                            disabled={isSavingProfile || !profileHasChanges}
+                                        >
+                                            {isSavingProfile ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Changes'}
+                                        </Button>
                                     </div>
                                 </div>
                             )}
@@ -740,9 +691,9 @@ export default function SettingsPage() {
                                 <div className="space-y-6 animate-fade-up" style={{ '--fade-delay': '0s' } as React.CSSProperties}>
                                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                                         <div>
-                                            <h2 className="text-xl font-semibold mb-1">Organizer Profile</h2>
+                                            <h2 className="text-xl font-semibold mb-1">Organiser Profile</h2>
                                             <p className="text-muted-foreground text-sm">
-                                                Update your public organizer profile
+                                                Update your public organiser profile
                                             </p>
                                         </div>
                                         {activeOrganizers.length > 1 && (
@@ -795,308 +746,222 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                    <div className="space-y-5 max-w-xl">
-                                        {/* Organization Avatar */}
-                                        <div className="space-y-3">
-                                            <Label className="text-muted-foreground flex items-center gap-2">
-                                                <Camera className="h-4 w-4" />
-                                                Organization Logo
-                                            </Label>
-                                            <div className="flex items-center gap-4">
-                                                {/* Avatar Preview */}
-                                                <div className="relative">
-                                                    {currentOrganizer?.avatarUrl ? (
-                                                        <img
-                                                            src={currentOrganizer.avatarUrl}
-                                                            alt={currentOrganizer.name}
-                                                            className="h-20 w-20 rounded-full object-cover ring-2 ring-border shadow-md"
-                                                        />
-                                                    ) : (
-                                                        <div className={cn(
-                                                            'h-20 w-20 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-md bg-gradient-to-br',
-                                                            getOrgColor(currentOrganizer?.name || 'O').gradient
-                                                        )}>
-                                                            {(currentOrganizer?.name || 'O').charAt(0).toUpperCase()}
-                                                        </div>
-                                                    )}
-                                                    {isUploadingOrgAvatar && (
-                                                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
-                                                            <Loader2 className="h-6 w-6 animate-spin text-white" />
-                                                        </div>
-                                                    )}
-                                                </div>
+                                    {/* Two-column grid on desktop */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                                                {/* Upload Button & Status */}
-                                                <div className="flex flex-col gap-2">
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => orgAvatarInputRef.current?.click()}
-                                                        disabled={!canEditOrgSettings || isUploadingOrgAvatar}
-                                                        className="rounded-xl gap-2"
-                                                    >
-                                                        <Upload className="h-4 w-4" />
-                                                        {currentOrganizer?.avatarUrl ? 'Change Logo' : 'Upload Logo'}
-                                                    </Button>
-                                                    <input
-                                                        ref={orgAvatarInputRef}
-                                                        type="file"
-                                                        accept="image/*"
-                                                        className="hidden"
-                                                        onChange={handleOrgAvatarSelect}
+                                        {/* Left Column: Logo & Bio */}
+                                        <div className="space-y-6">
+                                            {/* Organization Logo Card */}
+                                            <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                    <h3 className="text-sm font-medium text-foreground">Organization Logo</h3>
+                                                </div>
+                                                <div className="p-4">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="relative">
+                                                            {currentOrganizer?.avatarUrl ? (
+                                                                <img
+                                                                    src={currentOrganizer.avatarUrl}
+                                                                    alt={currentOrganizer.name}
+                                                                    className="h-16 w-16 rounded-full object-cover ring-2 ring-border"
+                                                                />
+                                                            ) : (
+                                                                <div className={cn(
+                                                                    'h-16 w-16 rounded-full flex items-center justify-center text-xl font-bold text-white bg-linear-to-br',
+                                                                    getOrgColor(currentOrganizer?.name || 'O').gradient
+                                                                )}>
+                                                                    {(currentOrganizer?.name || 'O').charAt(0).toUpperCase()}
+                                                                </div>
+                                                            )}
+                                                            {isUploadingOrgAvatar && (
+                                                                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                                                                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => orgAvatarInputRef.current?.click()}
+                                                                disabled={!canEditOrgSettings || isUploadingOrgAvatar}
+                                                            >
+                                                                <Upload className="h-4 w-4 mr-1.5" />
+                                                                {currentOrganizer?.avatarUrl ? 'Change' : 'Upload'}
+                                                            </Button>
+                                                            <input
+                                                                ref={orgAvatarInputRef}
+                                                                type="file"
+                                                                accept={AVATAR_ACCEPT}
+                                                                className="hidden"
+                                                                onChange={handleOrgAvatarSelect}
+                                                            />
+                                                            {orgAvatarError && <p className="text-xs text-destructive">{orgAvatarError}</p>}
+                                                            {orgAvatarSuccess && <p className="text-xs text-emerald-600">Updated!</p>}
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-3">JPG, PNG, GIF, or WebP. Max 5MB. You can crop it after uploading.</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Bio Card */}
+                                            <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                    <h3 className="text-sm font-medium text-foreground">Bio</h3>
+                                                </div>
+                                                <div className="p-4 space-y-2">
+                                                    <textarea
+                                                        id="org-bio"
+                                                        rows={5}
+                                                        maxLength={2000}
+                                                        className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all resize-none"
+                                                        placeholder="Tell people about your organization or events..."
+                                                        value={organizerProfileForm.bio}
+                                                        onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, bio: e.target.value }))}
                                                     />
-                                                    {orgAvatarError && (
-                                                        <p className="text-xs text-destructive flex items-center gap-1">
-                                                            <AlertCircle className="h-3 w-3" />
-                                                            {orgAvatarError}
-                                                        </p>
-                                                    )}
-                                                    {orgAvatarSuccess && (
-                                                        <p className="text-xs text-emerald-600 flex items-center gap-1">
-                                                            <CheckCircle className="h-3 w-3" />
-                                                            Logo updated!
-                                                        </p>
-                                                    )}
+                                                    <p className="text-xs text-muted-foreground text-right">{organizerProfileForm.bio.length}/2000</p>
                                                 </div>
                                             </div>
-                                            <p className="text-xs text-muted-foreground">
-                                                Recommended: Square image, at least 200x200px. Max 5MB.
-                                            </p>
                                         </div>
 
-                                        {/* Bio */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="org-bio" className="text-muted-foreground flex items-center gap-2">
-                                                <Building className="h-4 w-4" />
-                                                Bio
-                                            </Label>
-                                            <textarea
-                                                id="org-bio"
-                                                rows={4}
-                                                maxLength={2000}
-                                                className="flex w-full rounded-xl border border-input glass-surface backdrop-blur-sm px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all resize-none"
-                                                placeholder="Tell people about your organization or events..."
-                                                value={organizerProfileForm.bio}
-                                                onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, bio: e.target.value }))}
-                                            />
-                                            <p className="text-xs text-muted-foreground text-right">{organizerProfileForm.bio.length}/2000</p>
-                                        </div>
-
-                                        {/* Website */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="org-website" className="text-muted-foreground flex items-center gap-2">
-                                                <Globe className="h-4 w-4" />
-                                                Website
-                                            </Label>
-                                            <div className="relative">
-                                                <Input
-                                                    id="org-website"
-                                                    type="url"
-                                                    className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
-                                                    placeholder="https://your-website.com"
-                                                    value={organizerProfileForm.website}
-                                                    onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, website: e.target.value }))}
-                                                />
-                                                {organizerProfileForm.website && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setOrganizerProfileForm(prev => ({ ...prev, website: '' }))}
-                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
-                                                        aria-label="Clear website"
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </button>
-                                                )}
+                                        {/* Right Column: Contact & Social */}
+                                        <div className="space-y-6">
+                                            {/* Public Visibility Note */}
+                                            <div className="flex items-start gap-3 p-4 rounded-xl bg-(--brand-cyan)/5 border border-(--brand-cyan)/10 text-xs text-muted-foreground animate-fade-in relative overflow-hidden group">
+                                                <div className="absolute inset-0 bg-linear-to-r from-(--brand-cyan)/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                                                <div className="p-1.5 rounded-full bg-(--brand-cyan)/10 text-(--brand-cyan) shrink-0 mt-0.5">
+                                                    <Globe className="h-3.5 w-3.5" />
+                                                </div>
+                                                <div className="flex flex-col gap-0.5 z-10">
+                                                    <p className="font-medium text-foreground">Publicly Visible</p>
+                                                    <p className="opacity-90">Website and social links will be displayed on your organiser public profile page.</p>
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        {/* Reply-To Email */}
-                                        <div className="space-y-2">
-                                            <Label htmlFor="org-reply-to" className="text-muted-foreground flex items-center gap-2">
-                                                <Mail className="h-4 w-4" />
-                                                Reply-to email
-                                            </Label>
-                                            <div className="relative">
-                                                <Input
-                                                    id="org-reply-to"
-                                                    type="email"
-                                                    className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
-                                                    placeholder="replies@your-organization.com"
-                                                    value={organizerProfileForm.replyToEmail}
-                                                    onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, replyToEmail: e.target.value }))}
-                                                    maxLength={254}
-                                                />
-                                                {organizerProfileForm.replyToEmail && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setOrganizerProfileForm(prev => ({ ...prev, replyToEmail: '' }))}
-                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
-                                                        aria-label="Clear reply-to email"
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </button>
-                                                )}
+                                            {/* Contact Card */}
+                                            <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                    <h3 className="text-sm font-medium text-foreground">Contact</h3>
+                                                </div>
+                                                <div className="p-4 space-y-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="org-website" className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                                            <Globe className="h-3 w-3" /> Website
+                                                        </Label>
+                                                        <Input
+                                                            id="org-website"
+                                                            type="url"
+                                                            className="h-10"
+                                                            placeholder="https://your-website.com"
+                                                            value={organizerProfileForm.website}
+                                                            onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, website: e.target.value }))}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="org-reply-to" className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                                            <Mail className="h-3 w-3" /> Reply-to Email
+                                                        </Label>
+                                                        <Input
+                                                            id="org-reply-to"
+                                                            type="email"
+                                                            className="h-10"
+                                                            placeholder="replies@your-organization.com"
+                                                            value={organizerProfileForm.replyToEmail}
+                                                            onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, replyToEmail: e.target.value }))}
+                                                            maxLength={254}
+                                                        />
+                                                        <p className="text-xs text-muted-foreground">Used when attendees reply to broadcast emails.</p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <p className="text-xs text-muted-foreground">Used when attendees reply to broadcast emails.</p>
-                                        </div>
 
-                                        {/* Social Links Section */}
-                                        <div className="pt-4 border-t border-border/50">
-                                            <h3 className="text-sm font-medium mb-4">Social Links</h3>
-                                            <div className="space-y-4">
-                                                {/* Instagram */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="org-instagram" className="text-muted-foreground flex items-center gap-2">
-                                                        <Instagram className="h-4 w-4" />
-                                                        Instagram
-                                                    </Label>
-                                                    <div className="relative">
+                                            {/* Social Links Card */}
+                                            <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                <div className="px-4 py-3 border-b border-border/40 bg-[var(--brand-cyan)]/5">
+                                                    <h3 className="text-sm font-medium text-foreground">Social Links</h3>
+                                                </div>
+                                                <div className="p-4 space-y-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="org-instagram" className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                                            <Instagram className="h-3 w-3" /> Instagram
+                                                        </Label>
                                                         <Input
                                                             id="org-instagram"
                                                             type="url"
-                                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
+                                                            className="h-10"
                                                             placeholder="https://instagram.com/yourprofile"
                                                             value={organizerProfileForm.instagram}
                                                             onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, instagram: e.target.value }))}
                                                         />
-                                                        {organizerProfileForm.instagram && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setOrganizerProfileForm(prev => ({ ...prev, instagram: '' }))}
-                                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
-                                                                aria-label="Clear Instagram"
-                                                            >
-                                                                <X className="h-4 w-4" />
-                                                            </button>
-                                                        )}
                                                     </div>
-                                                </div>
-
-                                                {/* TikTok */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="org-tiktok" className="text-muted-foreground flex items-center gap-2">
-                                                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                                                            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                                                        </svg>
-                                                        TikTok
-                                                    </Label>
-                                                    <div className="relative">
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="org-tiktok" className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+                                                                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                                                            </svg>
+                                                            TikTok
+                                                        </Label>
                                                         <Input
                                                             id="org-tiktok"
                                                             type="url"
-                                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
+                                                            className="h-10"
                                                             placeholder="https://tiktok.com/@yourprofile"
                                                             value={organizerProfileForm.tiktok}
                                                             onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, tiktok: e.target.value }))}
                                                         />
-                                                        {organizerProfileForm.tiktok && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setOrganizerProfileForm(prev => ({ ...prev, tiktok: '' }))}
-                                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
-                                                                aria-label="Clear TikTok"
-                                                            >
-                                                                <X className="h-4 w-4" />
-                                                            </button>
-                                                        )}
                                                     </div>
-                                                </div>
-
-                                                {/* LinkedIn */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="org-linkedin" className="text-muted-foreground flex items-center gap-2">
-                                                        <Linkedin className="h-4 w-4" />
-                                                        LinkedIn
-                                                    </Label>
-                                                    <div className="relative">
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="org-linkedin" className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                                            <Linkedin className="h-3 w-3" /> LinkedIn
+                                                        </Label>
                                                         <Input
                                                             id="org-linkedin"
                                                             type="url"
-                                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
+                                                            className="h-10"
                                                             placeholder="https://linkedin.com/in/yourprofile"
                                                             value={organizerProfileForm.linkedin}
                                                             onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, linkedin: e.target.value }))}
                                                         />
-                                                        {organizerProfileForm.linkedin && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setOrganizerProfileForm(prev => ({ ...prev, linkedin: '' }))}
-                                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
-                                                                aria-label="Clear LinkedIn"
-                                                            >
-                                                                <X className="h-4 w-4" />
-                                                            </button>
-                                                        )}
                                                     </div>
-                                                </div>
-
-                                                {/* YouTube */}
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="org-youtube" className="text-muted-foreground flex items-center gap-2">
-                                                        <Youtube className="h-4 w-4" />
-                                                        YouTube
-                                                    </Label>
-                                                    <div className="relative">
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="org-youtube" className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                                            <Youtube className="h-3 w-3" /> YouTube
+                                                        </Label>
                                                         <Input
                                                             id="org-youtube"
                                                             type="url"
-                                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500 pr-10"
+                                                            className="h-10"
                                                             placeholder="https://youtube.com/@yourchannel"
                                                             value={organizerProfileForm.youtube}
                                                             onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, youtube: e.target.value }))}
                                                         />
-                                                        {organizerProfileForm.youtube && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setOrganizerProfileForm(prev => ({ ...prev, youtube: '' }))}
-                                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive hover:text-destructive/80"
-                                                                aria-label="Clear YouTube"
-                                                            >
-                                                                <X className="h-4 w-4" />
-                                                            </button>
-                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
 
-                                        {/* Status messages */}
-                                        {organizerProfileSaveStatus === 'success' && (
-                                            <p className="text-sm text-green-600 flex items-center gap-1">
-                                                <Check className="h-4 w-4" />
-                                                Organizer profile updated successfully.
-                                            </p>
-                                        )}
-                                        {organizerProfileSaveStatus === 'error' && (
-                                            <p className="text-sm text-destructive flex items-center gap-1">
-                                                <AlertCircle className="h-4 w-4" />
-                                                {organizerProfileError || 'Unable to save organizer profile.'}
-                                            </p>
-                                        )}
-
-                                        {/* Save Button */}
-                                        <div className="pt-2">
-                                            <Button
-                                                onClick={handleSaveOrganizerProfile}
-                                                disabled={isSavingOrganizerProfile || !organizerProfileHasChanges}
-                                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
-                                            >
-                                                {isSavingOrganizerProfile ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Saving...
-                                                    </>
-                                                ) : organizerProfileSaveStatus === 'success' ? (
-                                                    <>
-                                                        <Check className="mr-2 h-4 w-4" />
-                                                        Updated
-                                                    </>
-                                                ) : (
-                                                    'Save Changes'
-                                                )}
-                                            </Button>
+                                    {/* Save Section - Full Width */}
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            {organizerProfileSaveStatus === 'success' && (
+                                                <p className="text-sm text-emerald-600 flex items-center gap-1.5">
+                                                    <Check className="h-4 w-4" /> Saved
+                                                </p>
+                                            )}
+                                            {organizerProfileSaveStatus === 'error' && (
+                                                <p className="text-sm text-destructive flex items-center gap-1.5">
+                                                    <AlertCircle className="h-4 w-4" /> {organizerProfileError || 'Save failed'}
+                                                </p>
+                                            )}
                                         </div>
+                                        <Button
+                                            onClick={handleSaveOrganizerProfile}
+                                            disabled={isSavingOrganizerProfile || !organizerProfileHasChanges}
+                                        >
+                                            {isSavingOrganizerProfile ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Changes'}
+                                        </Button>
                                     </div>
                                 </div>
                             )}
@@ -1162,42 +1027,53 @@ export default function SettingsPage() {
                                     )}
 
                                     <div className="space-y-5 max-w-xl">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="currency" className="text-muted-foreground">Currency</Label>
-                                            <select
-                                                id="currency"
-                                                value={selectedCurrency}
-                                                onChange={(e) => setSelectedCurrency(e.target.value)}
-                                                disabled={!canEditOrgSettings}
-                                                className="flex h-11 w-full rounded-xl border border-input glass-surface backdrop-blur-sm px-4 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
-                                            >
-                                                {currencyOptions.map((option) => (
-                                                    <option key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="pt-2">
-                                            <Button
-                                                onClick={handleSaveCurrency}
-                                                disabled={isSaving || selectedCurrency === currentOrganizer?.defaultCurrency}
-                                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
-                                            >
-                                                {isSaving ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Saving...
-                                                    </>
-                                                ) : saveSuccess ? (
-                                                    <>
-                                                        <Check className="mr-2 h-4 w-4" />
-                                                        Saved
-                                                    </>
-                                                ) : (
-                                                    'Save Currency'
-                                                )}
-                                            </Button>
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                <h3 className="text-sm font-medium text-foreground">Currency Settings</h3>
+                                            </div>
+                                            <div className="p-4 space-y-6">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="currency" className="text-muted-foreground">Currency</Label>
+                                                    <select
+                                                        id="currency"
+                                                        value={selectedCurrency}
+                                                        onChange={(e) => setSelectedCurrency(e.target.value)}
+                                                        disabled={!canEditOrgSettings}
+                                                        className="flex h-11 w-full rounded-xl border border-input glass-surface backdrop-blur-sm px-4 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+                                                    >
+                                                        {currencyOptions.map((option) => (
+                                                            <option key={option.value} value={option.value}>
+                                                                {option.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        This is the default currency for your events. You can override this when creating specific events.
+                                                    </p>
+                                                </div>
+
+                                                <div className="pt-2">
+                                                    <Button
+                                                        onClick={handleSaveCurrency}
+                                                        disabled={isSaving || selectedCurrency === currentOrganizer?.defaultCurrency}
+                                                        className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                                    >
+                                                        {isSaving ? (
+                                                            <>
+                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                Saving...
+                                                            </>
+                                                        ) : saveSuccess ? (
+                                                            <>
+                                                                <Check className="mr-2 h-4 w-4" />
+                                                                Saved
+                                                            </>
+                                                        ) : (
+                                                            'Save Currency'
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1238,7 +1114,7 @@ export default function SettingsPage() {
                                                                         />
                                                                     ) : (
                                                                         <div className={cn(
-                                                                            'h-6 w-6 rounded-full bg-gradient-to-br flex items-center justify-center text-white text-xs font-bold',
+                                                                            'h-6 w-6 rounded-full bg-linear-to-br flex items-center justify-center text-white text-xs font-bold',
                                                                             color.gradient
                                                                         )}>
                                                                             {org.name.charAt(0).toUpperCase()}
@@ -1319,7 +1195,7 @@ export default function SettingsPage() {
                                             <Button
                                                 onClick={handleSaveMetaPixel}
                                                 disabled={isSavingMetaPixel || !metaPixelChanged}
-                                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
                                             >
                                                 {isSavingMetaPixel ? (
                                                     <>
@@ -1370,7 +1246,7 @@ export default function SettingsPage() {
                                                                         />
                                                                     ) : (
                                                                         <div className={cn(
-                                                                            'h-6 w-6 rounded-full bg-gradient-to-br flex items-center justify-center text-white text-xs font-bold',
+                                                                            'h-6 w-6 rounded-full bg-linear-to-br flex items-center justify-center text-white text-xs font-bold',
                                                                             color.gradient
                                                                         )}>
                                                                             {org.name.charAt(0).toUpperCase()}
@@ -1400,12 +1276,12 @@ export default function SettingsPage() {
                                             <div className="flex items-start gap-3 text-muted-foreground">
                                                 <AlertCircle className="h-5 w-5 mt-0.5 text-amber-500" />
                                                 <div>
-                                                    <p className="text-sm font-medium text-foreground">Organizer profile required</p>
+                                                    <p className="text-sm font-medium text-foreground">Organiser profile required</p>
                                                     <p className="text-sm mt-1">
-                                                        Create an organizer profile first to set up payments.
+                                                        Create an organiser profile first to set up payments.
                                                     </p>
                                                     <Button variant="outline" className="mt-3 rounded-xl" asChild>
-                                                        <a href="/dashboard">Create Organizer Profile</a>
+                                                        <a href="/dashboard">Create Organiser Profile</a>
                                                     </Button>
                                                 </div>
                                             </div>

@@ -203,8 +203,6 @@ function LoginContent() {
         setError(null);
 
         try {
-            setLastAuthMethod('google');
-            setLastUsed('google');
             const { error } = await getSupabase().auth.signInWithOAuth({
                 provider: 'google',
                 options: {

@@ -1035,7 +1035,7 @@ export default function OrdersPage() {
                                                     <div className="space-y-3">
                                                         <Label>Refund Type</Label>
                                                         <p className="text-xs text-muted-foreground">
-                                                            Refunds apply to ticket price only. Platform, processing, and organizer fees are not refunded.
+                                                        Refunds apply to ticket price only. Platform, processing, and organiser fees are not refunded.
                                                         </p>
                                                         <div className="grid grid-cols-3 gap-2">
                                                             {(['full', 'partial', 'tickets'] as const).map((type) => (

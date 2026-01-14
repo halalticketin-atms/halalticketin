@@ -41,6 +41,8 @@ import { cn } from '@/lib/utils';
 import { uploadOrganizerAvatar } from '@/lib/upload-api';
 import { COUNTRIES, CURRENCIES, TIMEZONES } from '@/lib/organizer-options';
 
+const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
 
 const STEPS = [
     { id: 'intro', title: 'Upgrade', description: 'Why upgrade', icon: Sparkles },
@@ -104,13 +106,13 @@ export function CreateOrganizerDialog({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!file.type.startsWith('image/')) {
-            setError('Please select an image file');
+        if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type as (typeof ALLOWED_AVATAR_MIME_TYPES)[number])) {
+            setError('Please upload a JPG, PNG, GIF, or WebP image');
             return;
         }
 
         if (file.size > 5 * 1024 * 1024) {
-            setError('Image must be less than 5MB');
+            setError('Image must be 5MB or less');
             return;
         }
 
@@ -141,7 +143,7 @@ export function CreateOrganizerDialog({
 
     const handleCreateOrganizer = async () => {
         if (!name.trim()) {
-            setError('Please enter an organizer name');
+            setError('Please enter an organiser name');
             return;
         }
 
@@ -176,7 +178,7 @@ export function CreateOrganizerDialog({
             setDirection(1);
             setStep('stripe');
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Unable to create organizer';
+            const message = err instanceof Error ? err.message : 'Unable to create organiser';
             setError(message);
         } finally {
             setIsLoading(false);
@@ -185,7 +187,7 @@ export function CreateOrganizerDialog({
 
     const handleStripeConnect = async () => {
         if (!organizerId) {
-            setError('No organizer found. Please try again.');
+            setError('No organiser found. Please try again.');
             return;
         }
 
@@ -239,7 +241,7 @@ export function CreateOrganizerDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-3xl lg:max-w-4xl p-0 gap-0 max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] border-0 shadow-2xl bg-gradient-to-br from-white via-slate-50/80 to-cyan-50/30 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 [&>[data-slot=dialog-close]]:z-50 [&>[data-slot=dialog-close]]:bg-white/80 [&>[data-slot=dialog-close]]:dark:bg-slate-800/80 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:backdrop-blur-sm [&>[data-slot=dialog-close]]:shadow-md">
                 <VisuallyHidden>
-                    <DialogTitle>Upgrade to Organizer</DialogTitle>
+                    <DialogTitle>Upgrade to Organiser</DialogTitle>
                     <DialogDescription>Create your organiser profile to start hosting events</DialogDescription>
                 </VisuallyHidden>
 
@@ -367,10 +369,10 @@ export function CreateOrganizerDialog({
                                         >
                                             <motion.div variants={staggerItem} className="text-center lg:text-left">
                                                 <h2 className="text-3xl lg:text-4xl font-display font-bold bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
-                                                    Upgrade to Organizer
+                                                    Upgrade to Organiser
                                                 </h2>
                                                 <p className="text-slate-600 dark:text-slate-400 mt-2 text-lg">
-                                                    You don&apos;t have organizer privileges yet. Upgrade your account to create events and sell tickets.
+                                                    You don&apos;t have organiser privileges yet. Upgrade your account to create events and sell tickets.
                                                 </p>
                                             </motion.div>
 
@@ -447,7 +449,7 @@ export function CreateOrganizerDialog({
                                                     <input
                                                         ref={avatarInputRef}
                                                         type="file"
-                                                        accept="image/*"
+                                                        accept={AVATAR_ACCEPT}
                                                         onChange={handleAvatarSelect}
                                                         className="hidden"
                                                         id="avatar-upload"

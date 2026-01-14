@@ -266,7 +266,7 @@ export default function DashboardPage() {
                             <div>
                                 <p className="font-semibold">Credits running low</p>
                                 <p className="text-amber-900/80">
-                                    You have {creditData.balance.toLocaleString()} credits left. Add more credits to keep organizer fees active.
+                                    You have {creditData.balance.toLocaleString()} credits left. Add more credits to keep organiser fees active.
                                 </p>
                             </div>
                             <Link
@@ -286,7 +286,7 @@ export default function DashboardPage() {
                     ))}
                 </div>
 
-                {/* Credit Usage Bar - Only for token-based organizers with credits */}
+                {/* Credit Usage Bar - Only for token-based organisers with credits */}
                 {creditUsage && !isCreditsLoading && organizerId && (
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}

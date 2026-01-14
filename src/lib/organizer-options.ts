@@ -1,3 +1,5 @@
+import { SUPPORTED_CURRENCIES } from '@/lib/fees';
+
 export const COUNTRIES = [
     { code: 'AF', name: 'Afghanistan' },
     { code: 'AL', name: 'Albania' },
@@ -196,14 +198,10 @@ export const COUNTRIES = [
     { code: 'ZW', name: 'Zimbabwe' },
 ];
 
-export const CURRENCIES = [
-    { code: 'GBP', name: 'British Pound' },
-    { code: 'USD', name: 'US Dollar' },
-    { code: 'EUR', name: 'Euro' },
-    { code: 'AED', name: 'UAE Dirham' },
-    { code: 'SAR', name: 'Saudi Riyal' },
-    { code: 'MYR', name: 'Malaysian Ringgit' },
-];
+export const CURRENCIES = Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => ({
+    code,
+    name: info.name,
+}));
 
 export const TIMEZONES = [
     { value: 'Europe/London', label: 'London (GMT/BST)' },

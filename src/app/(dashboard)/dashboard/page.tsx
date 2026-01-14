@@ -47,7 +47,7 @@ export default function DashboardLandingPage() {
 
     const handleCreateOrganizer = async () => {
         if (!name.trim()) {
-            setError('Please enter an organizer name');
+            setError('Please enter an organiser name');
             return;
         }
 
@@ -62,7 +62,7 @@ export default function DashboardLandingPage() {
             router.replace(buildDashboardPath(response.organizer.id));
             await refresh();
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Unable to create organizer';
+            const message = err instanceof Error ? err.message : 'Unable to create organiser';
             setError(message);
         } finally {
             setCreating(false);
@@ -133,7 +133,7 @@ export default function DashboardLandingPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <p className="text-muted-foreground">
-                            Sign in to manage organizers, events, and team members.
+                            Sign in to manage organisers, events, and team members.
                         </p>
                         <Button asChild className="w-full">
                             <Link href="/login">Go to login</Link>
@@ -185,13 +185,13 @@ export default function DashboardLandingPage() {
                     className="text-center space-y-3"
                 >
                     <p className="text-sm font-semibold text-primary uppercase tracking-widest">
-                        Organizer dashboard
+                        Organiser dashboard
                     </p>
                     <h1 className="font-display text-3xl sm:text-4xl font-bold">
-                        Choose an organizer to continue
+                        Choose an organiser to continue
                     </h1>
                     <p className="text-muted-foreground max-w-2xl mx-auto">
-                        Switch between organizer accounts or create a new one to start hosting events.
+                        Switch between organiser accounts or create a new one to start hosting events.
                     </p>
                 </motion.div>
 
@@ -216,21 +216,21 @@ export default function DashboardLandingPage() {
                         <CardContent className="py-10 text-center space-y-4">
                             <Users className="h-12 w-12 text-primary mx-auto" />
                             <div className="space-y-2">
-                                <h2 className="text-xl font-semibold">Create your first organizer</h2>
+                                <h2 className="text-xl font-semibold">Create your first organiser</h2>
                                 <p className="text-muted-foreground">
-                                    Set up an organizer profile to start publishing halal-friendly events.
+                                    Set up an organiser profile to start publishing halal-friendly events.
                                 </p>
                             </div>
                             <div className="space-y-3 max-w-md mx-auto">
                                 <Input
-                                    placeholder="Organizer name"
+                                    placeholder="Organiser name"
                                     value={name}
                                     onChange={(event) => setName(event.target.value)}
                                     disabled={creating}
                                 />
                                 {error && <p className="text-sm text-destructive">{error}</p>}
                                 <Button onClick={handleCreateOrganizer} disabled={creating} className="w-full">
-                                    {creating ? 'Creating...' : 'Create organizer'}
+                                    {creating ? 'Creating...' : 'Create organiser'}
                                 </Button>
                             </div>
                         </CardContent>

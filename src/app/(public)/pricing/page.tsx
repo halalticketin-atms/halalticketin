@@ -477,7 +477,7 @@ export default function PricingPage() {
                                                 Get Started
                                             </Button>
                                             <p className="text-[10px] text-center text-muted-foreground px-4 italic">
-                                                * Requires an organizer profile. You&apos;ll be prompted to sign in or create one.
+                                                * Requires an organiser profile. You&apos;ll be prompted to sign in or create one.
                                             </p>
                                         </div>
                                     </div>

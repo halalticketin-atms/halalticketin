@@ -148,9 +148,9 @@ function EventScopeSelector({ value, onChange, disabled, events }: EventScopeSel
             {value.mode === 'limited' && (
                 <div className="rounded-lg border border-dashed border-border/60 p-3">
                     {events.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            No events found for this organizer yet. Create an event first to limit access.
-                        </p>
+                            <p className="text-sm text-muted-foreground">
+                                No events found for this organiser yet. Create an event first to limit access.
+                            </p>
                     ) : (
                         <div className="max-h-48 overflow-y-auto space-y-1">
                             {events.map((event) => {
@@ -549,10 +549,10 @@ export default function OrganizerTeamPage() {
                         <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto">
                             <Users className="h-8 w-8 text-muted-foreground" />
                         </div>
-                        <h2 className="text-xl font-semibold">Select an organizer first</h2>
-                        <p className="text-muted-foreground">
-                            Use the organizer switcher to choose which team you want to manage.
-                        </p>
+                        <h2 className="text-xl font-semibold">Select an organiser first</h2>
+                            <p className="text-muted-foreground">
+                                Use the organiser switcher to choose which team you want to manage.
+                            </p>
                         <Button asChild>
                             <Link href="/dashboard">Go to dashboard</Link>
                         </Button>
@@ -583,7 +583,7 @@ export default function OrganizerTeamPage() {
                         <div>
                             <h1 className="font-display text-2xl font-bold">Team</h1>
                             <p className="text-muted-foreground text-sm mt-1">
-                                Manage who can access this organizer
+                                Manage who can access this organiser
                             </p>
                         </div>
                         <Button

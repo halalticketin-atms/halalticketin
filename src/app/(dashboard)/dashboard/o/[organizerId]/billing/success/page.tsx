@@ -40,7 +40,7 @@ export default function CreditPurchaseSuccessPage() {
                     <div className="space-y-2">
                         <h1 className="text-3xl font-extrabold tracking-tight">Purchase Successful!</h1>
                         <p className="text-muted-foreground">
-                            Your credits have been added to your organizer account and are ready to use.
+                        Your credits have been added to your organiser account and are ready to use.
                         </p>
                     </div>
 
