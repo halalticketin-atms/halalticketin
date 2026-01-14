@@ -35,11 +35,13 @@ interface TimePickerProps {
 }
 
 /**
- * Generate time slots for the picker
+ * Generate time slots for the picker, starting at 12 PM (noon)
  */
 function generateTimeSlots(interval: number = 15): string[] {
     const slots: string[] = []
-    for (let hour = 0; hour < 24; hour++) {
+    // Start at 12 PM (hour 12) and wrap around
+    for (let i = 0; i < 24; i++) {
+        const hour = (i + 12) % 24
         for (let minute = 0; minute < 60; minute += interval) {
             const h = hour.toString().padStart(2, "0")
             const m = minute.toString().padStart(2, "0")
@@ -107,7 +109,7 @@ function parseTimeInput(input: string): string | null {
 function TimePicker({
     value,
     onChange,
-    placeholder = "Select time",
+    placeholder = "",
     disabled = false,
     className,
     hasError = false,

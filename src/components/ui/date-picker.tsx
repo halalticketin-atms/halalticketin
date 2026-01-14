@@ -53,7 +53,7 @@ interface DatePickerProps {
 function DatePicker({
     value,
     onChange,
-    placeholder = "Select date",
+    placeholder = "",
     disabled = false,
     className,
     hasError = false,

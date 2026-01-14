@@ -33,6 +33,7 @@ import {
     X,
     Code,
     AlertTriangle,
+    FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -109,7 +110,7 @@ import {
 } from '@/components/ui/dialog';
 
 export const steps = [
-    { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: Sparkles },
+    { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: FileText },
     { id: 2, title: 'When', description: 'Date & time', icon: Calendar },
     { id: 3, title: 'Where', description: 'Location & venue', icon: MapPin },
     { id: 4, title: 'Tickets', description: 'Pricing & availability', icon: Ticket },
@@ -725,6 +726,10 @@ export function EventWizard({
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
     const [ticketAdvancedOpen, setTicketAdvancedOpen] = useState<Record<string, boolean>>({});
 
+    // Accordion state for Tickets tab sections
+    type TicketSectionType = 'tickets' | 'donation' | 'promo' | null;
+    const [openTicketSection, setOpenTicketSection] = useState<TicketSectionType>('tickets');
+
     const publishRequirementErrors = useMemo(() => validatePublishForm(formData, tickets), [formData, tickets]);
     const stepStatuses = useMemo(
         () =>
@@ -953,6 +958,52 @@ export function EventWizard({
         () => tickets.filter((ticket) => ticket.type !== 'donation'),
         [tickets],
     );
+
+    const hasRegularTicketErrors = useMemo(
+        () => regularTickets.some((ticket) => Boolean(ticketErrors[ticket.id])),
+        [regularTickets, ticketErrors],
+    );
+    const hasDonationErrors = useMemo(
+        () => (donationTicket ? Boolean(ticketErrors[donationTicket.id]) : false),
+        [donationTicket, ticketErrors],
+    );
+    const hasPromoErrors = useMemo(() => Object.keys(promoErrors).length > 0, [promoErrors]);
+    const hasTicketSectionErrors = Boolean(fieldErrors.tickets) || hasRegularTicketErrors;
+    const ticketSectionErrorGateRef = useRef({
+        tickets: false,
+        donation: false,
+        promo: false,
+    });
+
+    useEffect(() => {
+        if (currentStep !== 4) {
+            ticketSectionErrorGateRef.current = {
+                tickets: false,
+                donation: false,
+                promo: false,
+            };
+            return;
+        }
+
+        const previous = ticketSectionErrorGateRef.current;
+        const shouldOpenTickets = hasTicketSectionErrors && !previous.tickets;
+        const shouldOpenDonation = hasDonationErrors && !previous.donation;
+        const shouldOpenPromo = hasPromoErrors && !previous.promo;
+
+        if (shouldOpenTickets && openTicketSection !== 'tickets') {
+            setOpenTicketSection('tickets');
+        } else if (shouldOpenDonation && openTicketSection !== 'donation') {
+            setOpenTicketSection('donation');
+        } else if (shouldOpenPromo && openTicketSection !== 'promo') {
+            setOpenTicketSection('promo');
+        }
+
+        ticketSectionErrorGateRef.current = {
+            tickets: hasTicketSectionErrors,
+            donation: hasDonationErrors,
+            promo: hasPromoErrors,
+        };
+    }, [currentStep, hasDonationErrors, hasPromoErrors, hasTicketSectionErrors, openTicketSection]);
 
     const clearPromoError = useCallback((id: string, field?: keyof PromoFieldErrors) => {
         setPromoErrors((prev) => {
@@ -1886,8 +1937,12 @@ export function EventWizard({
                                             <p className="mt-1 text-sm text-muted-foreground">Start with the basics - you can always edit later</p>
                                         </div>
 
-                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
-                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center gap-2">
+                                                <FileText className="h-4 w-4 text-primary" />
+                                                <h3 className="text-sm font-medium text-foreground">Event Details</h3>
+                                            </div>
+                                            <div className="p-4 space-y-4">
                                                 {/* Event Title */}
                                                 <div className="space-y-1.5">
                                                     <Label htmlFor="title" className="text-sm font-medium">Event Title *</Label>
@@ -2000,8 +2055,8 @@ export function EventWizard({
 
 
 
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 )}
 
@@ -2021,27 +2076,27 @@ export function EventWizard({
                                         </div>
 
                                         {/* Date & Time Card */}
-                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
-                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2 text-primary">
-                                                        <Calendar className="h-5 w-5" />
-                                                        <h3 className="font-semibold">Date & Time</h3>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Label htmlFor="multiday" className="text-sm text-muted-foreground">Multi-day event</Label>
-                                                        <Switch
-                                                            id="multiday"
-                                                            checked={formData.isMultiDay}
-                                                            onCheckedChange={(checked) => {
-                                                                setFormData({ ...formData, isMultiDay: checked });
-                                                                if (!checked) {
-                                                                    clearFieldErrors('endDate');
-                                                                }
-                                                            }}
-                                                        />
-                                                    </div>
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar className="h-4 w-4 text-primary" />
+                                                    <h3 className="text-sm font-medium text-foreground">Date & Time</h3>
                                                 </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Label htmlFor="multiday" className="text-xs text-muted-foreground">Multi-day event</Label>
+                                                    <Switch
+                                                        id="multiday"
+                                                        checked={formData.isMultiDay}
+                                                        onCheckedChange={(checked) => {
+                                                            setFormData({ ...formData, isMultiDay: checked });
+                                                            if (!checked) {
+                                                                clearFieldErrors('endDate');
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="p-4 space-y-4">
 
                                                 {/* Date Selection */}
                                                 <div className="grid gap-4 sm:grid-cols-2">
@@ -2055,7 +2110,6 @@ export function EventWizard({
                                                                 setFormData(prev => ({ ...prev, date: value }));
                                                                 clearFieldErrors('date');
                                                             }}
-                                                            placeholder="Select start date"
                                                             hasError={!!fieldErrors.date}
                                                             disablePast
                                                         />
@@ -2074,7 +2128,6 @@ export function EventWizard({
                                                                     setFormData(prev => ({ ...prev, endDate: value }));
                                                                     clearFieldErrors('endDate');
                                                                 }}
-                                                                placeholder="Select end date"
                                                                 hasError={!!fieldErrors.endDate}
                                                                 minDate={formData.date ? new Date(formData.date) : undefined}
                                                                 disablePast
@@ -2098,7 +2151,6 @@ export function EventWizard({
                                                                 setFormData(prev => ({ ...prev, startTime: value }));
                                                                 clearFieldErrors('startTime');
                                                             }}
-                                                            placeholder="Select start time"
                                                             hasError={!!fieldErrors.startTime}
                                                         />
                                                         {fieldErrors.startTime ? (
@@ -2115,7 +2167,6 @@ export function EventWizard({
                                                                 setFormData(prev => ({ ...prev, endTime: value }));
                                                                 clearFieldErrors('endTime');
                                                             }}
-                                                            placeholder="Select end time"
                                                             hasError={!!fieldErrors.endTime}
                                                         />
                                                         {fieldErrors.endTime ? (
@@ -2140,7 +2191,7 @@ export function EventWizard({
                                                                 fieldErrors.timezone ? 'border-destructive focus-visible:ring-destructive' : '',
                                                             )}
                                                         >
-                                                            <SelectValue placeholder="Select timezone" />
+                                                            <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="Europe/London">🇬🇧 London (GMT/BST)</SelectItem>
@@ -2159,8 +2210,8 @@ export function EventWizard({
                                                         <p className="text-xs text-destructive">{fieldErrors.timezone}</p>
                                                     ) : null}
                                                 </div>
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 )}
 
@@ -2180,12 +2231,12 @@ export function EventWizard({
                                         </div>
 
                                         {/* Location Card */}
-                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
-                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
-                                                <div className="flex items-center gap-2 text-primary">
-                                                    <MapPin className="h-5 w-5" />
-                                                    <h3 className="font-semibold">Location</h3>
-                                                </div>
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center gap-2">
+                                                <MapPin className="h-4 w-4 text-primary" />
+                                                <h3 className="text-sm font-medium text-foreground">Location</h3>
+                                            </div>
+                                            <div className="p-4 space-y-4">
 
                                                 {/* Location Type Selector */}
                                                 <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -2245,7 +2296,7 @@ export function EventWizard({
                                                                 clearFieldErrors('venue');
                                                             }}
                                                             label="Venue Location *"
-                                                            placeholder="Search for Royal Dublin Society, etc..."
+                                                            placeholder="Search for Location"
                                                             className=""
                                                         />
                                                         {fieldErrors.venue && (
@@ -2329,8 +2380,8 @@ export function EventWizard({
                                                         ) : null}
                                                     </div>
                                                 )}
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 )}
 
@@ -2353,69 +2404,63 @@ export function EventWizard({
                                         </div>
 
                                         {/* Currency Selector */}
-                                        <Card className="border-border/50 bg-card/80">
-                                            <CardContent className="p-3 sm:p-4">
-                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                                    <div className="space-y-0.5">
-                                                        <Label className="text-sm font-medium">Ticket Currency</Label>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            All ticket prices will be in this currency
-                                                        </p>
-                                                    </div>
-                                                    <Select
-                                                        value={formData.currency}
-                                                        onValueChange={(value) => {
-                                                            setFormData((prev) => ({
-                                                                ...prev,
-                                                                currency: value,
-                                                            }));
-                                                            clearFieldErrors('currency');
-                                                        }}
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                <h3 className="text-sm font-medium text-foreground">Ticket Currency</h3>
+                                                <p className="text-xs text-muted-foreground mt-0.5">All ticket prices will be in this currency</p>
+                                            </div>
+                                            <div className="p-4">
+                                                <Select
+                                                    value={formData.currency}
+                                                    onValueChange={(value) => {
+                                                        setFormData((prev) => ({
+                                                            ...prev,
+                                                            currency: value,
+                                                        }));
+                                                        clearFieldErrors('currency');
+                                                    }}
+                                                >
+                                                    <SelectTrigger
+                                                        className={cn(
+                                                            'w-[180px] h-10',
+                                                            fieldErrors.currency ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                        )}
                                                     >
-                                                        <SelectTrigger
-                                                            className={cn(
-                                                                'w-[180px] h-10',
-                                                                fieldErrors.currency ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                            )}
-                                                        >
-                                                            <SelectValue placeholder="Select currency" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="GBP">🇬🇧 GBP (£)</SelectItem>
-                                                            <SelectItem value="USD">🇺🇸 USD ($)</SelectItem>
-                                                            <SelectItem value="EUR">🇪🇺 EUR (€)</SelectItem>
-                                                            <SelectItem value="CAD">🇨🇦 CAD (C$)</SelectItem>
-                                                            <SelectItem value="AUD">🇦🇺 AUD (A$)</SelectItem>
-                                                            <SelectItem value="AED">🇦🇪 AED (د.إ)</SelectItem>
-                                                            <SelectItem value="SAR">🇸🇦 SAR (﷼)</SelectItem>
-                                                            <SelectItem value="MYR">🇲🇾 MYR (RM)</SelectItem>
-                                                            <SelectItem value="SGD">🇸🇬 SGD (S$)</SelectItem>
-                                                            <SelectItem value="INR">🇮🇳 INR (₹)</SelectItem>
-                                                            <SelectItem value="PKR">🇵🇰 PKR (₨)</SelectItem>
-                                                            <SelectItem value="TRY">🇹🇷 TRY (₺)</SelectItem>
-                                                            <SelectItem value="NGN">🇳🇬 NGN (₦)</SelectItem>
-                                                            <SelectItem value="ZAR">🇿🇦 ZAR (R)</SelectItem>
-                                                            <SelectItem value="EGP">🇪🇬 EGP (E£)</SelectItem>
-                                                            <SelectItem value="IDR">🇮🇩 IDR (Rp)</SelectItem>
-                                                            <SelectItem value="BDT">🇧🇩 BDT (৳)</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {fieldErrors.currency ? (
-                                                        <p className="text-xs text-destructive">{fieldErrors.currency}</p>
-                                                    ) : null}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                                        <SelectValue placeholder="Select currency" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="GBP">🇬🇧 GBP (£)</SelectItem>
+                                                        <SelectItem value="USD">🇺🇸 USD ($)</SelectItem>
+                                                        <SelectItem value="EUR">🇪🇺 EUR (€)</SelectItem>
+                                                        <SelectItem value="CAD">🇨🇦 CAD (C$)</SelectItem>
+                                                        <SelectItem value="AUD">🇦🇺 AUD (A$)</SelectItem>
+                                                        <SelectItem value="AED">🇦🇪 AED (د.إ)</SelectItem>
+                                                        <SelectItem value="SAR">🇸🇦 SAR (﷼)</SelectItem>
+                                                        <SelectItem value="MYR">🇲🇾 MYR (RM)</SelectItem>
+                                                        <SelectItem value="SGD">🇸🇬 SGD (S$)</SelectItem>
+                                                        <SelectItem value="INR">🇮🇳 INR (₹)</SelectItem>
+                                                        <SelectItem value="PKR">🇵🇰 PKR (₨)</SelectItem>
+                                                        <SelectItem value="TRY">🇹🇷 TRY (₺)</SelectItem>
+                                                        <SelectItem value="NGN">🇳🇬 NGN (₦)</SelectItem>
+                                                        <SelectItem value="ZAR">🇿🇦 ZAR (R)</SelectItem>
+                                                        <SelectItem value="EGP">🇪🇬 EGP (E£)</SelectItem>
+                                                        <SelectItem value="IDR">🇮🇩 IDR (Rp)</SelectItem>
+                                                        <SelectItem value="BDT">🇧🇩 BDT (৳)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {fieldErrors.currency ? (
+                                                    <p className="text-xs text-destructive mt-2">{fieldErrors.currency}</p>
+                                                ) : null}
+                                            </div>
+                                        </div>
 
                                         {/* Refund Policy */}
-                                        <Card className="border-border/50 bg-card/80">
-                                            <CardContent className="p-3 sm:p-4 space-y-3">
-                                                <div className="space-y-0.5">
-                                                    <Label className="text-sm font-medium">Refund Policy</Label>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        This will be shown on the public event page
-                                                    </p>
-                                                </div>
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                <h3 className="text-sm font-medium text-foreground">Refund Policy</h3>
+                                                <p className="text-xs text-muted-foreground mt-0.5">This will be shown on the public event page</p>
+                                            </div>
+                                            <div className="p-4 space-y-3">
                                                 <Select
                                                     value={refundPolicySelection || undefined}
                                                     onValueChange={handleRefundPolicyChange}
@@ -2450,757 +2495,683 @@ export function EventWizard({
                                                 {fieldErrors.refundPolicy ? (
                                                     <p className="text-xs text-destructive">{fieldErrors.refundPolicy}</p>
                                                 ) : null}
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
 
-                                        {/* Ticket Cards */}
-                                        <div className="space-y-3">
-                                            {regularTickets.map((ticket, index) => {
-                                                const hasAdvancedErrors = Boolean(
-                                                    ticketErrors[ticket.id]?.maxPerOrder
-                                                    || ticketErrors[ticket.id]?.earlyBirdPrice
-                                                    || ticketErrors[ticket.id]?.earlyBirdEndDate,
-                                                );
-                                                const isAdvancedOpen = hasAdvancedErrors || ticketAdvancedOpen[ticket.id];
+                                        {/* Tickets Section - Accordion */}
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <button
+                                                type="button"
+                                                onClick={() => setOpenTicketSection(openTicketSection === 'tickets' ? null : 'tickets')}
+                                                className="w-full px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between hover:bg-(--brand-cyan)/10 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Ticket className="h-4 w-4 text-primary" />
+                                                    <h3 className="text-sm font-medium text-foreground">Tickets</h3>
+                                                    <Badge variant="secondary" className="text-xs">{regularTickets.length}</Badge>
+                                                </div>
+                                                <ChevronDown className={cn(
+                                                    "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                                                    openTicketSection === 'tickets' && "rotate-180"
+                                                )} />
+                                            </button>
 
-                                                return (
-                                                    <Card key={ticket.id} className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
-                                                        <CardContent className="p-3 sm:p-4 lg:p-5">
-                                                            <div className="flex items-center justify-between mb-4">
-                                                                <div className="flex items-center gap-2 text-primary">
-                                                                    <Ticket className="h-5 w-5" />
-                                                                    <h3 className="font-semibold">Ticket {index + 1}</h3>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    {/* Visibility Toggle - Dual segmented control */}
-                                                                    <div className="flex items-center rounded-lg border border-border/60 overflow-hidden text-xs font-medium shadow-sm">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => updateTicket(ticket.id, 'visibility', 'public')}
-                                                                            className={cn(
-                                                                                'flex items-center gap-1.5 px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-inset active:scale-95',
-                                                                                ticket.visibility === 'public'
-                                                                                    ? 'bg-emerald-100 text-emerald-700 shadow-inner'
-                                                                                    : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer'
-                                                                            )}
-                                                                        >
-                                                                            <Check className="h-3.5 w-3.5" />
-                                                                            Visible
-                                                                        </button>
-                                                                        <div className="w-px h-5 bg-border/60" />
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => updateTicket(ticket.id, 'visibility', 'hidden')}
-                                                                            className={cn(
-                                                                                'flex items-center gap-1.5 px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset active:scale-95',
-                                                                                ticket.visibility === 'hidden'
-                                                                                    ? 'bg-amber-100 text-amber-700 shadow-inner'
-                                                                                    : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer'
-                                                                            )}
-                                                                        >
-                                                                            <Lock className="h-3.5 w-3.5" />
-                                                                            Hidden
-                                                                        </button>
+                                            {openTicketSection === 'tickets' && (
+                                                <div className="p-4 space-y-3">
+                                                    {regularTickets.map((ticket, index) => {
+                                                        const hasAdvancedErrors = Boolean(
+                                                            ticketErrors[ticket.id]?.maxPerOrder
+                                                            || ticketErrors[ticket.id]?.earlyBirdPrice
+                                                            || ticketErrors[ticket.id]?.earlyBirdEndDate,
+                                                        );
+                                                        const isAdvancedOpen = hasAdvancedErrors || ticketAdvancedOpen[ticket.id];
+
+                                                        return (
+                                                            <div key={ticket.id} className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                                <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2 text-primary">
+                                                                        <Ticket className="h-5 w-5" />
+                                                                        <h3 className="font-semibold">Ticket {index + 1}</h3>
                                                                     </div>
-                                                                    {regularTickets.length > 1 && (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            onClick={() => removeTicket(ticket.id)}
-                                                                            className="text-destructive hover:text-destructive h-8 w-8"
-                                                                        >
-                                                                            <Trash2 className="h-4 w-4" />
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="space-y-4">
-                                                                {/* Name and Price */}
-                                                                <div className="grid gap-3 sm:grid-cols-2">
-                                                                    <div className="space-y-1.5">
-                                                                        <Label>Ticket Name *</Label>
-                                                                        <Input
-                                                                            placeholder="e.g., General Admission"
-                                                                            value={ticket.name}
-                                                                            onChange={(e) => {
-                                                                                const value = e.target.value;
-                                                                                clearTicketError(ticket.id, 'name');
-                                                                                updateTicket(ticket.id, 'name', value);
-                                                                                const nextTickets = tickets.map((current) =>
-                                                                                    current.id === ticket.id
-                                                                                        ? { ...current, name: value }
-                                                                                        : current,
-                                                                                );
-                                                                                const nameErrors = buildDuplicateTicketNameErrors(nextTickets);
-                                                                                setTicketErrors((prev) => mergeTicketNameErrors(prev, nameErrors, nextTickets));
-                                                                            }}
-                                                                            minLength={2}
-                                                                            maxLength={50}
-                                                                            className={cn(
-                                                                                'h-11',
-                                                                                ticketErrors[ticket.id]?.name
-                                                                                    ? 'border-destructive focus-visible:ring-destructive'
-                                                                                    : '',
-                                                                            )}
-                                                                        />
-                                                                        {ticketErrors[ticket.id]?.name ? (
-                                                                            <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.name}</p>
-                                                                        ) : null}
-                                                                    </div>
-                                                                    <div className="space-y-1.5">
-                                                                        <div className="flex items-center justify-between">
-                                                                            <Label>Price ({getCurrencySymbol(formData.currency)})</Label>
-                                                                            <div className="flex items-center gap-1.5">
-                                                                                <Label htmlFor={`free-${ticket.id}`} className="text-xs text-muted-foreground">Free</Label>
-                                                                                <Switch
-                                                                                    id={`free-${ticket.id}`}
-                                                                                    checked={ticket.isFree}
-                                                                                    onCheckedChange={(checked) => {
-                                                                                        clearTicketError(ticket.id, 'price');
-                                                                                        updateTicket(ticket.id, 'isFree', checked);
-                                                                                        if (checked) updateTicket(ticket.id, 'price', '0');
-                                                                                    }}
-                                                                                />
-                                                                            </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        {/* Visibility Toggle - Dual segmented control */}
+                                                                        <div className="flex items-center rounded-lg border border-border/60 overflow-hidden text-xs font-medium shadow-sm">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => updateTicket(ticket.id, 'visibility', 'public')}
+                                                                                className={cn(
+                                                                                    'flex items-center gap-1.5 px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-inset active:scale-95',
+                                                                                    ticket.visibility === 'public'
+                                                                                        ? 'bg-emerald-100 text-emerald-700 shadow-inner'
+                                                                                        : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer'
+                                                                                )}
+                                                                            >
+                                                                                <Check className="h-3.5 w-3.5" />
+                                                                                Visible
+                                                                            </button>
+                                                                            <div className="w-px h-5 bg-border/60" />
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => updateTicket(ticket.id, 'visibility', 'hidden')}
+                                                                                className={cn(
+                                                                                    'flex items-center gap-1.5 px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset active:scale-95',
+                                                                                    ticket.visibility === 'hidden'
+                                                                                        ? 'bg-amber-100 text-amber-700 shadow-inner'
+                                                                                        : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer'
+                                                                                )}
+                                                                            >
+                                                                                <Lock className="h-3.5 w-3.5" />
+                                                                                Hidden
+                                                                            </button>
                                                                         </div>
-                                                                        <Input
-                                                                            type="number"
-                                                                            placeholder="0.00"
-                                                                            min="0"
-                                                                            max={maxTicketPrice}
-                                                                            step="0.01"
-                                                                            value={ticket.price}
-                                                                            onChange={(e) => {
-                                                                                const value = e.target.value;
-                                                                                // Prevent negative values
-                                                                                if (value === '' || Number(value) >= 0) {
-                                                                                    clearTicketError(ticket.id, 'price');
-                                                                                    updateTicket(ticket.id, 'price', value);
-                                                                                }
-                                                                            }}
-                                                                            className={cn(
-                                                                                'h-11',
-                                                                                ticketErrors[ticket.id]?.price ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                            )}
-                                                                            disabled={ticket.isFree}
-                                                                        />
-                                                                        {ticketErrors[ticket.id]?.price ? (
-                                                                            <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.price}</p>
-                                                                        ) : null}
+                                                                        {regularTickets.length > 1 && (
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                onClick={() => removeTicket(ticket.id)}
+                                                                                className="text-destructive hover:text-destructive h-8 w-8"
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </Button>
+                                                                        )}
                                                                     </div>
-                                                                    {canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                </div>
+
+                                                                <div className="p-4 space-y-4">
+                                                                    {/* Name and Price */}
+                                                                    <div className="grid gap-3 sm:grid-cols-2">
                                                                         <div className="space-y-1.5">
-                                                                            <Label>Organiser Fee ({getCurrencySymbol(formData.currency)})</Label>
+                                                                            <Label>Ticket Name *</Label>
                                                                             <Input
-                                                                                type="number"
-                                                                                placeholder="0.55"
-                                                                                min="0"
-                                                                                step="0.01"
-                                                                                max={maxCustomFee}
-                                                                                value={ticket.customFee ?? ''}
+                                                                                placeholder="e.g., General Admission"
+                                                                                value={ticket.name}
                                                                                 onChange={(e) => {
                                                                                     const value = e.target.value;
+                                                                                    clearTicketError(ticket.id, 'name');
+                                                                                    updateTicket(ticket.id, 'name', value);
+                                                                                    const nextTickets = tickets.map((current) =>
+                                                                                        current.id === ticket.id
+                                                                                            ? { ...current, name: value }
+                                                                                            : current,
+                                                                                    );
+                                                                                    const nameErrors = buildDuplicateTicketNameErrors(nextTickets);
+                                                                                    setTicketErrors((prev) => mergeTicketNameErrors(prev, nameErrors, nextTickets));
+                                                                                }}
+                                                                                minLength={2}
+                                                                                maxLength={50}
+                                                                                className={cn(
+                                                                                    'h-11',
+                                                                                    ticketErrors[ticket.id]?.name
+                                                                                        ? 'border-destructive focus-visible:ring-destructive'
+                                                                                        : '',
+                                                                                )}
+                                                                            />
+                                                                            {ticketErrors[ticket.id]?.name ? (
+                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.name}</p>
+                                                                            ) : null}
+                                                                        </div>
+                                                                        <div className="space-y-1.5">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <Label>Price ({getCurrencySymbol(formData.currency)})</Label>
+                                                                                <div className="flex items-center gap-1.5">
+                                                                                    <Label htmlFor={`free-${ticket.id}`} className="text-xs text-muted-foreground">Free</Label>
+                                                                                    <Switch
+                                                                                        id={`free-${ticket.id}`}
+                                                                                        checked={ticket.isFree}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            clearTicketError(ticket.id, 'price');
+                                                                                            updateTicket(ticket.id, 'isFree', checked);
+                                                                                            if (checked) updateTicket(ticket.id, 'price', '0');
+                                                                                        }}
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                            <Input
+                                                                                type="number"
+                                                                                placeholder="0.00"
+                                                                                min="0"
+                                                                                max={maxTicketPrice}
+                                                                                step="0.01"
+                                                                                value={ticket.price}
+                                                                                onChange={(e) => {
+                                                                                    const value = e.target.value;
+                                                                                    // Prevent negative values
                                                                                     if (value === '' || Number(value) >= 0) {
-                                                                                        clearTicketError(ticket.id, 'customFee');
-                                                                                        updateTicket(ticket.id, 'customFee', value);
+                                                                                        clearTicketError(ticket.id, 'price');
+                                                                                        updateTicket(ticket.id, 'price', value);
                                                                                     }
                                                                                 }}
                                                                                 className={cn(
                                                                                     'h-11',
-                                                                                    ticketErrors[ticket.id]?.customFee ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                    ticketErrors[ticket.id]?.price ? 'border-destructive focus-visible:ring-destructive' : '',
                                                                                 )}
+                                                                                disabled={ticket.isFree}
                                                                             />
-                                                                            {ticketErrors[ticket.id]?.customFee ? (
-                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.customFee}</p>
+                                                                            {ticketErrors[ticket.id]?.price ? (
+                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.price}</p>
                                                                             ) : null}
-                                                                            <p className="text-xs text-muted-foreground">Optional per-ticket organiser fee (paid to you).</p>
                                                                         </div>
-                                                                    )}
-
-                                                                    {/* Absorb Fee Toggle - subtle but visible */}
-                                                                    {!canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
-                                                                        <div className="flex items-center justify-between gap-3 mt-2 p-2 rounded-lg bg-muted/30">
-                                                                            <div className="flex items-center gap-2 min-w-0">
-                                                                                <span className="text-xs text-muted-foreground">
-                                                                                    {ticket.absorbFee ? 'You absorb fee' : 'Customer pays fee'}
-                                                                                </span>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 shrink-0">
-                                                                                <span className="text-[11px] text-muted-foreground">
-                                                                                    {ticket.absorbFee ? 'Absorb' : 'Pass on'}
-                                                                                </span>
-                                                                                <Switch
-                                                                                    checked={ticket.absorbFee ?? false}
-                                                                                    onCheckedChange={(checked) => updateTicket(ticket.id, 'absorbFee', checked)}
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* Quantity */}
-                                                                <div className="space-y-1.5">
-                                                                    <Label>Total Quantity</Label>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="icon"
-                                                                            className="h-10 w-10 shrink-0"
-                                                                            onClick={() => {
-                                                                                clearTicketError(ticket.id, 'quantity');
-                                                                                updateTicket(ticket.id, 'quantity', Math.max(1, ticket.quantity - 10));
-                                                                            }}
-                                                                        >
-                                                                            <Minus className="h-3.5 w-3.5" />
-                                                                        </Button>
-                                                                        <Input
-                                                                            type="number"
-                                                                            min={1}
-                                                                            max={MAX_TICKET_QUANTITY}
-                                                                            value={ticket.quantity || ''}
-                                                                            onChange={(e) => {
-                                                                                const val = e.target.value.replace(/^0+(?=\d)/, '');
-                                                                                clearTicketError(ticket.id, 'quantity');
-                                                                                const parsed = Number.parseInt(val, 10);
-                                                                                const nextValue = Number.isFinite(parsed)
-                                                                                    ? Math.min(parsed, MAX_TICKET_QUANTITY)
-                                                                                    : 0;
-                                                                                updateTicket(ticket.id, 'quantity', nextValue);
-                                                                            }}
-                                                                            className={cn(
-                                                                                'h-10 text-center font-semibold',
-                                                                                ticketErrors[ticket.id]?.quantity ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                            )}
-                                                                        />
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="icon"
-                                                                            className="h-10 w-10 shrink-0"
-                                                                            onClick={() => {
-                                                                                clearTicketError(ticket.id, 'quantity');
-                                                                                updateTicket(ticket.id, 'quantity', Math.min(MAX_TICKET_QUANTITY, ticket.quantity + 10));
-                                                                            }}
-                                                                        >
-                                                                            <Plus className="h-3.5 w-3.5" />
-                                                                        </Button>
-                                                                    </div>
-                                                                    {ticketErrors[ticket.id]?.quantity ? (
-                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.quantity}</p>
-                                                                    ) : null}
-                                                                </div>
-
-                                                                {/* Advanced Options Accordion */}
-                                                                <Collapsible
-                                                                    open={isAdvancedOpen}
-                                                                    onOpenChange={(open) =>
-                                                                        setTicketAdvancedOpen((prev) => ({
-                                                                            ...prev,
-                                                                            [ticket.id]: open,
-                                                                        }))
-                                                                    }
-                                                                >
-                                                                    <CollapsibleTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="w-full flex items-center justify-between text-muted-foreground hover:text-primary px-2 transition-colors group"
-                                                                        >
-                                                                            <div className="flex items-center gap-2">
-                                                                                <Settings2 className="h-4 w-4" />
-                                                                                <span className="text-xs font-medium">Advanced options</span>
-                                                                            </div>
-                                                                            <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                                                        </Button>
-                                                                    </CollapsibleTrigger>
-                                                                    <CollapsibleContent className="space-y-4 pt-3 mt-1">
-                                                                        {/* Min/Max Per Order - Side by Side Toggles */}
-                                                                        <div className="grid grid-cols-2 gap-3">
-                                                                            {/* Min Per Order */}
-                                                                            <div className="space-y-2">
-                                                                                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
-                                                                                    <div className="space-y-0.5">
-                                                                                        <Label className="text-xs font-medium">Min Per Order</Label>
-                                                                                        <p className="text-[10px] text-muted-foreground">Sets a minimum purchase limit (Default: 1)</p>
-                                                                                    </div>
-                                                                                    <Switch
-                                                                                        checked={Boolean(ticket.minPerOrder)}
-                                                                                        onCheckedChange={(checked) => {
-                                                                                            if (checked) {
-                                                                                                updateTicket(ticket.id, 'minPerOrder', 1);
-                                                                                            } else {
-                                                                                                updateTicket(ticket.id, 'minPerOrder', 0);
-                                                                                            }
-                                                                                        }}
-                                                                                    />
-                                                                                </div>
-                                                                                {ticket.minPerOrder ? (
-                                                                                    <Input
-                                                                                        type="number"
-                                                                                        value={ticket.minPerOrder || ''}
-                                                                                        onChange={(e) => {
-                                                                                            const value = e.target.value;
-                                                                                            if (value === '') {
-                                                                                                updateTicket(ticket.id, 'minPerOrder', 1);
-                                                                                                return;
-                                                                                            }
-                                                                                            const numericValue = Number.parseInt(value, 10);
-                                                                                            if (Number.isNaN(numericValue) || numericValue < 1) {
-                                                                                                return;
-                                                                                            }
-                                                                                            const maxLimit = ticket.maxPerOrder || MAX_PER_ORDER;
-                                                                                            updateTicket(ticket.id, 'minPerOrder', Math.min(numericValue, maxLimit));
-                                                                                        }}
-                                                                                        className="h-9"
-                                                                                        min={1}
-                                                                                        max={ticket.maxPerOrder || MAX_PER_ORDER}
-                                                                                    />
-                                                                                ) : null}
-                                                                            </div>
-                                                                            {/* Max Per Order */}
-                                                                            <div className="space-y-2">
-                                                                                <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
-                                                                                    <Label className="text-xs font-medium">Max Per Order</Label>
-                                                                                    <Switch
-                                                                                        checked={Boolean(ticket.maxPerOrder)}
-                                                                                        onCheckedChange={(checked) => {
-                                                                                            if (checked) {
-                                                                                                updateTicket(ticket.id, 'maxPerOrder', MAX_PER_ORDER);
-                                                                                            } else {
-                                                                                                updateTicket(ticket.id, 'maxPerOrder', 0);
-                                                                                                clearTicketError(ticket.id, 'maxPerOrder');
-                                                                                            }
-                                                                                        }}
-                                                                                    />
-                                                                                </div>
-                                                                                {ticket.maxPerOrder ? (
-                                                                                    <Input
-                                                                                        type="number"
-                                                                                        value={ticket.maxPerOrder || ''}
-                                                                                        onChange={(e) => {
-                                                                                            const value = e.target.value;
-                                                                                            if (value === '') {
-                                                                                                updateTicket(ticket.id, 'maxPerOrder', 1);
-                                                                                                return;
-                                                                                            }
-                                                                                            const numericValue = Number.parseInt(value, 10);
-                                                                                            if (Number.isNaN(numericValue) || numericValue < 1) {
-                                                                                                return;
-                                                                                            }
-                                                                                            const maxLimit = Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1));
-                                                                                            updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, maxLimit));
-                                                                                            if (numericValue >= 1) {
-                                                                                                clearTicketError(ticket.id, 'maxPerOrder');
-                                                                                            }
-                                                                                        }}
-                                                                                        className={cn(
-                                                                                            'h-9',
-                                                                                            ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                        )}
-                                                                                        min={ticket.minPerOrder || 1}
-                                                                                        max={Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1))}
-                                                                                    />
-                                                                                ) : null}
-                                                                                {ticketErrors[ticket.id]?.maxPerOrder ? (
-                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
-                                                                                ) : null}
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {/* Early Bird Toggle */}
-                                                                        <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">
-                                                                            <div className="flex items-center justify-between">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                                                                                    <Label className="text-sm font-medium">Early Bird Pricing</Label>
-                                                                                </div>
-                                                                                <Switch
-                                                                                    checked={ticket.hasEarlyBird}
-                                                                                    onCheckedChange={(checked) => {
-                                                                                        updateTicket(ticket.id, 'hasEarlyBird', checked);
-                                                                                        if (!checked) {
-                                                                                            clearTicketError(ticket.id, 'earlyBirdPrice');
-                                                                                            clearTicketError(ticket.id, 'earlyBirdEndDate');
+                                                                        {canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                            <div className="space-y-1.5">
+                                                                                <Label>Organiser Fee ({getCurrencySymbol(formData.currency)})</Label>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    placeholder="0.55"
+                                                                                    min="0"
+                                                                                    step="0.01"
+                                                                                    max={maxCustomFee}
+                                                                                    value={ticket.customFee ?? ''}
+                                                                                    onChange={(e) => {
+                                                                                        const value = e.target.value;
+                                                                                        if (value === '' || Number(value) >= 0) {
+                                                                                            clearTicketError(ticket.id, 'customFee');
+                                                                                            updateTicket(ticket.id, 'customFee', value);
                                                                                         }
                                                                                     }}
+                                                                                    className={cn(
+                                                                                        'h-11',
+                                                                                        ticketErrors[ticket.id]?.customFee ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                    )}
                                                                                 />
+                                                                                {ticketErrors[ticket.id]?.customFee ? (
+                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.customFee}</p>
+                                                                                ) : null}
+                                                                                <p className="text-xs text-muted-foreground">Optional per-ticket organiser fee (paid to you).</p>
                                                                             </div>
-                                                                            {ticket.hasEarlyBird && (
-                                                                                <div className="grid gap-3 sm:grid-cols-2">
-                                                                                    <div className="space-y-1.5">
-                                                                                        <Label className="text-xs">Early Bird Price ({getCurrencySymbol(formData.currency)})</Label>
+                                                                        )}
+
+                                                                        {/* Absorb Fee Toggle - subtle but visible */}
+                                                                        {!canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                            <div className="flex items-center justify-between gap-3 mt-2 p-2 rounded-lg bg-muted/30">
+                                                                                <div className="flex items-center gap-2 min-w-0">
+                                                                                    <span className="text-xs text-muted-foreground">
+                                                                                        {ticket.absorbFee ? 'You absorb fee' : 'Customer pays fee'}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2 shrink-0">
+                                                                                    <span className="text-[11px] text-muted-foreground">
+                                                                                        {ticket.absorbFee ? 'Absorb' : 'Pass on'}
+                                                                                    </span>
+                                                                                    <Switch
+                                                                                        checked={ticket.absorbFee ?? false}
+                                                                                        onCheckedChange={(checked) => updateTicket(ticket.id, 'absorbFee', checked)}
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Quantity */}
+                                                                    <div className="space-y-1.5">
+                                                                        <Label>Total Quantity</Label>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="icon"
+                                                                                className="h-10 w-10 shrink-0"
+                                                                                onClick={() => {
+                                                                                    clearTicketError(ticket.id, 'quantity');
+                                                                                    updateTicket(ticket.id, 'quantity', Math.max(1, ticket.quantity - 10));
+                                                                                }}
+                                                                            >
+                                                                                <Minus className="h-3.5 w-3.5" />
+                                                                            </Button>
+                                                                            <Input
+                                                                                type="number"
+                                                                                min={1}
+                                                                                max={MAX_TICKET_QUANTITY}
+                                                                                value={ticket.quantity || ''}
+                                                                                onChange={(e) => {
+                                                                                    const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                                                                    clearTicketError(ticket.id, 'quantity');
+                                                                                    const parsed = Number.parseInt(val, 10);
+                                                                                    const nextValue = Number.isFinite(parsed)
+                                                                                        ? Math.min(parsed, MAX_TICKET_QUANTITY)
+                                                                                        : 0;
+                                                                                    updateTicket(ticket.id, 'quantity', nextValue);
+                                                                                }}
+                                                                                className={cn(
+                                                                                    'h-10 text-center font-semibold',
+                                                                                    ticketErrors[ticket.id]?.quantity ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                )}
+                                                                            />
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="icon"
+                                                                                className="h-10 w-10 shrink-0"
+                                                                                onClick={() => {
+                                                                                    clearTicketError(ticket.id, 'quantity');
+                                                                                    updateTicket(ticket.id, 'quantity', Math.min(MAX_TICKET_QUANTITY, ticket.quantity + 10));
+                                                                                }}
+                                                                            >
+                                                                                <Plus className="h-3.5 w-3.5" />
+                                                                            </Button>
+                                                                        </div>
+                                                                        {ticketErrors[ticket.id]?.quantity ? (
+                                                                            <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.quantity}</p>
+                                                                        ) : null}
+                                                                    </div>
+
+                                                                    {/* Advanced Options Accordion */}
+                                                                    <Collapsible
+                                                                        open={isAdvancedOpen}
+                                                                        onOpenChange={(open) =>
+                                                                            setTicketAdvancedOpen((prev) => ({
+                                                                                ...prev,
+                                                                                [ticket.id]: open,
+                                                                            }))
+                                                                        }
+                                                                    >
+                                                                        <CollapsibleTrigger asChild>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="w-full flex items-center justify-between text-muted-foreground hover:text-primary px-2 transition-colors group"
+                                                                            >
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <Settings2 className="h-4 w-4" />
+                                                                                    <span className="text-xs font-medium">Advanced options</span>
+                                                                                </div>
+                                                                                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                                                            </Button>
+                                                                        </CollapsibleTrigger>
+                                                                        <CollapsibleContent className="space-y-4 pt-3 mt-1">
+                                                                            {/* Min/Max Per Order - Side by Side Toggles */}
+                                                                            <div className="grid grid-cols-2 gap-3">
+                                                                                {/* Min Per Order */}
+                                                                                <div className="space-y-2">
+                                                                                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
+                                                                                        <Label className="text-xs font-medium">Min Per Order</Label>
+                                                                                        <Switch
+                                                                                            checked={Boolean(ticket.minPerOrder)}
+                                                                                            onCheckedChange={(checked) => {
+                                                                                                if (checked) {
+                                                                                                    updateTicket(ticket.id, 'minPerOrder', 1);
+                                                                                                } else {
+                                                                                                    updateTicket(ticket.id, 'minPerOrder', 0);
+                                                                                                }
+                                                                                            }}
+                                                                                        />
+                                                                                    </div>
+                                                                                    {ticket.minPerOrder ? (
                                                                                         <Input
                                                                                             type="number"
-                                                                                            placeholder="Discounted price"
-                                                                                            min="0"
-                                                                                            max={maxTicketPrice}
-                                                                                            step="0.01"
-                                                                                            value={ticket.earlyBirdPrice}
+                                                                                            value={ticket.minPerOrder || ''}
                                                                                             onChange={(e) => {
                                                                                                 const value = e.target.value;
-                                                                                                if (value === '' || Number(value) >= 0) {
-                                                                                                    clearTicketError(ticket.id, 'earlyBirdPrice');
-                                                                                                    updateTicket(ticket.id, 'earlyBirdPrice', value);
+                                                                                                if (value === '') {
+                                                                                                    updateTicket(ticket.id, 'minPerOrder', 1);
+                                                                                                    return;
+                                                                                                }
+                                                                                                const numericValue = Number.parseInt(value, 10);
+                                                                                                if (Number.isNaN(numericValue) || numericValue < 1) {
+                                                                                                    return;
+                                                                                                }
+                                                                                                const maxLimit = ticket.maxPerOrder || MAX_PER_ORDER;
+                                                                                                updateTicket(ticket.id, 'minPerOrder', Math.min(numericValue, maxLimit));
+                                                                                            }}
+                                                                                            className="h-9"
+                                                                                            min={1}
+                                                                                            max={ticket.maxPerOrder || MAX_PER_ORDER}
+                                                                                        />
+                                                                                    ) : null}
+                                                                                </div>
+                                                                                {/* Max Per Order */}
+                                                                                <div className="space-y-2">
+                                                                                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
+                                                                                        <Label className="text-xs font-medium">Max Per Order</Label>
+                                                                                        <Switch
+                                                                                            checked={Boolean(ticket.maxPerOrder)}
+                                                                                            onCheckedChange={(checked) => {
+                                                                                                if (checked) {
+                                                                                                    updateTicket(ticket.id, 'maxPerOrder', MAX_PER_ORDER);
+                                                                                                } else {
+                                                                                                    updateTicket(ticket.id, 'maxPerOrder', 0);
+                                                                                                    clearTicketError(ticket.id, 'maxPerOrder');
+                                                                                                }
+                                                                                            }}
+                                                                                        />
+                                                                                    </div>
+                                                                                    {ticket.maxPerOrder ? (
+                                                                                        <Input
+                                                                                            type="number"
+                                                                                            value={ticket.maxPerOrder || ''}
+                                                                                            onChange={(e) => {
+                                                                                                const value = e.target.value;
+                                                                                                if (value === '') {
+                                                                                                    updateTicket(ticket.id, 'maxPerOrder', 1);
+                                                                                                    return;
+                                                                                                }
+                                                                                                const numericValue = Number.parseInt(value, 10);
+                                                                                                if (Number.isNaN(numericValue) || numericValue < 1) {
+                                                                                                    return;
+                                                                                                }
+                                                                                                const maxLimit = Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1));
+                                                                                                updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, maxLimit));
+                                                                                                if (numericValue >= 1) {
+                                                                                                    clearTicketError(ticket.id, 'maxPerOrder');
                                                                                                 }
                                                                                             }}
                                                                                             className={cn(
                                                                                                 'h-9',
-                                                                                                ticketErrors[ticket.id]?.earlyBirdPrice ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                                ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
                                                                                             )}
+                                                                                            min={ticket.minPerOrder || 1}
+                                                                                            max={Math.min(MAX_PER_ORDER, Math.max(ticket.quantity, 1))}
                                                                                         />
-                                                                                        {ticketErrors[ticket.id]?.earlyBirdPrice ? (
-                                                                                            <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdPrice}</p>
-                                                                                        ) : null}
-                                                                                    </div>
-                                                                                    <div className="space-y-1.5">
-                                                                                        <Label className="text-xs">Ends On</Label>
-                                                                                        <DatePicker
-                                                                                            value={ticket.earlyBirdEndDate}
-                                                                                            onChange={(value) => {
-                                                                                                clearTicketError(ticket.id, 'earlyBirdEndDate');
-                                                                                                updateTicket(ticket.id, 'earlyBirdEndDate', value);
-                                                                                            }}
-                                                                                            placeholder="Select end date"
-                                                                                            hasError={!!ticketErrors[ticket.id]?.earlyBirdEndDate}
-                                                                                            className="h-9"
-                                                                                        />
-                                                                                        {ticketErrors[ticket.id]?.earlyBirdEndDate ? (
-                                                                                            <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdEndDate}</p>
-                                                                                        ) : null}
-                                                                                    </div>
+                                                                                    ) : null}
+                                                                                    {ticketErrors[ticket.id]?.maxPerOrder ? (
+                                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
+                                                                                    ) : null}
                                                                                 </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </CollapsibleContent>
-                                                                </Collapsible>
+                                                                            </div>
+
+                                                                            {/* Early Bird Toggle */}
+                                                                            <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                                        <Label className="text-sm font-medium">Early Bird Pricing</Label>
+                                                                                    </div>
+                                                                                    <Switch
+                                                                                        checked={ticket.hasEarlyBird}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            updateTicket(ticket.id, 'hasEarlyBird', checked);
+                                                                                            if (!checked) {
+                                                                                                clearTicketError(ticket.id, 'earlyBirdPrice');
+                                                                                                clearTicketError(ticket.id, 'earlyBirdEndDate');
+                                                                                            }
+                                                                                        }}
+                                                                                    />
+                                                                                </div>
+                                                                                {ticket.hasEarlyBird && (
+                                                                                    <div className="grid gap-3 sm:grid-cols-2">
+                                                                                        <div className="space-y-1.5">
+                                                                                            <Label className="text-xs">Early Bird Price ({getCurrencySymbol(formData.currency)})</Label>
+                                                                                            <Input
+                                                                                                type="number"
+                                                                                                placeholder="Discounted price"
+                                                                                                min="0"
+                                                                                                max={maxTicketPrice}
+                                                                                                step="0.01"
+                                                                                                value={ticket.earlyBirdPrice}
+                                                                                                onChange={(e) => {
+                                                                                                    const value = e.target.value;
+                                                                                                    if (value === '' || Number(value) >= 0) {
+                                                                                                        clearTicketError(ticket.id, 'earlyBirdPrice');
+                                                                                                        updateTicket(ticket.id, 'earlyBirdPrice', value);
+                                                                                                    }
+                                                                                                }}
+                                                                                                className={cn(
+                                                                                                    'h-9',
+                                                                                                    ticketErrors[ticket.id]?.earlyBirdPrice ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                                )}
+                                                                                            />
+                                                                                            {ticketErrors[ticket.id]?.earlyBirdPrice ? (
+                                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdPrice}</p>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                        <div className="space-y-1.5">
+                                                                                            <Label className="text-xs">Ends On</Label>
+                                                                                            <DatePicker
+                                                                                                value={ticket.earlyBirdEndDate}
+                                                                                                onChange={(value) => {
+                                                                                                    clearTicketError(ticket.id, 'earlyBirdEndDate');
+                                                                                                    updateTicket(ticket.id, 'earlyBirdEndDate', value);
+                                                                                                }}
+                                                                                                placeholder="Select end date"
+                                                                                                hasError={!!ticketErrors[ticket.id]?.earlyBirdEndDate}
+                                                                                                className="h-9"
+                                                                                            />
+                                                                                            {ticketErrors[ticket.id]?.earlyBirdEndDate ? (
+                                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdEndDate}</p>
+                                                                                            ) : null}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </CollapsibleContent>
+                                                                    </Collapsible>
+                                                                </div>
                                                             </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                );
-                                            })}
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Add Ticket Button */}
-                                        <Button
-                                            variant="outline"
-                                            className="w-full h-10 border-dashed border-border/60 text-sm"
-                                            onClick={addTicket}
-                                        >
-                                            <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                            Add Another Ticket
-                                        </Button>
+                                        {openTicketSection === 'tickets' && (
+                                            <Button
+                                                variant="outline"
+                                                className="w-full h-10 border-dashed border-border/60 text-sm"
+                                                onClick={addTicket}
+                                            >
+                                                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                                Add Another Ticket
+                                            </Button>
+                                        )}
 
-                                        {/* Donation Section */}
-                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
-                                            <CardContent className="p-3 sm:p-4 lg:p-5">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <div className="flex items-center gap-2 text-primary">
-                                                        <Heart className="h-5 w-5" />
-                                                        <h3 className="font-semibold">Donation</h3>
+                                        {/* Donation Section - Accordion */}
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <button
+                                                type="button"
+                                                onClick={() => setOpenTicketSection(openTicketSection === 'donation' ? null : 'donation')}
+                                                className="w-full px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between hover:bg-(--brand-cyan)/10 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Heart className="h-4 w-4 text-primary" />
+                                                    <h3 className="text-sm font-medium text-foreground">Donation</h3>
+                                                    {donationTicket && <Badge variant="secondary" className="text-xs">Enabled</Badge>}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {!donationTicket && openTicketSection !== 'donation' && (
+                                                        <span className="text-xs text-muted-foreground">Optional</span>
+                                                    )}
+                                                    <ChevronDown className={cn(
+                                                        "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                                                        openTicketSection === 'donation' && "rotate-180"
+                                                    )} />
+                                                </div>
+                                            </button>
+
+                                            {openTicketSection === 'donation' && (
+                                                <div className="p-4">
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        {donationTicket ? (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={removeDonationTicket}
+                                                                className="text-destructive hover:text-destructive"
+                                                            >
+                                                                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                                                Remove Donation
+                                                            </Button>
+                                                        ) : (
+                                                            <Button variant="outline" size="sm" onClick={addDonationTicket}>
+                                                                <Plus className="mr-1 h-3 w-3" />
+                                                                Add Donation
+                                                            </Button>
+                                                        )}
                                                     </div>
+
                                                     {donationTicket ? (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={removeDonationTicket}
-                                                            className="text-destructive hover:text-destructive h-8 w-8"
-                                                            title="Remove donation"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                                        <div className="space-y-4">
+                                                            <div className="space-y-1.5">
+                                                                <Label>What is this donation for?</Label>
+                                                                <Input
+                                                                    placeholder="e.g., Supports the mosque renovation fund"
+                                                                    value={donationTicket.description}
+                                                                    onChange={(e) => {
+                                                                        updateTicket(donationTicket.id, 'description', e.target.value);
+                                                                    }}
+                                                                    maxLength={250}
+                                                                    className="h-11"
+                                                                />
+                                                                <p className="text-xs text-muted-foreground">Shown to buyers during checkout.</p>
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <Label>Default donation amount ({getCurrencySymbol(formData.currency)})</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    max={maxDonationAmount}
+                                                                    placeholder="0"
+                                                                    value={donationTicket.price}
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value;
+                                                                        if (value === '' || Number(value) >= 0) {
+                                                                            clearTicketError(donationTicket.id, 'price');
+                                                                            updateTicket(donationTicket.id, 'price', value);
+                                                                        }
+                                                                    }}
+                                                                    className={cn(
+                                                                        'h-11',
+                                                                        ticketErrors[donationTicket.id]?.price ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                    )}
+                                                                />
+                                                                {ticketErrors[donationTicket.id]?.price ? (
+                                                                    <p className="text-xs text-destructive">{ticketErrors[donationTicket.id]?.price}</p>
+                                                                ) : (
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        Buyers can change or remove this amount at checkout.
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     ) : (
-                                                        <Button variant="outline" size="sm" onClick={addDonationTicket}>
-                                                            <Plus className="mr-1 h-3 w-3" />
-                                                            Add Donation
-                                                        </Button>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Add an optional donation to your event checkout.
+                                                        </p>
                                                     )}
                                                 </div>
+                                            )}
+                                        </div>
 
-                                                {donationTicket ? (
-                                                    <div className="space-y-4">
-                                                        <div className="space-y-1.5">
-                                                            <Label>What is this donation for?</Label>
-                                                            <Input
-                                                                placeholder="e.g., Supports the mosque renovation fund"
-                                                                value={donationTicket.description}
-                                                                onChange={(e) => {
-                                                                    updateTicket(donationTicket.id, 'description', e.target.value);
-                                                                }}
-                                                                maxLength={250}
-                                                                className="h-11"
-                                                            />
-                                                            <p className="text-xs text-muted-foreground">Shown to buyers during checkout.</p>
-                                                        </div>
-                                                        <div className="space-y-1.5">
-                                                            <Label>Default donation amount ({getCurrencySymbol(formData.currency)})</Label>
-                                                            <Input
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.01"
-                                                                max={maxDonationAmount}
-                                                                placeholder="0"
-                                                                value={donationTicket.price}
-                                                                onChange={(e) => {
-                                                                    const value = e.target.value;
-                                                                    if (value === '' || Number(value) >= 0) {
-                                                                        clearTicketError(donationTicket.id, 'price');
-                                                                        updateTicket(donationTicket.id, 'price', value);
-                                                                    }
-                                                                }}
-                                                                className={cn(
-                                                                    'h-11',
-                                                                    ticketErrors[donationTicket.id]?.price ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                )}
-                                                            />
-                                                            {ticketErrors[donationTicket.id]?.price ? (
-                                                                <p className="text-xs text-destructive">{ticketErrors[donationTicket.id]?.price}</p>
-                                                            ) : (
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    Buyers can change or remove this amount at checkout.
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-sm text-muted-foreground">
-                                                        Add an optional donation to your event checkout.
-                                                    </p>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-
-                                        {/* Promo Codes Section */}
-                                        <Card className="mt-4 border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
-                                            <CardContent className="p-3 sm:p-4 lg:p-5">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <div className="flex items-center gap-2 text-primary">
-                                                        <Tag className="h-5 w-5" />
-                                                        <h3 className="font-semibold">Promo Codes</h3>
-                                                    </div>
-                                                    <Button variant="outline" size="sm" onClick={addPromoCode}>
-                                                        <Plus className="mr-1 h-3 w-3" />
-                                                        Add Code
-                                                    </Button>
+                                        {/* Promo Codes Section - Accordion */}
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <button
+                                                type="button"
+                                                onClick={() => setOpenTicketSection(openTicketSection === 'promo' ? null : 'promo')}
+                                                className="w-full px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between hover:bg-(--brand-cyan)/10 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Tag className="h-4 w-4 text-primary" />
+                                                    <h3 className="text-sm font-medium text-foreground">Promo Codes</h3>
+                                                    {promoCodes.length > 0 && <Badge variant="secondary" className="text-xs">{promoCodes.length}</Badge>}
                                                 </div>
+                                                <div className="flex items-center gap-2">
+                                                    {promoCodes.length === 0 && openTicketSection !== 'promo' && (
+                                                        <span className="text-xs text-muted-foreground">Optional</span>
+                                                    )}
+                                                    <ChevronDown className={cn(
+                                                        "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                                                        openTicketSection === 'promo' && "rotate-180"
+                                                    )} />
+                                                </div>
+                                            </button>
 
-                                                {promoCodes.length === 0 ? (
-                                                    <div className="text-center py-8 text-muted-foreground">
-                                                        <Tag className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                                        <p className="text-sm">No promo codes yet</p>
-                                                        <p className="text-xs">Add a code to offer discounts</p>
+                                            {openTicketSection === 'promo' && (
+                                                <>
+                                                    <div className="p-4 flex justify-end">
+                                                        <Button variant="outline" size="sm" onClick={addPromoCode}>
+                                                            <Plus className="mr-1 h-3 w-3" />
+                                                            Add Code
+                                                        </Button>
                                                     </div>
-                                                ) : (
-                                                    <div className="space-y-4">
-                                                        {promoCodes.map((promo) => {
-                                                            const promoError = promoErrors[promo.id];
 
-                                                            return (
-                                                                <div key={promo.id} className="border rounded-xl p-4 space-y-4">
-                                                                    <div className="flex items-start justify-between gap-4">
-                                                                        <div className="space-y-1">
-                                                                            <Input
-                                                                                placeholder="CODE2024"
-                                                                                value={promo.code}
-                                                                                onChange={(e) => updatePromoCode(promo.id, 'code', e.target.value.toUpperCase())}
-                                                                                minLength={PROMO_CODE_MIN_LENGTH}
-                                                                                maxLength={PROMO_CODE_MAX_LENGTH}
-                                                                                autoCapitalize="characters"
-                                                                                className={cn(
-                                                                                    'h-10 w-40 font-mono uppercase',
-                                                                                    promoError?.code ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                )}
-                                                                            />
-                                                                            {promoError?.code ? (
-                                                                                <p className="text-xs text-destructive">{promoError.code}</p>
-                                                                            ) : null}
-                                                                        </div>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            onClick={() => removePromoCode(promo.id)}
-                                                                            className="text-destructive hover:text-destructive h-8 w-8"
-                                                                        >
-                                                                            <Trash2 className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </div>
-                                                                    {/* Reveals Hidden Tickets Toggle - First */}
-                                                                    {(() => {
-                                                                        const isExistingPromo = isUuid(promo.id);
-                                                                        const isLocked = isExistingPromo && !promo.revealsHiddenTickets;
-                                                                        return (
-                                                                            <div className={cn(
-                                                                                "flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50",
-                                                                                isLocked && "opacity-60"
-                                                                            )}>
-                                                                                <div className="space-y-0.5">
-                                                                                    <Label className="text-sm font-medium">Unlock Hidden Tickets</Label>
-                                                                                    <p className="text-xs text-muted-foreground">
-                                                                                        {isLocked
-                                                                                            ? "Cannot change type on saved codes - create a new code instead"
-                                                                                            : "This code reveals hidden ticket types"
-                                                                                        }
-                                                                                    </p>
-                                                                                </div>
-                                                                                <Switch
-                                                                                    checked={promo.revealsHiddenTickets ?? false}
-                                                                                    disabled={isLocked}
-                                                                                    onCheckedChange={(checked) => {
-                                                                                        updatePromoCode(promo.id, 'revealsHiddenTickets', checked);
-                                                                                        if (checked) {
-                                                                                            updatePromoCode(promo.id, 'discountValue', '0');
-                                                                                        }
-                                                                                    }}
+                                                    {promoCodes.length === 0 ? (
+                                                        <div className="text-center pb-8 text-muted-foreground">
+                                                            <Tag className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                                            <p className="text-sm">No promo codes yet</p>
+                                                            <p className="text-xs">Add a code to offer discounts</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-4 space-y-4">
+                                                            {promoCodes.map((promo) => {
+                                                                const promoError = promoErrors[promo.id];
+
+                                                                return (
+                                                                    <div key={promo.id} className="border rounded-xl p-4 space-y-4">
+                                                                        <div className="flex items-start justify-between gap-4">
+                                                                            <div className="space-y-1">
+                                                                                <Input
+                                                                                    placeholder="CODE2024"
+                                                                                    value={promo.code}
+                                                                                    onChange={(e) => updatePromoCode(promo.id, 'code', e.target.value.toUpperCase())}
+                                                                                    minLength={PROMO_CODE_MIN_LENGTH}
+                                                                                    maxLength={PROMO_CODE_MAX_LENGTH}
+                                                                                    autoCapitalize="characters"
+                                                                                    className={cn(
+                                                                                        'h-10 w-40 font-mono uppercase',
+                                                                                        promoError?.code ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                    )}
                                                                                 />
+                                                                                {promoError?.code ? (
+                                                                                    <p className="text-xs text-destructive">{promoError.code}</p>
+                                                                                ) : null}
                                                                             </div>
-                                                                        );
-                                                                    })()}
-
-                                                                    {/* Show hidden tickets selector when reveal mode is ON */}
-                                                                    {promo.revealsHiddenTickets && (
-                                                                        <div className="space-y-2">
-                                                                            <Label className="text-sm font-medium">Select Hidden Tickets to Reveal</Label>
-                                                                            <div
-                                                                                className={cn(
-                                                                                    'space-y-2 rounded-lg border p-2',
-                                                                                    promoError?.applicableTicketTypeIds
-                                                                                        ? 'border-destructive'
-                                                                                        : 'border-transparent',
-                                                                                )}
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                onClick={() => removePromoCode(promo.id)}
+                                                                                className="text-destructive hover:text-destructive h-8 w-8"
                                                                             >
-                                                                                {regularTickets.filter(t => t.visibility === 'hidden').length === 0 ? (
-                                                                                    <p className="text-xs text-muted-foreground py-3 text-center">
-                                                                                        No hidden tickets. Create a ticket with visibility set to &quot;Hidden&quot; first.
-                                                                                    </p>
-                                                                                ) : (
-                                                                                    regularTickets.filter(t => t.visibility === 'hidden').map((ticket) => {
-                                                                                        const isSelected = promo.applicableTicketTypeIds?.includes(ticket.id) ?? false;
-                                                                                        return (
-                                                                                            <div
-                                                                                                key={ticket.id}
-                                                                                                onClick={() => {
-                                                                                                    const current = promo.applicableTicketTypeIds ?? [];
-                                                                                                    const updated = isSelected
-                                                                                                        ? current.filter(id => id !== ticket.id)
-                                                                                                        : [...current, ticket.id];
-                                                                                                    updatePromoCode(promo.id, 'applicableTicketTypeIds', updated.length > 0 ? updated : null);
-                                                                                                }}
-                                                                                                className={cn(
-                                                                                                    "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors",
-                                                                                                    isSelected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
-                                                                                                )}
-                                                                                            >
-                                                                                                <div className={cn(
-                                                                                                    "h-4 w-4 rounded border flex items-center justify-center",
-                                                                                                    isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
-                                                                                                )}>
-                                                                                                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                                                                                                </div>
-                                                                                                <span className="text-sm">{ticket.name || 'Untitled Ticket'}</span>
-                                                                                                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded ml-auto">Hidden</span>
-                                                                                            </div>
-                                                                                        );
-                                                                                    })
-                                                                                )}
-                                                                            </div>
-                                                                            {promoError?.applicableTicketTypeIds ? (
-                                                                                <p className="text-xs text-destructive">{promoError.applicableTicketTypeIds}</p>
-                                                                            ) : null}
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </Button>
                                                                         </div>
-                                                                    )}
-
-                                                                    {/* Discount fields - only show when NOT in reveal mode */}
-                                                                    {!promo.revealsHiddenTickets && (
-                                                                        <>
-                                                                            <div className="grid gap-4 sm:grid-cols-3">
-                                                                                <div className="space-y-2">
-                                                                                    <Label className="text-sm">Discount Type</Label>
-                                                                                    <Select
-                                                                                        value={promo.discountType}
-                                                                                        onValueChange={(val) => updatePromoCode(promo.id, 'discountType', val as 'fixed' | 'percentage')}
-                                                                                    >
-                                                                                        <SelectTrigger
-                                                                                            className={cn(
-                                                                                                'h-10',
-                                                                                                promoError?.discountType ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                            )}
-                                                                                        >
-                                                                                            <SelectValue />
-                                                                                        </SelectTrigger>
-                                                                                        <SelectContent>
-                                                                                            <SelectItem value="percentage">Percentage (%)</SelectItem>
-                                                                                            <SelectItem value="fixed">Fixed Amount ({getCurrencySymbol(formData.currency)})</SelectItem>
-                                                                                        </SelectContent>
-                                                                                    </Select>
-                                                                                    {promoError?.discountType ? (
-                                                                                        <p className="text-xs text-destructive">{promoError.discountType}</p>
-                                                                                    ) : null}
-                                                                                </div>
-                                                                                <div className="space-y-2">
-                                                                                    <Label className="text-sm">Discount Value</Label>
-                                                                                    <div className="relative">
-                                                                                        <Input
-                                                                                            type="number"
-                                                                                            placeholder="10"
-                                                                                            min={promo.discountType === 'percentage' ? 1 : 0.01}
-                                                                                            max={promo.discountType === 'percentage' ? 100 : maxPromoFixed}
-                                                                                            step={promo.discountType === 'percentage' ? 1 : 0.01}
-                                                                                            value={promo.discountValue}
-                                                                                            onChange={(e) => {
-                                                                                                const value = e.target.value;
-                                                                                                if (value === '' || Number(value) >= 0) {
-                                                                                                    updatePromoCode(promo.id, 'discountValue', value);
-                                                                                                }
-                                                                                            }}
-                                                                                            className={cn(
-                                                                                                'h-10 pr-8',
-                                                                                                promoError?.discountValue ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                            )}
-                                                                                        />
-                                                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                                                                                            {promo.discountType === 'percentage' ? '%' : getCurrencySymbol(formData.currency)}
-                                                                                        </span>
+                                                                        {/* Reveals Hidden Tickets Toggle - First */}
+                                                                        {(() => {
+                                                                            const isExistingPromo = isUuid(promo.id);
+                                                                            const isLocked = isExistingPromo && !promo.revealsHiddenTickets;
+                                                                            return (
+                                                                                <div className={cn(
+                                                                                    "flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50",
+                                                                                    isLocked && "opacity-60"
+                                                                                )}>
+                                                                                    <div className="space-y-0.5">
+                                                                                        <Label className="text-sm font-medium">Unlock Hidden Tickets</Label>
+                                                                                        <p className="text-xs text-muted-foreground">
+                                                                                            {isLocked
+                                                                                                ? "Cannot change type on saved codes - create a new code instead"
+                                                                                                : "This code reveals hidden ticket types"
+                                                                                            }
+                                                                                        </p>
                                                                                     </div>
-                                                                                    {promoError?.discountValue ? (
-                                                                                        <p className="text-xs text-destructive">{promoError.discountValue}</p>
-                                                                                    ) : null}
-                                                                                </div>
-                                                                                <div className="space-y-2">
-                                                                                    <Label className="text-sm">Usage Limit</Label>
-                                                                                    <Input
-                                                                                        type="number"
-                                                                                        placeholder="Unlimited"
-                                                                                        value={promo.usageLimit || ''}
-                                                                                        onChange={(e) => {
-                                                                                            const val = e.target.value.replace(/^0+(?=\d)/, '');
-                                                                                            updatePromoCode(promo.id, 'usageLimit', parseInt(val) || 0);
+                                                                                    <Switch
+                                                                                        checked={promo.revealsHiddenTickets ?? false}
+                                                                                        disabled={isLocked}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            updatePromoCode(promo.id, 'revealsHiddenTickets', checked);
+                                                                                            if (checked) {
+                                                                                                updatePromoCode(promo.id, 'discountValue', '0');
+                                                                                            }
                                                                                         }}
-                                                                                        className={cn(
-                                                                                            'h-10',
-                                                                                            promoError?.usageLimit ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                        )}
                                                                                     />
-                                                                                    {promoError?.usageLimit ? (
-                                                                                        <p className="text-xs text-destructive">{promoError.usageLimit}</p>
-                                                                                    ) : null}
                                                                                 </div>
-                                                                            </div>
+                                                                            );
+                                                                        })()}
 
-                                                                            {/* Applies to Specific Tickets - only for discount codes */}
-                                                                            {regularTickets.length > 1 && (
-                                                                                <div className="space-y-2 pt-2">
-                                                                                    <Label className="text-sm font-medium">Applies to Tickets</Label>
-                                                                                    <p className="text-xs text-muted-foreground mb-2">
-                                                                                        Leave empty to apply to all tickets
-                                                                                    </p>
-                                                                                    <div
-                                                                                        className={cn(
-                                                                                            'space-y-2 rounded-lg border p-2',
-                                                                                            promoError?.applicableTicketTypeIds
-                                                                                                ? 'border-destructive'
-                                                                                                : 'border-transparent',
-                                                                                        )}
-                                                                                    >
-                                                                                        {regularTickets.map((ticket) => {
+                                                                        {/* Show hidden tickets selector when reveal mode is ON */}
+                                                                        {promo.revealsHiddenTickets && (
+                                                                            <div className="space-y-2">
+                                                                                <Label className="text-sm font-medium">Select Hidden Tickets to Reveal</Label>
+                                                                                <div
+                                                                                    className={cn(
+                                                                                        'space-y-2 rounded-lg border p-2',
+                                                                                        promoError?.applicableTicketTypeIds
+                                                                                            ? 'border-destructive'
+                                                                                            : 'border-transparent',
+                                                                                    )}
+                                                                                >
+                                                                                    {regularTickets.filter(t => t.visibility === 'hidden').length === 0 ? (
+                                                                                        <p className="text-xs text-muted-foreground py-3 text-center">
+                                                                                            No hidden tickets. Create a ticket with visibility set to &quot;Hidden&quot; first.
+                                                                                        </p>
+                                                                                    ) : (
+                                                                                        regularTickets.filter(t => t.visibility === 'hidden').map((ticket) => {
                                                                                             const isSelected = promo.applicableTicketTypeIds?.includes(ticket.id) ?? false;
                                                                                             return (
                                                                                                 <div
@@ -3224,55 +3195,185 @@ export function EventWizard({
                                                                                                         {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
                                                                                                     </div>
                                                                                                     <span className="text-sm">{ticket.name || 'Untitled Ticket'}</span>
-                                                                                                    {ticket.visibility === 'hidden' && (
-                                                                                                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Hidden</span>
-                                                                                                    )}
+                                                                                                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded ml-auto">Hidden</span>
                                                                                                 </div>
                                                                                             );
-                                                                                        })}
-                                                                                    </div>
-                                                                                    {promoError?.applicableTicketTypeIds ? (
-                                                                                        <p className="text-xs text-destructive">{promoError.applicableTicketTypeIds}</p>
-                                                                                    ) : null}
+                                                                                        })
+                                                                                    )}
                                                                                 </div>
-                                                                            )}
-                                                                        </>
-                                                                    )}
+                                                                                {promoError?.applicableTicketTypeIds ? (
+                                                                                    <p className="text-xs text-destructive">{promoError.applicableTicketTypeIds}</p>
+                                                                                ) : null}
+                                                                            </div>
+                                                                        )}
 
-                                                                    {/* Valid dates - always shown */}
-                                                                    <div className="grid gap-4 sm:grid-cols-2">
-                                                                        <div className="space-y-2">
-                                                                            <Label className="text-sm">Valid From</Label>
-                                                                            <DatePicker
-                                                                                value={promo.validFrom}
-                                                                                onChange={(value) => updatePromoCode(promo.id, 'validFrom', value)}
-                                                                                placeholder="Select start date"
-                                                                                hasError={!!promoError?.validFrom}
-                                                                            />
-                                                                            {promoError?.validFrom ? (
-                                                                                <p className="text-xs text-destructive">{promoError.validFrom}</p>
-                                                                            ) : null}
-                                                                        </div>
-                                                                        <div className="space-y-2">
-                                                                            <Label className="text-sm">Valid Until</Label>
-                                                                            <DatePicker
-                                                                                value={promo.validUntil}
-                                                                                onChange={(value) => updatePromoCode(promo.id, 'validUntil', value)}
-                                                                                placeholder="Select end date"
-                                                                                hasError={!!promoError?.validUntil}
-                                                                                minDate={promo.validFrom ? new Date(promo.validFrom) : undefined}
-                                                                            />
-                                                                            {promoError?.validUntil ? (
-                                                                                <p className="text-xs text-destructive">{promoError.validUntil}</p>
-                                                                            ) : null}
+                                                                        {/* Discount fields - only show when NOT in reveal mode */}
+                                                                        {!promo.revealsHiddenTickets && (
+                                                                            <>
+                                                                                <div className="grid gap-4 sm:grid-cols-3">
+                                                                                    <div className="space-y-2">
+                                                                                        <Label className="text-sm">Discount Type</Label>
+                                                                                        <Select
+                                                                                            value={promo.discountType}
+                                                                                            onValueChange={(val) => updatePromoCode(promo.id, 'discountType', val as 'fixed' | 'percentage')}
+                                                                                        >
+                                                                                            <SelectTrigger
+                                                                                                className={cn(
+                                                                                                    'h-10',
+                                                                                                    promoError?.discountType ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                                )}
+                                                                                            >
+                                                                                                <SelectValue />
+                                                                                            </SelectTrigger>
+                                                                                            <SelectContent>
+                                                                                                <SelectItem value="percentage">Percentage (%)</SelectItem>
+                                                                                                <SelectItem value="fixed">Fixed Amount ({getCurrencySymbol(formData.currency)})</SelectItem>
+                                                                                            </SelectContent>
+                                                                                        </Select>
+                                                                                        {promoError?.discountType ? (
+                                                                                            <p className="text-xs text-destructive">{promoError.discountType}</p>
+                                                                                        ) : null}
+                                                                                    </div>
+                                                                                    <div className="space-y-2">
+                                                                                        <Label className="text-sm">Discount Value</Label>
+                                                                                        <div className="relative">
+                                                                                            <Input
+                                                                                                type="number"
+                                                                                                placeholder="10"
+                                                                                                min={promo.discountType === 'percentage' ? 1 : 0.01}
+                                                                                                max={promo.discountType === 'percentage' ? 100 : maxPromoFixed}
+                                                                                                step={promo.discountType === 'percentage' ? 1 : 0.01}
+                                                                                                value={promo.discountValue}
+                                                                                                onChange={(e) => {
+                                                                                                    const value = e.target.value;
+                                                                                                    if (value === '' || Number(value) >= 0) {
+                                                                                                        updatePromoCode(promo.id, 'discountValue', value);
+                                                                                                    }
+                                                                                                }}
+                                                                                                className={cn(
+                                                                                                    'h-10 pr-8',
+                                                                                                    promoError?.discountValue ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                                )}
+                                                                                            />
+                                                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                                                                                                {promo.discountType === 'percentage' ? '%' : getCurrencySymbol(formData.currency)}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        {promoError?.discountValue ? (
+                                                                                            <p className="text-xs text-destructive">{promoError.discountValue}</p>
+                                                                                        ) : null}
+                                                                                    </div>
+                                                                                    <div className="space-y-2">
+                                                                                        <Label className="text-sm">Usage Limit</Label>
+                                                                                        <Input
+                                                                                            type="number"
+                                                                                            placeholder="Unlimited"
+                                                                                            value={promo.usageLimit || ''}
+                                                                                            onChange={(e) => {
+                                                                                                const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                                                                                updatePromoCode(promo.id, 'usageLimit', parseInt(val) || 0);
+                                                                                            }}
+                                                                                            className={cn(
+                                                                                                'h-10',
+                                                                                                promoError?.usageLimit ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                            )}
+                                                                                        />
+                                                                                        {promoError?.usageLimit ? (
+                                                                                            <p className="text-xs text-destructive">{promoError.usageLimit}</p>
+                                                                                        ) : null}
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                {/* Applies to Specific Tickets - only for discount codes */}
+                                                                                {regularTickets.length > 1 && (
+                                                                                    <div className="space-y-2 pt-2">
+                                                                                        <Label className="text-sm font-medium">Applies to Tickets</Label>
+                                                                                        <p className="text-xs text-muted-foreground mb-2">
+                                                                                            Leave empty to apply to all tickets
+                                                                                        </p>
+                                                                                        <div
+                                                                                            className={cn(
+                                                                                                'space-y-2 rounded-lg border p-2',
+                                                                                                promoError?.applicableTicketTypeIds
+                                                                                                    ? 'border-destructive'
+                                                                                                    : 'border-transparent',
+                                                                                            )}
+                                                                                        >
+                                                                                            {regularTickets.map((ticket) => {
+                                                                                                const isSelected = promo.applicableTicketTypeIds?.includes(ticket.id) ?? false;
+                                                                                                return (
+                                                                                                    <div
+                                                                                                        key={ticket.id}
+                                                                                                        onClick={() => {
+                                                                                                            const current = promo.applicableTicketTypeIds ?? [];
+                                                                                                            const updated = isSelected
+                                                                                                                ? current.filter(id => id !== ticket.id)
+                                                                                                                : [...current, ticket.id];
+                                                                                                            updatePromoCode(promo.id, 'applicableTicketTypeIds', updated.length > 0 ? updated : null);
+                                                                                                        }}
+                                                                                                        className={cn(
+                                                                                                            "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors",
+                                                                                                            isSelected ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                                                                                                        )}
+                                                                                                    >
+                                                                                                        <div className={cn(
+                                                                                                            "h-4 w-4 rounded border flex items-center justify-center",
+                                                                                                            isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
+                                                                                                        )}>
+                                                                                                            {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                                                                                                        </div>
+                                                                                                        <span className="text-sm">{ticket.name || 'Untitled Ticket'}</span>
+                                                                                                        {ticket.visibility === 'hidden' && (
+                                                                                                            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Hidden</span>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })}
+                                                                                        </div>
+                                                                                        {promoError?.applicableTicketTypeIds ? (
+                                                                                            <p className="text-xs text-destructive">{promoError.applicableTicketTypeIds}</p>
+                                                                                        ) : null}
+                                                                                    </div>
+                                                                                )}
+                                                                            </>
+                                                                        )}
+
+                                                                        {/* Valid dates - always shown */}
+                                                                        <div className="grid gap-4 sm:grid-cols-2">
+                                                                            <div className="space-y-2">
+                                                                                <Label className="text-sm">Valid From</Label>
+                                                                                <DatePicker
+                                                                                    value={promo.validFrom}
+                                                                                    onChange={(value) => updatePromoCode(promo.id, 'validFrom', value)}
+                                                                                    placeholder="Select start date"
+                                                                                    hasError={!!promoError?.validFrom}
+                                                                                />
+                                                                                {promoError?.validFrom ? (
+                                                                                    <p className="text-xs text-destructive">{promoError.validFrom}</p>
+                                                                                ) : null}
+                                                                            </div>
+                                                                            <div className="space-y-2">
+                                                                                <Label className="text-sm">Valid Until</Label>
+                                                                                <DatePicker
+                                                                                    value={promo.validUntil}
+                                                                                    onChange={(value) => updatePromoCode(promo.id, 'validUntil', value)}
+                                                                                    placeholder="Select end date"
+                                                                                    hasError={!!promoError?.validUntil}
+                                                                                    minDate={promo.validFrom ? new Date(promo.validFrom) : undefined}
+                                                                                />
+                                                                                {promoError?.validUntil ? (
+                                                                                    <p className="text-xs text-destructive">{promoError.validUntil}</p>
+                                                                                ) : null}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}</CardContent>
-                                        </Card>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
                                     </motion.div>
                                 )}
 
@@ -3292,12 +3393,12 @@ export function EventWizard({
                                         </div>
 
                                         {/* Attendee Collection Mode */}
-                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
-                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
-                                                <div>
-                                                    <Label className="text-sm font-medium">Collection Mode</Label>
-                                                    <p className="text-xs text-muted-foreground mt-1">Choose how attendee info is collected during checkout</p>
-                                                </div>
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                <h3 className="text-sm font-medium text-foreground">Collection Mode</h3>
+                                                <p className="text-xs text-muted-foreground mt-0.5">Choose how attendee info is collected during checkout</p>
+                                            </div>
+                                            <div className="p-4 space-y-4">
 
                                                 <div className="space-y-3">
                                                     <div
@@ -3350,18 +3451,24 @@ export function EventWizard({
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
 
                                         {/* Default Fields Info */}
-                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
-                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
-                                                <div>
-                                                    <Label className="text-sm font-medium">Default Fields</Label>
-                                                    <p className="text-xs text-muted-foreground mt-1">These fields are always collected from attendees</p>
-                                                </div>
-
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                <h3 className="text-sm font-medium text-foreground">Default Fields</h3>
+                                                <p className="text-xs text-muted-foreground mt-0.5">These fields are always collected from attendees</p>
+                                            </div>
+                                            <div className="p-4">
                                                 <div className="grid grid-cols-2 gap-2">
+                                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
+                                                        <Check className="h-4 w-4 text-primary" />
+                                                        <div>
+                                                            <span className="text-sm">Email</span>
+                                                            <span className="text-xs text-muted-foreground ml-1">(buyer email)</span>
+                                                        </div>
+                                                    </div>
                                                     <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
                                                         <Check className="h-4 w-4 text-primary" />
                                                         <span className="text-sm">Full Name</span>
@@ -3375,41 +3482,41 @@ export function EventWizard({
                                                         <span className="text-sm">Age</span>
                                                     </div>
                                                 </div>
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
 
                                         {/* Custom Questions */}
-                                        <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm">
-                                            <CardContent className="p-3 sm:p-4 lg:p-5 space-y-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <Label className="text-sm font-medium">Custom Questions</Label>
-                                                        <p className="text-xs text-muted-foreground mt-1">Add additional questions for attendees (max 10)</p>
-                                                    </div>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => {
-                                                            if (formData.customQuestions.length >= 10) return;
-                                                            setFormData(prev => ({
-                                                                ...prev,
-                                                                customQuestions: [
-                                                                    ...prev.customQuestions,
-                                                                    {
-                                                                        id: `q-${Date.now()}`,
-                                                                        label: '',
-                                                                        type: 'text',
-                                                                        required: false,
-                                                                    }
-                                                                ]
-                                                            }));
-                                                        }}
-                                                        disabled={formData.customQuestions.length >= 10}
-                                                    >
-                                                        <Plus className="h-4 w-4 mr-1" />
-                                                        Add Question
-                                                    </Button>
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between">
+                                                <div>
+                                                    <h3 className="text-sm font-medium text-foreground">Custom Questions</h3>
+                                                    <p className="text-xs text-muted-foreground mt-0.5">Add additional questions for attendees (max 10)</p>
                                                 </div>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        if (formData.customQuestions.length >= 10) return;
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            customQuestions: [
+                                                                ...prev.customQuestions,
+                                                                {
+                                                                    id: `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                                                    label: '',
+                                                                    type: 'text',
+                                                                    required: false,
+                                                                }
+                                                            ]
+                                                        }));
+                                                    }}
+                                                    disabled={formData.customQuestions.length >= 10}
+                                                >
+                                                    <Plus className="mr-1 h-3 w-3" />
+                                                    Add Question
+                                                </Button>
+                                            </div>
+                                            <div className="p-4 space-y-4">
 
                                                 {formData.customQuestions.length === 0 ? (
                                                     <div className="text-center py-8 border border-dashed rounded-lg">
@@ -3573,8 +3680,8 @@ export function EventWizard({
                                                         ))}
                                                     </div>
                                                 )}
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 )}
 
@@ -3588,17 +3695,22 @@ export function EventWizard({
                                         transition={{ duration: 0.2 }}
                                         className="space-y-4 lg:space-y-5"
                                     >
-                                        <div>
-                                            <h2 className="font-display text-xl lg:text-2xl font-bold">Embed Checkout Widget</h2>
-                                            <p className="mt-1 text-sm text-muted-foreground">Integrate ticket sales directly into your website</p>
+                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                <h3 className="text-sm font-medium text-foreground">Embed Checkout Widget</h3>
+                                            </div>
+                                            <div className="p-4 space-y-4">
+                                                <div>
+                                                    <p className="text-sm text-muted-foreground">Integrate ticket sales directly into your website</p>
+                                                </div>
+                                                <EmbedCheckoutSnippet
+                                                    slug={embedSlug}
+                                                    canCopy={embedCanCopy}
+                                                    isLive={embedIsLive}
+                                                    isPublic={embedIsPublic}
+                                                />
+                                            </div>
                                         </div>
-
-                                        <EmbedCheckoutSnippet
-                                            slug={embedSlug}
-                                            canCopy={embedCanCopy}
-                                            isLive={embedIsLive}
-                                            isPublic={embedIsPublic}
-                                        />
                                     </motion.div>
                                 )}
                             </AnimatePresence>
@@ -3769,7 +3881,7 @@ export function EventWizard({
                 </DialogContent>
             </Dialog>
 
-        </div >
+        </div>
     );
 }
 
