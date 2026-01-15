@@ -355,10 +355,10 @@ function LoginContent() {
                                     <Button
                                         type="submit"
                                         disabled={isLoading}
-                                        className="w-full h-12 font-semibold text-lg bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 rounded-xl relative"
+                                        className="w-full h-12 font-semibold text-lg bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 rounded-xl relative overflow-visible"
                                     >
                                         {lastUsed === 'password' && (
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] px-2 py-0.5 rounded-full bg-white/25 text-white border border-white/30">
+                                            <span className="absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-lg shadow-amber-500/30 border border-amber-300/50 whitespace-nowrap z-10">
                                                 Last used
                                             </span>
                                         )}
@@ -385,10 +385,10 @@ function LoginContent() {
                                         variant="outline"
                                         onClick={handleGoogleLogin}
                                         disabled={isLoading}
-                                        className="w-full h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl relative"
+                                        className="w-full h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl relative overflow-visible"
                                     >
                                         {lastUsed === 'google' && (
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] px-2 py-0.5 rounded-full bg-slate-900/5 dark:bg-white/10 text-slate-600 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700/70">
+                                            <span className="absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-lg shadow-amber-500/30 border border-amber-300/50 whitespace-nowrap z-10">
                                                 Last used
                                             </span>
                                         )}

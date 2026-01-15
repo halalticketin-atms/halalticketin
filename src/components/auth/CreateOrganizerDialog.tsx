@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import api from '@/lib/api';
+import { getAuthUiError, type AuthUiError } from '@/lib/auth-error-messages';
 import { useOrganizers } from '@/context/organizer-context';
 import { cn } from '@/lib/utils';
 import { uploadOrganizerAvatar } from '@/lib/upload-api';
@@ -43,6 +44,7 @@ import { COUNTRIES, CURRENCIES, TIMEZONES } from '@/lib/organizer-options';
 
 const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
+const SUPPORT_URL = '/contact';
 
 const STEPS = [
     { id: 'intro', title: 'Upgrade', description: 'Why upgrade', icon: Sparkles },
@@ -82,9 +84,30 @@ export function CreateOrganizerDialog({
     const [step, setStep] = useState<Step>('intro');
     const [direction, setDirection] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<AuthUiError | null>(null);
     const [organizerId, setOrganizerId] = useState<string | null>(null);
     const { refresh } = useOrganizers();
+
+    const setErrorMessage = (message: string, options?: { showSupportLink?: boolean }) => {
+        setError({ message, showSupportLink: options?.showSupportLink ?? false });
+    };
+
+    const renderErrorMessage = (errorMessage: AuthUiError) => (
+        <>
+            {errorMessage.message}
+            {errorMessage.showSupportLink ? (
+                <>
+                    {' '}
+                    <a
+                        href={SUPPORT_URL}
+                        className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors"
+                    >
+                        Contact support
+                    </a>.
+                </>
+            ) : null}
+        </>
+    );
 
     // Form fields
     const [name, setName] = useState('');
@@ -108,12 +131,12 @@ export function CreateOrganizerDialog({
         if (!file) return;
 
         if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type as (typeof ALLOWED_AVATAR_MIME_TYPES)[number])) {
-            setError('Please upload a JPG, PNG, GIF, or WebP image');
+            setErrorMessage('Please upload a JPG, PNG, GIF, or WebP image');
             return;
         }
 
         if (file.size > 5 * 1024 * 1024) {
-            setError('Image must be 5MB or less');
+            setErrorMessage('Image must be 5MB or less');
             return;
         }
 
@@ -144,11 +167,11 @@ export function CreateOrganizerDialog({
 
     const handleCreateOrganizer = async () => {
         if (!name.trim()) {
-            setError('Please enter an organiser name');
+            setErrorMessage('Please enter an organiser name');
             return;
         }
         if (organizerType === 'charity' && !charityNumber.trim()) {
-            setError('Please enter your charity number');
+            setErrorMessage('Please enter your charity number');
             return;
         }
 
@@ -184,8 +207,10 @@ export function CreateOrganizerDialog({
             setDirection(1);
             setStep('stripe');
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Unable to create organiser';
-            setError(message);
+            setError(getAuthUiError(err, {
+                fallbackMessage: "We couldn't create your organization. Please try again.",
+                nameLabel: 'Organization name',
+            }));
         } finally {
             setIsLoading(false);
         }
@@ -193,7 +218,7 @@ export function CreateOrganizerDialog({
 
     const handleStripeConnect = async () => {
         if (!organizerId) {
-            setError('No organiser found. Please try again.');
+            setErrorMessage('No organiser found. Please try again.');
             return;
         }
 
@@ -206,11 +231,11 @@ export function CreateOrganizerDialog({
             if (response.connectUrl) {
                 window.location.href = response.connectUrl;
             } else {
-                setError('Unable to get Stripe connect URL');
+                setErrorMessage('Unable to get Stripe connect URL');
             }
         } catch (err) {
             console.error('Stripe connect error:', err);
-            setError(err instanceof Error ? err.message : 'Unable to connect Stripe. You can set this up later.');
+            setError(getAuthUiError(err, { fallbackMessage: 'Unable to connect Stripe. You can set this up later.' }));
         } finally {
             setIsLoading(false);
         }
@@ -643,7 +668,7 @@ export function CreateOrganizerDialog({
                                                     variants={staggerItem}
                                                     className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800 mt-4"
                                                 >
-                                                    {error}
+                                                    {renderErrorMessage(error)}
                                                 </motion.p>
                                             )}
 
@@ -720,7 +745,7 @@ export function CreateOrganizerDialog({
                                                 animate={{ opacity: 1, y: 0 }}
                                                 className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
                                             >
-                                                {error}
+                                                {renderErrorMessage(error)}
                                             </motion.p>
                                         )}
 

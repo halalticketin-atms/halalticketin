@@ -192,7 +192,17 @@ class ApiClient {
                 if (contentType?.includes('application/json')) {
                     errorPayload = await response.json();
                 } else {
-                    errorPayload = await response.text();
+                    const rawText = await response.text();
+                    const trimmed = rawText.trim();
+                    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                        try {
+                            errorPayload = JSON.parse(trimmed);
+                        } catch {
+                            errorPayload = trimmed;
+                        }
+                    } else {
+                        errorPayload = trimmed;
+                    }
                 }
             } catch {
                 errorPayload = null;

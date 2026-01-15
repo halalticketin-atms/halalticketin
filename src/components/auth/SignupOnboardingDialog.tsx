@@ -51,6 +51,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 
 import api, { setAuthToken } from '@/lib/api';
+import { getAuthUiError, type AuthUiError } from '@/lib/auth-error-messages';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
@@ -61,6 +62,7 @@ import { getPasswordValidationError } from '@/lib/password';
 import { getLastAuthMethod, setLastAuthMethod, type LastAuthMethod } from '@/lib/last-auth-method';
 
 const TERMS_VERSION = '2024-12-20';
+const SUPPORT_URL = '/contact';
 const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
 
@@ -186,6 +188,19 @@ const staggerItem = {
     show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } },
 };
 
+// Dynamic content for the left panel based on current step
+const STEP_CONTENT: Record<Step, { headline: string; subtext: string }> = {
+    intent: { headline: 'Get Started', subtext: "Connect with your community by ticketin' the right way" },
+    credentials: { headline: 'Create Account', subtext: 'Set up your login details' },
+    profile: { headline: 'About You', subtext: 'Help us personalize your experience' },
+    'about-you': { headline: 'Tell us about you', subtext: 'A bit more about yourself' },
+    organization: { headline: 'Your Brand', subtext: 'Set up your organiser profile' },
+    location: { headline: 'Where are you?', subtext: 'Set your default location preferences' },
+    currency: { headline: 'Default Currency', subtext: "We'll use this as your default analytics currency but each event can have its own." },
+    stripe: { headline: 'Connect Payments', subtext: 'Link your Stripe account' },
+    complete: { headline: 'All Done!', subtext: 'Welcome aboard' },
+};
+
 export function SignupOnboardingDialog({
     open,
     onOpenChange,
@@ -203,7 +218,7 @@ export function SignupOnboardingDialog({
 
     // In invite mode, start at credentials step (skip role selection)
     const [step, setStep] = useState<Step>(
-        isInviteFlow ? 'credentials' : (shouldSkipWelcome ? 'profile' : 'intent')
+        isInviteFlow ? 'credentials' : (shouldSkipWelcome ? 'credentials' : 'intent')
     );
     const [direction, setDirection] = useState(1);
     const [formData, setFormData] = useState<FormData>({
@@ -214,13 +229,39 @@ export function SignupOnboardingDialog({
         name: prefill?.name ?? '',
     });
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<AuthUiError | null>(null);
     const [organizerId, setOrganizerId] = useState<string | null>(null);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [passwordFocused, setPasswordFocused] = useState(false);
     const [pendingEmailConfirmation, setPendingEmailConfirmation] = useState(false);
     const [lastUsed, setLastUsed] = useState<LastAuthMethod | null>(null);
+    const registerInFlightRef = useRef(false);
+    // Track the highest step reached for free navigation between unlocked steps
+    const [highestStepReached, setHighestStepReached] = useState<Step>(
+        isInviteFlow ? 'credentials' : (shouldSkipWelcome ? 'credentials' : 'intent')
+    );
+
+    const setErrorMessage = (message: string, options?: { showSupportLink?: boolean }) => {
+        setError({ message, showSupportLink: options?.showSupportLink ?? false });
+    };
+
+    const renderErrorMessage = (errorMessage: AuthUiError) => (
+        <>
+            {errorMessage.message}
+            {errorMessage.showSupportLink ? (
+                <>
+                    {' '}
+                    <a
+                        href={SUPPORT_URL}
+                        className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors"
+                    >
+                        Contact support
+                    </a>.
+                </>
+            ) : null}
+        </>
+    );
 
 
 
@@ -237,7 +278,7 @@ export function SignupOnboardingDialog({
     const steps = isInviteFlow
         ? INVITE_STEPS
         : shouldSkipWelcome
-            ? baseSteps.filter(s => s.id !== 'intent' && s.id !== 'credentials')
+            ? baseSteps.filter(s => s.id !== 'intent')
             : baseSteps;
 
     // Filter steps for the initial Welcome screen to reduce cognitive load
@@ -281,13 +322,13 @@ export function SignupOnboardingDialog({
 
         // Validate file type
         if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type as (typeof ALLOWED_AVATAR_MIME_TYPES)[number])) {
-            setError('Please upload a JPG, PNG, GIF, or WebP image');
+            setErrorMessage('Please upload a JPG, PNG, GIF, or WebP image');
             return;
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            setError('Image must be 5MB or less');
+            setErrorMessage('Image must be 5MB or less');
             return;
         }
 
@@ -314,11 +355,22 @@ export function SignupOnboardingDialog({
 
     const goToStep = (stepId: Step, dir = 0) => {
         const targetIndex = steps.findIndex(s => s.id === stepId);
-        if (targetIndex <= currentStepIndex) {
+        const highestIndex = steps.findIndex(s => s.id === highestStepReached);
+        // Allow navigation to any step up to the highest step reached
+        if (targetIndex <= highestIndex) {
             setDirection(dir || (targetIndex > currentStepIndex ? 1 : -1));
             setStep(stepId);
         }
     };
+
+    // Update highest step reached when moving forward
+    useEffect(() => {
+        const currentIndex = steps.findIndex(s => s.id === step);
+        const highestIndex = steps.findIndex(s => s.id === highestStepReached);
+        if (currentIndex > highestIndex) {
+            setHighestStepReached(step);
+        }
+    }, [step, steps, highestStepReached]);
 
 
 
@@ -348,7 +400,7 @@ export function SignupOnboardingDialog({
         } catch (err) {
             console.error(err);
             toast.error(err, 'Unable to sign in with Google');
-            setError(err instanceof Error ? err.message : 'Unable to sign in with Google.');
+            setError(getAuthUiError(err, { fallbackMessage: 'Unable to sign in with Google.' }));
             setIsLoading(false);
         }
     };
@@ -364,12 +416,12 @@ export function SignupOnboardingDialog({
             case 'credentials': {
                 const trimmedName = formData.name.trim();
                 if (!trimmedName) {
-                    setError('Full name is required');
+                    setErrorMessage('Full name is required');
                     return;
                 }
                 const trimmedEmail = formData.email.trim();
                 if (!trimmedEmail) {
-                    setError('Email is required');
+                    setErrorMessage('Email is required');
                     return;
                 }
                 if (trimmedName !== formData.name) {
@@ -381,8 +433,28 @@ export function SignupOnboardingDialog({
                 if (!isAuthenticatedOnboarding) {
                     const passwordError = getPasswordValidationError(formData.password);
                     if (passwordError) {
-                        setError(passwordError);
+                        setErrorMessage(passwordError);
                         return;
+                    }
+
+                    // Step-wise validation: check email availability before proceeding
+                    try {
+                        setIsLoading(true);
+                        await api.post('/api/v1/auth/check-email', { email: trimmedEmail });
+                    } catch (err) {
+                        console.error('[SignupOnboardingDialog] Email check error:', err);
+                        const uiError = getAuthUiError(err, {
+                            fallbackMessage: 'Email is already linked to an account. Sign in instead or use a different email.',
+                            nameLabel: 'Email',
+                        });
+                        // For email conflicts, don't show support link since user can resolve it themselves
+                        if (uiError.field === 'email') {
+                            uiError.showSupportLink = false;
+                        }
+                        setError(uiError);
+                        return;
+                    } finally {
+                        setIsLoading(false);
                     }
                 }
                 // Organizers go through granular steps, buyers go to profile
@@ -391,7 +463,7 @@ export function SignupOnboardingDialog({
             }
             case 'about-you':
                 if (!formData.gender || !formData.dateOfBirth) {
-                    setError('Please complete all required fields');
+                    setErrorMessage('Please complete all required fields');
                     return;
                 }
                 setStep('organization');
@@ -400,15 +472,15 @@ export function SignupOnboardingDialog({
                 const trimmedOrganizerName = formData.organizerName.trim();
                 const trimmedOrganizerCharityNumber = formData.organizerCharityNumber.trim();
                 if (formData.organizerType === 'charity' && !trimmedOrganizerCharityNumber) {
-                    setError('Charity number is required');
+                    setErrorMessage('Charity number is required');
                     return;
                 }
                 if (!trimmedOrganizerName) {
-                    setError('Organization name is required');
+                    setErrorMessage('Organization name is required');
                     return;
                 }
                 if (!formData.organizerType) {
-                    setError('Organization type is required');
+                    setErrorMessage('Organization type is required');
                     return;
                 }
                 if (trimmedOrganizerName !== formData.organizerName) {
@@ -417,13 +489,36 @@ export function SignupOnboardingDialog({
                 if (trimmedOrganizerCharityNumber !== formData.organizerCharityNumber) {
                     updateField('organizerCharityNumber', trimmedOrganizerCharityNumber);
                 }
+
+                // Step-wise validation: check organization name availability before proceeding
+                if (!isInviteFlow) {
+                    try {
+                        setIsLoading(true);
+                        await api.post('/api/v1/auth/check-organizer-name', { name: trimmedOrganizerName });
+                    } catch (err) {
+                        console.error('[SignupOnboardingDialog] Org name check error:', err);
+                        const uiError = getAuthUiError(err, {
+                            fallbackMessage: 'Organization name is already taken. Please choose a different name.',
+                            nameLabel: 'Organization name',
+                        });
+                        // For org name conflicts, don't show support link since user can resolve it themselves
+                        if (uiError.field === 'organizerName') {
+                            uiError.showSupportLink = false;
+                        }
+                        setError(uiError);
+                        return;
+                    } finally {
+                        setIsLoading(false);
+                    }
+                }
+
                 setStep('location');
                 break;
             }
             case 'location': {
                 const trimmedOrganizerCity = formData.organizerCity.trim();
                 if (!formData.organizerCountry || !trimmedOrganizerCity || !formData.organizerTimezone) {
-                    setError('Please complete all required fields');
+                    setErrorMessage('Please complete all required fields');
                     return;
                 }
                 if (trimmedOrganizerCity !== formData.organizerCity) {
@@ -434,11 +529,11 @@ export function SignupOnboardingDialog({
             }
             case 'currency':
                 if (!formData.organizerCurrency) {
-                    setError('Please select a currency');
+                    setErrorMessage('Please select a currency');
                     return;
                 }
                 if (!acceptedTerms) {
-                    setError('You must accept the Terms of Use to create an account');
+                    setErrorMessage('You must accept the Terms of Use to create an account');
                     return;
                 }
                 await handleRegister();
@@ -446,19 +541,19 @@ export function SignupOnboardingDialog({
             case 'profile': {
                 // Buyer profile
                 if (!formData.gender || !formData.dateOfBirth) {
-                    setError('Please complete all required fields');
+                    setErrorMessage('Please complete all required fields');
                     return;
                 }
                 const trimmedHomeCity = formData.homeCity.trim();
                 if (!formData.homeCountry || !trimmedHomeCity) {
-                    setError('Please complete all required fields');
+                    setErrorMessage('Please complete all required fields');
                     return;
                 }
                 if (trimmedHomeCity !== formData.homeCity) {
                     updateField('homeCity', trimmedHomeCity);
                 }
                 if (!acceptedTerms) {
-                    setError('You must accept the Terms of Use to create an account');
+                    setErrorMessage('You must accept the Terms of Use to create an account');
                     return;
                 }
                 await handleRegister();
@@ -498,7 +593,19 @@ export function SignupOnboardingDialog({
         }
     };
 
+    const getRegistrationError = (err: unknown) => {
+        return getAuthUiError(err, {
+            fallbackMessage: "We couldn't create your account. Please try again.",
+            nameLabel: formData.role === 'organizer' ? 'Organization name' : 'Full name',
+        });
+    };
+
     const handleRegister = async () => {
+        if (registerInFlightRef.current) {
+            return;
+        }
+
+        registerInFlightRef.current = true;
         setIsLoading(true);
         setError(null);
 
@@ -601,9 +708,21 @@ export function SignupOnboardingDialog({
             }
         } catch (err) {
             console.error('Registration error:', err);
-            setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+            const uiError = getRegistrationError(err);
+            setError(uiError);
+
+            if (uiError.field === 'email' && steps.some((s) => s.id === 'credentials')) {
+                setDirection(-1);
+                setStep('credentials');
+            }
+
+            if (uiError.field === 'organizerName' && steps.some((s) => s.id === 'organization')) {
+                setDirection(-1);
+                setStep('organization');
+            }
         } finally {
             setIsLoading(false);
+            registerInFlightRef.current = false;
         }
     };
 
@@ -625,7 +744,7 @@ export function SignupOnboardingDialog({
 
     const handleStripeConnect = async () => {
         if (!organizerId) {
-            setError('No organiser found. Please try again.');
+            setErrorMessage('No organiser found. Please try again.');
             return;
         }
 
@@ -638,17 +757,15 @@ export function SignupOnboardingDialog({
             if (response.connectUrl) {
                 window.location.href = response.connectUrl;
             } else {
-                setError('Unable to get Stripe connect URL');
+                setErrorMessage('Unable to get Stripe connect URL');
             }
         } catch (err) {
             console.error('Stripe connect error:', err);
-            setError(err instanceof Error ? err.message : 'Unable to connect Stripe. You can set this up later.');
+            setError(getAuthUiError(err, { fallbackMessage: 'Unable to connect Stripe. You can set this up later.' }));
         } finally {
             setIsLoading(false);
         }
     };
-
-    const progressPercentage = ((currentStepIndex + 1) / steps.length) * 100;
 
     const handleResendVerificationEmail = async () => {
         try {
@@ -670,7 +787,7 @@ export function SignupOnboardingDialog({
         } catch (err) {
             console.error('Resend verification error:', err);
             toast.error(err, 'Unable to resend verification email');
-            setError(err instanceof Error ? err.message : 'Unable to resend verification email.');
+            setError(getAuthUiError(err, { fallbackMessage: 'Unable to resend verification email.' }));
         } finally {
             setIsLoading(false);
         }
@@ -686,143 +803,187 @@ export function SignupOnboardingDialog({
 
 
 
-                {/* Progress bar */}
+                {/* Mobile Header - Clean horizontal step bar */}
                 {step !== 'complete' && (
-                    <div className="h-1.5 bg-slate-200/50 dark:bg-slate-700/50 relative z-10 shrink-0">
-                        <motion.div
-                            className="h-full bg-linear-to-r from-(--brand-cyan) via-(--brand-teal) to-emerald-500"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${progressPercentage}%` }}
-                            transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                        />
-                    </div>
-                )}
-
-                {/* Mobile Step Indicator - Hide on Welcome screen */}
-                {step !== 'complete' && step !== 'intent' && (
-                    <div className="lg:hidden border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0 relative z-10">
-                        <div className="px-4 py-4">
+                    <div className="lg:hidden bg-linear-to-r from-(--brand-mint) to-(--brand-cyan) shrink-0 relative z-10">
+                        <div className="pl-4 pr-12 py-2.5">
                             <div className="flex items-center justify-between">
-                                {sidebarSteps.map((s) => {
-                                    const stepIndex = steps.findIndex((stepItem) => stepItem.id === s.id);
-                                    const isCompleted = stepIndex > -1 && stepIndex < currentStepIndex;
-                                    const isActive = step === s.id;
-                                    const isClickable = stepIndex > -1 && stepIndex <= currentStepIndex;
+                                {/* Logo - white version for contrast */}
+                                <div className="relative h-7 w-24 shrink-0">
+                                    <Image
+                                        src="/images/HTlogocr.png"
+                                        alt="Halal Ticketin"
+                                        fill
+                                        className="object-contain object-left brightness-0 invert"
+                                        priority
+                                    />
+                                </div>
 
-                                    return (
-                                        <motion.button
-                                            key={s.id}
-                                            onClick={() => {
-                                                if (isClickable) {
-                                                    goToStep(s.id as Step);
-                                                }
-                                            }}
-                                            className="flex flex-col items-center gap-1.5 relative"
-                                            disabled={!isClickable}
-                                            whileHover={isClickable ? { scale: 1.05 } : {}}
-                                            whileTap={isClickable ? { scale: 0.95 } : {}}
-                                        >
+                                {/* Step Progress - Centered, excluding intent step */}
+                                <div className="flex items-center justify-center flex-1">
+                                    {sidebarSteps.filter(s => s.id !== 'intent').map((s, idx) => {
+                                        const stepIndex = steps.findIndex((stepItem) => stepItem.id === s.id);
+                                        const highestIndex = steps.findIndex((stepItem) => stepItem.id === highestStepReached);
+                                        const isCompleted = stepIndex > -1 && stepIndex < currentStepIndex;
+                                        const isActive = step === s.id;
+                                        // Allow clicking any step up to the highest reached
+                                        const isClickable = stepIndex > -1 && stepIndex <= highestIndex;
+                                        // Show all steps up to the highest reached (exclude intent which is step 0)
+                                        const isVisible = stepIndex > 0 && stepIndex <= highestIndex;
+                                        const stepNumber = idx + 1;
+
+                                        if (!isVisible) return null;
+
+                                        return (
                                             <motion.div
-                                                className={cn(
-                                                    'flex h-10 w-10 items-center justify-center rounded-xl text-sm font-semibold transition-all relative',
-                                                    isActive
-                                                        ? 'bg-linear-to-br from-(--brand-cyan) to-(--brand-teal) text-white shadow-lg shadow-cyan-500/25'
-                                                        : isCompleted
-                                                            ? 'bg-linear-to-br from-emerald-400 to-emerald-500 text-white'
-                                                            : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
-                                                )}
-                                                animate={isActive ? { scale: [1, 1.05, 1] } : {}}
-                                                transition={{ duration: 0.3 }}
+                                                key={s.id}
+                                                className="flex items-center"
+                                                initial={{ opacity: 0, scale: 0.5 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                transition={{ duration: 0.2 }}
                                             >
-                                                {isCompleted ? <Check className="h-5 w-5" /> : <s.icon className="h-5 w-5" />}
+                                                <motion.button
+                                                    onClick={() => {
+                                                        if (isClickable) {
+                                                            goToStep(s.id as Step);
+                                                        }
+                                                    }}
+                                                    disabled={!isClickable}
+                                                    className={cn(
+                                                        'flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold transition-all',
+                                                        isActive
+                                                            ? 'bg-white text-slate-800 shadow-md scale-110'
+                                                            : isCompleted
+                                                                ? 'bg-white/90 text-emerald-600'
+                                                                : 'bg-white/40 text-slate-500',
+                                                        isClickable ? 'cursor-pointer' : 'cursor-not-allowed'
+                                                    )}
+                                                    whileTap={isClickable ? { scale: 0.95 } : {}}
+                                                >
+                                                    {isCompleted ? <Check className="h-3 w-3" /> : stepNumber}
+                                                </motion.button>
+                                                {stepIndex < currentStepIndex && (
+                                                    <motion.div
+                                                        className="h-0.5 w-2 mx-0.5 bg-white/70"
+                                                        initial={{ scaleX: 0 }}
+                                                        animate={{ scaleX: 1 }}
+                                                    />
+                                                )}
                                             </motion.div>
-                                            <span className={cn(
-                                                'text-xs font-medium transition-colors',
-                                                isActive ? 'text-(--brand-teal)' : 'text-slate-500'
-                                            )}>
-                                                {s.title}
-                                            </span>
-                                        </motion.button>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </div>
                 )}
 
                 <div className="flex flex-1 min-h-0 overflow-hidden relative z-10">
-                    {/* Desktop Sidebar */}
+                    {/* Desktop Left Panel - Split Screen */}
                     {step !== 'complete' && (
-                        <aside className={cn(
-                            "hidden lg:flex flex-col w-64 shrink-0 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 p-5",
-                            step === 'intent' && "pt-24"
-                        )}>
-                            <div className={cn("space-y-2", step === 'intent' && "flex-1 flex flex-col")}>
-                                {sidebarSteps.map((s, idx) => {
-                                    if (s.id === 'intent' && step === 'intent') {
-                                        return (
-                                            <div key={s.id} className="px-2 text-center">
-                                                <div className="relative h-20 w-full mx-auto">
-                                                    <Image
-                                                        src="/images/HTlogocr.png"
-                                                        alt="Halal Ticketin"
-                                                        fill
-                                                        className="object-contain"
-                                                        priority
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    }
+                        <aside className="hidden lg:flex flex-col w-[38%] shrink-0 bg-linear-to-br from-(--brand-mint) via-(--brand-cyan) to-(--brand-teal) relative overflow-hidden">
+                            {/* Subtle overlay for depth */}
+                            <div className="absolute inset-0 bg-linear-to-b from-white/10 to-transparent" />
 
-                                    const stepIndex = steps.findIndex((stepItem) => stepItem.id === s.id);
-                                    const isCompleted = stepIndex > -1 && stepIndex < currentStepIndex;
-                                    const isActive = step === s.id;
-                                    const isClickable = stepIndex > -1 && stepIndex <= currentStepIndex;
-                                    const stepNumber = idx + 1;
+                            {/* Content */}
+                            <div className="relative z-10 flex flex-col h-full p-8">
+                                {/* Dynamic Content - positioned higher */}
+                                <div className="flex-1 flex flex-col justify-center -mt-4">
+                                    <motion.div
+                                        key={step}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 20 }}
+                                        transition={{ duration: 0.3, ease: 'easeOut' }}
+                                        className="space-y-3"
+                                    >
+                                        <h2 className="text-3xl font-display font-bold text-slate-800 tracking-tight">
+                                            {STEP_CONTENT[step].headline}
+                                        </h2>
+                                        <p className="text-slate-600 text-lg">
+                                            {STEP_CONTENT[step].subtext}
+                                        </p>
+                                    </motion.div>
 
-                                    return (
-                                        <button
-                                            key={s.id}
-                                            type="button"
-                                            onClick={() => {
-                                                if (isClickable) {
-                                                    goToStep(s.id as Step);
-                                                }
-                                            }}
-                                            className={cn(
-                                                'group flex items-center gap-4 py-3 px-2 transition-all duration-300 cursor-pointer',
-                                                isActive ? 'opacity-100' : isClickable ? 'opacity-80 hover:opacity-100' : 'opacity-40 cursor-not-allowed'
-                                            )}
-                                            disabled={!isClickable}
-                                        >
-                                            <div
-                                                className={cn(
-                                                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all duration-300',
-                                                    isActive
-                                                        ? 'bg-linear-to-br from-(--brand-cyan) to-(--brand-teal) text-white shadow-md scale-110 shadow-cyan-500/20'
-                                                        : isCompleted
-                                                            ? 'bg-emerald-500 text-white'
-                                                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                                                )}
-                                            >
-                                                {isCompleted ? (
-                                                    <Check className="h-4 w-4" />
-                                                ) : (
-                                                    <span>{stepNumber}</span>
-                                                )}
+                                    {/* Horizontal Step Progress - Just below text */}
+                                    {step !== 'intent' && (
+                                        <div className="pt-6">
+                                            <div className="flex items-center">
+                                                {sidebarSteps.map((s, idx) => {
+                                                    const stepIndex = steps.findIndex((stepItem) => stepItem.id === s.id);
+                                                    const highestIndex = steps.findIndex((stepItem) => stepItem.id === highestStepReached);
+                                                    const isCompleted = stepIndex > -1 && stepIndex < currentStepIndex;
+                                                    const isActive = step === s.id;
+                                                    // Allow clicking any step up to the highest reached
+                                                    const isClickable = stepIndex > -1 && stepIndex <= highestIndex;
+                                                    // Show all steps up to the highest reached
+                                                    const isVisible = stepIndex <= highestIndex;
+                                                    const stepNumber = idx + 1;
+
+                                                    if (!isVisible) return null;
+
+                                                    return (
+                                                        <motion.div
+                                                            key={s.id}
+                                                            className="flex items-center"
+                                                            initial={{ opacity: 0, scale: 0.5 }}
+                                                            animate={{ opacity: 1, scale: 1 }}
+                                                            transition={{ duration: 0.3, delay: idx * 0.05 }}
+                                                        >
+                                                            <motion.button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    if (isClickable) {
+                                                                        goToStep(s.id as Step);
+                                                                    }
+                                                                }}
+                                                                disabled={!isClickable}
+                                                                className={cn(
+                                                                    'flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-300',
+                                                                    isActive
+                                                                        ? 'bg-white text-slate-800 shadow-lg scale-110'
+                                                                        : isCompleted
+                                                                            ? 'bg-white/90 text-emerald-600'
+                                                                            : 'bg-white/40 text-slate-500',
+                                                                    isClickable ? 'cursor-pointer hover:bg-white/80' : 'cursor-not-allowed'
+                                                                )}
+                                                                whileHover={isClickable ? { scale: 1.15 } : {}}
+                                                                whileTap={isClickable ? { scale: 0.95 } : {}}
+                                                            >
+                                                                {isCompleted ? (
+                                                                    <Check className="h-3.5 w-3.5" />
+                                                                ) : (
+                                                                    <span>{stepNumber}</span>
+                                                                )}
+                                                            </motion.button>
+                                                            {stepIndex < currentStepIndex && (
+                                                                <motion.div
+                                                                    className="h-0.5 w-4 mx-0.5 bg-white/70"
+                                                                    initial={{ scaleX: 0 }}
+                                                                    animate={{ scaleX: 1 }}
+                                                                    transition={{ duration: 0.2, delay: idx * 0.05 + 0.1 }}
+                                                                />
+                                                            )}
+                                                        </motion.div>
+                                                    );
+                                                })}
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className={cn(
-                                                    "text-sm font-semibold transition-colors duration-300",
-                                                    isActive ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"
-                                                )}>
-                                                    {s.title}
-                                                </span>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Logo at bottom right - white version */}
+                                <div className="mt-auto flex justify-end">
+                                    <div className="relative h-10 w-32">
+                                        <Image
+                                            src="/images/HTlogocr.png"
+                                            alt="Halal Ticketin"
+                                            fill
+                                            className="object-contain object-right brightness-0 invert"
+                                            priority
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </aside>
                     )}
@@ -844,23 +1005,13 @@ export function SignupOnboardingDialog({
                                 >
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show">
                                         <motion.div variants={staggerItem} className="text-center lg:text-left space-y-6">
-                                            {/* Mobile Logo */}
-                                            <div className="lg:hidden relative h-16 w-32 mx-auto">
-                                                <Image
-                                                    src="/images/HTlogocr.png"
-                                                    alt="Halal Ticketin"
-                                                    fill
-                                                    className="object-contain"
-                                                    priority
-                                                />
-                                            </div>
 
                                             <div className="text-center lg:text-left">
                                                 <h2 className="text-3xl font-display font-bold text-slate-800 dark:text-white mb-2 tracking-tight">
-                                                    Welcome!
+                                                    {STEP_CONTENT.intent.headline}
                                                 </h2>
                                                 <p className="text-slate-600 dark:text-slate-400 text-lg">
-                                                    How would you like to get started?
+                                                    {STEP_CONTENT.intent.subtext}
                                                 </p>
                                             </div>
                                         </motion.div>
@@ -974,10 +1125,10 @@ export function SignupOnboardingDialog({
                                                     variant="outline"
                                                     onClick={handleGoogleLogin}
                                                     disabled={isLoading}
-                                                    className="w-full h-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl relative"
+                                                    className="w-full h-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-300 font-semibold text-slate-700 dark:text-slate-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 rounded-xl relative overflow-visible"
                                                 >
                                                     {lastUsed === 'google' && (
-                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] px-2 py-0.5 rounded-full bg-slate-900/5 dark:bg-white/10 text-slate-600 dark:text-slate-200 border border-slate-200/70 dark:border-slate-700/70">
+                                                        <span className="absolute -top-2 -right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-linear-to-r from-amber-400 to-orange-400 text-white shadow-lg shadow-amber-500/30 border border-amber-300/50 whitespace-nowrap z-10">
                                                             Last used
                                                         </span>
                                                     )}
@@ -1023,9 +1174,6 @@ export function SignupOnboardingDialog({
                                         <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">
                                             Create your account
                                         </h2>
-                                        <p className="text-slate-600 dark:text-slate-400 mt-1">
-                                            Enter your details to get started
-                                        </p>
                                     </div>
 
                                     <motion.div
@@ -1164,7 +1312,7 @@ export function SignupOnboardingDialog({
                                             animate={{ opacity: 1, y: 0 }}
                                             className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
                                         >
-                                            {error}
+                                            {renderErrorMessage(error)}
                                         </motion.p>
                                     )}
 
@@ -1300,7 +1448,7 @@ export function SignupOnboardingDialog({
                                             animate={{ opacity: 1, y: 0 }}
                                             className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
                                         >
-                                            {error}
+                                            {renderErrorMessage(error)}
                                         </motion.p>
                                     )}
 
@@ -1351,9 +1499,6 @@ export function SignupOnboardingDialog({
                                         <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">
                                             Tell us about you
                                         </h2>
-                                        <p className="text-slate-600 dark:text-slate-400 mt-1">
-                                            Basic information for your personal profile
-                                        </p>
                                     </div>
 
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
@@ -1392,7 +1537,7 @@ export function SignupOnboardingDialog({
                                             animate={{ opacity: 1 }}
                                             className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
                                         >
-                                            {error}
+                                            {renderErrorMessage(error)}
                                         </motion.p>
                                     )}
 
@@ -1425,7 +1570,6 @@ export function SignupOnboardingDialog({
                                 >
                                     <div>
                                         <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">Organization Details</h2>
-                                        <p className="text-slate-600 dark:text-slate-400 mt-1">Tell us about your brand or organization</p>
                                     </div>
 
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
@@ -1534,7 +1678,7 @@ export function SignupOnboardingDialog({
                                             animate={{ opacity: 1 }}
                                             className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
                                         >
-                                            {error}
+                                            {renderErrorMessage(error)}
                                         </motion.p>
                                     )}
 
@@ -1567,7 +1711,6 @@ export function SignupOnboardingDialog({
                                 >
                                     <div>
                                         <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">Location & Timezone</h2>
-                                        <p className="text-slate-600 dark:text-slate-400 mt-1">Set your default location preferences</p>
                                     </div>
 
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
@@ -1647,7 +1790,7 @@ export function SignupOnboardingDialog({
                                 >
                                     <div>
                                         <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">Currency</h2>
-                                        <p className="text-slate-600 dark:text-slate-400 mt-1">Select your preferred currency for payouts</p>
+
                                     </div>
 
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
@@ -1699,7 +1842,7 @@ export function SignupOnboardingDialog({
                                             animate={{ opacity: 1 }}
                                             className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
                                         >
-                                            {error}
+                                            {renderErrorMessage(error)}
                                         </motion.p>
                                     )}
 
@@ -1734,9 +1877,6 @@ export function SignupOnboardingDialog({
                                         <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">
                                             Set up payments
                                         </h2>
-                                        <p className="text-slate-600 dark:text-slate-400 mt-1">
-                                            Connect Stripe to receive payouts for ticket sales
-                                        </p>
                                     </div>
 
                                     <motion.div
@@ -1768,7 +1908,7 @@ export function SignupOnboardingDialog({
                                             animate={{ opacity: 1, y: 0 }}
                                             className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
                                         >
-                                            {error}
+                                            {renderErrorMessage(error)}
                                         </motion.p>
                                     )}
 
