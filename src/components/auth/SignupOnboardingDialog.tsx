@@ -361,10 +361,22 @@ export function SignupOnboardingDialog({
             case 'intent':
                 setStep('credentials');
                 break;
-            case 'credentials':
-                if (!formData.email) {
+            case 'credentials': {
+                const trimmedName = formData.name.trim();
+                if (!trimmedName) {
+                    setError('Full name is required');
+                    return;
+                }
+                const trimmedEmail = formData.email.trim();
+                if (!trimmedEmail) {
                     setError('Email is required');
                     return;
+                }
+                if (trimmedName !== formData.name) {
+                    updateField('name', trimmedName);
+                }
+                if (trimmedEmail !== formData.email) {
+                    updateField('email', trimmedEmail);
                 }
                 if (!isAuthenticatedOnboarding) {
                     const passwordError = getPasswordValidationError(formData.password);
@@ -376,6 +388,7 @@ export function SignupOnboardingDialog({
                 // Organizers go through granular steps, buyers go to profile
                 setStep(formData.role === 'organizer' ? 'about-you' : 'profile');
                 break;
+            }
             case 'about-you':
                 if (!formData.gender || !formData.dateOfBirth) {
                     setError('Please complete all required fields');
@@ -383,12 +396,14 @@ export function SignupOnboardingDialog({
                 }
                 setStep('organization');
                 break;
-            case 'organization':
-                if (formData.organizerType === 'charity' && !formData.organizerCharityNumber) {
+            case 'organization': {
+                const trimmedOrganizerName = formData.organizerName.trim();
+                const trimmedOrganizerCharityNumber = formData.organizerCharityNumber.trim();
+                if (formData.organizerType === 'charity' && !trimmedOrganizerCharityNumber) {
                     setError('Charity number is required');
                     return;
                 }
-                if (!formData.organizerName) {
+                if (!trimmedOrganizerName) {
                     setError('Organization name is required');
                     return;
                 }
@@ -396,15 +411,27 @@ export function SignupOnboardingDialog({
                     setError('Organization type is required');
                     return;
                 }
+                if (trimmedOrganizerName !== formData.organizerName) {
+                    updateField('organizerName', trimmedOrganizerName);
+                }
+                if (trimmedOrganizerCharityNumber !== formData.organizerCharityNumber) {
+                    updateField('organizerCharityNumber', trimmedOrganizerCharityNumber);
+                }
                 setStep('location');
                 break;
-            case 'location':
-                if (!formData.organizerCountry || !formData.organizerCity || !formData.organizerTimezone) {
+            }
+            case 'location': {
+                const trimmedOrganizerCity = formData.organizerCity.trim();
+                if (!formData.organizerCountry || !trimmedOrganizerCity || !formData.organizerTimezone) {
                     setError('Please complete all required fields');
                     return;
                 }
+                if (trimmedOrganizerCity !== formData.organizerCity) {
+                    updateField('organizerCity', trimmedOrganizerCity);
+                }
                 setStep('currency');
                 break;
+            }
             case 'currency':
                 if (!formData.organizerCurrency) {
                     setError('Please select a currency');
@@ -416,15 +443,19 @@ export function SignupOnboardingDialog({
                 }
                 await handleRegister();
                 break;
-            case 'profile':
+            case 'profile': {
                 // Buyer profile
                 if (!formData.gender || !formData.dateOfBirth) {
                     setError('Please complete all required fields');
                     return;
                 }
-                if (!formData.homeCountry || !formData.homeCity) {
+                const trimmedHomeCity = formData.homeCity.trim();
+                if (!formData.homeCountry || !trimmedHomeCity) {
                     setError('Please complete all required fields');
                     return;
+                }
+                if (trimmedHomeCity !== formData.homeCity) {
+                    updateField('homeCity', trimmedHomeCity);
                 }
                 if (!acceptedTerms) {
                     setError('You must accept the Terms of Use to create an account');
@@ -432,6 +463,7 @@ export function SignupOnboardingDialog({
                 }
                 await handleRegister();
                 break;
+            }
             case 'stripe':
                 handleComplete();
                 break;
