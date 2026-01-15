@@ -897,10 +897,10 @@ export function SignupOnboardingDialog({
                                         transition={{ duration: 0.3, ease: 'easeOut' }}
                                         className="space-y-3"
                                     >
-                                        <h2 className="text-3xl font-display font-bold text-slate-800 tracking-tight">
+                                        <h2 className="text-3xl font-display font-bold text-white tracking-tight">
                                             {STEP_CONTENT[step].headline}
                                         </h2>
-                                        <p className="text-slate-600 text-lg">
+                                        <p className="text-white/80 text-lg">
                                             {STEP_CONTENT[step].subtext}
                                         </p>
                                     </motion.div>
