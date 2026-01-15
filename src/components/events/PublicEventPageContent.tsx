@@ -46,7 +46,7 @@ import {
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote, type CheckoutQuoteResponse, type TicketAttendeePayload } from '@/lib/checkout-api';
-import { calculateFeePerTicket, formatCurrency, getCurrencySymbol, type FeeTier } from '@/lib/fees';
+import { applyCharityPlatformFeeDiscount, calculateFeePerTicket, formatCurrency, fromSmallestUnit, getCurrencySymbol, toSmallestUnit, type FeeTier } from '@/lib/fees';
 import { formatCreditSplitNote } from '@/lib/credit-notes';
 import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
@@ -73,6 +73,7 @@ interface PublicEventPageContentProps {
     error: string | null;
     isPreview?: boolean;
     organizerNameOverride?: string | null;
+    charityDiscountRate?: number;
     embedMode?: 'checkout' | 'full';
     accessStatus?: 'required' | 'denied' | null;
     accessMessage?: string | null;
@@ -252,6 +253,7 @@ export function PublicEventPageContent({
     error,
     isPreview = false,
     organizerNameOverride = null,
+    charityDiscountRate = 0,
     embedMode = 'full',
     accessStatus = null,
     accessMessage = null,
@@ -752,7 +754,7 @@ export function PublicEventPageContent({
             return 0;
         }
 
-        return cartItems.reduce((sum, item) => {
+        const totalFee = cartItems.reduce((sum, item) => {
             const unitPrice = getCartItemUnitPrice(item);
             if (unitPrice <= 0) {
                 return sum;
@@ -772,7 +774,17 @@ export function PublicEventPageContent({
 
             return sum + feePerTicket * item.quantity;
         }, 0);
-    }, [event, paidTicketCount, finalTotal, cartItems, getCartItemUnitPrice, currencyCode, rates, checkoutQuote]);
+
+        if (feeTier !== 'charity' && charityDiscountRate > 0) {
+            const discounted = applyCharityPlatformFeeDiscount(
+                toSmallestUnit(totalFee, currencyCode),
+                charityDiscountRate
+            );
+            return fromSmallestUnit(discounted, currencyCode);
+        }
+
+        return totalFee;
+    }, [event, paidTicketCount, finalTotal, cartItems, getCartItemUnitPrice, currencyCode, rates, checkoutQuote, charityDiscountRate]);
 
     const organizerFeeAmount = useMemo(() => {
         if (checkoutQuote) {

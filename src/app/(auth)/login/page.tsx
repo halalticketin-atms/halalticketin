@@ -104,8 +104,8 @@ function LoginContent() {
     // Show loading while checking auth state
     if (authLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
-                <div className="h-12 w-12 rounded-full border-4 border-[var(--brand-cyan)] border-t-transparent animate-spin" />
+            <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
+                <div className="h-12 w-12 rounded-full border-4 border-(--brand-cyan) border-t-transparent animate-spin" />
             </div>
         );
     }
@@ -224,7 +224,7 @@ function LoginContent() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 md:p-6 relative overflow-hidden bg-gradient-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
+        <div className="min-h-screen flex items-start justify-center p-4 md:p-6 pt-[12dvh] relative overflow-hidden bg-gradient-to-br from-slate-50 via-cyan-50/30 to-teal-50/20">
             {/* Ambient background glows */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none hidden md:block">
                 <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-gradient-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-3xl" />
@@ -296,13 +296,13 @@ function LoginContent() {
 
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
-                                            <Label htmlFor="password" className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
+                                            <Label htmlFor="password" title="password" className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
                                                 <Lock className="h-4 w-4 text-slate-400" />
                                                 Password
                                             </Label>
                                             <Link
                                                 href="/forgot-password"
-                                                className="text-sm text-[var(--brand-cyan)] hover:text-[var(--brand-teal)] transition-colors font-medium"
+                                                className="text-sm text-(--brand-cyan) hover:text-(--brand-teal) transition-colors font-medium"
                                             >
                                                 Forgot password?
                                             </Link>
@@ -316,7 +316,7 @@ function LoginContent() {
                                                 onChange={(e) => setPassword(e.target.value)}
                                                 minLength={8}
                                                 maxLength={128}
-                                                className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-[var(--brand-cyan)] focus:ring-[var(--brand-cyan)]/20 transition-all rounded-xl pr-12"
+                                                className="h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-(--brand-cyan) focus:ring-(--brand-cyan)/20 transition-all rounded-xl pr-12"
                                                 required
                                             />
                                             <button

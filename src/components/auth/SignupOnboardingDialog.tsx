@@ -241,10 +241,10 @@ export function SignupOnboardingDialog({
             : baseSteps;
 
     // Filter steps for the initial Welcome screen to reduce cognitive load
-    // Only show "Welcome" initially
+    // Only show "Welcome" initially, and hide "Welcome" when on other steps
     const sidebarSteps = step === 'intent'
         ? steps.filter(s => s.id === 'intent')
-        : steps;
+        : steps.filter(s => s.id !== 'intent');
 
     const currentStepIndex = steps.findIndex(s => s.id === step);
     const canGoBack = currentStepIndex > 0;
@@ -392,12 +392,24 @@ export function SignupOnboardingDialog({
                     setError('Organization name is required');
                     return;
                 }
+                if (!formData.organizerType) {
+                    setError('Organization type is required');
+                    return;
+                }
                 setStep('location');
                 break;
             case 'location':
+                if (!formData.organizerCountry || !formData.organizerCity || !formData.organizerTimezone) {
+                    setError('Please complete all required fields');
+                    return;
+                }
                 setStep('currency');
                 break;
             case 'currency':
+                if (!formData.organizerCurrency) {
+                    setError('Please select a currency');
+                    return;
+                }
                 if (!acceptedTerms) {
                     setError('You must accept the Terms of Use to create an account');
                     return;
@@ -407,6 +419,10 @@ export function SignupOnboardingDialog({
             case 'profile':
                 // Buyer profile
                 if (!formData.gender || !formData.dateOfBirth) {
+                    setError('Please complete all required fields');
+                    return;
+                }
+                if (!formData.homeCountry || !formData.homeCity) {
                     setError('Please complete all required fields');
                     return;
                 }
@@ -630,7 +646,7 @@ export function SignupOnboardingDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-3xl lg:max-w-4xl p-0 gap-0 max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] border-0 shadow-2xl bg-white dark:bg-slate-900 [&>[data-slot=dialog-close]]:z-50 [&>[data-slot=dialog-close]]:bg-white [&>[data-slot=dialog-close]]:dark:bg-slate-800 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:shadow-md">
+            <DialogContent className="sm:max-w-3xl lg:max-w-4xl p-0 gap-0 max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] border-0 shadow-2xl bg-white dark:bg-slate-900 *:data-[slot=dialog-close]:z-50 *:data-[slot=dialog-close]:bg-white *:data-[slot=dialog-close]:dark:bg-slate-800 *:data-[slot=dialog-close]:rounded-full *:data-[slot=dialog-close]:p-1.5 *:data-[slot=dialog-close]:shadow-md">
                 <VisuallyHidden>
                     <DialogTitle>Create your account</DialogTitle>
                     <DialogDescription>Multi-step signup form</DialogDescription>
@@ -655,37 +671,48 @@ export function SignupOnboardingDialog({
                     <div className="lg:hidden border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shrink-0 relative z-10">
                         <div className="px-4 py-4">
                             <div className="flex items-center justify-between">
-                                {sidebarSteps.map((s, idx) => (
-                                    <motion.button
-                                        key={s.id}
-                                        onClick={() => goToStep(s.id as Step)}
-                                        className="flex flex-col items-center gap-1.5 relative"
-                                        disabled={idx > currentStepIndex}
-                                        whileHover={idx <= currentStepIndex ? { scale: 1.05 } : {}}
-                                        whileTap={idx <= currentStepIndex ? { scale: 0.95 } : {}}
-                                    >
-                                        <motion.div
-                                            className={cn(
-                                                'flex h-10 w-10 items-center justify-center rounded-xl text-sm font-semibold transition-all relative',
-                                                step === s.id
-                                                    ? 'bg-linear-to-br from-(--brand-cyan) to-(--brand-teal) text-white shadow-lg shadow-cyan-500/25'
-                                                    : idx < currentStepIndex
-                                                        ? 'bg-linear-to-br from-emerald-400 to-emerald-500 text-white'
-                                                        : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
-                                            )}
-                                            animate={step === s.id ? { scale: [1, 1.05, 1] } : {}}
-                                            transition={{ duration: 0.3 }}
+                                {sidebarSteps.map((s) => {
+                                    const stepIndex = steps.findIndex((stepItem) => stepItem.id === s.id);
+                                    const isCompleted = stepIndex > -1 && stepIndex < currentStepIndex;
+                                    const isActive = step === s.id;
+                                    const isClickable = stepIndex > -1 && stepIndex <= currentStepIndex;
+
+                                    return (
+                                        <motion.button
+                                            key={s.id}
+                                            onClick={() => {
+                                                if (isClickable) {
+                                                    goToStep(s.id as Step);
+                                                }
+                                            }}
+                                            className="flex flex-col items-center gap-1.5 relative"
+                                            disabled={!isClickable}
+                                            whileHover={isClickable ? { scale: 1.05 } : {}}
+                                            whileTap={isClickable ? { scale: 0.95 } : {}}
                                         >
-                                            {idx < currentStepIndex ? <Check className="h-5 w-5" /> : <s.icon className="h-5 w-5" />}
-                                        </motion.div>
-                                        <span className={cn(
-                                            'text-xs font-medium transition-colors',
-                                            step === s.id ? 'text-(--brand-teal)' : 'text-slate-500'
-                                        )}>
-                                            {s.title}
-                                        </span>
-                                    </motion.button>
-                                ))}
+                                            <motion.div
+                                                className={cn(
+                                                    'flex h-10 w-10 items-center justify-center rounded-xl text-sm font-semibold transition-all relative',
+                                                    isActive
+                                                        ? 'bg-linear-to-br from-(--brand-cyan) to-(--brand-teal) text-white shadow-lg shadow-cyan-500/25'
+                                                        : isCompleted
+                                                            ? 'bg-linear-to-br from-emerald-400 to-emerald-500 text-white'
+                                                            : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
+                                                )}
+                                                animate={isActive ? { scale: [1, 1.05, 1] } : {}}
+                                                transition={{ duration: 0.3 }}
+                                            >
+                                                {isCompleted ? <Check className="h-5 w-5" /> : <s.icon className="h-5 w-5" />}
+                                            </motion.div>
+                                            <span className={cn(
+                                                'text-xs font-medium transition-colors',
+                                                isActive ? 'text-(--brand-teal)' : 'text-slate-500'
+                                            )}>
+                                                {s.title}
+                                            </span>
+                                        </motion.button>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -694,17 +721,16 @@ export function SignupOnboardingDialog({
                 <div className="flex flex-1 min-h-0 overflow-hidden relative z-10">
                     {/* Desktop Sidebar */}
                     {step !== 'complete' && (
-                        <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 p-5">
-
-                            <div className="space-y-2">
+                        <aside className={cn(
+                            "hidden lg:flex flex-col w-64 shrink-0 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 p-5",
+                            step === 'intent' && "pt-24"
+                        )}>
+                            <div className={cn("space-y-2", step === 'intent' && "flex-1 flex flex-col")}>
                                 {sidebarSteps.map((s, idx) => {
                                     if (s.id === 'intent' && step === 'intent') {
                                         return (
-                                            <div key={s.id} className="pb-6 px-2 text-center">
-                                                <h2 className="text-2xl font-bold font-display bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) bg-clip-text text-transparent mb-4">
-                                                    Welcome
-                                                </h2>
-                                                <div className="relative h-16 w-full mx-auto">
+                                            <div key={s.id} className="px-2 text-center">
+                                                <div className="relative h-20 w-full mx-auto">
                                                     <Image
                                                         src="/images/HTlogocr.png"
                                                         alt="Halal Ticketin"
@@ -717,48 +743,52 @@ export function SignupOnboardingDialog({
                                         );
                                     }
 
+                                    const stepIndex = steps.findIndex((stepItem) => stepItem.id === s.id);
+                                    const isCompleted = stepIndex > -1 && stepIndex < currentStepIndex;
+                                    const isActive = step === s.id;
+                                    const isClickable = stepIndex > -1 && stepIndex <= currentStepIndex;
+                                    const stepNumber = idx + 1;
+
                                     return (
-                                        <motion.button
+                                        <button
                                             key={s.id}
-                                            onClick={() => goToStep(s.id as Step)}
-                                            disabled={idx > currentStepIndex}
-                                            whileHover={idx <= currentStepIndex ? { x: 4 } : {}}
-                                            whileTap={idx <= currentStepIndex ? { scale: 0.98 } : {}}
+                                            type="button"
+                                            onClick={() => {
+                                                if (isClickable) {
+                                                    goToStep(s.id as Step);
+                                                }
+                                            }}
                                             className={cn(
-                                                'w-full flex items-center gap-4 rounded-2xl p-4 text-left transition-all duration-300',
-                                                step === s.id
-                                                    ? 'bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white shadow-xl shadow-cyan-500/20'
-                                                    : idx < currentStepIndex
-                                                        ? 'bg-white/60 dark:bg-slate-700/40 hover:bg-white dark:hover:bg-slate-700/60 cursor-pointer'
-                                                        : 'bg-slate-100/50 dark:bg-slate-800/30 cursor-not-allowed opacity-50'
+                                                'group flex items-center gap-4 py-3 px-2 transition-all duration-300 cursor-pointer',
+                                                isActive ? 'opacity-100' : isClickable ? 'opacity-80 hover:opacity-100' : 'opacity-40 cursor-not-allowed'
                                             )}
+                                            disabled={!isClickable}
                                         >
                                             <div
                                                 className={cn(
-                                                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all',
-                                                    step === s.id
-                                                        ? 'bg-white/20'
-                                                        : idx < currentStepIndex
-                                                            ? 'bg-linear-to-br from-emerald-400 to-emerald-500 text-white'
-                                                            : 'bg-slate-200/80 dark:bg-slate-700'
+                                                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all duration-300',
+                                                    isActive
+                                                        ? 'bg-linear-to-br from-(--brand-cyan) to-(--brand-teal) text-white shadow-md scale-110 shadow-cyan-500/20'
+                                                        : isCompleted
+                                                            ? 'bg-emerald-500 text-white'
+                                                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                                                 )}
                                             >
-                                                {idx < currentStepIndex ? (
-                                                    <Check className="h-5 w-5" />
+                                                {isCompleted ? (
+                                                    <Check className="h-4 w-4" />
                                                 ) : (
-                                                    <s.icon className="h-5 w-5" />
+                                                    <span>{stepNumber}</span>
                                                 )}
                                             </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="font-semibold">{s.title}</p>
-                                                <p className={cn(
-                                                    'text-sm truncate',
-                                                    step === s.id ? 'text-white/70' : 'text-slate-500'
+                                            <div className="flex flex-col">
+                                                <span className={cn(
+                                                    "text-sm font-semibold transition-colors duration-300",
+                                                    isActive ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"
                                                 )}>
-                                                    {s.description}
-                                                </p>
+                                                    {s.title}
+                                                </span>
                                             </div>
-                                        </motion.button>
+                                        </button>
                                     );
                                 })}
                             </div>
@@ -793,11 +823,11 @@ export function SignupOnboardingDialog({
                                                 />
                                             </div>
 
-                                            <div className="lg:hidden">
-                                                <h2 className="text-3xl font-display font-bold bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
-                                                    Welcome to Halal Ticketin&apos;
+                                            <div className="text-center lg:text-left">
+                                                <h2 className="text-3xl font-display font-bold text-slate-800 dark:text-white mb-2 tracking-tight">
+                                                    Welcome!
                                                 </h2>
-                                                <p className="text-slate-600 dark:text-slate-400 mt-2 text-lg">
+                                                <p className="text-slate-600 dark:text-slate-400 text-lg">
                                                     How would you like to get started?
                                                 </p>
                                             </div>
@@ -892,7 +922,7 @@ export function SignupOnboardingDialog({
                                     >
                                         <Button
                                             onClick={handleNext}
-                                            className="w-full h-14 text-lg font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-[var(--brand-teal)] hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5"
+                                            className="w-full h-14 text-lg font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-(--brand-teal) hover:to-emerald-500 transition-all duration-300 shadow-xl shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5"
                                         >
                                             Continue
                                             <ArrowRight className="ml-2 h-5 w-5" />
@@ -901,11 +931,11 @@ export function SignupOnboardingDialog({
                                         {!isAuthenticatedOnboarding && (
                                             <>
                                                 <div className="flex items-center gap-4">
-                                                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
+                                                    <div className="h-px flex-1 bg-linear-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
                                                     <span className="text-xs uppercase font-bold tracking-widest text-slate-400">
                                                         or
                                                     </span>
-                                                    <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
+                                                    <div className="h-px flex-1 bg-linear-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
                                                 </div>
 
                                                 <Button
@@ -991,7 +1021,7 @@ export function SignupOnboardingDialog({
                                         <motion.div variants={staggerItem} className="space-y-2">
                                             <Label htmlFor="email" className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                                                 <Mail className="h-4 w-4 text-slate-400" />
-                                                Email Address <span className="text-rose-500">*</span>
+                                                Email Address
                                                 {isInviteFlow && (
                                                     <span className="text-xs text-emerald-600 dark:text-emerald-400 font-normal">
                                                         (from invitation)
@@ -1024,7 +1054,7 @@ export function SignupOnboardingDialog({
                                                 <div className="space-y-2">
                                                     <Label htmlFor="password" className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
                                                         <Lock className="h-4 w-4 text-slate-400" />
-                                                        Choose a password <span className="text-rose-500">*</span>
+                                                        Choose a password
                                                     </Label>
                                                     <div className="relative group">
                                                         <Input
@@ -1118,7 +1148,7 @@ export function SignupOnboardingDialog({
                                         </Button>
                                         <Button
                                             onClick={handleNext}
-                                            className="flex-1 h-12 font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-[var(--brand-teal)] hover:to-emerald-500 shadow-lg shadow-cyan-500/20"
+                                            className="flex-1 h-12 font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) hover:from-(--brand-teal) hover:to-emerald-500 shadow-lg shadow-cyan-500/20"
                                         >
                                             Continue
                                             <ArrowRight className="ml-2 h-4 w-4" />
@@ -1139,21 +1169,12 @@ export function SignupOnboardingDialog({
                                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                                     className="space-y-6"
                                 >
-                                    <div>
-                                        <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">
-                                            Tell us about yourself
-                                        </h2>
-                                        <p className="text-slate-600 dark:text-slate-400 mt-1">
-                                            Required fields are marked with *
-                                        </p>
-                                    </div>
-
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show">
                                         <div className="space-y-4">
                                             <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div className="space-y-2">
                                                     <Label>
-                                                        Gender <span className="text-rose-500">*</span>
+                                                        Gender
                                                     </Label>
                                                     <Select
                                                         value={formData.gender}
@@ -1172,7 +1193,7 @@ export function SignupOnboardingDialog({
                                                 <div className="space-y-2">
                                                     <Label className="flex items-center gap-2">
                                                         <Calendar className="h-4 w-4 text-slate-400" />
-                                                        Date of Birth <span className="text-rose-500">*</span>
+                                                        Date of Birth
                                                     </Label>
                                                     <DatePicker
                                                         value={formData.dateOfBirth}
@@ -1227,7 +1248,7 @@ export function SignupOnboardingDialog({
                                                 id="terms-of-use"
                                                 checked={acceptedTerms}
                                                 onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-                                                className="mt-0.5 h-5 w-5 border-2 border-slate-400 dark:border-slate-500 data-[state=checked]:bg-[var(--brand-teal)] data-[state=checked]:border-(--brand-teal)"
+                                                className="mt-0.5 h-5 w-5 border-2 border-slate-400 dark:border-slate-500 data-[state=checked]:bg-(--brand-teal) data-[state=checked]:border-(--brand-teal)"
                                             />
                                             <Label
                                                 htmlFor="terms-of-use"
@@ -1237,7 +1258,6 @@ export function SignupOnboardingDialog({
                                                 <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors">Terms of Use</a>{' '}
                                                 and{' '}
                                                 <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors">Privacy Policy</a>
-                                                <span className="text-rose-500 ml-1">*</span>
                                             </Label>
                                         </div>
                                     </motion.div>
@@ -1306,7 +1326,7 @@ export function SignupOnboardingDialog({
 
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
                                         <div className="space-y-2">
-                                            <Label>Gender <span className="text-rose-500">*</span></Label>
+                                            <Label>Gender</Label>
                                             <Select
                                                 value={formData.gender}
                                                 onValueChange={(value) => updateField('gender', value as 'male' | 'female')}
@@ -1322,7 +1342,7 @@ export function SignupOnboardingDialog({
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label>Date of Birth <span className="text-rose-500">*</span></Label>
+                                            <Label>Date of Birth</Label>
                                             <DatePicker
                                                 value={formData.dateOfBirth}
                                                 onChange={(value) => updateField('dateOfBirth', value)}
@@ -1465,7 +1485,7 @@ export function SignupOnboardingDialog({
 
                                         {formData.organizerType === 'charity' && (
                                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
-                                                <Label>Charity Number <span className="text-rose-500">*</span></Label>
+                                                <Label>Charity Number</Label>
                                                 <Input
                                                     placeholder="Registration number"
                                                     value={formData.organizerCharityNumber}
@@ -1636,7 +1656,6 @@ export function SignupOnboardingDialog({
                                                     <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors">Terms of Use</a>{' '}
                                                     and{' '}
                                                     <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-(--brand-teal) hover:text-(--brand-cyan) font-medium underline underline-offset-2 transition-colors">Privacy Policy</a>
-                                                    <span className="text-rose-500 ml-1">*</span>
                                                 </Label>
                                             </div>
                                         </div>
@@ -1700,7 +1719,7 @@ export function SignupOnboardingDialog({
                                             <motion.div
                                                 animate={{ y: [0, -5, 0] }}
                                                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                                                className="w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-violet-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-500/30"
+                                                className="w-20 h-20 mx-auto mb-6 bg-linear-to-r from-violet-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-500/30"
                                             >
                                                 <CreditCard className="h-10 w-10 text-white" />
                                             </motion.div>
@@ -1725,7 +1744,7 @@ export function SignupOnboardingDialog({
                                         <Button
                                             onClick={handleStripeConnect}
                                             disabled={isLoading}
-                                            className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 shadow-xl shadow-violet-500/20"
+                                            className="w-full h-14 text-lg font-semibold bg-linear-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 shadow-xl shadow-violet-500/20"
                                         >
                                             {isLoading ? (
                                                 <Loader2 className="h-5 w-5 animate-spin" />

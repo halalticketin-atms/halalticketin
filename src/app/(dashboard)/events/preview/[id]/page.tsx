@@ -7,6 +7,7 @@ import { Menu } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { PublicEventPageContent } from '@/components/events/PublicEventPageContent';
 import { fetchEventDetails, type EventRecord, type TicketRecord } from '@/lib/events-api';
+import { CHARITY_PLATFORM_FEE_DISCOUNT_RATE } from '@/lib/fees';
 import { getUserFriendlyMessage, toast } from '@/lib/notifications';
 import { useOrganizers } from '@/context/organizer-context';
 import { Button } from '@/components/ui/button';
@@ -65,9 +66,12 @@ export default function EventPreviewPublicPage() {
         };
     }, [eventId]);
 
-    const organizerName = event
-        ? organizers.find((organizer) => organizer.id === event.organizerId)?.name ?? null
+    const organizer = event
+        ? organizers.find((item) => item.id === event.organizerId)
         : null;
+    const organizerName = organizer?.name ?? null;
+    const isCharity = Boolean(organizer?.isCharityVerified && organizer?.charityNumber);
+    const charityDiscountRate = isCharity ? CHARITY_PLATFORM_FEE_DISCOUNT_RATE : 0;
 
     useEffect(() => {
         const handlePreviewNavigation = (event: MouseEvent) => {
@@ -131,6 +135,7 @@ export default function EventPreviewPublicPage() {
                 error={error}
                 isPreview
                 organizerNameOverride={organizerName}
+                charityDiscountRate={charityDiscountRate}
             />
         </>
     );
