@@ -741,6 +741,7 @@ export function SignupOnboardingDialog({
                 } else {
                     try {
                         await uploadOrganizerAvatar(organizerIdForUpload, avatarFile);
+                        await refresh(); // Refresh to get updated avatar URL
                     } catch (uploadError) {
                         console.warn('Organizer logo upload error:', uploadError);
                         // Don't fail registration for logo upload issues
