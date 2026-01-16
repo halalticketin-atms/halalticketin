@@ -184,6 +184,21 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
         void fetchOrganizers();
     }, [fetchOrganizers]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const handleAvatarUpdate = () => {
+            void fetchOrganizers({ force: true });
+        };
+
+        window.addEventListener('organizer-avatar-updated', handleAvatarUpdate);
+        return () => {
+            window.removeEventListener('organizer-avatar-updated', handleAvatarUpdate);
+        };
+    }, [fetchOrganizers]);
+
     const activeOrganizers = useMemo(
         () => organizers.filter(org => org.status === 'active'),
         [organizers]

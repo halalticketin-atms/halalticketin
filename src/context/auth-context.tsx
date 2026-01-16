@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import api, { ApiError, clearAuthSession, getAuthToken, setAuthToken, setRefreshToken } from '@/lib/api';
+import { dataUrlToFile, uploadOrganizerAvatar } from '@/lib/upload-api';
 import { getSupabase } from '@/lib/supabase';
 import type { EventScope } from '@/types';
 
@@ -44,11 +45,47 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const PENDING_ORG_AVATAR_KEY = 'halal-ticketin:pending-organizer-avatar';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [profile, setProfile] = useState<ProfileResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const maybeUploadPendingOrganizerAvatar = useCallback(async () => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const stored = window.localStorage.getItem(PENDING_ORG_AVATAR_KEY);
+        if (!stored) {
+            return;
+        }
+
+        let payload: { organizerId?: string; dataUrl?: string } | null = null;
+        try {
+            payload = JSON.parse(stored) as { organizerId?: string; dataUrl?: string };
+        } catch (error) {
+            console.warn('Failed to parse pending organizer avatar payload:', error);
+            window.localStorage.removeItem(PENDING_ORG_AVATAR_KEY);
+            return;
+        }
+
+        if (!payload?.organizerId || !payload?.dataUrl) {
+            window.localStorage.removeItem(PENDING_ORG_AVATAR_KEY);
+            return;
+        }
+
+        try {
+            const file = await dataUrlToFile(payload.dataUrl, 'org-avatar.jpg');
+            await uploadOrganizerAvatar(payload.organizerId, file);
+            window.dispatchEvent(new CustomEvent('organizer-avatar-updated', { detail: { organizerId: payload.organizerId } }));
+        } catch (error) {
+            console.warn('Pending organizer avatar upload failed:', error);
+        } finally {
+            window.localStorage.removeItem(PENDING_ORG_AVATAR_KEY);
+        }
+    }, []);
 
     const fetchProfile = useCallback(async () => {
         const token = getAuthToken();
@@ -65,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const response = await api.get<ProfileResponse>('/api/v1/auth/me');
             setProfile(response);
             setError(null);
+            void maybeUploadPendingOrganizerAvatar();
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Unable to load profile';
             setError(message);
@@ -76,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [maybeUploadPendingOrganizerAvatar]);
 
     useEffect(() => {
         const supabase = getSupabase();

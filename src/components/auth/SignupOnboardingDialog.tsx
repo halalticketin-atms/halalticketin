@@ -56,7 +56,7 @@ import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/notifications';
-import { uploadOrganizerAvatar } from '@/lib/upload-api';
+import { fileToDataUrl, uploadOrganizerAvatar } from '@/lib/upload-api';
 import { COUNTRIES, TIMEZONES } from '@/lib/organizer-options';
 import { getPasswordValidationError } from '@/lib/password';
 import { getLastAuthMethod, setLastAuthMethod, type LastAuthMethod } from '@/lib/last-auth-method';
@@ -65,6 +65,7 @@ const TERMS_VERSION = '2024-12-20';
 const SUPPORT_URL = '/contact';
 const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
+const PENDING_ORG_AVATAR_KEY = 'halal-ticketin:pending-organizer-avatar';
 
 const CURRENCIES = [
     { code: 'GBP', name: 'British Pound', symbol: '£' },
@@ -716,6 +717,17 @@ export function SignupOnboardingDialog({
                 }
 
                 if (registerResponse.requiresEmailConfirmation) {
+                    if (avatarFile && organizerIdFromRegister) {
+                        try {
+                            const dataUrl = avatarPreview || await fileToDataUrl(avatarFile);
+                            window.localStorage.setItem(
+                                PENDING_ORG_AVATAR_KEY,
+                                JSON.stringify({ organizerId: organizerIdFromRegister, dataUrl })
+                            );
+                        } catch (storageError) {
+                            console.warn('Failed to store organizer logo for later upload:', storageError);
+                        }
+                    }
                     setPendingEmailConfirmation(true);
                     setDirection(1);
                     setStep('complete');

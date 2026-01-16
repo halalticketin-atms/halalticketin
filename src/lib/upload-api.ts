@@ -114,3 +114,12 @@ export function fileToDataUrl(file: File): Promise<string> {
         reader.readAsDataURL(file);
     });
 }
+
+/**
+ * Convert a data URL string to a File.
+ */
+export async function dataUrlToFile(dataUrl: string, filename: string): Promise<File> {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    return new File([blob], filename, { type: blob.type || 'image/jpeg' });
+}
