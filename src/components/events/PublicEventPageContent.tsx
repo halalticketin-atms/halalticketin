@@ -296,11 +296,11 @@ export function PublicEventPageContent({
     // Fetch organizer profile for avatar
     const [organizerAvatar, setOrganizerAvatar] = useState<string | null>(null);
     useEffect(() => {
-        if (!event?.organizerId || isPreview || isEmbedCheckout) return;
+        if (!event?.organizerId || isEmbedCheckout) return;
         fetchPublicOrganizerProfile(event.organizerId)
             .then(res => setOrganizerAvatar(res.organizer.avatarUrl))
             .catch(() => setOrganizerAvatar(null));
-    }, [event?.organizerId, isPreview, isEmbedCheckout]);
+    }, [event?.organizerId, isEmbedCheckout]);
 
     // Checkout state
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -1394,205 +1394,205 @@ export function PublicEventPageContent({
                     {/* Main Content */}
                     {!isEmbedCheckout && (
                         <div className="lg:col-span-2 space-y-8">
-                        {/* Title */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4 }}
-                        >
-                            <h1 className="font-display text-3xl sm:text-4xl font-bold">
-                                {event.title || 'Untitled Event'}
-                            </h1>
-                        </motion.div>
-
-                        {/* Organizer Card - Prominent Design */}
-                        {organizerName && (
+                            {/* Title */}
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.4, delay: 0.05 }}
+                                transition={{ duration: 0.4 }}
                             >
-                                <Link href={`/organizers/${event.organizerId}`}>
-                                    <Card className="group hover:border-primary/50 transition-all duration-300 hover:shadow-lg cursor-pointer bg-gradient-to-br from-primary/5 to-transparent">
-                                        <CardContent className="p-4">
-                                            <div className="flex items-center gap-4">
-                                                {/* Organizer Avatar */}
-                                                <div
-                                                    className={cn(
-                                                        "relative h-14 w-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-110 transition-transform duration-300 overflow-hidden",
-                                                        organizerAvatar ? "bg-transparent" : "bg-gradient-to-br from-primary to-primary/60"
-                                                    )}
-                                                >
-                                                    {organizerAvatar ? (
-                                                        <Image
-                                                            src={organizerAvatar}
-                                                            alt={organizerName}
-                                                            fill
-                                                            className="object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span>{organizerName.charAt(0).toUpperCase()}</span>
-                                                    )}
-                                                </div>
+                                <h1 className="font-display text-3xl sm:text-4xl font-bold">
+                                    {event.title || 'Untitled Event'}
+                                </h1>
+                            </motion.div>
 
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-                                                        Event Organiser
-                                                    </p>
-                                                    <p className="font-semibold text-lg group-hover:text-primary transition-colors truncate">
-                                                        {organizerName}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground group-hover:underline">
-                                                        View organiser profile →
-                                                    </p>
+                            {/* Organizer Card - Prominent Design */}
+                            {organizerName && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.4, delay: 0.05 }}
+                                >
+                                    <Link href={`/organizers/${event.organizerId}`}>
+                                        <Card className="group hover:border-primary/50 transition-all duration-300 hover:shadow-lg cursor-pointer bg-gradient-to-br from-primary/5 to-transparent">
+                                            <CardContent className="p-4">
+                                                <div className="flex items-center gap-4">
+                                                    {/* Organizer Avatar */}
+                                                    <div
+                                                        className={cn(
+                                                            "relative h-14 w-14 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md group-hover:scale-110 transition-transform duration-300 overflow-hidden",
+                                                            organizerAvatar ? "bg-transparent" : "bg-gradient-to-br from-primary to-primary/60"
+                                                        )}
+                                                    >
+                                                        {organizerAvatar ? (
+                                                            <Image
+                                                                src={organizerAvatar}
+                                                                alt={organizerName}
+                                                                fill
+                                                                className="object-cover"
+                                                            />
+                                                        ) : (
+                                                            <span>{organizerName.charAt(0).toUpperCase()}</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+                                                            Event Organiser
+                                                        </p>
+                                                        <p className="font-semibold text-lg group-hover:text-primary transition-colors truncate">
+                                                            {organizerName}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground group-hover:underline">
+                                                            View organiser profile →
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </Link>
+                                </motion.div>
+                            )}
+
+                            {/* Date, Time, Location Info */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.4, delay: 0.1 }}
+                                className="flex flex-wrap gap-4"
+                            >
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Calendar className="h-5 w-5 text-primary" />
+                                    <span>{eventDateTime.date}</span>
+                                </div>
+                                {eventDateTime.time && (
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Clock className="h-5 w-5 text-primary" />
+                                        <span>
+                                            {eventDateTime.time}
+                                            {eventDateTime.endTime && ` - ${eventDateTime.endTime}`}
+                                        </span>
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    {event.locationType === 'online' ? (
+                                        <>
+                                            <Globe className="h-5 w-5 text-primary" />
+                                            <span>Online Event</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <MapPin className="h-5 w-5 text-primary" />
+                                            <span>
+                                                {event.venue && `${event.venue}, `}
+                                                {event.city || 'Location TBD'}
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+                            </motion.div>
+
+                            <Separator />
+
+                            {/* Description */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.4, delay: 0.2 }}
+                            >
+                                <h2 className="text-xl font-semibold mb-4">About this event</h2>
+                                {event.description ? (
+                                    <div className="prose prose-neutral dark:prose-invert max-w-none">
+                                        <p className="text-muted-foreground whitespace-pre-wrap">
+                                            {event.description}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="text-muted-foreground italic">
+                                        No description available for this event.
+                                    </p>
+                                )}
+                            </motion.div>
+
+
+
+                            {/* Location Details */}
+                            {event.locationType !== 'online' && (event.venue || event.address) && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.4, delay: 0.3 }}
+                                >
+                                    <h2 className="text-xl font-semibold mb-4">Location</h2>
+                                    <Card>
+                                        <CardContent className="pt-6 space-y-4">
+                                            <div className="flex items-start gap-4">
+                                                <MapPin className="h-6 w-6 text-primary shrink-0 mt-1" />
+                                                <div className="flex-1">
+                                                    {event.venue && (
+                                                        <p className="font-medium">{event.venue}</p>
+                                                    )}
+                                                    {event.address && (
+                                                        <p className="text-muted-foreground">{event.address}</p>
+                                                    )}
+                                                    {event.city && (
+                                                        <p className="text-muted-foreground">
+                                                            {event.city}{event.country && `, ${event.country}`}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
+
+                                            {/* Interactive Map (if coordinates available) */}
+                                            {event.latitude && event.longitude ? (
+                                                <div className="space-y-2">
+                                                    <EventLocationMap
+                                                        lat={event.latitude}
+                                                        lon={event.longitude}
+                                                        venueName={event.venue || undefined}
+                                                        address={event.address || undefined}
+                                                    />
+                                                </div>
+                                            ) : null}
+
+                                            {/* Get Directions Button */}
+                                            <Button
+                                                variant="outline"
+                                                className="w-full"
+                                                asChild
+                                            >
+                                                <a
+                                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                                        [event.venue, event.address, event.city, event.country]
+                                                            .filter(Boolean)
+                                                            .join(', ')
+                                                    )}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    <Navigation className="h-4 w-4 mr-2" />
+                                                    Get Directions
+                                                </a>
+                                            </Button>
                                         </CardContent>
                                     </Card>
-                                </Link>
-                            </motion.div>
-                        )}
-
-                        {/* Date, Time, Location Info */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, delay: 0.1 }}
-                            className="flex flex-wrap gap-4"
-                        >
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Calendar className="h-5 w-5 text-primary" />
-                                <span>{eventDateTime.date}</span>
-                            </div>
-                            {eventDateTime.time && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                    <Clock className="h-5 w-5 text-primary" />
-                                    <span>
-                                        {eventDateTime.time}
-                                        {eventDateTime.endTime && ` - ${eventDateTime.endTime}`}
-                                    </span>
-                                </div>
+                                </motion.div>
                             )}
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                {event.locationType === 'online' ? (
-                                    <>
-                                        <Globe className="h-5 w-5 text-primary" />
-                                        <span>Online Event</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <MapPin className="h-5 w-5 text-primary" />
-                                        <span>
-                                            {event.venue && `${event.venue}, `}
-                                            {event.city || 'Location TBD'}
-                                        </span>
-                                    </>
-                                )}
-                            </div>
-                        </motion.div>
 
-                        <Separator />
-
-                        {/* Description */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, delay: 0.2 }}
-                        >
-                            <h2 className="text-xl font-semibold mb-4">About this event</h2>
-                            {event.description ? (
-                                <div className="prose prose-neutral dark:prose-invert max-w-none">
-                                    <p className="text-muted-foreground whitespace-pre-wrap">
-                                        {event.description}
+                            {/* Refund Policy - Subtle Footer */}
+                            {refundPolicyText && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ duration: 0.4, delay: 0.4 }}
+                                    className="pt-8 mt-8 border-t border-border/40"
+                                >
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Refund Policy</p>
+                                    <p className="text-sm text-muted-foreground/80 leading-relaxed max-w-prose whitespace-pre-wrap">
+                                        {refundPolicyText}
                                     </p>
-                                </div>
-                            ) : (
-                                <p className="text-muted-foreground italic">
-                                    No description available for this event.
-                                </p>
+                                </motion.div>
                             )}
-                        </motion.div>
-
-
-
-                        {/* Location Details */}
-                        {event.locationType !== 'online' && (event.venue || event.address) && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.4, delay: 0.3 }}
-                            >
-                                <h2 className="text-xl font-semibold mb-4">Location</h2>
-                                <Card>
-                                    <CardContent className="pt-6 space-y-4">
-                                        <div className="flex items-start gap-4">
-                                            <MapPin className="h-6 w-6 text-primary shrink-0 mt-1" />
-                                            <div className="flex-1">
-                                                {event.venue && (
-                                                    <p className="font-medium">{event.venue}</p>
-                                                )}
-                                                {event.address && (
-                                                    <p className="text-muted-foreground">{event.address}</p>
-                                                )}
-                                                {event.city && (
-                                                    <p className="text-muted-foreground">
-                                                        {event.city}{event.country && `, ${event.country}`}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Interactive Map (if coordinates available) */}
-                                        {event.latitude && event.longitude ? (
-                                            <div className="space-y-2">
-                                                <EventLocationMap
-                                                    lat={event.latitude}
-                                                    lon={event.longitude}
-                                                    venueName={event.venue || undefined}
-                                                    address={event.address || undefined}
-                                                />
-                                            </div>
-                                        ) : null}
-
-                                        {/* Get Directions Button */}
-                                        <Button
-                                            variant="outline"
-                                            className="w-full"
-                                            asChild
-                                        >
-                                            <a
-                                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                                    [event.venue, event.address, event.city, event.country]
-                                                        .filter(Boolean)
-                                                        .join(', ')
-                                                )}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                <Navigation className="h-4 w-4 mr-2" />
-                                                Get Directions
-                                            </a>
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-                        )}
-
-                        {/* Refund Policy - Subtle Footer */}
-                        {refundPolicyText && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.4, delay: 0.4 }}
-                                className="pt-8 mt-8 border-t border-border/40"
-                            >
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Refund Policy</p>
-                                <p className="text-sm text-muted-foreground/80 leading-relaxed max-w-prose whitespace-pre-wrap">
-                                    {refundPolicyText}
-                                </p>
-                            </motion.div>
-                        )}
-                    </div>
+                        </div>
                     )}
 
                     {/* Sidebar - Tickets */}
