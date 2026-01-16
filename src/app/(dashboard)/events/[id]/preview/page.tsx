@@ -16,16 +16,25 @@ export default function EventPreviewPage() {
     const [isFrameLoading, setIsFrameLoading] = useState(true);
 
     const handleBack = () => {
+        // Try to focus the opener (wizard window) and close this popup
         if (window.opener && !window.opener.closed) {
             window.opener.focus();
             window.close();
             return;
         }
-        if (window.history.length > 1) {
-            router.back();
-            return;
+
+        // If we can close ourselves (popup or about:blank origin), do so
+        // and let the user return to their original tab manually
+        try {
+            window.close();
+            // If close succeeded, we won't reach here
+        } catch {
+            // Can't close - fall through to navigation
         }
-        router.push('/dashboard');
+
+        // If window didn't close, we opened as a regular tab - navigate to dashboard
+        // Use replace to avoid adding to history
+        router.replace('/dashboard');
     };
 
     if (!eventId) {

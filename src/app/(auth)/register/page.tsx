@@ -145,6 +145,7 @@ function RegisterPageContent() {
                 defaultRole={defaultRole}
                 redirectAfterComplete={safeNextParam ?? undefined}
                 inviteEmail={inviteEmail}
+                inviteToken={inviteToken ?? undefined}
                 authMode={isAuthenticatedOnboarding ? 'existing' : undefined}
                 prefill={prefill ?? undefined}
             />

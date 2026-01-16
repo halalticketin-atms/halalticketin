@@ -37,6 +37,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import api from '@/lib/api';
 import { getAuthUiError, type AuthUiError } from '@/lib/auth-error-messages';
+import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 import { cn } from '@/lib/utils';
 import { uploadOrganizerAvatar } from '@/lib/upload-api';
@@ -86,6 +87,7 @@ export function CreateOrganizerDialog({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<AuthUiError | null>(null);
     const [organizerId, setOrganizerId] = useState<string | null>(null);
+    const { refresh: refreshAuth } = useAuth();
     const { refresh } = useOrganizers();
 
     const setErrorMessage = (message: string, options?: { showSupportLink?: boolean }) => {
@@ -204,6 +206,7 @@ export function CreateOrganizerDialog({
             }
 
             await refresh();
+            await refreshAuth();
             setDirection(1);
             setStep('stripe');
         } catch (err) {
@@ -592,9 +595,6 @@ export function CreateOrganizerDialog({
                                                         onChange={(event) => setCharityNumber(event.target.value)}
                                                         className="h-12 bg-white/70 dark:bg-slate-800/70"
                                                     />
-                                                    <p className="text-xs text-slate-500">
-                                                        Auto-approved on submission, visible in the admin dashboard.
-                                                    </p>
                                                 </motion.div>
                                             )}
 

@@ -109,6 +109,7 @@ interface SignupOnboardingDialogProps {
     onComplete?: (redirectTo: string) => void;
     /** Pre-fill and lock email for invitation flow */
     inviteEmail?: string;
+    inviteToken?: string;
     authMode?: 'new' | 'existing';
     prefill?: {
         email?: string;
@@ -208,6 +209,7 @@ export function SignupOnboardingDialog({
     redirectAfterComplete,
     onComplete,
     inviteEmail,
+    inviteToken,
     authMode = 'new',
     prefill,
 }: SignupOnboardingDialogProps) {
@@ -237,6 +239,9 @@ export function SignupOnboardingDialog({
     const [pendingEmailConfirmation, setPendingEmailConfirmation] = useState(false);
     const [lastUsed, setLastUsed] = useState<LastAuthMethod | null>(null);
     const registerInFlightRef = useRef(false);
+    const emailEditedRef = useRef(false);
+    const lastCheckedEmailRef = useRef<string | null>(null);
+    const lastCheckedOrganizerNameRef = useRef<string | null>(null);
     // Track the highest step reached for free navigation between unlocked steps
     const [highestStepReached, setHighestStepReached] = useState<Step>(
         isInviteFlow ? 'credentials' : (shouldSkipWelcome ? 'credentials' : 'intent')
@@ -277,9 +282,7 @@ export function SignupOnboardingDialog({
     const baseSteps = formData.role === 'organizer' ? ORGANIZER_STEPS : BUYER_STEPS;
     const steps = isInviteFlow
         ? INVITE_STEPS
-        : shouldSkipWelcome
-            ? baseSteps.filter(s => s.id !== 'intent')
-            : baseSteps;
+        : (shouldSkipWelcome ? baseSteps.filter(s => s.id !== 'intent') : baseSteps);
 
     // Filter steps for the initial Welcome screen to reduce cognitive load
     // Only show "Welcome" initially, and hide "Welcome" when on other steps
@@ -289,6 +292,9 @@ export function SignupOnboardingDialog({
 
     const currentStepIndex = steps.findIndex(s => s.id === step);
     const canGoBack = currentStepIndex > 0;
+    const isEmailLocked = isInviteFlow
+        || (isAuthenticatedOnboarding && Boolean(prefill?.email) && !emailEditedRef.current);
+    const showSignInEmailHint = isAuthenticatedOnboarding && !isInviteFlow && Boolean(prefill?.email) && !emailEditedRef.current;
 
     const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
@@ -315,6 +321,42 @@ export function SignupOnboardingDialog({
         const stored = getLastAuthMethod();
         setLastUsed(stored?.method ?? null);
     }, []);
+
+    useEffect(() => {
+        if (isInviteFlow || isAuthenticatedOnboarding) {
+            return;
+        }
+        if (!lastCheckedEmailRef.current) {
+            return;
+        }
+        const normalizedEmail = formData.email.trim().toLowerCase();
+        if (normalizedEmail && normalizedEmail === lastCheckedEmailRef.current) {
+            return;
+        }
+        lastCheckedEmailRef.current = null;
+        setHighestStepReached((prev) => (prev === 'credentials' ? prev : 'credentials'));
+    }, [formData.email, isInviteFlow, isAuthenticatedOnboarding]);
+
+    useEffect(() => {
+        if (isInviteFlow || formData.role !== 'organizer') {
+            return;
+        }
+        if (!lastCheckedOrganizerNameRef.current) {
+            return;
+        }
+        const trimmedName = formData.organizerName.trim();
+        if (trimmedName && trimmedName === lastCheckedOrganizerNameRef.current) {
+            return;
+        }
+        lastCheckedOrganizerNameRef.current = null;
+        setHighestStepReached((prev) => (prev === 'organization' ? prev : 'organization'));
+    }, [formData.organizerName, formData.role, isInviteFlow]);
+
+    useEffect(() => {
+        if (formData.role !== 'organizer') {
+            lastCheckedOrganizerNameRef.current = null;
+        }
+    }, [formData.role]);
 
     const handleAvatarSelect = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -419,6 +461,10 @@ export function SignupOnboardingDialog({
                     setErrorMessage('Full name is required');
                     return;
                 }
+                if (trimmedName.length < 2) {
+                    setErrorMessage('Full name must be at least 2 characters');
+                    return;
+                }
                 const trimmedEmail = formData.email.trim();
                 if (!trimmedEmail) {
                     setErrorMessage('Email is required');
@@ -441,6 +487,7 @@ export function SignupOnboardingDialog({
                     try {
                         setIsLoading(true);
                         await api.post('/api/v1/auth/check-email', { email: trimmedEmail });
+                        lastCheckedEmailRef.current = trimmedEmail.toLowerCase();
                     } catch (err) {
                         console.error('[SignupOnboardingDialog] Email check error:', err);
                         const uiError = getAuthUiError(err, {
@@ -463,7 +510,7 @@ export function SignupOnboardingDialog({
             }
             case 'about-you':
                 if (!formData.gender || !formData.dateOfBirth) {
-                    setErrorMessage('Please complete all required fields');
+                    setErrorMessage('All fields are required');
                     return;
                 }
                 setStep('organization');
@@ -495,6 +542,7 @@ export function SignupOnboardingDialog({
                     try {
                         setIsLoading(true);
                         await api.post('/api/v1/auth/check-organizer-name', { name: trimmedOrganizerName });
+                        lastCheckedOrganizerNameRef.current = trimmedOrganizerName;
                     } catch (err) {
                         console.error('[SignupOnboardingDialog] Org name check error:', err);
                         const uiError = getAuthUiError(err, {
@@ -518,7 +566,7 @@ export function SignupOnboardingDialog({
             case 'location': {
                 const trimmedOrganizerCity = formData.organizerCity.trim();
                 if (!formData.organizerCountry || !trimmedOrganizerCity || !formData.organizerTimezone) {
-                    setErrorMessage('Please complete all required fields');
+                    setErrorMessage('All fields are required');
                     return;
                 }
                 if (trimmedOrganizerCity !== formData.organizerCity) {
@@ -541,12 +589,12 @@ export function SignupOnboardingDialog({
             case 'profile': {
                 // Buyer profile
                 if (!formData.gender || !formData.dateOfBirth) {
-                    setErrorMessage('Please complete all required fields');
+                    setErrorMessage('All fields are required');
                     return;
                 }
                 const trimmedHomeCity = formData.homeCity.trim();
                 if (!formData.homeCountry || !trimmedHomeCity) {
-                    setErrorMessage('Please complete all required fields');
+                    setErrorMessage('All fields are required');
                     return;
                 }
                 if (trimmedHomeCity !== formData.homeCity) {
@@ -622,6 +670,9 @@ export function SignupOnboardingDialog({
                 termsAccepted: acceptedTerms,
                 termsVersion: TERMS_VERSION,
             };
+            if (inviteToken && isInviteFlow) {
+                payload.inviteToken = inviteToken;
+            }
 
             if (formData.gender) payload.gender = formData.gender;
             if (formData.dateOfBirth) payload.dateOfBirth = formData.dateOfBirth;
@@ -1207,7 +1258,7 @@ export function SignupOnboardingDialog({
                                                         (from invitation)
                                                     </span>
                                                 )}
-                                                {isAuthenticatedOnboarding && !isInviteFlow && (
+                                                {showSignInEmailHint && (
                                                     <span className="text-xs text-emerald-600 dark:text-emerald-400 font-normal">
                                                         (from sign-in)
                                                     </span>
@@ -1218,12 +1269,15 @@ export function SignupOnboardingDialog({
                                                 type="email"
                                                 placeholder="you@example.com"
                                                 value={formData.email}
-                                                onChange={(e) => updateField('email', e.target.value)}
-                                                disabled={isInviteFlow || isAuthenticatedOnboarding}
+                                                onChange={(e) => {
+                                                    emailEditedRef.current = true;
+                                                    updateField('email', e.target.value);
+                                                }}
+                                                disabled={isEmailLocked}
                                                 maxLength={254}
                                                 className={cn(
                                                     "h-12 bg-white/70 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 focus:border-(--brand-cyan) focus:ring-(--brand-cyan)/20 transition-all rounded-xl",
-                                                    (isInviteFlow || isAuthenticatedOnboarding) && "bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-80"
+                                                    isEmailLocked && "bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-80"
                                                 )}
                                                 required
                                             />

@@ -10,6 +10,7 @@ import { fetchEventDetails, type EventRecord, type TicketRecord } from '@/lib/ev
 import { CHARITY_PLATFORM_FEE_DISCOUNT_RATE } from '@/lib/fees';
 import { getUserFriendlyMessage, toast } from '@/lib/notifications';
 import { useOrganizers } from '@/context/organizer-context';
+import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 
 const navLinks = [
@@ -24,6 +25,7 @@ export default function EventPreviewPublicPage() {
     const params = useParams();
     const eventId = Array.isArray(params?.id) ? params.id[0] : params?.id;
     const { organizers } = useOrganizers();
+    const { user, isLoading: authLoading } = useAuth();
 
     const [event, setEvent] = useState<EventRecord | null>(null);
     const [tickets, setTickets] = useState<TicketRecord[]>([]);
@@ -33,6 +35,16 @@ export default function EventPreviewPublicPage() {
     useEffect(() => {
         if (!eventId) {
             setError('No event ID provided');
+            setIsLoading(false);
+            return;
+        }
+
+        if (authLoading) {
+            return;
+        }
+
+        if (!user) {
+            setError('Sign in to preview this event.');
             setIsLoading(false);
             return;
         }
@@ -64,7 +76,7 @@ export default function EventPreviewPublicPage() {
         return () => {
             cancelled = true;
         };
-    }, [eventId]);
+    }, [eventId, authLoading, user]);
 
     const organizer = event
         ? organizers.find((item) => item.id === event.organizerId)

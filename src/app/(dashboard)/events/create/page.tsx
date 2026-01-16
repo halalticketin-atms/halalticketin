@@ -649,6 +649,7 @@ export function EventWizard({
     const [bannerFile, setBannerFile] = useState<File | null>(null);
     const [bannerWasRemoved, setBannerWasRemoved] = useState(false);
     const bannerInputRef = useRef<HTMLInputElement>(null);
+    const hasCurrencyUserOverrideRef = useRef(false);
 
     useEffect(() => {
         appliedBannerRef.current = null;
@@ -657,15 +658,31 @@ export function EventWizard({
     }, [initialDraft?.eventId]);
 
     useEffect(() => {
+        hasCurrencyUserOverrideRef.current = false;
+    }, [initialDraft?.eventId, currentOrganizer?.id]);
+
+    useEffect(() => {
         setHasExistingAccessCode(initialDraft?.formData?.accessCodeEnabled ?? false);
     }, [initialDraft?.eventId, initialDraft?.formData?.accessCodeEnabled]);
 
 
     // Sync currency from organizer default if likely untouched
     useEffect(() => {
-        if (currentOrganizer?.defaultCurrency && (!initialDraft?.formData?.currency || initialDraft.formData.currency === 'GBP')) {
-            setFormData(prev => ({ ...prev, currency: currentOrganizer.defaultCurrency! }));
+        if (!currentOrganizer?.defaultCurrency) {
+            return;
         }
+        if (hasCurrencyUserOverrideRef.current) {
+            return;
+        }
+        if (initialDraft?.formData?.currency) {
+            return;
+        }
+        setFormData((prev) => {
+            if (prev.currency === currentOrganizer.defaultCurrency) {
+                return prev;
+            }
+            return { ...prev, currency: currentOrganizer.defaultCurrency! };
+        });
     }, [currentOrganizer?.defaultCurrency, initialDraft?.formData?.currency, setFormData]);
 
     // FIX: Populate poster preview from existing event's bannerImageDataUrl when editing
@@ -721,6 +738,23 @@ export function EventWizard({
     // Location coordinates for map display
     const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
     const [isCustomRefundPolicy, setIsCustomRefundPolicy] = useState(false);
+
+    useEffect(() => {
+        const lat = formData.latitude;
+        const lon = formData.longitude;
+        const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
+
+        if (!hasCoords) {
+            if (locationCoords) {
+                setLocationCoords(null);
+            }
+            return;
+        }
+
+        if (!locationCoords || locationCoords.lat !== lat || locationCoords.lon !== lon) {
+            setLocationCoords({ lat: lat as number, lon: lon as number });
+        }
+    }, [formData.latitude, formData.longitude, locationCoords]);
 
     const router = useRouter();
     const pathname = usePathname();
@@ -1413,6 +1447,7 @@ export function EventWizard({
                 }
 
                 setEventId(nextEventId);
+
                 if (!hasPromoValidationErrors && !hasPromoApiErrors) {
                     markSnapshotAsSaved({ tickets: normalizedTickets, promoCodes: normalizedPromoCodes });
                     setFieldErrors({});
@@ -1733,19 +1768,37 @@ export function EventWizard({
     }, [activeOrganizerId, canUseCredits, executePublish, formData, hasExistingAccessCode, isPublishing, tickets]);
 
     const handlePreviewClick = useCallback(async () => {
+        const previewWindow = window.open('', '_blank');
+        if (!previewWindow) {
+            toast.warning('Popup blocked. Allow popups to open the preview.');
+            return;
+        }
+
+        previewWindow.document.title = 'Loading preview...';
+        previewWindow.document.body.innerHTML = '<p style="font-family: sans-serif; padding: 16px;">Loading preview...</p>';
+
+        // Track if this is a new event being saved for the first time
+        const wasNewEvent = !eventId && mode === 'create';
+
         // Save draft before previewing (silent save)
         const savedEventId = await saveDraft({ silent: true });
         if (savedEventId) {
             const previewUrl = `/events/${savedEventId}/preview?mode=draft`;
-            const opened = window.open(previewUrl, '_blank');
-            if (!opened) {
-                toast.warning('Popup blocked. Allow popups to open the preview.');
+            if (!previewWindow.closed) {
+                previewWindow.location.href = previewUrl;
+            }
+
+            // For new events in create mode, navigate to edit page so if
+            // the component remounts, it fetches the draft from the backend
+            if (wasNewEvent) {
+                router.replace(`/events/${savedEventId}/edit`);
             }
         } else {
             // If save failed, show error (saveDraft already sets actionError)
+            previewWindow.close();
             setActionError('Please save the event before previewing.');
         }
-    }, [saveDraft]);
+    }, [eventId, mode, router, saveDraft]);
 
     const isBusy = isSaving || isPublishing;
     const isPrivate = formData.visibility === 'private';
@@ -1966,18 +2019,9 @@ export function EventWizard({
                                 </button>
                             ))}
 
-                            {/* Quick Actions */}
+                            {/* Status Label */}
                             <div className="pt-6">
-                                <Button
-                                    variant="outline"
-                                    className="w-full h-12 justify-center gap-2 text-base font-medium border-2"
-                                    onClick={handlePreviewClick}
-                                    disabled={disableSaveButtons}
-                                >
-                                    <Eye className="h-5 w-5" />
-                                    Preview Event
-                                </Button>
-                                <p className="text-xs text-muted-foreground text-center mt-3">{statusLabel}</p>
+                                <p className="text-xs text-muted-foreground text-center">{statusLabel}</p>
                             </div>
                         </div>
                     </aside>
@@ -2391,7 +2435,7 @@ export function EventWizard({
                                         </div>
 
                                         {/* Location Card */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                        <div className="rounded-xl border border-border/60 bg-card/50">
                                             <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center gap-2">
                                                 <MapPin className="h-4 w-4 text-primary" />
                                                 <h3 className="text-sm font-medium text-foreground">Location</h3>
@@ -2573,6 +2617,7 @@ export function EventWizard({
                                                 <Select
                                                     value={formData.currency}
                                                     onValueChange={(value) => {
+                                                        hasCurrencyUserOverrideRef.current = true;
                                                         setFormData((prev) => ({
                                                             ...prev,
                                                             currency: value,

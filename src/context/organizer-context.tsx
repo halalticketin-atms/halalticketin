@@ -76,6 +76,9 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
     const [error, setError] = useState<string | null>(null);
     const [activeOrganizerId, setActiveOrganizerIdState] = useState<string | null>(null);
     const activeIdRef = useRef<string | null>(null);
+    const lastFetchedAtRef = useRef<number | null>(null);
+    const cooldownUntilRef = useRef<number | null>(null);
+    const inFlightRef = useRef<Promise<void> | null>(null);
 
     const setActiveOrganizerId = useCallback(
         (organizerId: string | null, options: { persist?: boolean } = {}) => {
@@ -109,40 +112,73 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
         []
     );
 
-    const fetchOrganizers = useCallback(async () => {
+    const fetchOrganizers = useCallback(async (options?: { force?: boolean }) => {
         if (!user) {
             setOrganizers([]);
             setActiveOrganizerId(null, { persist: false });
             activeIdRef.current = null;
+            lastFetchedAtRef.current = null;
+            cooldownUntilRef.current = null;
             setError(null);
             setIsLoading(false);
             return;
         }
 
-        setIsLoading(true);
-        try {
-            const response = await api.get<{ organizers: OrganizerSummary[] }>('/api/v1/organizers');
-            setOrganizers(response.organizers);
-            setError(null);
-
-            const nextOrganizerId = selectDefaultOrganizerId(response.organizers);
-            setActiveOrganizerId(nextOrganizerId ?? null);
-        } catch (err) {
-            if (err instanceof ApiError && err.status === 401) {
-                signOut();
-                setError(null);
-                setOrganizers([]);
-                setActiveOrganizerId(null, { persist: false });
+        const now = Date.now();
+        if (!options?.force) {
+            if (cooldownUntilRef.current && now < cooldownUntilRef.current) {
                 return;
             }
-            const message = err instanceof Error ? err.message : 'Unable to load organisers';
-            setError(message);
-            setOrganizers([]);
-            setActiveOrganizerId(null, { persist: false });
-        } finally {
-            setIsLoading(false);
+            if (lastFetchedAtRef.current && now - lastFetchedAtRef.current < 10_000) {
+                return;
+            }
         }
-    }, [user, selectDefaultOrganizerId, setActiveOrganizerId]);
+
+        if (inFlightRef.current) {
+            return inFlightRef.current;
+        }
+
+        const run = (async () => {
+            setIsLoading(true);
+            try {
+                const response = await api.get<{ organizers: OrganizerSummary[] }>('/api/v1/organizers');
+                setOrganizers(response.organizers);
+                setError(null);
+
+                const nextOrganizerId = selectDefaultOrganizerId(response.organizers);
+                setActiveOrganizerId(nextOrganizerId ?? null);
+            } catch (err) {
+                if (err instanceof ApiError && err.status === 401) {
+                    signOut();
+                    setError(null);
+                    setOrganizers([]);
+                    setActiveOrganizerId(null, { persist: false });
+                    return;
+                }
+                if (err instanceof ApiError && err.status === 429) {
+                    const payload = err.payload as { retryAfter?: number } | null;
+                    const retryAfter = typeof payload?.retryAfter === 'number' ? payload.retryAfter : null;
+                    if (retryAfter) {
+                        cooldownUntilRef.current = Date.now() + retryAfter * 1000;
+                    }
+                }
+                const message = err instanceof Error ? err.message : 'Unable to load organisers';
+                setError(message);
+                setOrganizers([]);
+                setActiveOrganizerId(null, { persist: false });
+            } finally {
+                lastFetchedAtRef.current = Date.now();
+                setIsLoading(false);
+            }
+        })();
+
+        inFlightRef.current = run;
+        try {
+            await run;
+        } finally {
+            inFlightRef.current = null;
+        }
+    }, [user, selectDefaultOrganizerId, setActiveOrganizerId, signOut]);
 
     useEffect(() => {
         void fetchOrganizers();
@@ -153,6 +189,8 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
         [organizers]
     );
 
+    const refresh = useCallback(() => fetchOrganizers({ force: true }), [fetchOrganizers]);
+
     const value = useMemo<OrganizerContextValue>(
         () => ({
             organizers,
@@ -161,9 +199,9 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
             error,
             activeOrganizerId,
             setActiveOrganizerId,
-            refresh: fetchOrganizers,
+            refresh,
         }),
-        [organizers, activeOrganizers, isLoading, error, activeOrganizerId, setActiveOrganizerId, fetchOrganizers]
+        [organizers, activeOrganizers, isLoading, error, activeOrganizerId, setActiveOrganizerId, refresh]
     );
 
     return <OrganizerContext.Provider value={value}>{children}</OrganizerContext.Provider>;
