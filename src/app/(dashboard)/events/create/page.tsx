@@ -2285,7 +2285,6 @@ export function EventWizard({
                                             <>
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">What&apos;s your event called?</h2>
-                                                    <p className="mt-1 text-sm text-muted-foreground">Give your event a catchy name and category</p>
                                                 </div>
 
                                                 <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6 space-y-5">
@@ -2341,7 +2340,6 @@ export function EventWizard({
                                             <>
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Describe your event</h2>
-                                                    <p className="mt-1 text-sm text-muted-foreground">Tell attendees what to expect</p>
                                                 </div>
 
                                                 <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6">
@@ -2619,7 +2617,6 @@ export function EventWizard({
                                             <>
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Set the time</h2>
-                                                    <p className="mt-1 text-sm text-muted-foreground">Choose start and end times for your event</p>
                                                 </div>
 
                                                 <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6 space-y-5">
@@ -2705,7 +2702,6 @@ export function EventWizard({
                                             <>
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Where is your event?</h2>
-                                                    <p className="mt-1 text-sm text-muted-foreground">Help attendees find your event</p>
                                                 </div>
 
                                                 {/* Location Card */}
@@ -2968,21 +2964,23 @@ export function EventWizard({
                                                                 <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
                                                                     <div
                                                                         className={cn(
-                                                                            'px-4 py-3 border-b border-border/40 flex items-center justify-between border-l-4 text-foreground',
+                                                                            'px-4 py-3 border-b border-border/40 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-l-4 text-foreground transition-all duration-200',
                                                                             headerStyle.header,
                                                                         )}
                                                                     >
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => toggleTicketOpen(!isTicketOpen)}
-                                                                            className="flex items-center gap-2 text-left"
+                                                                            className="flex items-center gap-3 text-left w-full sm:w-auto hover:opacity-80 transition-opacity"
                                                                         >
-                                                                            <Ticket className={cn('h-5 w-5', headerStyle.accent)} />
+                                                                            <div className={cn('p-2 rounded-lg bg-background/50 shadow-sm ring-1 ring-black/5', headerStyle.accent.replace('text-', 'text-'))}>
+                                                                                <Ticket className={cn('h-5 w-5', headerStyle.accent)} />
+                                                                            </div>
                                                                             <div className="flex flex-col">
                                                                                 <div className="flex items-center gap-2">
-                                                                                    <h3 className="font-semibold">{displayName}</h3>
+                                                                                    <h3 className="font-semibold text-base">{displayName}</h3>
                                                                                     {trimmedName ? (
-                                                                                        <Badge variant="secondary" className={cn('text-xs', headerStyle.badge)}>
+                                                                                        <Badge variant="secondary" className={cn('text-[10px] px-1.5 h-5', headerStyle.badge)}>
                                                                                             #{index + 1}
                                                                                         </Badge>
                                                                                     ) : null}
@@ -2992,7 +2990,7 @@ export function EventWizard({
                                                                                 ) : null}
                                                                             </div>
                                                                         </button>
-                                                                        <div className="flex items-center gap-2">
+                                                                        <div className="flex items-center justify-between w-full sm:w-auto sm:justify-start gap-2">
                                                                             {/* Visibility Toggle - Dual segmented control */}
                                                                             <div className="flex items-center rounded-lg border border-border/60 overflow-hidden text-xs font-medium shadow-sm">
                                                                                 <button
@@ -3441,7 +3439,6 @@ export function EventWizard({
                                             <>
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Donations</h2>
-                                                    <p className="mt-1 text-sm text-muted-foreground">Add an optional donation option to your event checkout</p>
                                                 </div>
 
                                                 {/* Donation Section */}
