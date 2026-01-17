@@ -1702,7 +1702,7 @@ export function SignupOnboardingDialog({
                                             <Label>Type</Label>
                                             <RadioGroup
                                                 value={formData.organizerType}
-                                                onValueChange={(value) => updateField('organizerType', value as any)}
+                                                onValueChange={(value) => updateField('organizerType', value as FormData['organizerType'])}
                                                 className="grid grid-cols-3 gap-2"
                                             >
                                                 {['individual', 'organization', 'charity'].map((type) => (

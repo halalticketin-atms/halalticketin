@@ -77,10 +77,13 @@ export interface CheckoutQuoteResponse {
 export async function getCheckoutQuote(
     eventId: string,
     request: { items: CartItem[]; promoCode?: string },
-    options?: { accessCode?: string }
+    options?: { accessCode?: string; accessToken?: string }
 ): Promise<CheckoutQuoteResponse | null> {
     try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (options?.accessToken) {
+            headers['Authorization'] = `Bearer ${options.accessToken}`;
+        }
         if (options?.accessCode) {
             headers['x-event-access-code'] = options.accessCode;
         }
@@ -268,10 +271,14 @@ export async function validatePromoCode(
     promoCode: string,
     items: CartItem[],
     subtotal?: number,
-    accessCode?: string
+    accessCode?: string,
+    accessToken?: string
 ): Promise<ValidatePromoResult> {
     try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (accessToken) {
+            headers['Authorization'] = `Bearer ${accessToken}`;
+        }
         if (accessCode) {
             headers['x-event-access-code'] = accessCode;
         }

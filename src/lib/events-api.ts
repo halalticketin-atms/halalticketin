@@ -287,6 +287,7 @@ export interface PublicEventRecord {
     feeTier: BackendFeeTier | null;
     customBookingFee: string | null;
     metaPixelId: string | null;
+    status?: 'draft' | 'published' | 'cancelled' | 'archived';
     attendeeInfoMode: 'per_ticket' | 'buyer_choice' | null;
     customQuestions: CustomQuestionPayload[] | null;
     // Favorite status (only present when authenticated)
@@ -303,6 +304,7 @@ export interface PublicTicketRecord {
     minPerOrder: number | null;
     maxPerOrder: number | null;
     type: 'free' | 'paid' | 'donation';
+    visibility?: 'public' | 'hidden';
     salesStart: string | null;
     salesEnd: string | null;
     customFee?: number | null;
@@ -325,14 +327,20 @@ export const fetchPublicEvents = async (options?: { limit?: number; offset?: num
 
 export const fetchPublicEventBySlug = async (
     slug: string,
-    options?: { accessCode?: string },
+    options?: { accessCode?: string; preview?: boolean },
 ) => {
     const headers: Record<string, string> = {};
+    const params: Record<string, string> = {};
     if (options?.accessCode) {
         headers['x-event-access-code'] = options.accessCode;
     }
+    if (options?.preview) {
+        params.preview = '1';
+    }
     return api.get<{ event: PublicEventRecord; tickets: PublicTicketRecord[] }>(
         `/api/v1/public/events/${slug}`,
-        Object.keys(headers).length > 0 ? { headers } : undefined,
+        Object.keys(headers).length > 0 || Object.keys(params).length > 0
+            ? { headers: Object.keys(headers).length > 0 ? headers : undefined, params: Object.keys(params).length > 0 ? params : undefined }
+            : undefined,
     );
 };

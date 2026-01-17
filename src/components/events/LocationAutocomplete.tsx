@@ -93,6 +93,7 @@ function PlacesAutocompleteInput({
 }: LocationAutocompleteProps) {
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);
+    const nextResultIdRef = useRef(0);
 
     const {
         value: inputValue,
@@ -117,13 +118,6 @@ function PlacesAutocompleteInput({
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
-    // Open dropdown when we have suggestions
-    useEffect(() => {
-        if (status === 'OK' && data.length > 0) {
-            setIsOpen(true);
-        }
-    }, [status, data]);
 
     useEffect(() => {
         if (value !== inputValue) {
@@ -179,8 +173,10 @@ function PlacesAutocompleteInput({
 
             const streetAddress = [streetNumber, route].filter(Boolean).join(' ');
 
+            const nextId = nextResultIdRef.current + 1;
+            nextResultIdRef.current = nextId;
             const result: LocationSearchResult = {
-                id: Date.now(),
+                id: nextId,
                 displayName: details.formatted_address || description,
                 venue: details.name || description.split(',')[0] || '',
                 address: streetAddress,
@@ -202,7 +198,9 @@ function PlacesAutocompleteInput({
         if (!nextValue) {
             clearSuggestions();
             setIsOpen(false);
+            return;
         }
+        setIsOpen(true);
     };
 
     const handleClear = () => {
@@ -301,21 +299,10 @@ function PlacesAutocompleteInput({
     );
 }
 
-export function LocationAutocomplete(props: LocationAutocompleteProps) {
-    const apiKey = (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim();
-    if (!apiKey) {
-        return (
-            <ManualLocationInput
-                value={props.value}
-                onInputChange={props.onInputChange}
-                placeholder={props.placeholder}
-                label={props.label}
-                className={props.className}
-                helperText="Google Maps is not configured. Enter a venue manually."
-            />
-        );
-    }
-
+function LocationAutocompleteWithMaps({
+    apiKey,
+    ...props
+}: LocationAutocompleteProps & { apiKey: string }) {
     const { isLoaded, loadError } = useLoadScript({
         googleMapsApiKey: apiKey,
         libraries,
@@ -349,4 +336,22 @@ export function LocationAutocomplete(props: LocationAutocompleteProps) {
     }
 
     return <PlacesAutocompleteInput {...props} />;
+}
+
+export function LocationAutocomplete(props: LocationAutocompleteProps) {
+    const apiKey = (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim();
+    if (!apiKey) {
+        return (
+            <ManualLocationInput
+                value={props.value}
+                onInputChange={props.onInputChange}
+                placeholder={props.placeholder}
+                label={props.label}
+                className={props.className}
+                helperText="Google Maps is not configured. Enter a venue manually."
+            />
+        );
+    }
+
+    return <LocationAutocompleteWithMaps apiKey={apiKey} {...props} />;
 }

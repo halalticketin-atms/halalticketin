@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 
 export function useInView<T extends Element>(options?: IntersectionObserverInit) {
     const ref = useRef<T | null>(null);
-    const [inView, setInView] = useState(false);
+    const [inView, setInView] = useState(() =>
+        typeof window === 'undefined' || !('IntersectionObserver' in window),
+    );
 
     useEffect(() => {
-        if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
-            setInView(true);
+        if (inView || typeof window === 'undefined' || !('IntersectionObserver' in window)) {
             return;
         }
 
@@ -25,7 +26,7 @@ export function useInView<T extends Element>(options?: IntersectionObserverInit)
 
         observer.observe(node);
         return () => observer.disconnect();
-    }, [options]);
+    }, [inView, options]);
 
     return { ref, inView };
 }

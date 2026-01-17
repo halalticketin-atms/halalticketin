@@ -202,7 +202,7 @@ export default function RegistrationFormBuilderPage() {
                                             Buyer info for all tickets
                                         </label>
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            Use the buyer's name, gender and age for all tickets. Best for general admission events.
+                                            Use the buyer&apos;s name, gender and age for all tickets. Best for general admission events.
                                         </p>
                                     </div>
                                 </div>

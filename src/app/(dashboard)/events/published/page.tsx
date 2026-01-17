@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { EventPublishedSuccess } from '@/components/events/EventPublishedSuccess';
 import { Loader2 } from 'lucide-react';
@@ -18,9 +18,7 @@ interface EventData {
 
 function SuccessContent() {
     const searchParams = useSearchParams();
-    const [eventData, setEventData] = useState<EventData | null>(null);
-
-    useEffect(() => {
+    const eventData = useMemo<EventData>(() => {
         // Parse event data from URL search params
         const title = searchParams.get('title') || 'Your Event';
         const date = searchParams.get('date');
@@ -35,7 +33,7 @@ function SuccessContent() {
             ? `/dashboard/o/${organizerId}/events`
             : '/dashboard';
 
-        setEventData({
+        return {
             title,
             date,
             time,
@@ -44,16 +42,8 @@ function SuccessContent() {
             slug,
             isPrivate,
             dashboardHref,
-        });
+        };
     }, [searchParams]);
-
-    if (!eventData) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        );
-    }
 
     return (
         <EventPublishedSuccess

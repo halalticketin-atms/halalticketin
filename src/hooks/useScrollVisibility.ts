@@ -15,8 +15,9 @@ export function useScrollVisibility({
     idleDelay = 2500,
     isInteracting = false,
 }: ScrollVisibilityOptions = {}) {
-    const [isVisible, setIsVisible] = useState(true);
-    const [isScrolled, setIsScrolled] = useState(false);
+    const getScrollY = () => (typeof window === 'undefined' ? 0 : window.scrollY);
+    const [isVisible, setIsVisible] = useState(() => getScrollY() <= topOffset || isInteracting);
+    const [isScrolled, setIsScrolled] = useState(() => getScrollY() > topOffset);
     const lastScrollY = useRef(0);
     const lastToggleY = useRef(0);
     const rafRef = useRef<number | null>(null);
@@ -76,14 +77,12 @@ export function useScrollVisibility({
     }, [clearIdleTimer, directionThreshold, isInteracting, scheduleIdleHide, topOffset]);
 
     useEffect(() => {
-        const initialScrollY = window.scrollY;
+        const initialScrollY = getScrollY();
         lastScrollY.current = initialScrollY;
         lastToggleY.current = initialScrollY;
-        setIsScrolled(initialScrollY > topOffset);
-        if (initialScrollY <= topOffset) {
-            setIsVisible(true);
+        if (!isInteracting) {
+            scheduleIdleHide(initialScrollY);
         }
-        scheduleIdleHide(initialScrollY);
 
         const onScroll = () => {
             if (rafRef.current !== null) return;
@@ -101,16 +100,17 @@ export function useScrollVisibility({
             }
             clearIdleTimer();
         };
-    }, [clearIdleTimer, scheduleIdleHide, topOffset, updateVisibility]);
+    }, [clearIdleTimer, isInteracting, scheduleIdleHide, updateVisibility]);
 
     useEffect(() => {
         if (isInteracting) {
-            setIsVisible(true);
             clearIdleTimer();
             return;
         }
         scheduleIdleHide(window.scrollY);
     }, [clearIdleTimer, isInteracting, scheduleIdleHide]);
 
-    return { isVisible, isScrolled };
+    const effectiveVisible = isInteracting ? true : isVisible;
+
+    return { isVisible: effectiveVisible, isScrolled };
 }

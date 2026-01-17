@@ -56,6 +56,8 @@ import { differenceInYears } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ShareDialog } from '@/components/share/ShareDialog';
 import { toast } from '@/lib/notifications';
+import { getSupabase } from '@/lib/supabase';
+import { getAuthToken } from '@/lib/api';
 
 // Dynamic import to avoid SSR issues with Leaflet
 const EventLocationMap = dynamic(
@@ -191,11 +193,11 @@ function DonationCard({
     amount: number;
     maxAmount: number;
     currencySymbol: string;
-    onAmountChange: (amount: number) => void;
+    onAmountChange: (amount: number | null) => void;
 }) {
     const handleChange = (value: string) => {
         if (value === '') {
-            onAmountChange(0);
+            onAmountChange(null);
             return;
         }
         const numeric = Number(value);
@@ -218,7 +220,7 @@ function DonationCard({
                         variant="ghost"
                         size="sm"
                         className="text-muted-foreground"
-                        onClick={() => onAmountChange(0)}
+                        onClick={() => onAmountChange(null)}
                     >
                         Remove
                     </Button>
@@ -241,7 +243,7 @@ function DonationCard({
                     />
                 </div>
             </div>
-            <p className="text-xs text-muted-foreground">Set to 0 to remove the donation.</p>
+            <p className="text-xs text-muted-foreground">Clear the amount to remove the donation.</p>
         </div>
     );
 }
@@ -292,6 +294,38 @@ export function PublicEventPageContent({
 
     const auth = useOptionalAuth();
     const user = auth?.user;
+    const [previewToken, setPreviewToken] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isPreview) {
+            setPreviewToken(null);
+            return;
+        }
+
+        const cachedToken = getAuthToken();
+        if (cachedToken) {
+            setPreviewToken(cachedToken);
+        }
+
+        let cancelled = false;
+        getSupabase()
+            .auth
+            .getSession()
+            .then(({ data }) => {
+                if (!cancelled) {
+                    setPreviewToken(data.session?.access_token ?? null);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setPreviewToken(null);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isPreview, user?.id]);
 
     // Fetch organizer profile for avatar
     const [organizerAvatar, setOrganizerAvatar] = useState<string | null>(null);
@@ -306,7 +340,7 @@ export function PublicEventPageContent({
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
-    const [donationAmount, setDonationAmount] = useState(0);
+    const [donationAmount, setDonationAmount] = useState<number | null>(null);
     const [attendeeName, setAttendeeName] = useState('');
     const [attendeeEmail, setAttendeeEmail] = useState('');
     const [attendeeAge, setAttendeeAge] = useState('');
@@ -363,14 +397,26 @@ export function PublicEventPageContent({
     const hasDonationOption = Boolean(donationTicket);
     const hasRegularTickets = regularTickets.length > 0 || regularUnlockedTickets.length > 0;
 
+    const donationDefaultAmount = useMemo(() => {
+        if (!donationTicket) {
+            return 0;
+        }
+        const parsed = parseFloat(donationTicket.price ?? '0');
+        return Number.isFinite(parsed) ? parsed : 0;
+    }, [donationTicket?.id, donationTicket?.price]);
+
     useEffect(() => {
         if (!donationTicket) {
-            setDonationAmount(0);
+            setDonationAmount(null);
             return;
         }
-        const defaultAmount = parseFloat(donationTicket.price ?? '0');
-        setDonationAmount(Number.isFinite(defaultAmount) ? defaultAmount : 0);
-    }, [donationTicket?.id]);
+        setDonationAmount((prev) => {
+            if (prev !== null) {
+                return prev;
+            }
+            return donationDefaultAmount;
+        });
+    }, [donationTicket?.id, donationDefaultAmount]);
 
     // --- Checkout Draft Persistence ---
     const DRAFT_KEY = event?.id ? `checkout_draft_${event.id}` : null;
@@ -418,7 +464,9 @@ export function PublicEventPageContent({
             if (draft.useSharedInfo !== undefined) {
                 setUseSharedInfo(draft.useSharedInfo);
             }
-            if (typeof draft.donationAmount === 'number') {
+            if (draft.donationAmount === null) {
+                setDonationAmount(null);
+            } else if (typeof draft.donationAmount === 'number') {
                 setDonationAmount(draft.donationAmount);
             }
         } catch {
@@ -495,7 +543,7 @@ export function PublicEventPageContent({
     }, [regularTickets, regularUnlockedTickets, ticketQuantities, getEffectivePrice]);
 
     const donationItem = useMemo(() => {
-        if (!donationTicket) {
+        if (!donationTicket || donationAmount === null) {
             return null;
         }
         if (!Number.isFinite(donationAmount) || donationAmount <= 0) {
@@ -528,8 +576,9 @@ export function PublicEventPageContent({
         }, 0),
         [cartItems, getCartItemUnitPrice]
     );
-    const hasSelections = totalTickets > 0 || donationAmount > 0;
-    const itemCountForTracking = totalTickets + (donationAmount > 0 ? 1 : 0);
+    const resolvedDonationAmount = donationAmount ?? 0;
+    const hasSelections = totalTickets > 0 || resolvedDonationAmount > 0;
+    const itemCountForTracking = totalTickets + (resolvedDonationAmount > 0 ? 1 : 0);
 
     const customQuestionCount = event?.customQuestions?.length ?? 0;
     const forcePerTicket = customQuestionCount > 0;
@@ -562,7 +611,13 @@ export function PublicEventPageContent({
         setPromoError(null);
     };
 
-    const handleDonationChange = (amount: number) => {
+    const handleDonationChange = (amount: number | null) => {
+        if (amount === null || !Number.isFinite(amount)) {
+            setDonationAmount(null);
+            setAppliedPromo(null);
+            setPromoError(null);
+            return;
+        }
         const clamped = Math.min(Math.max(amount, 0), maxDonationAmount);
         setDonationAmount(clamped);
         // Clear applied promo when donation amount changes
@@ -597,6 +652,11 @@ export function PublicEventPageContent({
 
     const handleApplyPromo = async () => {
         if (!event || !promoCode.trim()) return;
+        const previewAccessToken = isPreview ? previewToken ?? getAuthToken() ?? undefined : undefined;
+        if (isPreview && !previewAccessToken) {
+            setPromoError('Promo code validation is temporarily unavailable in preview.');
+            return;
+        }
         const trimmedCode = promoCode.trim();
         if (trimmedCode.length < PROMO_CODE_MIN_LENGTH) {
             setPromoError(`Promo code must be at least ${PROMO_CODE_MIN_LENGTH} characters.`);
@@ -620,7 +680,8 @@ export function PublicEventPageContent({
             trimmedCode,
             promoItems,
             totalAmount,
-            accessCode ?? undefined
+            accessCode ?? undefined,
+            previewAccessToken
         );
 
         if (result.valid) {
@@ -906,6 +967,10 @@ export function PublicEventPageContent({
             setCheckoutQuote(null);
             return;
         }
+        const previewAccessToken = isPreview ? previewToken ?? getAuthToken() ?? undefined : undefined;
+        if (isPreview && !previewAccessToken) {
+            return;
+        }
 
         let cancelled = false;
         const timer = window.setTimeout(async () => {
@@ -917,7 +982,8 @@ export function PublicEventPageContent({
                 })),
                 promoCode: appliedPromo?.code
             }, {
-                accessCode: accessCode ?? undefined
+                accessCode: accessCode ?? undefined,
+                accessToken: previewAccessToken
             });
             if (!cancelled) {
                 setCheckoutQuote(quote);
@@ -928,7 +994,7 @@ export function PublicEventPageContent({
             cancelled = true;
             window.clearTimeout(timer);
         };
-    }, [event?.id, cartItems, appliedPromo?.code, accessCode]);
+    }, [event?.id, cartItems, appliedPromo?.code, accessCode, isPreview, previewToken]);
 
     // Step-based checkout: Step 0 = Buyer, Step 1..N = Tickets (if per-ticket), Final = Confirm
     const totalCheckoutSteps = requiresPerTicket ? 1 + totalTickets + 1 : 2;
@@ -1032,7 +1098,7 @@ export function PublicEventPageContent({
         if (!hasSelections) {
             return 'Please select at least one ticket or donation.';
         }
-        if (donationAmount > maxDonationAmount) {
+        if (donationAmount !== null && donationAmount > maxDonationAmount) {
             return `Donation amount cannot exceed ${currencySymbol}${maxDonationAmount.toFixed(2)}.`;
         }
 
@@ -1686,13 +1752,23 @@ export function PublicEventPageContent({
                                                         Donation
                                                     </div>
                                                     <div className="pt-2">
-                                                        <DonationCard
-                                                            ticket={donationTicket}
-                                                            amount={donationAmount}
-                                                            maxAmount={maxDonationAmount}
-                                                            currencySymbol={currencySymbol}
-                                                            onAmountChange={handleDonationChange}
-                                                        />
+                                                        {donationAmount === null ? (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleDonationChange(donationDefaultAmount)}
+                                                            >
+                                                                Add donation
+                                                            </Button>
+                                                        ) : (
+                                                            <DonationCard
+                                                                ticket={donationTicket}
+                                                                amount={donationAmount}
+                                                                maxAmount={maxDonationAmount}
+                                                                currencySymbol={currencySymbol}
+                                                                onAmountChange={handleDonationChange}
+                                                            />
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}
@@ -1900,33 +1976,49 @@ export function PublicEventPageContent({
                                     );
                                 })}
                                 {hasDonationOption && donationTicket && (
-                                    <div className="flex justify-between items-center text-sm">
-                                        <div className="flex flex-col">
-                                            <span className="font-medium text-foreground">{donationTicket.name}</span>
-                                            <span className="text-xs text-muted-foreground">Optional donation</span>
+                                    donationAmount === null ? (
+                                        <div className="flex justify-between items-center text-sm">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-foreground">{donationTicket.name}</span>
+                                                <span className="text-xs text-muted-foreground">Optional donation</span>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleDonationChange(donationDefaultAmount)}
+                                            >
+                                                Add
+                                            </Button>
                                         </div>
-                                        <div className="w-24">
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                max={maxDonationAmount}
-                                                step="0.01"
-                                                value={donationAmount.toString()}
-                                                onChange={(e) => {
-                                                    const value = e.target.value;
-                                                    if (value === '') {
-                                                        handleDonationChange(0);
-                                                        return;
-                                                    }
-                                                    const numeric = Number(value);
-                                                    if (Number.isFinite(numeric) && numeric >= 0) {
-                                                        handleDonationChange(Math.min(numeric, maxDonationAmount));
-                                                    }
-                                                }}
-                                                className="h-9"
-                                            />
+                                    ) : (
+                                        <div className="flex justify-between items-center text-sm">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-foreground">{donationTicket.name}</span>
+                                                <span className="text-xs text-muted-foreground">Optional donation</span>
+                                            </div>
+                                            <div className="w-24">
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    max={maxDonationAmount}
+                                                    step="0.01"
+                                                    value={donationAmount.toString()}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
+                                                        if (value === '') {
+                                                            handleDonationChange(null);
+                                                            return;
+                                                        }
+                                                        const numeric = Number(value);
+                                                        if (Number.isFinite(numeric) && numeric >= 0) {
+                                                            handleDonationChange(Math.min(numeric, maxDonationAmount));
+                                                        }
+                                                    }}
+                                                    className="h-9"
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
+                                    )
                                 )}
 
                                 {/* Fees & Discounts */}

@@ -15,10 +15,14 @@
     const SITE_BASE = window.HALAL_TICKETIN_SITE_URL || 'http://localhost:3000';
     const CONTAINER_SELECTOR = '#halal-ticketin-checkout';
 
-    function buildIframeSrc(slug, theme) {
+    function buildIframeSrc(slug, theme, previewEnabled) {
         const base = SITE_BASE.replace(/\/$/, '');
         const safeTheme = theme === 'dark' ? 'dark' : 'light';
-        return `${base}/embed/checkout/${slug}?theme=${encodeURIComponent(safeTheme)}`;
+        const params = new URLSearchParams({ theme: safeTheme });
+        if (previewEnabled) {
+            params.set('preview', '1');
+        }
+        return `${base}/embed/checkout/${slug}?${params.toString()}`;
     }
 
     function showError(container, message) {
@@ -34,9 +38,13 @@
 
         const theme = container.dataset.theme || 'light';
         const height = container.dataset.height || '800px';
+        const previewValue = container.dataset.preview;
+        const previewEnabled = previewValue
+            ? previewValue === 'true' || previewValue === '1'
+            : true;
 
         const frame = document.createElement('iframe');
-        frame.src = buildIframeSrc(slug, theme);
+        frame.src = buildIframeSrc(slug, theme, previewEnabled);
         frame.title = 'Halal Ticketin Checkout';
         frame.style.width = '100%';
         frame.style.border = '0';

@@ -58,6 +58,7 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { LocationAutocomplete } from '@/components/events/LocationAutocomplete';
+import { MainStepTabs, SubStepSidebar, SubStepChips } from '@/components/events/wizard';
 import { EmbedCheckoutSnippet } from '@/components/events/EmbedCheckoutSnippet';
 
 // Dynamic import to avoid SSR issues with Leaflet
@@ -96,7 +97,7 @@ import { ApiError } from '@/lib/api';
 import { getBackendErrorDetails } from '@/lib/api-errors';
 import { getUserFriendlyMessage, toast } from '@/lib/notifications';
 import { getCurrencySymbol } from '@/lib/fees';
-import { LIMITS_GBP, MAX_PER_ORDER, MAX_TICKET_QUANTITY, PROMO_CODE_MAX_LENGTH, PROMO_CODE_MIN_LENGTH, roundCurrencyLimit } from '@/lib/input-limits';
+import { LIMITS_GBP, MAX_PER_ORDER, MAX_PROMO_CODES_PER_EVENT, MAX_TICKET_QUANTITY, PROMO_CODE_MAX_LENGTH, PROMO_CODE_MIN_LENGTH, roundCurrencyLimit } from '@/lib/input-limits';
 import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/lib/timezone';
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
@@ -109,14 +110,79 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 
-export const steps = [
-    { id: 1, title: 'Basic Details', description: 'Title, description & image', icon: FileText },
-    { id: 2, title: 'When', description: 'Date & time', icon: Calendar },
-    { id: 3, title: 'Where', description: 'Location & venue', icon: MapPin },
-    { id: 4, title: 'Tickets', description: 'Pricing & availability', icon: Ticket },
-    { id: 5, title: 'Attendee Info', description: 'Registration settings', icon: Users },
-    { id: 6, title: 'Embed Widget', description: 'Website integration', icon: Code },
+type SubStepConfig = { id: string; label: string };
+type MainStepConfig = {
+    id: number;
+    title: string;
+    description: string;
+    icon: typeof FileText;
+    subSteps: SubStepConfig[];
+};
+
+export const mainSteps: MainStepConfig[] = [
+    {
+        id: 1,
+        title: 'Event Details',
+        description: 'Title, description & image',
+        icon: FileText,
+        subSteps: [
+            { id: 'title', label: 'Title & Category' },
+            { id: 'description', label: 'Description' },
+            { id: 'poster', label: 'Poster Upload' },
+            { id: 'visibility', label: 'Visibility' },
+        ],
+    },
+    {
+        id: 2,
+        title: 'Schedule',
+        description: 'Date & time',
+        icon: Calendar,
+        subSteps: [
+            { id: 'date', label: 'Date Selection' },
+            { id: 'time', label: 'Time' },
+        ],
+    },
+    {
+        id: 3,
+        title: 'Venue',
+        description: 'Location & venue',
+        icon: MapPin,
+        subSteps: [
+            { id: 'location', label: 'Location' },
+        ],
+    },
+    {
+        id: 4,
+        title: 'Tickets',
+        description: 'Pricing & availability',
+        icon: Ticket,
+        subSteps: [
+            { id: 'currency', label: 'Currency' },
+            { id: 'ticketTypes', label: 'Ticket Types' },
+            { id: 'donations', label: 'Donations' },
+            { id: 'promoCodes', label: 'Promo Codes' },
+            { id: 'refundPolicy', label: 'Refund Policy' },
+            { id: 'attendeeInfo', label: 'Attendee Info' },
+        ],
+    },
+    {
+        id: 5,
+        title: 'Embed',
+        description: 'Website integration',
+        icon: Code,
+        subSteps: [
+            { id: 'widget', label: 'Checkout Widget' },
+        ],
+    },
 ];
+
+// Legacy steps array for backwards compatibility with existing logic
+export const steps = mainSteps.map(step => ({
+    id: step.id,
+    title: step.title,
+    description: step.description,
+    icon: step.icon,
+}));
 
 const entryContextDefaults: Record<'scratch' | DraftEntrySource, EntryContext> = {
     scratch: {
@@ -257,7 +323,7 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         city: isInPerson ? formData.city || null : null,
         latitude: isInPerson ? formData.latitude ?? null : null,
         longitude: isInPerson ? formData.longitude ?? null : null,
-        country: null,
+        country: isInPerson ? (formData.country.trim() ? formData.country.trim() : null) : null,
         onlineUrl: isOnline ? formData.onlineUrl || null : null,
         currency: formData.currency,
         refundPolicy: formData.refundPolicy.trim() ? formData.refundPolicy.trim() : null,
@@ -449,8 +515,7 @@ const getStepForFieldErrors = (errors: Record<string, string>) => {
         { step: 1, fields: ['title', 'description', 'bannerImageDataUrl', 'categories', 'visibility', 'accessCode'] },
         { step: 2, fields: ['date', 'startTime', 'endDate', 'endTime', 'timezone'] },
         { step: 3, fields: ['locationType', 'venue', 'address', 'city', 'onlineUrl'] },
-        { step: 4, fields: ['tickets', 'currency', 'refundPolicy'] },
-        { step: 5, fields: ['attendeeInfoMode', 'customQuestions'] },
+        { step: 4, fields: ['tickets', 'currency', 'refundPolicy', 'attendeeInfoMode', 'customQuestions'] },
     ];
 
     for (const entry of stepFields) {
@@ -616,6 +681,114 @@ export function EventWizard({
         progressPercentage,
     } = useEventDraft(initialDraft, steps.length);
 
+    // Sub-step navigation state
+    const [currentSubStep, setCurrentSubStep] = useState<string>(mainSteps[0]?.subSteps[0]?.id || '');
+    // Ref to track intentional sub-step navigation (prevents effect from overriding)
+    const pendingSubStepRef = useRef<string | null>(null);
+
+    // Get current main step config
+    const currentMainStep = useMemo(
+        () => mainSteps.find(s => s.id === currentStep) || mainSteps[0],
+        [currentStep]
+    );
+
+    // Reset sub-step when main step changes (unless there's a pending sub-step)
+    useEffect(() => {
+        if (currentMainStep.subSteps.length > 0) {
+            if (pendingSubStepRef.current) {
+                setCurrentSubStep(pendingSubStepRef.current);
+                pendingSubStepRef.current = null;
+            } else {
+                setCurrentSubStep(currentMainStep.subSteps[0].id);
+            }
+        }
+    }, [currentStep, currentMainStep.subSteps]);
+
+    // Derived data for MainStepTabs navigation component
+    const mainStepTabsData = useMemo(
+        () => mainSteps.map(step => ({
+            id: step.id,
+            title: step.title,
+            icon: step.icon,
+            isCurrent: step.id === currentStep,
+            isComplete: step.id < currentStep,
+            hasWarning: false,
+        })),
+        [currentStep]
+    );
+
+    // Current step's sub-steps for sidebar
+    const currentSubSteps = useMemo(
+        () => currentMainStep.subSteps.map(sub => ({
+            id: sub.id,
+            label: sub.label,
+        })),
+        [currentMainStep.subSteps]
+    );
+
+    // Navigation handlers
+    const handleMainStepClick = useCallback((stepId: number) => {
+        setCurrentStep(stepId);
+    }, [setCurrentStep]);
+
+    const handleSubStepClick = useCallback((subStepId: string) => {
+        setCurrentSubStep(subStepId);
+    }, []);
+
+    // Navigate to a specific step and sub-step (useful for error navigation)
+    const navigateToStepWithSubStep = useCallback((stepId: number, subStepId?: string) => {
+        if (subStepId) {
+            if (currentStep === stepId) {
+                setCurrentSubStep(subStepId);
+                return;
+            }
+            pendingSubStepRef.current = subStepId;
+        }
+        setCurrentStep(stepId);
+    }, [currentStep, setCurrentStep, setCurrentSubStep]);
+
+    const goToStepForErrors = useCallback((errors: Record<string, string>) => {
+        if (errors.attendeeInfoMode || errors.customQuestions) {
+            navigateToStepWithSubStep(4, 'attendeeInfo');
+            return;
+        }
+        const nextStep = getStepForFieldErrors(errors);
+        if (nextStep) {
+            navigateToStepWithSubStep(nextStep);
+        }
+    }, [navigateToStepWithSubStep]);
+
+    // Handler for Continue button - advances sub-step first, then main step
+    const handleContinue = useCallback(() => {
+        const currentSubSteps = currentMainStep.subSteps;
+        const currentSubIndex = currentSubSteps.findIndex(s => s.id === currentSubStep);
+
+        if (currentSubIndex < currentSubSteps.length - 1) {
+            setCurrentSubStep(currentSubSteps[currentSubIndex + 1].id);
+        } else {
+            nextStep();
+        }
+    }, [currentMainStep.subSteps, currentSubStep, nextStep]);
+
+    // Handler for Back button - goes to previous sub-step first, then previous main step
+    const handleBack = useCallback(() => {
+        const currentSubSteps = currentMainStep.subSteps;
+        const currentSubIndex = currentSubSteps.findIndex(s => s.id === currentSubStep);
+
+        if (currentSubIndex > 0) {
+            setCurrentSubStep(currentSubSteps[currentSubIndex - 1].id);
+        } else if (currentStep > 1) {
+            const prevMainStep = mainSteps.find(s => s.id === currentStep - 1);
+            if (prevMainStep) {
+                const lastSubStep = prevMainStep.subSteps[prevMainStep.subSteps.length - 1];
+                if (lastSubStep) {
+                    pendingSubStepRef.current = lastSubStep.id;
+                }
+                setCurrentStep(currentStep - 1);
+            }
+        }
+    }, [currentMainStep.subSteps, currentSubStep, currentStep, setCurrentStep]);
+
     const { user, isLoading: authLoading } = useAuth();
     const { activeOrganizerId, organizers, isLoading: organizersLoading } = useOrganizers();
     const currentOrganizer = organizers.find(o => o.id === activeOrganizerId);
@@ -776,6 +949,25 @@ export function EventWizard({
     const [draftEmbedStatus, setDraftEmbedStatus] = useState<'draft' | 'published' | 'cancelled' | 'archived' | null>(
         embedCheckout?.status ?? initialDraft?.eventStatus ?? null,
     );
+
+    // Track if this was a new event (no initial ID) to trigger redirect after first save
+    const wasNewEventRef = useRef(!initialDraft?.eventId);
+    const hasRedirectedRef = useRef(false);
+
+    // Redirect to edit page after first save in create mode (ensures persistence)
+    useEffect(() => {
+        if (
+            mode === 'create' &&
+            wasNewEventRef.current &&
+            eventId &&
+            !hasRedirectedRef.current
+        ) {
+            hasRedirectedRef.current = true;
+            // Use replace to update URL without breaking browser back button
+            router.replace(`/events/${eventId}/edit`);
+        }
+    }, [mode, eventId, router]);
+
     const [hasExistingAccessCode, setHasExistingAccessCode] = useState<boolean>(
         initialDraft?.formData?.accessCodeEnabled ?? false,
     );
@@ -789,10 +981,9 @@ export function EventWizard({
     const [promoErrors, setPromoErrors] = useState<Record<string, PromoFieldErrors>>({});
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
     const [ticketAdvancedOpen, setTicketAdvancedOpen] = useState<Record<string, boolean>>({});
-
-    // Accordion state for Tickets tab sections
-    type TicketSectionType = 'tickets' | 'donation' | 'promo' | null;
-    const [openTicketSection, setOpenTicketSection] = useState<TicketSectionType>('tickets');
+    const [ticketOpenMap, setTicketOpenMap] = useState<Record<string, boolean>>({});
+    const [showAccessCode, setShowAccessCode] = useState(false);
+    const initialTicketOpenAppliedRef = useRef(false);
 
     const publishRequirementErrors = useMemo(
         () => validatePublishForm(formData, tickets, hasExistingAccessCode),
@@ -974,6 +1165,7 @@ export function EventWizard({
         <K extends keyof DraftTicketType>(id: string, field: K, value: DraftTicketType[K]) => {
             updateTicketBase(id, field, value);
             clearFieldErrors('tickets');
+            setTicketOpenMap((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
         },
         [clearFieldErrors, updateTicketBase],
     );
@@ -995,6 +1187,14 @@ export function EventWizard({
             const nextTickets = tickets.filter((ticket) => ticket.id !== id);
             const nameErrors = buildDuplicateTicketNameErrors(nextTickets);
             setTicketErrors((prev) => mergeTicketNameErrors(prev, nameErrors, nextTickets));
+            setTicketOpenMap((prev) => {
+                if (!Object.prototype.hasOwnProperty.call(prev, id)) {
+                    return prev;
+                }
+                const next = { ...prev };
+                delete next[id];
+                return next;
+            });
         },
         [clearFieldErrors, removeTicketBase, tickets],
     );
@@ -1039,51 +1239,96 @@ export function EventWizard({
         [tickets],
     );
 
-    const hasRegularTicketErrors = useMemo(
-        () => regularTickets.some((ticket) => Boolean(ticketErrors[ticket.id])),
-        [regularTickets, ticketErrors],
+    const activePromoCount = useMemo(
+        () => promoCodes.filter((promo) => promo.isActive !== false).length,
+        [promoCodes],
     );
-    const hasDonationErrors = useMemo(
-        () => (donationTicket ? Boolean(ticketErrors[donationTicket.id]) : false),
-        [donationTicket, ticketErrors],
-    );
-    const hasPromoErrors = useMemo(() => Object.keys(promoErrors).length > 0, [promoErrors]);
-    const hasTicketSectionErrors = Boolean(fieldErrors.tickets) || hasRegularTicketErrors;
-    const ticketSectionErrorGateRef = useRef({
-        tickets: false,
-        donation: false,
-        promo: false,
-    });
+    const promoLimitReached = activePromoCount >= MAX_PROMO_CODES_PER_EVENT;
+    const ticketErrorIds = useMemo(() => Object.keys(ticketErrors), [ticketErrors]);
+    const ticketHeaderStyles = useMemo(() => ([
+        {
+            header: 'bg-emerald-50/80 border-l-emerald-400',
+            badge: 'bg-emerald-100 text-emerald-700',
+            accent: 'text-emerald-600',
+        },
+        {
+            header: 'bg-sky-50/80 border-l-sky-400',
+            badge: 'bg-sky-100 text-sky-700',
+            accent: 'text-sky-600',
+        },
+        {
+            header: 'bg-amber-50/80 border-l-amber-400',
+            badge: 'bg-amber-100 text-amber-700',
+            accent: 'text-amber-600',
+        },
+        {
+            header: 'bg-rose-50/80 border-l-rose-400',
+            badge: 'bg-rose-100 text-rose-700',
+            accent: 'text-rose-600',
+        },
+        {
+            header: 'bg-teal-50/80 border-l-teal-400',
+            badge: 'bg-teal-100 text-teal-700',
+            accent: 'text-teal-600',
+        },
+        {
+            header: 'bg-orange-50/80 border-l-orange-400',
+            badge: 'bg-orange-100 text-orange-700',
+            accent: 'text-orange-600',
+        },
+    ]), []);
 
     useEffect(() => {
-        if (currentStep !== 4) {
-            ticketSectionErrorGateRef.current = {
-                tickets: false,
-                donation: false,
-                promo: false,
-            };
+        setTicketOpenMap((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            const currentIds = new Set(tickets.map((ticket) => ticket.id));
+
+            Object.keys(next).forEach((id) => {
+                if (!currentIds.has(id)) {
+                    delete next[id];
+                    changed = true;
+                }
+            });
+
+            if (!initialTicketOpenAppliedRef.current && tickets.length > 0) {
+                tickets.forEach((ticket, index) => {
+                    if (next[ticket.id] === undefined) {
+                        next[ticket.id] = index === 0;
+                        changed = true;
+                    }
+                });
+                initialTicketOpenAppliedRef.current = true;
+                return changed ? next : prev;
+            }
+
+            tickets.forEach((ticket) => {
+                if (next[ticket.id] === undefined) {
+                    next[ticket.id] = true;
+                    changed = true;
+                }
+            });
+
+            return changed ? next : prev;
+        });
+    }, [tickets]);
+
+    useEffect(() => {
+        if (ticketErrorIds.length === 0) {
             return;
         }
-
-        const previous = ticketSectionErrorGateRef.current;
-        const shouldOpenTickets = hasTicketSectionErrors && !previous.tickets;
-        const shouldOpenDonation = hasDonationErrors && !previous.donation;
-        const shouldOpenPromo = hasPromoErrors && !previous.promo;
-
-        if (shouldOpenTickets && openTicketSection !== 'tickets') {
-            setOpenTicketSection('tickets');
-        } else if (shouldOpenDonation && openTicketSection !== 'donation') {
-            setOpenTicketSection('donation');
-        } else if (shouldOpenPromo && openTicketSection !== 'promo') {
-            setOpenTicketSection('promo');
-        }
-
-        ticketSectionErrorGateRef.current = {
-            tickets: hasTicketSectionErrors,
-            donation: hasDonationErrors,
-            promo: hasPromoErrors,
-        };
-    }, [currentStep, hasDonationErrors, hasPromoErrors, hasTicketSectionErrors, openTicketSection]);
+        setTicketOpenMap((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            ticketErrorIds.forEach((id) => {
+                if (next[id] !== true) {
+                    next[id] = true;
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+    }, [ticketErrorIds]);
 
     const clearPromoError = useCallback((id: string, field?: keyof PromoFieldErrors) => {
         setPromoErrors((prev) => {
@@ -1122,8 +1367,12 @@ export function EventWizard({
     );
 
     const addPromoCode = useCallback(() => {
+        if (promoLimitReached) {
+            toast.warning(`You can add up to ${MAX_PROMO_CODES_PER_EVENT} active promo codes per event.`);
+            return;
+        }
         addPromoCodeBase();
-    }, [addPromoCodeBase]);
+    }, [addPromoCodeBase, promoLimitReached]);
 
     const removePromoCode = useCallback(
         (id: string) => {
@@ -1192,7 +1441,7 @@ export function EventWizard({
     const dashboardHref = activeOrganizerId ? buildDashboardPath(activeOrganizerId) : '/dashboard';
 
     const saveDraft = useCallback(
-        async (options?: { silent?: boolean }) => {
+        async (options?: { silent?: boolean; blockOnPromoErrors?: boolean }) => {
             if (isSaving) {
                 return eventId;
             }
@@ -1435,6 +1684,12 @@ export function EventWizard({
                     }
                 }
 
+                const hasPromoIssues = hasPromoValidationErrors || hasPromoApiErrors;
+                if (options?.blockOnPromoErrors && hasPromoIssues) {
+                    setPublishErrors([]);
+                    return null;
+                }
+
                 // Upload banner image if a new file was selected
                 if (bannerFile) {
                     try {
@@ -1568,10 +1823,7 @@ export function EventWizard({
 
                         if (Object.keys(mappedErrors).length > 0) {
                             setFieldErrors(mappedErrors);
-                            const nextStep = getStepForFieldErrors(mappedErrors);
-                            if (nextStep) {
-                                setCurrentStep(nextStep);
-                            }
+                            goToStepForErrors(mappedErrors);
                             if (!overrideMessage && firstMessage) {
                                 overrideMessage = firstMessage;
                             }
@@ -1589,7 +1841,7 @@ export function EventWizard({
                 setIsSaving(false);
             }
         },
-        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
+        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, goToStepForErrors, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
@@ -1603,7 +1855,7 @@ export function EventWizard({
         setIsWarningOpen(false); // Close warning if open
 
         try {
-            const savedEventId = await saveDraft({ silent: true });
+            const savedEventId = await saveDraft({ silent: true, blockOnPromoErrors: true });
             if (!savedEventId) {
                 return;
             }
@@ -1641,10 +1893,8 @@ export function EventWizard({
                     const { fieldErrors: mapped, unmatched } = deriveFieldErrorsFromMessages(details);
                     setFieldErrors(mapped);
                     setPublishErrors(unmatched);
-                    const nextStep = getStepForFieldErrors(mapped);
-                    if (nextStep) {
-                        setCurrentStep(nextStep);
-                    } else if (normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')) {
+                    goToStepForErrors(mapped);
+                    if (normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')) {
                         setCurrentStep(4);
                     }
                     const fallbackMessage =
@@ -1683,10 +1933,8 @@ export function EventWizard({
                     });
                     setFieldErrors(mappedErrors);
                     setPublishErrors(details.formErrors ?? []);
-                    const nextStep = getStepForFieldErrors(mappedErrors);
-                    if (nextStep) {
-                        setCurrentStep(nextStep);
-                    } else if (normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')) {
+                    goToStepForErrors(mappedErrors);
+                    if (normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')) {
                         setCurrentStep(4);
                     }
                     setActionError(firstMessage ?? details.formErrors?.[0] ?? errorMessage);
@@ -1712,7 +1960,7 @@ export function EventWizard({
         } finally {
             setIsPublishing(false);
         }
-    }, [activeOrganizerId, formData.visibility, markSnapshotAsSaved, router, saveDraft]);
+    }, [activeOrganizerId, formData.visibility, goToStepForErrors, markSnapshotAsSaved, router, saveDraft]);
 
     const handlePublishClick = useCallback(async () => {
         if (isPublishing) {
@@ -1726,7 +1974,7 @@ export function EventWizard({
         );
         if (invalidQuestions.length > 0) {
             const questionLabels = invalidQuestions.map(q => q.label || 'Untitled').join(', ');
-            setCurrentStep(5); // Go to Attendee Info step
+            navigateToStepWithSubStep(4, 'attendeeInfo');
             setActionError(`Please add options for: ${questionLabels}`);
             return;
         }
@@ -1734,10 +1982,7 @@ export function EventWizard({
         if (Object.keys(publishFieldErrors).length > 0) {
             setFieldErrors(publishFieldErrors);
             setPublishErrors([]);
-            const nextStep = getStepForFieldErrors(publishFieldErrors);
-            if (nextStep) {
-                setCurrentStep(nextStep);
-            }
+            goToStepForErrors(publishFieldErrors);
             const firstMessage = Object.values(publishFieldErrors)[0];
             const errorMsg = firstMessage ?? 'Fix the highlighted fields below.';
             setActionError(errorMsg);
@@ -1765,7 +2010,7 @@ export function EventWizard({
         }
 
         await executePublish();
-    }, [activeOrganizerId, canUseCredits, executePublish, formData, hasExistingAccessCode, isPublishing, tickets]);
+    }, [activeOrganizerId, canUseCredits, executePublish, formData, goToStepForErrors, hasExistingAccessCode, isPublishing, navigateToStepWithSubStep, tickets]);
 
     const handlePreviewClick = useCallback(async () => {
         const previewWindow = window.open('', '_blank');
@@ -1935,274 +2180,247 @@ export function EventWizard({
                 </div>
             </div>
 
-            {/* Mobile Step Indicator */}
-            <div className="lg:hidden border-b bg-background">
-                <div className="container py-3">
-                    <div className="flex items-center justify-between">
-                        {stepStatuses.map((step) => (
-                            <button
-                                key={step.id}
-                                onClick={() => setCurrentStep(step.id)}
-                                className="flex flex-col items-center gap-1"
-                            >
-                                <div
-                                    className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-all ${step.isCurrent
-                                        ? 'bg-primary text-primary-foreground'
-                                        : step.isPast
-                                            ? step.showWarning
-                                                ? 'border-2 border-dashed border-muted-foreground/40 bg-muted/50 text-muted-foreground'
-                                                : 'bg-primary/20 text-primary'
-                                            : 'bg-muted text-muted-foreground'
-                                        }`}
-                                >
-                                    {step.isPast ? (
-                                        step.showWarning ? step.id : <Check className="h-4 w-4" />
-                                    ) : (
-                                        step.id
-                                    )}
-                                </div>
-                                <span className={`text-xs ${step.isCurrent ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
-                                    {step.title.split(' ')[0]}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
+            {/* Main Step Tabs - Horizontal navigation */}
+            <MainStepTabs
+                steps={mainStepTabsData}
+                onStepClick={handleMainStepClick}
+            />
+
+            {/* Mobile Sub-step Chips */}
+            <SubStepChips
+                subSteps={currentSubSteps}
+                currentSubStep={currentSubStep}
+                onSubStepClick={handleSubStepClick}
+                className="lg:hidden"
+            />
 
             {/* Main Layout */}
             <div className="container py-6 lg:py-10">
                 <div className="flex gap-6 lg:gap-10 xl:gap-16">
-                    {/* Sidebar Navigation - Desktop Only */}
-                    <aside className="hidden lg:block w-72 xl:w-80 shrink-0">
-                        <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto space-y-3 pr-2">
-                            {stepStatuses.map((step) => (
-                                <button
-                                    key={step.id}
-                                    onClick={() => setCurrentStep(step.id)}
-                                    className={`w-full flex items-start gap-3 rounded-xl p-4 text-left transition-all ${step.isCurrent
-                                        ? 'bg-primary text-primary-foreground shadow-lg'
-                                        : step.isPast
-                                            ? step.showWarning
-                                                ? 'bg-muted/40 hover:bg-muted/60 border border-dashed border-muted-foreground/30'
-                                                : 'bg-primary/10 hover:bg-primary/15'
-                                            : 'bg-card hover:bg-muted'
-                                        }`}
-                                >
-                                    <div
-                                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${step.isCurrent
-                                            ? 'bg-primary-foreground/20'
-                                            : step.isPast
-                                                ? step.showWarning
-                                                    ? 'border-2 border-dashed border-muted-foreground/40 bg-transparent text-muted-foreground'
-                                                    : 'bg-primary/20 text-primary'
-                                                : 'bg-muted'
-                                            }`}
-                                    >
-                                        {step.isPast ? (
-                                            step.showWarning ? <step.icon className="h-4 w-4" /> : <Check className="h-4 w-4" />
-                                        ) : (
-                                            <step.icon className="h-4 w-4" />
-                                        )}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="font-medium">{step.title}</p>
-                                        <p className={`text-sm truncate ${step.isCurrent ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                            {step.description}
-                                        </p>
-                                        {step.showWarning ? (
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                Add details
-                                            </p>
-                                        ) : null}
-                                    </div>
-                                </button>
-                            ))}
-
-                            {/* Status Label */}
-                            <div className="pt-6">
-                                <p className="text-xs text-muted-foreground text-center">{statusLabel}</p>
-                            </div>
-                        </div>
-                    </aside>
+                    {/* Sub-step Sidebar - Desktop Only */}
+                    <SubStepSidebar
+                        subSteps={currentSubSteps}
+                        currentSubStep={currentSubStep}
+                        onSubStepClick={handleSubStepClick}
+                        className="hidden lg:block"
+                    />
 
                     {/* Main Content */}
                     <main ref={mainContentRef} className="flex-1 min-w-0 bg-card/50 rounded-2xl border border-border/50 p-4 sm:p-6 lg:p-8">
                         <div className="max-w-2xl mx-auto lg:max-w-none lg:mx-0">
                             <AnimatePresence mode="wait">
-                                {/* Step 1: Basic Details */}
+                                {/* Step 1: Event Details */}
                                 {currentStep === 1 && (
                                     <motion.div
-                                        key="step1"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
+                                        key={`step1-${currentSubStep}`}
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.2 }}
                                         className="space-y-4 lg:space-y-5"
                                     >
-                                        <div>
-                                            <h2 className="font-display text-xl lg:text-2xl font-bold">Tell us about your event</h2>
-                                            <p className="mt-1 text-sm text-muted-foreground">Start with the basics - you can always edit later</p>
-                                        </div>
-
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center gap-2">
-                                                <FileText className="h-4 w-4 text-primary" />
-                                                <h3 className="text-sm font-medium text-foreground">Event Details</h3>
-                                            </div>
-                                            <div className="p-4 space-y-4">
-                                                {/* Event Title */}
-                                                <div className="space-y-1.5">
-                                                    <Label htmlFor="title" className="text-sm font-medium">Event Title *</Label>
-                                                    <Input
-                                                        id="title"
-                                                        name="title"
-                                                        placeholder="Give your event a catchy name"
-                                                        value={formData.title}
-                                                        onChange={handleFieldChange}
-                                                        minLength={3}
-                                                        maxLength={75}
-                                                        className={cn(
-                                                            'h-11',
-                                                            fieldErrors.title ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                        )}
-                                                    />
-                                                    {fieldErrors.title ? (
-                                                        <p className="text-xs text-destructive">{fieldErrors.title}</p>
-                                                    ) : null}
+                                        {/* Sub-step: Title & Category */}
+                                        {currentSubStep === 'title' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">What&apos;s your event called?</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Give your event a catchy name and category</p>
                                                 </div>
 
-                                                {/* Description */}
-                                                <div className="space-y-1.5">
-                                                    <Label htmlFor="description" className="text-sm font-medium">Description</Label>
-                                                    <textarea
-                                                        id="description"
-                                                        name="description"
-                                                        placeholder="What's your event about?"
-                                                        value={formData.description}
-                                                        onChange={handleFieldChange}
-                                                        rows={3}
-                                                        maxLength={2500}
-                                                        className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-                                                    />
-                                                </div>
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6 space-y-5">
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="title" className="text-sm font-medium">Event Title *</Label>
+                                                        <Input
+                                                            id="title"
+                                                            name="title"
+                                                            placeholder="Give your event a catchy name"
+                                                            value={formData.title}
+                                                            onChange={handleFieldChange}
+                                                            minLength={3}
+                                                            maxLength={75}
+                                                            className={cn(
+                                                                'h-11',
+                                                                fieldErrors.title ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                            )}
+                                                        />
+                                                        {fieldErrors.title && <p className="text-xs text-destructive">{fieldErrors.title}</p>}
+                                                    </div>
 
-                                                <div className="space-y-2">
-                                                    <Label className="text-sm font-medium">Category</Label>
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {['Conference', 'Workshop', 'Iftar', 'Sisters', 'Youth', 'Charity', 'Education'].map((cat) => {
-                                                            const isSelected = formData.categories.includes(cat);
-                                                            return (
-                                                                <Badge
-                                                                    key={cat}
-                                                                    variant={isSelected ? 'default' : 'outline'}
-                                                                    className="cursor-pointer px-2.5 py-1 text-xs"
-                                                                    onClick={() => {
-                                                                        setFormData((prev) => ({
-                                                                            ...prev,
-                                                                            categories: isSelected
-                                                                                ? prev.categories.filter((c) => c !== cat)
-                                                                                : [...prev.categories, cat],
-                                                                        }));
-                                                                    }}
-                                                                >
-                                                                    {cat}
-                                                                </Badge>
-                                                            );
-                                                        })}
+                                                    <div className="space-y-2">
+                                                        <Label className="text-sm font-medium">Category</Label>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {['Conference', 'Workshop', 'Iftar', 'Sisters', 'Youth', 'Charity', 'Education'].map((cat) => {
+                                                                const isSelected = formData.categories.includes(cat);
+                                                                return (
+                                                                    <Badge
+                                                                        key={cat}
+                                                                        variant={isSelected ? 'default' : 'outline'}
+                                                                        className="cursor-pointer px-2.5 py-1 text-xs"
+                                                                        onClick={() => {
+                                                                            setFormData((prev) => ({
+                                                                                ...prev,
+                                                                                categories: isSelected
+                                                                                    ? prev.categories.filter((c) => c !== cat)
+                                                                                    : [...prev.categories, cat],
+                                                                            }));
+                                                                        }}
+                                                                    >
+                                                                        {cat}
+                                                                    </Badge>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </div>
                                                 </div>
+                                            </>
+                                        )}
 
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-sm font-medium">Event Poster</Label>
-                                                    <input
-                                                        ref={bannerInputRef}
-                                                        type="file"
-                                                        accept="image/*"
-                                                        onChange={handleBannerSelect}
-                                                        className="hidden"
-                                                        id="banner-upload"
-                                                    />
-                                                    <label
-                                                        htmlFor="banner-upload"
-                                                        className="relative flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 transition-all hover:border-primary/40 hover:bg-muted/30 group overflow-hidden aspect-[4/5] max-w-[280px]"
-                                                    >
-                                                        {formData.bannerImageDataUrl ? (
-                                                            <>
-                                                                <Image
-                                                                    src={formData.bannerImageDataUrl}
-                                                                    alt={formData.title || 'Event poster'}
-                                                                    fill
-                                                                    sizes="280px"
-                                                                    className="object-cover"
-                                                                    unoptimized
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={(e) => {
-                                                                        e.preventDefault();
-                                                                        e.stopPropagation();
-                                                                        removeBanner();
-                                                                    }}
-                                                                    className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors z-10"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <div className="text-center px-4">
-                                                                <div className="mx-auto mb-1.5 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-105 transition-transform">
-                                                                    <Upload className="h-4 w-4" />
+                                        {/* Sub-step: Description */}
+                                        {currentSubStep === 'description' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Describe your event</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Tell attendees what to expect</p>
+                                                </div>
+
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6">
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+                                                        <textarea
+                                                            id="description"
+                                                            name="description"
+                                                            placeholder="What's your event about? Share key details, agenda, and what attendees will gain..."
+                                                            value={formData.description}
+                                                            onChange={handleFieldChange}
+                                                            rows={8}
+                                                            maxLength={2500}
+                                                            className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                                                        />
+                                                        <p className="text-xs text-muted-foreground text-right">{formData.description.length}/2500</p>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Sub-step: Poster Upload */}
+                                        {currentSubStep === 'poster' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Add an event poster</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Upload an eye-catching image for your event</p>
+                                                </div>
+
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6">
+                                                    <div className="space-y-3">
+                                                        <input
+                                                            ref={bannerInputRef}
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={handleBannerSelect}
+                                                            className="hidden"
+                                                            id="banner-upload"
+                                                        />
+                                                        <label
+                                                            htmlFor="banner-upload"
+                                                            className="relative flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 transition-all hover:border-primary/40 hover:bg-muted/30 group overflow-hidden aspect-[4/5] max-w-[320px] mx-auto"
+                                                        >
+                                                            {formData.bannerImageDataUrl ? (
+                                                                <>
+                                                                    <Image
+                                                                        src={formData.bannerImageDataUrl}
+                                                                        alt={formData.title || 'Event poster'}
+                                                                        fill
+                                                                        sizes="320px"
+                                                                        className="object-cover"
+                                                                        unoptimized
+                                                                    />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.stopPropagation();
+                                                                            removeBanner();
+                                                                        }}
+                                                                        className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white shadow-md hover:bg-rose-600 transition-colors z-10"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </button>
+                                                                </>
+                                                            ) : (
+                                                                <div className="text-center px-4 py-12">
+                                                                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-105 transition-transform">
+                                                                        <Upload className="h-6 w-6" />
+                                                                    </div>
+                                                                    <p className="font-medium">Click to upload</p>
+                                                                    <p className="mt-1 text-sm text-muted-foreground">1080×1350px recommended</p>
                                                                 </div>
-                                                                <p className="font-medium text-sm">Click to upload</p>
-                                                                <p className="mt-0.5 text-xs text-muted-foreground">1080×1350px recommended</p>
-                                                            </div>
-                                                        )}
-                                                    </label>
+                                                            )}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Sub-step: Visibility */}
+                                        {currentSubStep === 'visibility' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Who can see your event?</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Choose visibility and access settings</p>
                                                 </div>
 
-                                                <div className="rounded-xl border border-border/60 bg-muted/10 p-4 space-y-3">
-                                                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                                                        <Settings2 className="h-4 w-4 text-primary" />
-                                                        Visibility &amp; access
-                                                    </div>
-                                                    <div className="grid gap-2 sm:grid-cols-2">
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6 space-y-5">
+                                                    <div className="grid gap-3 sm:grid-cols-2">
                                                         <button
                                                             type="button"
                                                             onClick={() => setFormData((prev) => ({ ...prev, visibility: 'public' }))}
                                                             className={cn(
-                                                                'flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
+                                                                'flex items-center gap-3 rounded-xl border p-4 text-left transition-all',
                                                                 formData.visibility === 'public'
-                                                                    ? 'border-primary bg-primary/10 text-primary'
-                                                                    : 'border-border/60 bg-background hover:border-primary/40 hover:text-foreground'
+                                                                    ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                                                                    : 'border-border/60 bg-background hover:border-primary/40'
                                                             )}
                                                         >
-                                                            <Globe className="h-3.5 w-3.5" />
-                                                            Public
+                                                            <div className={cn(
+                                                                'flex h-10 w-10 items-center justify-center rounded-full',
+                                                                formData.visibility === 'public' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                                                            )}>
+                                                                <Globe className="h-5 w-5" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-medium">Public</p>
+                                                                <p className="text-xs text-muted-foreground">Visible in event listings</p>
+                                                            </div>
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={() => setFormData((prev) => ({ ...prev, visibility: 'private' }))}
                                                             className={cn(
-                                                                'flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all',
+                                                                'flex items-center gap-3 rounded-xl border p-4 text-left transition-all',
                                                                 formData.visibility === 'private'
-                                                                    ? 'border-slate-400/60 bg-slate-100/70 text-slate-700'
-                                                                    : 'border-border/60 bg-background hover:border-slate-300/70 hover:text-foreground'
+                                                                    ? 'border-slate-400/60 bg-slate-100/70 ring-2 ring-slate-300/40'
+                                                                    : 'border-border/60 bg-background hover:border-slate-300/70'
                                                             )}
                                                         >
-                                                            <EyeOff className="h-3.5 w-3.5" />
-                                                            Private
+                                                            <div className={cn(
+                                                                'flex h-10 w-10 items-center justify-center rounded-full',
+                                                                formData.visibility === 'private' ? 'bg-slate-200 text-slate-700' : 'bg-muted text-muted-foreground'
+                                                            )}>
+                                                                <EyeOff className="h-5 w-5" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-medium">Private</p>
+                                                                <p className="text-xs text-muted-foreground">Share by link only</p>
+                                                            </div>
                                                         </button>
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        Public events appear in listings. Private events stay off listings but remain shareable by link.
-                                                    </p>
-                                                    {isPrivate ? (
-                                                        <div className="rounded-lg border border-border/50 bg-background/70 p-3 space-y-3">
+
+                                                    {isPrivate && (
+                                                        <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-3">
                                                             <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                                                <div className="flex items-center gap-2">
                                                                     <Lock className="h-4 w-4 text-muted-foreground" />
-                                                                    Access code (optional)
+                                                                    <span className="text-sm font-medium">Require access code</span>
                                                                 </div>
                                                                 <Switch
                                                                     checked={formData.accessCodeEnabled}
@@ -2219,510 +2437,452 @@ export function EventWizard({
                                                                     }}
                                                                 />
                                                             </div>
-                                                            {formData.accessCodeEnabled ? (
+                                                            {formData.accessCodeEnabled && (
                                                                 <div className="space-y-1.5">
                                                                     <Label htmlFor="accessCode">Access code</Label>
-                                                                    <Input
-                                                                        id="accessCode"
-                                                                        name="accessCode"
-                                                                        type="password"
-                                                                        placeholder={hasExistingAccessCode
-                                                                            ? 'Leave blank to keep current code'
-                                                                            : 'Create an access code'}
-                                                                        value={formData.accessCode}
-                                                                        onChange={handleFieldChange}
-                                                                        className={cn(
-                                                                            'h-11',
-                                                                            fieldErrors.accessCode ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                        )}
-                                                                    />
-                                                                    {fieldErrors.accessCode ? (
-                                                                        <p className="text-xs text-destructive">{fieldErrors.accessCode}</p>
-                                                                    ) : hasExistingAccessCode && !formData.accessCode.trim() ? (
-                                                                        <p className="text-xs text-muted-foreground">
-                                                                            Access code is already set. Enter a new one to replace it.
-                                                                        </p>
-                                                                    ) : (
-                                                                        <p className="text-xs text-muted-foreground">
-                                                                            Share this code privately with attendees.
-                                                                        </p>
-                                                                    )}
+                                                                    <div className="relative">
+                                                                        <Input
+                                                                            id="accessCode"
+                                                                            name="accessCode"
+                                                                            type={showAccessCode ? 'text' : 'password'}
+                                                                            placeholder={hasExistingAccessCode
+                                                                                ? 'Leave blank to keep current code'
+                                                                                : 'Create an access code'}
+                                                                            value={formData.accessCode}
+                                                                            onChange={handleFieldChange}
+                                                                            className={cn(
+                                                                                'h-11 pr-10',
+                                                                                fieldErrors.accessCode ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                            )}
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setShowAccessCode(!showAccessCode)}
+                                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                                            aria-label={showAccessCode ? 'Hide access code' : 'Show access code'}
+                                                                        >
+                                                                            {showAccessCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                                        </button>
+                                                                    </div>
+                                                                    {fieldErrors.accessCode && <p className="text-xs text-destructive">{fieldErrors.accessCode}</p>}
                                                                 </div>
-                                                            ) : (
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    Add a code to require password access for this link.
-                                                                </p>
                                                             )}
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-
-
-
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                {/* Step 2: When */}
-                                {currentStep === 2 && (
-                                    <motion.div
-                                        key="step2"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="space-y-4 lg:space-y-5"
-                                    >
-                                        <div>
-                                            <h2 className="font-display text-xl lg:text-2xl font-bold">When is your event?</h2>
-                                            <p className="mt-1 text-sm text-muted-foreground">Set the date and time for your event</p>
-                                        </div>
-
-                                        {/* Date & Time Card */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Calendar className="h-4 w-4 text-primary" />
-                                                    <h3 className="text-sm font-medium text-foreground">Date & Time</h3>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Label htmlFor="multiday" className="text-xs text-muted-foreground">Multi-day event</Label>
-                                                    <Switch
-                                                        id="multiday"
-                                                        checked={formData.isMultiDay}
-                                                        onCheckedChange={(checked) => {
-                                                            setFormData({ ...formData, isMultiDay: checked });
-                                                            if (!checked) {
-                                                                clearFieldErrors('endDate');
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="p-4 space-y-4">
-
-                                                {/* Date Selection */}
-                                                <div className="grid gap-4 sm:grid-cols-2">
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="date">Start Date *</Label>
-                                                        <DatePicker
-                                                            id="date"
-                                                            name="date"
-                                                            value={formData.date}
-                                                            onChange={(value) => {
-                                                                setFormData(prev => ({ ...prev, date: value }));
-                                                                clearFieldErrors('date');
-                                                            }}
-                                                            hasError={!!fieldErrors.date}
-                                                            disablePast
-                                                        />
-                                                        {fieldErrors.date ? (
-                                                            <p className="text-xs text-destructive">{fieldErrors.date}</p>
-                                                        ) : null}
-                                                    </div>
-                                                    {formData.isMultiDay && (
-                                                        <div className="space-y-1.5">
-                                                            <Label htmlFor="endDate">End Date *</Label>
-                                                            <DatePicker
-                                                                id="endDate"
-                                                                name="endDate"
-                                                                value={formData.endDate}
-                                                                onChange={(value) => {
-                                                                    setFormData(prev => ({ ...prev, endDate: value }));
-                                                                    clearFieldErrors('endDate');
-                                                                }}
-                                                                hasError={!!fieldErrors.endDate}
-                                                                minDate={formData.date ? new Date(formData.date) : undefined}
-                                                                disablePast
-                                                            />
-                                                            {fieldErrors.endDate ? (
-                                                                <p className="text-xs text-destructive">{fieldErrors.endDate}</p>
-                                                            ) : null}
                                                         </div>
                                                     )}
                                                 </div>
-
-                                                {/* Time Selection */}
-                                                <div className="grid gap-3 sm:grid-cols-2">
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="startTime">Start Time *</Label>
-                                                        <TimePicker
-                                                            id="startTime"
-                                                            name="startTime"
-                                                            value={formData.startTime}
-                                                            onChange={(value) => {
-                                                                setFormData(prev => ({ ...prev, startTime: value }));
-                                                                clearFieldErrors('startTime');
-                                                            }}
-                                                            hasError={!!fieldErrors.startTime}
-                                                        />
-                                                        {fieldErrors.startTime ? (
-                                                            <p className="text-xs text-destructive">{fieldErrors.startTime}</p>
-                                                        ) : null}
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="endTime">End Time *</Label>
-                                                        <TimePicker
-                                                            id="endTime"
-                                                            name="endTime"
-                                                            value={formData.endTime}
-                                                            onChange={(value) => {
-                                                                setFormData(prev => ({ ...prev, endTime: value }));
-                                                                clearFieldErrors('endTime');
-                                                            }}
-                                                            hasError={!!fieldErrors.endTime}
-                                                        />
-                                                        {fieldErrors.endTime ? (
-                                                            <p className="text-xs text-destructive">{fieldErrors.endTime}</p>
-                                                        ) : null}
-                                                    </div>
-                                                </div>
-
-                                                {/* Timezone */}
-                                                <div className="space-y-1.5">
-                                                    <Label>Timezone</Label>
-                                                    <Select
-                                                        value={formData.timezone}
-                                                        onValueChange={(value) => {
-                                                            setFormData({ ...formData, timezone: value });
-                                                            clearFieldErrors('timezone');
-                                                        }}
-                                                    >
-                                                        <SelectTrigger
-                                                            className={cn(
-                                                                'h-11',
-                                                                fieldErrors.timezone ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                            )}
-                                                        >
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="Europe/London">🇬🇧 London (GMT/BST)</SelectItem>
-                                                            <SelectItem value="Europe/Paris">🇫🇷 Paris (CET)</SelectItem>
-                                                            <SelectItem value="Europe/Berlin">🇩🇪 Berlin (CET)</SelectItem>
-                                                            <SelectItem value="America/New_York">🇺🇸 New York (EST)</SelectItem>
-                                                            <SelectItem value="America/Los_Angeles">🇺🇸 Los Angeles (PST)</SelectItem>
-                                                            <SelectItem value="Asia/Dubai">🇦🇪 Dubai (GST)</SelectItem>
-                                                            <SelectItem value="Asia/Riyadh">🇸🇦 Riyadh (AST)</SelectItem>
-                                                            <SelectItem value="Asia/Karachi">🇵🇰 Karachi (PKT)</SelectItem>
-                                                            <SelectItem value="Asia/Kuala_Lumpur">🇲🇾 Kuala Lumpur (MYT)</SelectItem>
-                                                            <SelectItem value="Australia/Sydney">🇦🇺 Sydney (AEDT)</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {fieldErrors.timezone ? (
-                                                        <p className="text-xs text-destructive">{fieldErrors.timezone}</p>
-                                                    ) : null}
-                                                </div>
-                                            </div>
-                                        </div>
+                                            </>
+                                        )}
                                     </motion.div>
                                 )}
 
-                                {/* Step 3: Where */}
-                                {currentStep === 3 && (
+                                {/* Step 2: Schedule */}
+                                {currentStep === 2 && (
                                     <motion.div
-                                        key="step3"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
+                                        key={`step2-${currentSubStep}`}
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.2 }}
                                         className="space-y-4 lg:space-y-5"
                                     >
-                                        <div>
-                                            <h2 className="font-display text-xl lg:text-2xl font-bold">Where is your event?</h2>
-                                            <p className="mt-1 text-sm text-muted-foreground">Help attendees find your event</p>
-                                        </div>
-
-                                        {/* Location Card */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50">
-                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center gap-2">
-                                                <MapPin className="h-4 w-4 text-primary" />
-                                                <h3 className="text-sm font-medium text-foreground">Location</h3>
-                                            </div>
-                                            <div className="p-4 space-y-4">
-
-                                                {/* Location Type Selector */}
-                                                <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                                                    {[
-                                                        { value: 'physical', label: 'In Person', icon: Building },
-                                                        { value: 'online', label: 'Online', icon: Globe },
-                                                        { value: 'hybrid', label: 'Hybrid', icon: Users },
-                                                    ].map((type) => (
-                                                        <button
-                                                            key={type.value}
-                                                            onClick={() => {
-                                                                setFormData({ ...formData, locationType: type.value as typeof formData.locationType });
-                                                                clearFieldErrors('venue', 'onlineUrl');
-                                                            }}
-                                                            className={`flex flex-col items-center gap-1 rounded-lg border border-border/60 p-2.5 sm:p-3 transition-all ${formData.locationType === type.value
-                                                                ? 'border-primary/70 bg-primary/5'
-                                                                : 'hover:border-primary/40'
-                                                                }`}
-                                                        >
-                                                            <type.icon className={`h-4 w-4 ${formData.locationType === type.value ? 'text-primary' : 'text-muted-foreground'}`} />
-                                                            <span className={`text-xs font-medium ${formData.locationType === type.value ? 'text-primary' : ''}`}>
-                                                                {type.label}
-                                                            </span>
-                                                        </button>
-                                                    ))}
+                                        {/* Sub-step: Date Selection */}
+                                        {currentSubStep === 'date' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">When is your event?</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Select the date(s) for your event</p>
                                                 </div>
 
-                                                {/* Physical Location Fields */}
-                                                {(formData.locationType === 'physical' || formData.locationType === 'hybrid') && (
-                                                    <div className="space-y-3 pt-1.5">
-                                                        {/* Location Autocomplete */}
-                                                        <LocationAutocomplete
-                                                            value={formData.venue || ''}
-                                                            onSelect={(location) => {
-                                                                setFormData(prev => ({
-                                                                    ...prev,
-                                                                    venue: location.venue || location.displayName,
-                                                                    address: location.address,
-                                                                    city: location.city,
-                                                                    latitude: location.lat,
-                                                                    longitude: location.lon,
-                                                                }));
-                                                                setLocationCoords({ lat: location.lat, lon: location.lon });
-                                                                clearFieldErrors('venue');
-                                                            }}
-                                                            onInputChange={(nextValue) => {
-                                                                setFormData(prev => ({
-                                                                    ...prev,
-                                                                    venue: nextValue,
-                                                                    latitude: null,
-                                                                    longitude: null,
-                                                                    ...(nextValue ? {} : { address: '', city: '' }),
-                                                                }));
-                                                                if (!nextValue || locationCoords) {
-                                                                    setLocationCoords(null);
-                                                                }
-                                                                clearFieldErrors('venue');
-                                                            }}
-                                                            label="Venue Location *"
-                                                            placeholder="Search for Location"
-                                                            className=""
-                                                        />
-                                                        {fieldErrors.venue && (
-                                                            <p className="text-xs text-destructive -mt-1">{fieldErrors.venue}</p>
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6 space-y-5">
+                                                    <div className="grid gap-4 sm:grid-cols-2">
+                                                        <div className="space-y-1.5">
+                                                            <Label htmlFor="date">Start Date *</Label>
+                                                            <DatePicker
+                                                                id="date"
+                                                                name="date"
+                                                                value={formData.date}
+                                                                onChange={(value) => {
+                                                                    setFormData(prev => ({ ...prev, date: value }));
+                                                                    clearFieldErrors('date');
+                                                                }}
+                                                                hasError={!!fieldErrors.date}
+                                                                disablePast
+                                                            />
+                                                            {fieldErrors.date && <p className="text-xs text-destructive">{fieldErrors.date}</p>}
+                                                        </div>
+                                                        {formData.isMultiDay && (
+                                                            <div className="space-y-1.5">
+                                                                <Label htmlFor="endDate">End Date *</Label>
+                                                                <DatePicker
+                                                                    id="endDate"
+                                                                    name="endDate"
+                                                                    value={formData.endDate}
+                                                                    onChange={(value) => {
+                                                                        setFormData(prev => ({ ...prev, endDate: value }));
+                                                                        clearFieldErrors('endDate');
+                                                                    }}
+                                                                    hasError={!!fieldErrors.endDate}
+                                                                    minDate={formData.date ? new Date(formData.date) : undefined}
+                                                                    disablePast
+                                                                />
+                                                                {fieldErrors.endDate && <p className="text-xs text-destructive">{fieldErrors.endDate}</p>}
+                                                            </div>
                                                         )}
+                                                    </div>
+                                                </div>
 
-                                                        {/* Optional manual override fields */}
-                                                        <div className="grid gap-3 sm:grid-cols-2">
-                                                            <div className="space-y-1.5">
-                                                                <Label htmlFor="address">Address (optional override)</Label>
-                                                                <Input
-                                                                    id="address"
-                                                                    name="address"
-                                                                    placeholder="Street address"
-                                                                    value={formData.address}
-                                                                    onChange={handleFieldChange}
-                                                                    maxLength={100}
-                                                                    className="h-11"
-                                                                />
-                                                                {fieldErrors.address ? (
-                                                                    <p className="text-xs text-destructive">{fieldErrors.address}</p>
-                                                                ) : null}
-                                                            </div>
-                                                            <div className="space-y-1.5">
-                                                                <Label htmlFor="city">City</Label>
-                                                                <Input
-                                                                    id="city"
-                                                                    name="city"
-                                                                    placeholder="City"
-                                                                    value={formData.city}
-                                                                    onChange={handleFieldChange}
-                                                                    maxLength={50}
-                                                                    className="h-11"
-                                                                />
-                                                                {fieldErrors.city ? (
-                                                                    <p className="text-xs text-destructive">{fieldErrors.city}</p>
-                                                                ) : null}
-                                                            </div>
+                                                {/* Settings Card */}
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="space-y-0.5">
+                                                            <Label htmlFor="multiday" className="text-sm font-medium">Multi-day event</Label>
+                                                            <p className="text-xs text-muted-foreground">Toggle this if your event spans multiple days</p>
+                                                        </div>
+                                                        <Switch
+                                                            id="multiday"
+                                                            checked={formData.isMultiDay}
+                                                            onCheckedChange={(checked) => {
+                                                                setFormData({ ...formData, isMultiDay: checked });
+                                                                if (!checked) {
+                                                                    clearFieldErrors('endDate');
+                                                                }
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Sub-step: Time & Timezone */}
+                                        {currentSubStep === 'time' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Set the time</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Choose start and end times for your event</p>
+                                                </div>
+
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6 space-y-5">
+                                                    <div className="grid gap-4 sm:grid-cols-2">
+                                                        <div className="space-y-1.5">
+                                                            <Label htmlFor="startTime">Start Time *</Label>
+                                                            <TimePicker
+                                                                id="startTime"
+                                                                name="startTime"
+                                                                value={formData.startTime}
+                                                                onChange={(value) => {
+                                                                    setFormData(prev => ({ ...prev, startTime: value }));
+                                                                    clearFieldErrors('startTime');
+                                                                }}
+                                                                hasError={!!fieldErrors.startTime}
+                                                            />
+                                                            {fieldErrors.startTime && <p className="text-xs text-destructive">{fieldErrors.startTime}</p>}
+                                                        </div>
+                                                        <div className="space-y-1.5">
+                                                            <Label htmlFor="endTime">End Time *</Label>
+                                                            <TimePicker
+                                                                id="endTime"
+                                                                name="endTime"
+                                                                value={formData.endTime}
+                                                                onChange={(value) => {
+                                                                    setFormData(prev => ({ ...prev, endTime: value }));
+                                                                    clearFieldErrors('endTime');
+                                                                }}
+                                                                hasError={!!fieldErrors.endTime}
+                                                            />
+                                                            {fieldErrors.endTime && <p className="text-xs text-destructive">{fieldErrors.endTime}</p>}
+                                                        </div>
+                                                    </div>
+                                                    <div className="pt-2 border-t border-border/40">
+                                                        <Select
+                                                            value={formData.timezone}
+                                                            onValueChange={(value) => {
+                                                                setFormData({ ...formData, timezone: value });
+                                                                clearFieldErrors('timezone');
+                                                            }}
+                                                        >
+                                                            <SelectTrigger
+                                                                className={cn(
+                                                                    'h-11',
+                                                                    fieldErrors.timezone ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                )}
+                                                            >
+                                                                <SelectValue placeholder="Select timezone" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="Europe/London">🇬🇧 London (GMT/BST)</SelectItem>
+                                                                <SelectItem value="Europe/Paris">🇫🇷 Paris (CET)</SelectItem>
+                                                                <SelectItem value="Europe/Berlin">🇩🇪 Berlin (CET)</SelectItem>
+                                                                <SelectItem value="America/New_York">🇺🇸 New York (EST)</SelectItem>
+                                                                <SelectItem value="America/Los_Angeles">🇺🇸 Los Angeles (PST)</SelectItem>
+                                                                <SelectItem value="Asia/Dubai">🇦🇪 Dubai (GST)</SelectItem>
+                                                                <SelectItem value="Asia/Riyadh">🇸🇦 Riyadh (AST)</SelectItem>
+                                                                <SelectItem value="Asia/Karachi">🇵🇰 Karachi (PKT)</SelectItem>
+                                                                <SelectItem value="Asia/Kuala_Lumpur">🇲🇾 Kuala Lumpur (MYT)</SelectItem>
+                                                                <SelectItem value="Australia/Sydney">🇦🇺 Sydney (AEDT)</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {fieldErrors.timezone && <p className="text-xs text-destructive">{fieldErrors.timezone}</p>}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </motion.div>
+                                )}
+
+                                {/* Step 3: Venue */}
+                                {currentStep === 3 && (
+                                    <motion.div
+                                        key={`step3-${currentSubStep}`}
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="space-y-4 lg:space-y-5"
+                                    >
+                                        {/* Sub-step: Location (only sub-step for Venue) */}
+                                        {currentSubStep === 'location' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Where is your event?</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Help attendees find your event</p>
+                                                </div>
+
+                                                {/* Location Card */}
+                                                <div className="rounded-xl border border-border/60 bg-card/50">
+                                                    <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center gap-2">
+                                                        <MapPin className="h-4 w-4 text-primary" />
+                                                        <h3 className="text-sm font-medium text-foreground">Location</h3>
+                                                    </div>
+                                                    <div className="p-4 space-y-4">
+
+                                                        {/* Location Type Selector */}
+                                                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                                                            {[
+                                                                { value: 'physical', label: 'In Person', icon: Building },
+                                                                { value: 'online', label: 'Online', icon: Globe },
+                                                                { value: 'hybrid', label: 'Hybrid', icon: Users },
+                                                            ].map((type) => (
+                                                                <button
+                                                                    key={type.value}
+                                                                    onClick={() => {
+                                                                        setFormData({ ...formData, locationType: type.value as typeof formData.locationType });
+                                                                        clearFieldErrors('venue', 'onlineUrl');
+                                                                    }}
+                                                                    className={`flex flex-col items-center gap-1 rounded-lg border border-border/60 p-2.5 sm:p-3 transition-all ${formData.locationType === type.value
+                                                                        ? 'border-primary/70 bg-primary/5'
+                                                                        : 'hover:border-primary/40'
+                                                                        }`}
+                                                                >
+                                                                    <type.icon className={`h-4 w-4 ${formData.locationType === type.value ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                                    <span className={`text-xs font-medium ${formData.locationType === type.value ? 'text-primary' : ''}`}>
+                                                                        {type.label}
+                                                                    </span>
+                                                                </button>
+                                                            ))}
                                                         </div>
 
-                                                        {/* Map Preview */}
-                                                        {locationCoords ? (
-                                                            <div className="space-y-1.5">
-                                                                <Label>Location Preview</Label>
-                                                                <EventLocationMap
-                                                                    lat={locationCoords.lat}
-                                                                    lon={locationCoords.lon}
-                                                                    venueName={formData.venue || undefined}
-                                                                    address={formData.address || undefined}
+                                                        {/* Physical Location Fields */}
+                                                        {(formData.locationType === 'physical' || formData.locationType === 'hybrid') && (
+                                                            <div className="space-y-3 pt-1.5">
+                                                                {/* Location Autocomplete */}
+                                                                <LocationAutocomplete
+                                                                    value={formData.venue || ''}
+                                                                    onSelect={(location) => {
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            venue: location.venue || location.displayName,
+                                                                            address: location.address,
+                                                                            city: location.city,
+                                                                            country: location.country,
+                                                                            latitude: location.lat,
+                                                                            longitude: location.lon,
+                                                                        }));
+                                                                        setLocationCoords({ lat: location.lat, lon: location.lon });
+                                                                        clearFieldErrors('venue');
+                                                                    }}
+                                                                    onInputChange={(nextValue) => {
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            venue: nextValue,
+                                                                            country: '',
+                                                                            latitude: null,
+                                                                            longitude: null,
+                                                                            ...(nextValue ? {} : { address: '', city: '' }),
+                                                                        }));
+                                                                        if (!nextValue || locationCoords) {
+                                                                            setLocationCoords(null);
+                                                                        }
+                                                                        clearFieldErrors('venue');
+                                                                    }}
+                                                                    label="Venue Location *"
+                                                                    placeholder="Search for Location"
+                                                                    className=""
                                                                 />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="h-24 sm:h-28 rounded-lg bg-muted/40 flex items-center justify-center border border-border/50">
-                                                                <div className="text-center text-muted-foreground">
-                                                                    <MapPin className="h-6 w-6 mx-auto mb-1" />
-                                                                    <p className="text-xs sm:text-sm">Select a location to see map preview</p>
+                                                                {fieldErrors.venue && (
+                                                                    <p className="text-xs text-destructive -mt-1">{fieldErrors.venue}</p>
+                                                                )}
+
+                                                                {/* Optional manual override fields */}
+                                                                <div className="grid gap-3 sm:grid-cols-2">
+                                                                    <div className="space-y-1.5">
+                                                                        <Label htmlFor="address">Address (optional override)</Label>
+                                                                        <Input
+                                                                            id="address"
+                                                                            name="address"
+                                                                            placeholder="Street address"
+                                                                            value={formData.address}
+                                                                            onChange={handleFieldChange}
+                                                                            maxLength={100}
+                                                                            className="h-11"
+                                                                        />
+                                                                        {fieldErrors.address ? (
+                                                                            <p className="text-xs text-destructive">{fieldErrors.address}</p>
+                                                                        ) : null}
+                                                                    </div>
+                                                                    <div className="space-y-1.5">
+                                                                        <Label htmlFor="city">City</Label>
+                                                                        <Input
+                                                                            id="city"
+                                                                            name="city"
+                                                                            placeholder="City"
+                                                                            value={formData.city}
+                                                                            onChange={handleFieldChange}
+                                                                            maxLength={50}
+                                                                            className="h-11"
+                                                                        />
+                                                                        {fieldErrors.city ? (
+                                                                            <p className="text-xs text-destructive">{fieldErrors.city}</p>
+                                                                        ) : null}
+                                                                    </div>
                                                                 </div>
+
+                                                                {/* Map Preview */}
+                                                                {locationCoords ? (
+                                                                    <div className="space-y-1.5">
+                                                                        <Label>Location Preview</Label>
+                                                                        <EventLocationMap
+                                                                            lat={locationCoords.lat}
+                                                                            lon={locationCoords.lon}
+                                                                            venueName={formData.venue || undefined}
+                                                                            address={formData.address || undefined}
+                                                                        />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="h-24 sm:h-28 rounded-lg bg-muted/40 flex items-center justify-center border border-border/50">
+                                                                        <div className="text-center text-muted-foreground">
+                                                                            <MapPin className="h-6 w-6 mx-auto mb-1" />
+                                                                            <p className="text-xs sm:text-sm">Select a location to see map preview</p>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Online URL */}
+                                                        {(formData.locationType === 'online' || formData.locationType === 'hybrid') && (
+                                                            <div className="space-y-1.5 pt-1.5">
+                                                                <Label htmlFor="onlineUrl">Event Link</Label>
+                                                                <Input
+                                                                    id="onlineUrl"
+                                                                    name="onlineUrl"
+                                                                    placeholder="https://zoom.us/j/..."
+                                                                    value={formData.onlineUrl}
+                                                                    onChange={handleFieldChange}
+                                                                    maxLength={500}
+                                                                    className={cn(
+                                                                        'h-11',
+                                                                        fieldErrors.onlineUrl ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                    )}
+                                                                />
+                                                                {fieldErrors.onlineUrl ? (
+                                                                    <p className="text-xs text-destructive">{fieldErrors.onlineUrl}</p>
+                                                                ) : null}
                                                             </div>
                                                         )}
                                                     </div>
-                                                )}
-
-                                                {/* Online URL */}
-                                                {(formData.locationType === 'online' || formData.locationType === 'hybrid') && (
-                                                    <div className="space-y-1.5 pt-1.5">
-                                                        <Label htmlFor="onlineUrl">Event Link</Label>
-                                                        <Input
-                                                            id="onlineUrl"
-                                                            name="onlineUrl"
-                                                            placeholder="https://zoom.us/j/..."
-                                                            value={formData.onlineUrl}
-                                                            onChange={handleFieldChange}
-                                                            maxLength={500}
-                                                            className={cn(
-                                                                'h-11',
-                                                                fieldErrors.onlineUrl ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                            )}
-                                                        />
-                                                        {fieldErrors.onlineUrl ? (
-                                                            <p className="text-xs text-destructive">{fieldErrors.onlineUrl}</p>
-                                                        ) : null}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
+                                                </div>
+                                            </>
+                                        )}
                                     </motion.div>
                                 )}
 
                                 {/* Step 4: Tickets */}
                                 {currentStep === 4 && (
                                     <motion.div
-                                        key="step4"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
+                                        key={`step4-${currentSubStep}`}
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.2 }}
                                         className="space-y-4 lg:space-y-5"
                                     >
-                                        <div>
-                                            <h2 className="font-display text-xl lg:text-2xl font-bold">Set up your tickets</h2>
-                                            <p className="mt-1 text-sm text-muted-foreground">Create one or more ticket types</p>
-                                            {fieldErrors.tickets ? (
-                                                <p className="text-xs text-destructive mt-1.5">{fieldErrors.tickets}</p>
-                                            ) : null}
-                                        </div>
-
-                                        {/* Currency Selector */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
-                                                <h3 className="text-sm font-medium text-foreground">Ticket Currency</h3>
-                                                <p className="text-xs text-muted-foreground mt-0.5">All ticket prices will be in this currency</p>
-                                            </div>
-                                            <div className="p-4">
-                                                <Select
-                                                    value={formData.currency}
-                                                    onValueChange={(value) => {
-                                                        hasCurrencyUserOverrideRef.current = true;
-                                                        setFormData((prev) => ({
-                                                            ...prev,
-                                                            currency: value,
-                                                        }));
-                                                        clearFieldErrors('currency');
-                                                    }}
-                                                >
-                                                    <SelectTrigger
-                                                        className={cn(
-                                                            'w-[180px] h-10',
-                                                            fieldErrors.currency ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                        )}
-                                                    >
-                                                        <SelectValue placeholder="Select currency" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="GBP">🇬🇧 GBP (£)</SelectItem>
-                                                        <SelectItem value="USD">🇺🇸 USD ($)</SelectItem>
-                                                        <SelectItem value="EUR">🇪🇺 EUR (€)</SelectItem>
-                                                        <SelectItem value="CAD">🇨🇦 CAD (C$)</SelectItem>
-                                                        <SelectItem value="AUD">🇦🇺 AUD (A$)</SelectItem>
-                                                        <SelectItem value="AED">🇦🇪 AED (د.إ)</SelectItem>
-                                                        <SelectItem value="SAR">🇸🇦 SAR (﷼)</SelectItem>
-                                                        <SelectItem value="MYR">🇲🇾 MYR (RM)</SelectItem>
-                                                        <SelectItem value="SGD">🇸🇬 SGD (S$)</SelectItem>
-                                                        <SelectItem value="INR">🇮🇳 INR (₹)</SelectItem>
-                                                        <SelectItem value="PKR">🇵🇰 PKR (₨)</SelectItem>
-                                                        <SelectItem value="TRY">🇹🇷 TRY (₺)</SelectItem>
-                                                        <SelectItem value="NGN">🇳🇬 NGN (₦)</SelectItem>
-                                                        <SelectItem value="ZAR">🇿🇦 ZAR (R)</SelectItem>
-                                                        <SelectItem value="EGP">🇪🇬 EGP (E£)</SelectItem>
-                                                        <SelectItem value="IDR">🇮🇩 IDR (Rp)</SelectItem>
-                                                        <SelectItem value="BDT">🇧🇩 BDT (৳)</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                {fieldErrors.currency ? (
-                                                    <p className="text-xs text-destructive mt-2">{fieldErrors.currency}</p>
-                                                ) : null}
-                                            </div>
-                                        </div>
-
-                                        {/* Refund Policy */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
-                                                <h3 className="text-sm font-medium text-foreground">Refund Policy</h3>
-                                                <p className="text-xs text-muted-foreground mt-0.5">This will be shown on the public event page</p>
-                                            </div>
-                                            <div className="p-4 space-y-3">
-                                                <Select
-                                                    value={refundPolicySelection || undefined}
-                                                    onValueChange={handleRefundPolicyChange}
-                                                >
-                                                    <SelectTrigger className="h-10">
-                                                        <SelectValue placeholder="Select a refund policy" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {refundPolicyOptions.map((option) => (
-                                                            <SelectItem key={option.value} value={option.value}>
-                                                                {option.label}
-                                                            </SelectItem>
-                                                        ))}
-                                                        <SelectItem value="custom">Custom policy</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                {refundPolicySelection === 'custom' && (
-                                                    <div className="space-y-1.5">
-                                                        <Label htmlFor="refundPolicy">Custom policy text</Label>
-                                                        <Textarea
-                                                            id="refundPolicy"
-                                                            name="refundPolicy"
-                                                            placeholder="Describe your refund terms for attendees"
-                                                            value={formData.refundPolicy}
-                                                            onChange={handleFieldChange}
-                                                            minLength={10}
-                                                            maxLength={500}
-                                                            className="min-h-[90px] resize-none"
-                                                        />
-                                                    </div>
-                                                )}
-                                                {fieldErrors.refundPolicy ? (
-                                                    <p className="text-xs text-destructive">{fieldErrors.refundPolicy}</p>
-                                                ) : null}
-                                            </div>
-                                        </div>
-
-                                        {/* Tickets Section - Accordion */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <button
-                                                type="button"
-                                                onClick={() => setOpenTicketSection(openTicketSection === 'tickets' ? null : 'tickets')}
-                                                className="w-full px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between hover:bg-(--brand-cyan)/10 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <Ticket className="h-4 w-4 text-primary" />
-                                                    <h3 className="text-sm font-medium text-foreground">Tickets</h3>
-                                                    <Badge variant="secondary" className="text-xs">{regularTickets.length}</Badge>
+                                        {/* Sub-step: Currency */}
+                                        {currentSubStep === 'currency' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Set ticket currency</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Select the currency for your ticket prices</p>
                                                 </div>
-                                                <ChevronDown className={cn(
-                                                    "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                                                    openTicketSection === 'tickets' && "rotate-180"
-                                                )} />
-                                            </button>
 
-                                            {openTicketSection === 'tickets' && (
-                                                <div className="p-4 space-y-3">
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6">
+                                                    <div className="space-y-1.5">
+                                                        <Label>Ticket Currency</Label>
+                                                        <Select
+                                                            value={formData.currency}
+                                                            onValueChange={(value) => {
+                                                                hasCurrencyUserOverrideRef.current = true;
+                                                                setFormData((prev) => ({
+                                                                    ...prev,
+                                                                    currency: value,
+                                                                }));
+                                                                clearFieldErrors('currency');
+                                                            }}
+                                                        >
+                                                            <SelectTrigger
+                                                                className={cn(
+                                                                    'h-11',
+                                                                    fieldErrors.currency ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                )}
+                                                            >
+                                                                <SelectValue placeholder="Select currency" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="GBP">🇬🇧 GBP (£)</SelectItem>
+                                                                <SelectItem value="USD">🇺🇸 USD ($)</SelectItem>
+                                                                <SelectItem value="EUR">🇪🇺 EUR (€)</SelectItem>
+                                                                <SelectItem value="CAD">🇨🇦 CAD (C$)</SelectItem>
+                                                                <SelectItem value="AUD">🇦🇺 AUD (A$)</SelectItem>
+                                                                <SelectItem value="AED">🇦🇪 AED (د.إ)</SelectItem>
+                                                                <SelectItem value="SAR">🇸🇦 SAR (﷼)</SelectItem>
+                                                                <SelectItem value="MYR">🇲🇾 MYR (RM)</SelectItem>
+                                                                <SelectItem value="SGD">🇸🇬 SGD (S$)</SelectItem>
+                                                                <SelectItem value="INR">🇮🇳 INR (₹)</SelectItem>
+                                                                <SelectItem value="PKR">🇵🇰 PKR (₨)</SelectItem>
+                                                                <SelectItem value="TRY">🇹🇷 TRY (₺)</SelectItem>
+                                                                <SelectItem value="NGN">🇳🇬 NGN (₦)</SelectItem>
+                                                                <SelectItem value="ZAR">🇿🇦 ZAR (R)</SelectItem>
+                                                                <SelectItem value="EGP">🇪🇬 EGP (E£)</SelectItem>
+                                                                <SelectItem value="IDR">🇮🇩 IDR (Rp)</SelectItem>
+                                                                <SelectItem value="BDT">🇧🇩 BDT (৳)</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {fieldErrors.currency && <p className="text-xs text-destructive">{fieldErrors.currency}</p>}
+                                                        <p className="text-xs text-muted-foreground">This applies to all ticket types</p>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Sub-step: Ticket Types */}
+                                        {currentSubStep === 'ticketTypes' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Set up your tickets</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Create one or more ticket types</p>
+                                                    {fieldErrors.tickets && <p className="text-xs text-destructive mt-1.5">{fieldErrors.tickets}</p>}
+                                                </div>
+
+                                                <div className="space-y-3">
                                                     {regularTickets.map((ticket, index) => {
                                                         const hasAdvancedErrors = Boolean(
                                                             ticketErrors[ticket.id]?.maxPerOrder
@@ -2730,567 +2890,618 @@ export function EventWizard({
                                                             || ticketErrors[ticket.id]?.earlyBirdEndDate,
                                                         );
                                                         const isAdvancedOpen = hasAdvancedErrors || ticketAdvancedOpen[ticket.id];
+                                                        const headerStyle = ticketHeaderStyles[index % ticketHeaderStyles.length];
+                                                        const trimmedName = ticket.name.trim();
+                                                        const displayName = trimmedName || `Ticket ${index + 1}`;
+                                                        const isTicketOpen = ticketOpenMap[ticket.id] ?? index === 0;
+                                                        const toggleTicketOpen = (open: boolean) => {
+                                                            setTicketOpenMap((prev) => (prev[ticket.id] === open ? prev : { ...prev, [ticket.id]: open }));
+                                                        };
 
                                                         return (
-                                                            <div key={ticket.id} className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                                                <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between">
-                                                                    <div className="flex items-center gap-2 text-primary">
-                                                                        <Ticket className="h-5 w-5" />
-                                                                        <h3 className="font-semibold">Ticket {index + 1}</h3>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        {/* Visibility Toggle - Dual segmented control */}
-                                                                        <div className="flex items-center rounded-lg border border-border/60 overflow-hidden text-xs font-medium shadow-sm">
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => updateTicket(ticket.id, 'visibility', 'public')}
-                                                                                className={cn(
-                                                                                    'flex items-center gap-1.5 px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-inset active:scale-95',
-                                                                                    ticket.visibility === 'public'
-                                                                                        ? 'bg-emerald-100 text-emerald-700 shadow-inner'
-                                                                                        : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer'
-                                                                                )}
-                                                                            >
-                                                                                <Check className="h-3.5 w-3.5" />
-                                                                                Visible
-                                                                            </button>
-                                                                            <div className="w-px h-5 bg-border/60" />
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => updateTicket(ticket.id, 'visibility', 'hidden')}
-                                                                                className={cn(
-                                                                                    'flex items-center gap-1.5 px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset active:scale-95',
-                                                                                    ticket.visibility === 'hidden'
-                                                                                        ? 'bg-amber-100 text-amber-700 shadow-inner'
-                                                                                        : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer'
-                                                                                )}
-                                                                            >
-                                                                                <Lock className="h-3.5 w-3.5" />
-                                                                                Hidden
-                                                                            </button>
-                                                                        </div>
-                                                                        {regularTickets.length > 1 && (
+                                                            <Collapsible
+                                                                key={ticket.id}
+                                                                open={isTicketOpen}
+                                                                onOpenChange={toggleTicketOpen}
+                                                            >
+                                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                                    <div
+                                                                        className={cn(
+                                                                            'px-4 py-3 border-b border-border/40 flex items-center justify-between border-l-4 text-foreground',
+                                                                            headerStyle.header,
+                                                                        )}
+                                                                    >
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleTicketOpen(!isTicketOpen)}
+                                                                            className="flex items-center gap-2 text-left"
+                                                                        >
+                                                                            <Ticket className={cn('h-5 w-5', headerStyle.accent)} />
+                                                                            <div className="flex flex-col">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <h3 className="font-semibold">{displayName}</h3>
+                                                                                    {trimmedName ? (
+                                                                                        <Badge variant="secondary" className={cn('text-xs', headerStyle.badge)}>
+                                                                                            #{index + 1}
+                                                                                        </Badge>
+                                                                                    ) : null}
+                                                                                </div>
+                                                                                {trimmedName ? (
+                                                                                    <span className="text-xs text-muted-foreground">Ticket {index + 1}</span>
+                                                                                ) : null}
+                                                                            </div>
+                                                                        </button>
+                                                                        <div className="flex items-center gap-2">
+                                                                            {/* Visibility Toggle - Dual segmented control */}
+                                                                            <div className="flex items-center rounded-lg border border-border/60 overflow-hidden text-xs font-medium shadow-sm">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => updateTicket(ticket.id, 'visibility', 'public')}
+                                                                                    className={cn(
+                                                                                        'flex items-center gap-1.5 px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-inset active:scale-95',
+                                                                                        ticket.visibility === 'public'
+                                                                                            ? 'bg-emerald-100 text-emerald-700 shadow-inner'
+                                                                                            : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer'
+                                                                                    )}
+                                                                                >
+                                                                                    <Check className="h-3.5 w-3.5" />
+                                                                                    Visible
+                                                                                </button>
+                                                                                <div className="w-px h-5 bg-border/60" />
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => updateTicket(ticket.id, 'visibility', 'hidden')}
+                                                                                    className={cn(
+                                                                                        'flex items-center gap-1.5 px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset active:scale-95',
+                                                                                        ticket.visibility === 'hidden'
+                                                                                            ? 'bg-amber-100 text-amber-700 shadow-inner'
+                                                                                            : 'bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground cursor-pointer'
+                                                                                    )}
+                                                                                >
+                                                                                    <Lock className="h-3.5 w-3.5" />
+                                                                                    Hidden
+                                                                                </button>
+                                                                            </div>
+                                                                            {regularTickets.length > 1 && (
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    onClick={() => removeTicket(ticket.id)}
+                                                                                    className="text-destructive hover:text-destructive h-8 w-8"
+                                                                                >
+                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            )}
                                                                             <Button
+                                                                                type="button"
                                                                                 variant="ghost"
                                                                                 size="icon"
-                                                                                onClick={() => removeTicket(ticket.id)}
-                                                                                className="text-destructive hover:text-destructive h-8 w-8"
+                                                                                onClick={() => toggleTicketOpen(!isTicketOpen)}
+                                                                                className="h-8 w-8"
+                                                                                aria-label={isTicketOpen ? 'Collapse ticket' : 'Expand ticket'}
                                                                             >
-                                                                                <Trash2 className="h-4 w-4" />
+                                                                                <ChevronDown
+                                                                                    className={cn(
+                                                                                        'h-4 w-4 text-muted-foreground transition-transform duration-200',
+                                                                                        isTicketOpen && 'rotate-180',
+                                                                                    )}
+                                                                                />
                                                                             </Button>
-                                                                        )}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
 
-                                                                <div className="p-4 space-y-4">
-                                                                    {/* Name and Price */}
-                                                                    <div className="grid gap-3 sm:grid-cols-2">
-                                                                        <div className="space-y-1.5">
-                                                                            <Label>Ticket Name *</Label>
-                                                                            <Input
-                                                                                placeholder="e.g., General Admission"
-                                                                                value={ticket.name}
-                                                                                onChange={(e) => {
-                                                                                    const value = e.target.value;
-                                                                                    clearTicketError(ticket.id, 'name');
-                                                                                    updateTicket(ticket.id, 'name', value);
-                                                                                    const nextTickets = tickets.map((current) =>
-                                                                                        current.id === ticket.id
-                                                                                            ? { ...current, name: value }
-                                                                                            : current,
-                                                                                    );
-                                                                                    const nameErrors = buildDuplicateTicketNameErrors(nextTickets);
-                                                                                    setTicketErrors((prev) => mergeTicketNameErrors(prev, nameErrors, nextTickets));
-                                                                                }}
-                                                                                minLength={2}
-                                                                                maxLength={50}
-                                                                                className={cn(
-                                                                                    'h-11',
-                                                                                    ticketErrors[ticket.id]?.name
-                                                                                        ? 'border-destructive focus-visible:ring-destructive'
-                                                                                        : '',
-                                                                                )}
-                                                                            />
-                                                                            {ticketErrors[ticket.id]?.name ? (
-                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.name}</p>
-                                                                            ) : null}
-                                                                        </div>
-                                                                        <div className="space-y-1.5">
-                                                                            <div className="flex items-center justify-between">
-                                                                                <Label>Price ({getCurrencySymbol(formData.currency)})</Label>
-                                                                                <div className="flex items-center gap-1.5">
-                                                                                    <Label htmlFor={`free-${ticket.id}`} className="text-xs text-muted-foreground">Free</Label>
-                                                                                    <Switch
-                                                                                        id={`free-${ticket.id}`}
-                                                                                        checked={ticket.isFree}
-                                                                                        onCheckedChange={(checked) => {
-                                                                                            clearTicketError(ticket.id, 'price');
-                                                                                            updateTicket(ticket.id, 'isFree', checked);
-                                                                                            if (checked) updateTicket(ticket.id, 'price', '0');
-                                                                                        }}
-                                                                                    />
-                                                                                </div>
-                                                                            </div>
-                                                                            <Input
-                                                                                type="number"
-                                                                                placeholder="0.00"
-                                                                                min="0"
-                                                                                max={maxTicketPrice}
-                                                                                step="0.01"
-                                                                                value={ticket.price}
-                                                                                onChange={(e) => {
-                                                                                    const value = e.target.value;
-                                                                                    // Prevent negative values
-                                                                                    if (value === '' || Number(value) >= 0) {
-                                                                                        clearTicketError(ticket.id, 'price');
-                                                                                        updateTicket(ticket.id, 'price', value);
-                                                                                    }
-                                                                                }}
-                                                                                className={cn(
-                                                                                    'h-11',
-                                                                                    ticketErrors[ticket.id]?.price ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                )}
-                                                                                disabled={ticket.isFree}
-                                                                            />
-                                                                            {ticketErrors[ticket.id]?.price ? (
-                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.price}</p>
-                                                                            ) : null}
-                                                                        </div>
-                                                                        {canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                    <CollapsibleContent
+                                                                        className="p-4 space-y-4"
+                                                                        onFocusCapture={() => toggleTicketOpen(true)}
+                                                                    >
+                                                                        {/* Name and Price */}
+                                                                        <div className="grid gap-3 sm:grid-cols-2">
                                                                             <div className="space-y-1.5">
-                                                                                <Label>Organiser Fee ({getCurrencySymbol(formData.currency)})</Label>
+                                                                                <Label>Ticket Name *</Label>
                                                                                 <Input
-                                                                                    type="number"
-                                                                                    placeholder="0.55"
-                                                                                    min="0"
-                                                                                    step="0.01"
-                                                                                    max={maxCustomFee}
-                                                                                    value={ticket.customFee ?? ''}
+                                                                                    placeholder="e.g., General Admission"
+                                                                                    value={ticket.name}
                                                                                     onChange={(e) => {
                                                                                         const value = e.target.value;
+                                                                                        clearTicketError(ticket.id, 'name');
+                                                                                        updateTicket(ticket.id, 'name', value);
+                                                                                        const nextTickets = tickets.map((current) =>
+                                                                                            current.id === ticket.id
+                                                                                                ? { ...current, name: value }
+                                                                                                : current,
+                                                                                        );
+                                                                                        const nameErrors = buildDuplicateTicketNameErrors(nextTickets);
+                                                                                        setTicketErrors((prev) => mergeTicketNameErrors(prev, nameErrors, nextTickets));
+                                                                                    }}
+                                                                                    minLength={2}
+                                                                                    maxLength={50}
+                                                                                    className={cn(
+                                                                                        'h-11',
+                                                                                        ticketErrors[ticket.id]?.name
+                                                                                            ? 'border-destructive focus-visible:ring-destructive'
+                                                                                            : '',
+                                                                                    )}
+                                                                                />
+                                                                                {ticketErrors[ticket.id]?.name ? (
+                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.name}</p>
+                                                                                ) : null}
+                                                                            </div>
+                                                                            <div className="space-y-1.5">
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <Label>Price ({getCurrencySymbol(formData.currency)})</Label>
+                                                                                    <div className="flex items-center gap-1.5">
+                                                                                        <Label htmlFor={`free-${ticket.id}`} className="text-xs text-muted-foreground">Free</Label>
+                                                                                        <Switch
+                                                                                            id={`free-${ticket.id}`}
+                                                                                            checked={ticket.isFree}
+                                                                                            onCheckedChange={(checked) => {
+                                                                                                clearTicketError(ticket.id, 'price');
+                                                                                                updateTicket(ticket.id, 'isFree', checked);
+                                                                                                if (checked) updateTicket(ticket.id, 'price', '0');
+                                                                                            }}
+                                                                                        />
+                                                                                    </div>
+                                                                                </div>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    placeholder="0.00"
+                                                                                    min="0"
+                                                                                    max={maxTicketPrice}
+                                                                                    step="0.01"
+                                                                                    value={ticket.price}
+                                                                                    onChange={(e) => {
+                                                                                        const value = e.target.value;
+                                                                                        // Prevent negative values
                                                                                         if (value === '' || Number(value) >= 0) {
-                                                                                            clearTicketError(ticket.id, 'customFee');
-                                                                                            updateTicket(ticket.id, 'customFee', value);
+                                                                                            clearTicketError(ticket.id, 'price');
+                                                                                            updateTicket(ticket.id, 'price', value);
                                                                                         }
                                                                                     }}
                                                                                     className={cn(
                                                                                         'h-11',
-                                                                                        ticketErrors[ticket.id]?.customFee ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                        ticketErrors[ticket.id]?.price ? 'border-destructive focus-visible:ring-destructive' : '',
                                                                                     )}
+                                                                                    disabled={ticket.isFree}
                                                                                 />
-                                                                                {ticketErrors[ticket.id]?.customFee ? (
-                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.customFee}</p>
+                                                                                {ticketErrors[ticket.id]?.price ? (
+                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.price}</p>
                                                                                 ) : null}
-                                                                                <p className="text-xs text-muted-foreground">Optional per-ticket organiser fee (paid to you).</p>
                                                                             </div>
-                                                                        )}
-
-                                                                        {/* Absorb Fee Toggle - subtle but visible */}
-                                                                        {!canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
-                                                                            <div className="flex items-center justify-between gap-3 mt-2 p-2 rounded-lg bg-muted/30">
-                                                                                <div className="flex items-center gap-2 min-w-0">
-                                                                                    <span className="text-xs text-muted-foreground">
-                                                                                        {ticket.absorbFee ? 'You absorb fee' : 'Customer pays fee'}
-                                                                                    </span>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-2 shrink-0">
-                                                                                    <span className="text-[11px] text-muted-foreground">
-                                                                                        {ticket.absorbFee ? 'Absorb' : 'Pass on'}
-                                                                                    </span>
-                                                                                    <Switch
-                                                                                        checked={ticket.absorbFee ?? false}
-                                                                                        onCheckedChange={(checked) => updateTicket(ticket.id, 'absorbFee', checked)}
-                                                                                    />
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-
-                                                                    {/* Quantity */}
-                                                                    <div className="space-y-1.5">
-                                                                        <Label>Total Quantity</Label>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Button
-                                                                                variant="outline"
-                                                                                size="icon"
-                                                                                className="h-10 w-10 shrink-0"
-                                                                                onClick={() => {
-                                                                                    clearTicketError(ticket.id, 'quantity');
-                                                                                    updateTicket(ticket.id, 'quantity', Math.max(1, ticket.quantity - 10));
-                                                                                }}
-                                                                            >
-                                                                                <Minus className="h-3.5 w-3.5" />
-                                                                            </Button>
-                                                                            <Input
-                                                                                type="number"
-                                                                                min={1}
-                                                                                max={MAX_TICKET_QUANTITY}
-                                                                                value={ticket.quantity || ''}
-                                                                                onChange={(e) => {
-                                                                                    const val = e.target.value.replace(/^0+(?=\d)/, '');
-                                                                                    clearTicketError(ticket.id, 'quantity');
-                                                                                    const parsed = Number.parseInt(val, 10);
-                                                                                    const nextValue = Number.isFinite(parsed)
-                                                                                        ? Math.min(parsed, MAX_TICKET_QUANTITY)
-                                                                                        : 0;
-                                                                                    updateTicket(ticket.id, 'quantity', nextValue);
-                                                                                }}
-                                                                                className={cn(
-                                                                                    'h-10 text-center font-semibold',
-                                                                                    ticketErrors[ticket.id]?.quantity ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                )}
-                                                                            />
-                                                                            <Button
-                                                                                variant="outline"
-                                                                                size="icon"
-                                                                                className="h-10 w-10 shrink-0"
-                                                                                onClick={() => {
-                                                                                    clearTicketError(ticket.id, 'quantity');
-                                                                                    updateTicket(ticket.id, 'quantity', Math.min(MAX_TICKET_QUANTITY, ticket.quantity + 10));
-                                                                                }}
-                                                                            >
-                                                                                <Plus className="h-3.5 w-3.5" />
-                                                                            </Button>
-                                                                        </div>
-                                                                        {ticketErrors[ticket.id]?.quantity ? (
-                                                                            <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.quantity}</p>
-                                                                        ) : null}
-                                                                    </div>
-
-                                                                    {/* Advanced Options Accordion */}
-                                                                    <Collapsible
-                                                                        open={isAdvancedOpen}
-                                                                        onOpenChange={(open) =>
-                                                                            setTicketAdvancedOpen((prev) => ({
-                                                                                ...prev,
-                                                                                [ticket.id]: open,
-                                                                            }))
-                                                                        }
-                                                                    >
-                                                                        <CollapsibleTrigger asChild>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="w-full flex items-center justify-between text-muted-foreground hover:text-primary px-2 transition-colors group"
-                                                                            >
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <Settings2 className="h-4 w-4" />
-                                                                                    <span className="text-xs font-medium">Advanced options</span>
-                                                                                </div>
-                                                                                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                                                            </Button>
-                                                                        </CollapsibleTrigger>
-                                                                        <CollapsibleContent className="space-y-4 pt-3 mt-1">
-                                                                            {/* Min/Max Per Order - Side by Side Toggles */}
-                                                                            <div className="grid grid-cols-2 gap-3">
-                                                                                {/* Min Per Order */}
-                                                                                <div className="space-y-2">
-                                                                                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
-                                                                                        <Label className="text-xs font-medium">Min Per Order</Label>
-                                                                                        <Switch
-                                                                                            checked={ticket.minPerOrder !== 0}
-                                                                                            onCheckedChange={(checked) => {
-                                                                                                if (checked) {
-                                                                                                    updateTicket(ticket.id, 'minPerOrder', 1);
-                                                                                                } else {
-                                                                                                    updateTicket(ticket.id, 'minPerOrder', 0);
-                                                                                                }
-                                                                                            }}
-                                                                                        />
-                                                                                    </div>
-                                                                                    {ticket.minPerOrder !== 0 ? (
-                                                                                        <Input
-                                                                                            type="number"
-                                                                                            value={ticket.minPerOrder > 0 ? ticket.minPerOrder : ''}
-                                                                                            onChange={(e) => {
-                                                                                                const value = e.target.value;
-                                                                                                if (value === '') {
-                                                                                                    updateTicket(ticket.id, 'minPerOrder', -1);
-                                                                                                    return;
-                                                                                                }
-                                                                                                const numericValue = Number.parseInt(value, 10);
-                                                                                                if (Number.isNaN(numericValue) || numericValue < 0) {
-                                                                                                    return;
-                                                                                                }
-                                                                                                const maxLimit = ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER;
-                                                                                                updateTicket(ticket.id, 'minPerOrder', Math.min(numericValue, maxLimit));
-                                                                                            }}
-                                                                                            onBlur={() => {
-                                                                                                if (ticket.minPerOrder < 1) {
-                                                                                                    updateTicket(ticket.id, 'minPerOrder', 1);
-                                                                                                }
-                                                                                            }}
-                                                                                            className="h-9"
-                                                                                            min={1}
-                                                                                            max={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER}
-                                                                                        />
-                                                                                    ) : null}
-                                                                                </div>
-                                                                                {/* Max Per Order */}
-                                                                                <div className="space-y-2">
-                                                                                    <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
-                                                                                        <Label className="text-xs font-medium">Max Per Order</Label>
-                                                                                        <Switch
-                                                                                            checked={ticket.maxPerOrder !== 0}
-                                                                                            onCheckedChange={(checked) => {
-                                                                                                if (checked) {
-                                                                                                    updateTicket(ticket.id, 'maxPerOrder', 15);
-                                                                                                } else {
-                                                                                                    updateTicket(ticket.id, 'maxPerOrder', 0);
-                                                                                                    clearTicketError(ticket.id, 'maxPerOrder');
-                                                                                                }
-                                                                                            }}
-                                                                                        />
-                                                                                    </div>
-                                                                                    {ticket.maxPerOrder !== 0 ? (
-                                                                                        <Input
-                                                                                            type="number"
-                                                                                            value={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : ''}
-                                                                                            onChange={(e) => {
-                                                                                                const value = e.target.value;
-                                                                                                if (value === '') {
-                                                                                                    updateTicket(ticket.id, 'maxPerOrder', -1);
-                                                                                                    return;
-                                                                                                }
-                                                                                                const numericValue = Number.parseInt(value, 10);
-                                                                                                if (Number.isNaN(numericValue) || numericValue < 0) {
-                                                                                                    return;
-                                                                                                }
-                                                                                                updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, MAX_PER_ORDER));
-                                                                                                if (numericValue >= 1) {
-                                                                                                    clearTicketError(ticket.id, 'maxPerOrder');
-                                                                                                }
-                                                                                            }}
-                                                                                            onBlur={() => {
-                                                                                                if (ticket.maxPerOrder < 1) {
-                                                                                                    updateTicket(ticket.id, 'maxPerOrder', 15);
-                                                                                                }
-                                                                                            }}
-                                                                                            className={cn(
-                                                                                                'h-9',
-                                                                                                ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                            )}
-                                                                                            min={ticket.minPerOrder > 0 ? ticket.minPerOrder : 1}
-                                                                                            max={MAX_PER_ORDER}
-                                                                                        />
-                                                                                    ) : null}
-                                                                                    {ticketErrors[ticket.id]?.maxPerOrder ? (
-                                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
-                                                                                    ) : null}
-                                                                                </div>
-                                                                            </div>
-
-                                                                            {/* Early Bird Toggle */}
-                                                                            <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">
-                                                                                <div className="flex items-center justify-between">
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                                                                                        <Label className="text-sm font-medium">Early Bird Pricing</Label>
-                                                                                    </div>
-                                                                                    <Switch
-                                                                                        checked={ticket.hasEarlyBird}
-                                                                                        onCheckedChange={(checked) => {
-                                                                                            updateTicket(ticket.id, 'hasEarlyBird', checked);
-                                                                                            if (!checked) {
-                                                                                                clearTicketError(ticket.id, 'earlyBirdPrice');
-                                                                                                clearTicketError(ticket.id, 'earlyBirdEndDate');
+                                                                            {canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                                <div className="space-y-1.5">
+                                                                                    <Label>Organiser Fee ({getCurrencySymbol(formData.currency)})</Label>
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        placeholder="0.55"
+                                                                                        min="0"
+                                                                                        step="0.01"
+                                                                                        max={maxCustomFee}
+                                                                                        value={ticket.customFee ?? ''}
+                                                                                        onChange={(e) => {
+                                                                                            const value = e.target.value;
+                                                                                            if (value === '' || Number(value) >= 0) {
+                                                                                                clearTicketError(ticket.id, 'customFee');
+                                                                                                updateTicket(ticket.id, 'customFee', value);
                                                                                             }
                                                                                         }}
+                                                                                        className={cn(
+                                                                                            'h-11',
+                                                                                            ticketErrors[ticket.id]?.customFee ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                        )}
                                                                                     />
+                                                                                    {ticketErrors[ticket.id]?.customFee ? (
+                                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.customFee}</p>
+                                                                                    ) : null}
+                                                                                    <p className="text-xs text-muted-foreground">Optional per-ticket organiser fee (paid to you).</p>
                                                                                 </div>
-                                                                                {ticket.hasEarlyBird && (
-                                                                                    <div className="grid gap-3 sm:grid-cols-2">
-                                                                                        <div className="space-y-1.5">
-                                                                                            <Label className="text-xs">Early Bird Price ({getCurrencySymbol(formData.currency)})</Label>
+                                                                            )}
+
+                                                                            {/* Absorb Fee Toggle - subtle but visible */}
+                                                                            {!canUseCredits && !ticket.isFree && parseFloat(ticket.price || '0') > 0 && (
+                                                                                <div className="flex items-center justify-between gap-3 mt-2 p-2 rounded-lg bg-muted/30">
+                                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                                        <span className="text-xs text-muted-foreground">
+                                                                                            {ticket.absorbFee ? 'You absorb fee' : 'Customer pays fee'}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-2 shrink-0">
+                                                                                        <span className="text-[11px] text-muted-foreground">
+                                                                                            {ticket.absorbFee ? 'Absorb' : 'Pass on'}
+                                                                                        </span>
+                                                                                        <Switch
+                                                                                            checked={ticket.absorbFee ?? false}
+                                                                                            onCheckedChange={(checked) => updateTicket(ticket.id, 'absorbFee', checked)}
+                                                                                        />
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        {/* Quantity */}
+                                                                        <div className="space-y-1.5">
+                                                                            <Label>Total Quantity</Label>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    size="icon"
+                                                                                    className="h-10 w-10 shrink-0"
+                                                                                    onClick={() => {
+                                                                                        clearTicketError(ticket.id, 'quantity');
+                                                                                        updateTicket(ticket.id, 'quantity', Math.max(1, ticket.quantity - 10));
+                                                                                    }}
+                                                                                >
+                                                                                    <Minus className="h-3.5 w-3.5" />
+                                                                                </Button>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    min={1}
+                                                                                    max={MAX_TICKET_QUANTITY}
+                                                                                    value={ticket.quantity || ''}
+                                                                                    onChange={(e) => {
+                                                                                        const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                                                                        clearTicketError(ticket.id, 'quantity');
+                                                                                        const parsed = Number.parseInt(val, 10);
+                                                                                        const nextValue = Number.isFinite(parsed)
+                                                                                            ? Math.min(parsed, MAX_TICKET_QUANTITY)
+                                                                                            : 0;
+                                                                                        updateTicket(ticket.id, 'quantity', nextValue);
+                                                                                    }}
+                                                                                    className={cn(
+                                                                                        'h-10 text-center font-semibold',
+                                                                                        ticketErrors[ticket.id]?.quantity ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                    )}
+                                                                                />
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    size="icon"
+                                                                                    className="h-10 w-10 shrink-0"
+                                                                                    onClick={() => {
+                                                                                        clearTicketError(ticket.id, 'quantity');
+                                                                                        updateTicket(ticket.id, 'quantity', Math.min(MAX_TICKET_QUANTITY, ticket.quantity + 10));
+                                                                                    }}
+                                                                                >
+                                                                                    <Plus className="h-3.5 w-3.5" />
+                                                                                </Button>
+                                                                            </div>
+                                                                            {ticketErrors[ticket.id]?.quantity ? (
+                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.quantity}</p>
+                                                                            ) : null}
+                                                                        </div>
+
+                                                                        {/* Advanced Options Accordion */}
+                                                                        <Collapsible
+                                                                            open={isAdvancedOpen}
+                                                                            onOpenChange={(open) =>
+                                                                                setTicketAdvancedOpen((prev) => ({
+                                                                                    ...prev,
+                                                                                    [ticket.id]: open,
+                                                                                }))
+                                                                            }
+                                                                        >
+                                                                            <CollapsibleTrigger asChild>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="w-full flex items-center justify-between text-muted-foreground hover:text-primary px-2 transition-colors group"
+                                                                                >
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Settings2 className="h-4 w-4" />
+                                                                                        <span className="text-xs font-medium">Advanced options</span>
+                                                                                    </div>
+                                                                                    <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                                                                </Button>
+                                                                            </CollapsibleTrigger>
+                                                                            <CollapsibleContent className="space-y-4 pt-3 mt-1">
+                                                                                {/* Min/Max Per Order - Side by Side Toggles */}
+                                                                                <div className="grid grid-cols-2 gap-3">
+                                                                                    {/* Min Per Order */}
+                                                                                    <div className="space-y-2">
+                                                                                        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
+                                                                                            <Label className="text-xs font-medium">Min Per Order</Label>
+                                                                                            <Switch
+                                                                                                checked={ticket.minPerOrder !== 0}
+                                                                                                onCheckedChange={(checked) => {
+                                                                                                    if (checked) {
+                                                                                                        updateTicket(ticket.id, 'minPerOrder', 1);
+                                                                                                    } else {
+                                                                                                        updateTicket(ticket.id, 'minPerOrder', 0);
+                                                                                                    }
+                                                                                                }}
+                                                                                            />
+                                                                                        </div>
+                                                                                        {ticket.minPerOrder !== 0 ? (
                                                                                             <Input
                                                                                                 type="number"
-                                                                                                placeholder="Discounted price"
-                                                                                                min="0"
-                                                                                                max={maxTicketPrice}
-                                                                                                step="0.01"
-                                                                                                value={ticket.earlyBirdPrice}
+                                                                                                value={ticket.minPerOrder > 0 ? ticket.minPerOrder : ''}
                                                                                                 onChange={(e) => {
                                                                                                     const value = e.target.value;
-                                                                                                    if (value === '' || Number(value) >= 0) {
-                                                                                                        clearTicketError(ticket.id, 'earlyBirdPrice');
-                                                                                                        updateTicket(ticket.id, 'earlyBirdPrice', value);
+                                                                                                    if (value === '') {
+                                                                                                        updateTicket(ticket.id, 'minPerOrder', -1);
+                                                                                                        return;
+                                                                                                    }
+                                                                                                    const numericValue = Number.parseInt(value, 10);
+                                                                                                    if (Number.isNaN(numericValue) || numericValue < 0) {
+                                                                                                        return;
+                                                                                                    }
+                                                                                                    const maxLimit = ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER;
+                                                                                                    updateTicket(ticket.id, 'minPerOrder', Math.min(numericValue, maxLimit));
+                                                                                                }}
+                                                                                                onBlur={() => {
+                                                                                                    if (ticket.minPerOrder < 1) {
+                                                                                                        updateTicket(ticket.id, 'minPerOrder', 1);
+                                                                                                    }
+                                                                                                }}
+                                                                                                className="h-9"
+                                                                                                min={1}
+                                                                                                max={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER}
+                                                                                            />
+                                                                                        ) : null}
+                                                                                    </div>
+                                                                                    {/* Max Per Order */}
+                                                                                    <div className="space-y-2">
+                                                                                        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
+                                                                                            <Label className="text-xs font-medium">Max Per Order</Label>
+                                                                                            <Switch
+                                                                                                checked={ticket.maxPerOrder !== 0}
+                                                                                                onCheckedChange={(checked) => {
+                                                                                                    if (checked) {
+                                                                                                        updateTicket(ticket.id, 'maxPerOrder', 15);
+                                                                                                    } else {
+                                                                                                        updateTicket(ticket.id, 'maxPerOrder', 0);
+                                                                                                        clearTicketError(ticket.id, 'maxPerOrder');
+                                                                                                    }
+                                                                                                }}
+                                                                                            />
+                                                                                        </div>
+                                                                                        {ticket.maxPerOrder !== 0 ? (
+                                                                                            <Input
+                                                                                                type="number"
+                                                                                                value={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : ''}
+                                                                                                onChange={(e) => {
+                                                                                                    const value = e.target.value;
+                                                                                                    if (value === '') {
+                                                                                                        updateTicket(ticket.id, 'maxPerOrder', -1);
+                                                                                                        return;
+                                                                                                    }
+                                                                                                    const numericValue = Number.parseInt(value, 10);
+                                                                                                    if (Number.isNaN(numericValue) || numericValue < 0) {
+                                                                                                        return;
+                                                                                                    }
+                                                                                                    updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, MAX_PER_ORDER));
+                                                                                                    if (numericValue >= 1) {
+                                                                                                        clearTicketError(ticket.id, 'maxPerOrder');
+                                                                                                    }
+                                                                                                }}
+                                                                                                onBlur={() => {
+                                                                                                    if (ticket.maxPerOrder < 1) {
+                                                                                                        updateTicket(ticket.id, 'maxPerOrder', 15);
                                                                                                     }
                                                                                                 }}
                                                                                                 className={cn(
                                                                                                     'h-9',
-                                                                                                    ticketErrors[ticket.id]?.earlyBirdPrice ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                                    ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
                                                                                                 )}
+                                                                                                min={ticket.minPerOrder > 0 ? ticket.minPerOrder : 1}
+                                                                                                max={MAX_PER_ORDER}
                                                                                             />
-                                                                                            {ticketErrors[ticket.id]?.earlyBirdPrice ? (
-                                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdPrice}</p>
-                                                                                            ) : null}
-                                                                                        </div>
-                                                                                        <div className="space-y-1.5">
-                                                                                            <Label className="text-xs">Ends On</Label>
-                                                                                            <DatePicker
-                                                                                                value={ticket.earlyBirdEndDate}
-                                                                                                onChange={(value) => {
-                                                                                                    clearTicketError(ticket.id, 'earlyBirdEndDate');
-                                                                                                    updateTicket(ticket.id, 'earlyBirdEndDate', value);
-                                                                                                }}
-                                                                                                placeholder="Select end date"
-                                                                                                hasError={!!ticketErrors[ticket.id]?.earlyBirdEndDate}
-                                                                                                className="h-9"
-                                                                                            />
-                                                                                            {ticketErrors[ticket.id]?.earlyBirdEndDate ? (
-                                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdEndDate}</p>
-                                                                                            ) : null}
-                                                                                        </div>
+                                                                                        ) : null}
+                                                                                        {ticketErrors[ticket.id]?.maxPerOrder ? (
+                                                                                            <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
+                                                                                        ) : null}
                                                                                     </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </CollapsibleContent>
-                                                                    </Collapsible>
+                                                                                </div>
+
+                                                                                {/* Early Bird Toggle */}
+                                                                                <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">
+                                                                                    <div className="flex items-center justify-between">
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                                            <Label className="text-sm font-medium">Early Bird Pricing</Label>
+                                                                                        </div>
+                                                                                        <Switch
+                                                                                            checked={ticket.hasEarlyBird}
+                                                                                            onCheckedChange={(checked) => {
+                                                                                                updateTicket(ticket.id, 'hasEarlyBird', checked);
+                                                                                                if (!checked) {
+                                                                                                    clearTicketError(ticket.id, 'earlyBirdPrice');
+                                                                                                    clearTicketError(ticket.id, 'earlyBirdEndDate');
+                                                                                                }
+                                                                                            }}
+                                                                                        />
+                                                                                    </div>
+                                                                                    {ticket.hasEarlyBird && (
+                                                                                        <div className="grid gap-3 sm:grid-cols-2">
+                                                                                            <div className="space-y-1.5">
+                                                                                                <Label className="text-xs">Early Bird Price ({getCurrencySymbol(formData.currency)})</Label>
+                                                                                                <Input
+                                                                                                    type="number"
+                                                                                                    placeholder="Discounted price"
+                                                                                                    min="0"
+                                                                                                    max={maxTicketPrice}
+                                                                                                    step="0.01"
+                                                                                                    value={ticket.earlyBirdPrice}
+                                                                                                    onChange={(e) => {
+                                                                                                        const value = e.target.value;
+                                                                                                        if (value === '' || Number(value) >= 0) {
+                                                                                                            clearTicketError(ticket.id, 'earlyBirdPrice');
+                                                                                                            updateTicket(ticket.id, 'earlyBirdPrice', value);
+                                                                                                        }
+                                                                                                    }}
+                                                                                                    className={cn(
+                                                                                                        'h-9',
+                                                                                                        ticketErrors[ticket.id]?.earlyBirdPrice ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                                    )}
+                                                                                                />
+                                                                                                {ticketErrors[ticket.id]?.earlyBirdPrice ? (
+                                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdPrice}</p>
+                                                                                                ) : null}
+                                                                                            </div>
+                                                                                            <div className="space-y-1.5">
+                                                                                                <Label className="text-xs">Ends On</Label>
+                                                                                                <DatePicker
+                                                                                                    value={ticket.earlyBirdEndDate}
+                                                                                                    onChange={(value) => {
+                                                                                                        clearTicketError(ticket.id, 'earlyBirdEndDate');
+                                                                                                        updateTicket(ticket.id, 'earlyBirdEndDate', value);
+                                                                                                    }}
+                                                                                                    placeholder="Select end date"
+                                                                                                    hasError={!!ticketErrors[ticket.id]?.earlyBirdEndDate}
+                                                                                                    className="h-9"
+                                                                                                />
+                                                                                                {ticketErrors[ticket.id]?.earlyBirdEndDate ? (
+                                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdEndDate}</p>
+                                                                                                ) : null}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </CollapsibleContent>
+                                                                        </Collapsible>
+                                                                    </CollapsibleContent>
                                                                 </div>
-                                                            </div>
+                                                            </Collapsible>
                                                         );
                                                     })}
                                                 </div>
-                                            )}
-                                        </div>
 
-                                        {/* Add Ticket Button */}
-                                        {openTicketSection === 'tickets' && (
-                                            <Button
-                                                variant="outline"
-                                                className="w-full h-10 border-dashed border-border/60 text-sm"
-                                                onClick={addTicket}
-                                            >
-                                                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                                Add Another Ticket
-                                            </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full h-10 border-dashed border-border/60 text-sm"
+                                                    onClick={addTicket}
+                                                >
+                                                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                                    Add Another Ticket
+                                                </Button>
+                                            </>
                                         )}
 
-                                        {/* Donation Section - Accordion */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <button
-                                                type="button"
-                                                onClick={() => setOpenTicketSection(openTicketSection === 'donation' ? null : 'donation')}
-                                                className="w-full px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between hover:bg-(--brand-cyan)/10 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <Heart className="h-4 w-4 text-primary" />
-                                                    <h3 className="text-sm font-medium text-foreground">Donation</h3>
-                                                    {donationTicket && <Badge variant="secondary" className="text-xs">Enabled</Badge>}
+                                        {/* Sub-step: Donations */}
+                                        {currentSubStep === 'donations' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Donations</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Add an optional donation option to your event checkout</p>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    {!donationTicket && openTicketSection !== 'donation' && (
-                                                        <span className="text-xs text-muted-foreground">Optional</span>
-                                                    )}
-                                                    <ChevronDown className={cn(
-                                                        "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                                                        openTicketSection === 'donation' && "rotate-180"
-                                                    )} />
-                                                </div>
-                                            </button>
 
-                                            {openTicketSection === 'donation' && (
-                                                <div className="p-4">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        {donationTicket ? (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={removeDonationTicket}
-                                                                className="text-destructive hover:text-destructive"
-                                                            >
-                                                                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                                                                Remove Donation
-                                                            </Button>
-                                                        ) : (
-                                                            <Button variant="outline" size="sm" onClick={addDonationTicket}>
-                                                                <Plus className="mr-1 h-3 w-3" />
-                                                                Add Donation
-                                                            </Button>
+                                                {/* Donation Section */}
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                    <div className="w-full px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <Heart className="h-4 w-4 text-primary" />
+                                                            <h3 className="text-sm font-medium text-foreground">Donation</h3>
+                                                            {donationTicket && <Badge variant="secondary" className="text-xs">Enabled</Badge>}
+                                                        </div>
+                                                        {!donationTicket && (
+                                                            <span className="text-xs text-muted-foreground">Optional</span>
                                                         )}
                                                     </div>
 
-                                                    {donationTicket ? (
-                                                        <div className="space-y-4">
-                                                            <div className="space-y-1.5">
-                                                                <Label>What is this donation for?</Label>
-                                                                <Input
-                                                                    placeholder="e.g., Supports the mosque renovation fund"
-                                                                    value={donationTicket.description}
-                                                                    onChange={(e) => {
-                                                                        updateTicket(donationTicket.id, 'description', e.target.value);
-                                                                    }}
-                                                                    maxLength={250}
-                                                                    className="h-11"
-                                                                />
-                                                                <p className="text-xs text-muted-foreground">Shown to buyers during checkout.</p>
-                                                            </div>
-                                                            <div className="space-y-1.5">
-                                                                <Label>Default donation amount ({getCurrencySymbol(formData.currency)})</Label>
-                                                                <Input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    max={maxDonationAmount}
-                                                                    placeholder="0"
-                                                                    value={donationTicket.price}
-                                                                    onChange={(e) => {
-                                                                        const value = e.target.value;
-                                                                        if (value === '' || Number(value) >= 0) {
-                                                                            clearTicketError(donationTicket.id, 'price');
-                                                                            updateTicket(donationTicket.id, 'price', value);
-                                                                        }
-                                                                    }}
-                                                                    className={cn(
-                                                                        'h-11',
-                                                                        ticketErrors[donationTicket.id]?.price ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                    )}
-                                                                />
-                                                                {ticketErrors[donationTicket.id]?.price ? (
-                                                                    <p className="text-xs text-destructive">{ticketErrors[donationTicket.id]?.price}</p>
-                                                                ) : (
-                                                                    <p className="text-xs text-muted-foreground">
-                                                                        Buyers can change or remove this amount at checkout.
-                                                                    </p>
-                                                                )}
-                                                            </div>
+                                                    <div className="p-4">
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            {donationTicket ? (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={removeDonationTicket}
+                                                                    className="text-destructive hover:text-destructive"
+                                                                >
+                                                                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                                                    Remove Donation
+                                                                </Button>
+                                                            ) : (
+                                                                <Button variant="outline" size="sm" onClick={addDonationTicket}>
+                                                                    <Plus className="mr-1 h-3 w-3" />
+                                                                    Add Donation
+                                                                </Button>
+                                                            )}
                                                         </div>
-                                                    ) : (
-                                                        <p className="text-sm text-muted-foreground">
-                                                            Add an optional donation to your event checkout.
+
+                                                        {donationTicket ? (
+                                                            <div className="space-y-4">
+                                                                <div className="space-y-1.5">
+                                                                    <Label>What is this donation for?</Label>
+                                                                    <Input
+                                                                        placeholder="Contribute to supporting the great work we are trying to do"
+                                                                        value={donationTicket.description}
+                                                                        onChange={(e) => {
+                                                                            updateTicket(donationTicket.id, 'description', e.target.value);
+                                                                        }}
+                                                                        maxLength={250}
+                                                                        className="h-11"
+                                                                    />
+                                                                    <p className="text-xs text-muted-foreground">Shown to buyers during checkout.</p>
+                                                                </div>
+                                                                <div className="space-y-1.5">
+                                                                    <Label>Default donation amount ({getCurrencySymbol(formData.currency)})</Label>
+                                                                    <Input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        step="0.01"
+                                                                        max={maxDonationAmount}
+                                                                        placeholder="0"
+                                                                        value={donationTicket.price}
+                                                                        onChange={(e) => {
+                                                                            const value = e.target.value;
+                                                                            if (value === '' || Number(value) >= 0) {
+                                                                                clearTicketError(donationTicket.id, 'price');
+                                                                                updateTicket(donationTicket.id, 'price', value);
+                                                                            }
+                                                                        }}
+                                                                        className={cn(
+                                                                            'h-11',
+                                                                            ticketErrors[donationTicket.id]?.price ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                        )}
+                                                                    />
+                                                                    {ticketErrors[donationTicket.id]?.price ? (
+                                                                        <p className="text-xs text-destructive">{ticketErrors[donationTicket.id]?.price}</p>
+                                                                    ) : (
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            Buyers can change or remove this amount at checkout.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm text-muted-foreground">
+                                                                Add an optional donation to your event checkout.
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Sub-step: Promo Codes */}
+                                        {currentSubStep === 'promoCodes' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Promo Codes</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Create discount codes for your event</p>
+                                                </div>
+
+                                                {/* Promo Codes Section */}
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                    <div className="w-full px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <Tag className="h-4 w-4 text-primary" />
+                                                            <h3 className="text-sm font-medium text-foreground">Promo Codes</h3>
+                                                            {promoCodes.length > 0 && <Badge variant="secondary" className="text-xs">{promoCodes.length}</Badge>}
+                                                        </div>
+                                                        {promoCodes.length === 0 && (
+                                                            <span className="text-xs text-muted-foreground">Optional</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="p-4 flex items-center justify-between">
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Max {MAX_PROMO_CODES_PER_EVENT} active codes per event
                                                         </p>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Promo Codes Section - Accordion */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <button
-                                                type="button"
-                                                onClick={() => setOpenTicketSection(openTicketSection === 'promo' ? null : 'promo')}
-                                                className="w-full px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between hover:bg-(--brand-cyan)/10 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <Tag className="h-4 w-4 text-primary" />
-                                                    <h3 className="text-sm font-medium text-foreground">Promo Codes</h3>
-                                                    {promoCodes.length > 0 && <Badge variant="secondary" className="text-xs">{promoCodes.length}</Badge>}
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    {promoCodes.length === 0 && openTicketSection !== 'promo' && (
-                                                        <span className="text-xs text-muted-foreground">Optional</span>
-                                                    )}
-                                                    <ChevronDown className={cn(
-                                                        "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                                                        openTicketSection === 'promo' && "rotate-180"
-                                                    )} />
-                                                </div>
-                                            </button>
-
-                                            {openTicketSection === 'promo' && (
-                                                <>
-                                                    <div className="p-4 flex justify-end">
-                                                        <Button variant="outline" size="sm" onClick={addPromoCode}>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={addPromoCode}
+                                                            disabled={promoLimitReached}
+                                                        >
                                                             <Plus className="mr-1 h-3 w-3" />
                                                             Add Code
                                                         </Button>
@@ -3585,327 +3796,373 @@ export function EventWizard({
                                                             })}
                                                         </div>
                                                     )}
-                                                </>
-                                            )}
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                {/* Step 5: Attendee Info */}
-                                {currentStep === 5 && (
-                                    <motion.div
-                                        key="step5"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="space-y-4 lg:space-y-5"
-                                    >
-                                        <div>
-                                            <h2 className="font-display text-xl lg:text-2xl font-bold">Attendee Information</h2>
-                                            <p className="mt-1 text-sm text-muted-foreground">Configure how you collect attendee details at checkout</p>
-                                        </div>
-
-                                        {/* Attendee Collection Mode */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
-                                                <h3 className="text-sm font-medium text-foreground">Collection Mode</h3>
-                                                <p className="text-xs text-muted-foreground mt-0.5">Choose how attendee info is collected during checkout</p>
-                                            </div>
-                                            <div className="p-4 space-y-4">
-
-                                                <div className="space-y-3">
-                                                    <div
-                                                        onClick={() => setFormData(prev => ({ ...prev, attendeeInfoMode: 'buyer_choice' }))}
-                                                        className={cn(
-                                                            "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all",
-                                                            formData.attendeeInfoMode === 'buyer_choice'
-                                                                ? "border-primary bg-primary/5"
-                                                                : "border-border hover:bg-muted/50"
-                                                        )}
-                                                    >
-                                                        <div className={cn(
-                                                            "mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center",
-                                                            formData.attendeeInfoMode === 'buyer_choice' ? "border-primary" : "border-muted-foreground"
-                                                        )}>
-                                                            {formData.attendeeInfoMode === 'buyer_choice' && (
-                                                                <div className="h-2 w-2 rounded-full bg-primary" />
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="font-medium">Buyer info for all tickets</p>
-                                                            <p className="text-sm text-muted-foreground mt-1">
-                                                                Use the buyer's name, gender and age for all tickets. Best for general admission events.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div
-                                                        onClick={() => setFormData(prev => ({ ...prev, attendeeInfoMode: 'per_ticket' }))}
-                                                        className={cn(
-                                                            "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all",
-                                                            formData.attendeeInfoMode === 'per_ticket'
-                                                                ? "border-primary bg-primary/5"
-                                                                : "border-border hover:bg-muted/50"
-                                                        )}
-                                                    >
-                                                        <div className={cn(
-                                                            "mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center",
-                                                            formData.attendeeInfoMode === 'per_ticket' ? "border-primary" : "border-muted-foreground"
-                                                        )}>
-                                                            {formData.attendeeInfoMode === 'per_ticket' && (
-                                                                <div className="h-2 w-2 rounded-full bg-primary" />
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="font-medium">Require info for each ticket</p>
-                                                            <p className="text-sm text-muted-foreground mt-1">
-                                                                Collect name, gender, age and custom questions (if any) for every ticket. Best for conferences or reserved seating.
-                                                            </p>
-                                                        </div>
-                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
+                                            </>
+                                        )}
 
-                                        {/* Default Fields Info */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
-                                                <h3 className="text-sm font-medium text-foreground">Default Fields</h3>
-                                                <p className="text-xs text-muted-foreground mt-0.5">These fields are always collected from attendees</p>
-                                            </div>
-                                            <div className="p-4">
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
-                                                        <Check className="h-4 w-4 text-primary" />
-                                                        <div>
-                                                            <span className="text-sm">Email</span>
-                                                            <span className="text-xs text-muted-foreground ml-1">(buyer email)</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
-                                                        <Check className="h-4 w-4 text-primary" />
-                                                        <span className="text-sm">Full Name</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
-                                                        <Check className="h-4 w-4 text-primary" />
-                                                        <span className="text-sm">Gender</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
-                                                        <Check className="h-4 w-4 text-primary" />
-                                                        <span className="text-sm">Age</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Custom Questions */}
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between">
+                                        {/* Sub-step: Refund Policy */}
+                                        {currentSubStep === 'refundPolicy' && (
+                                            <>
                                                 <div>
-                                                    <h3 className="text-sm font-medium text-foreground">Custom Questions</h3>
-                                                    <p className="text-xs text-muted-foreground mt-0.5">Add additional questions for attendees (max 10)</p>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Refund Policy</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Set your ticket refund terms for attendees</p>
                                                 </div>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => {
-                                                        if (formData.customQuestions.length >= 10) return;
-                                                        setFormData(prev => ({
-                                                            ...prev,
-                                                            customQuestions: [
-                                                                ...prev.customQuestions,
-                                                                {
-                                                                    id: `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                                                                    label: '',
-                                                                    type: 'text',
-                                                                    required: false,
-                                                                }
-                                                            ]
-                                                        }));
-                                                    }}
-                                                    disabled={formData.customQuestions.length >= 10}
-                                                >
-                                                    <Plus className="mr-1 h-3 w-3" />
-                                                    Add Question
-                                                </Button>
-                                            </div>
-                                            <div className="p-4 space-y-4">
 
-                                                {formData.customQuestions.length === 0 ? (
-                                                    <div className="text-center py-8 border border-dashed rounded-lg">
-                                                        <p className="text-sm text-muted-foreground">No custom questions added</p>
-                                                        <p className="text-xs text-muted-foreground mt-1">Click &ldquo;Add Question&rdquo; to collect more info</p>
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                    <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                        <h3 className="text-sm font-medium text-foreground">Policy Selection</h3>
+                                                        <p className="text-xs text-muted-foreground mt-0.5">This will be shown on the public event page</p>
                                                     </div>
-                                                ) : (
-                                                    <div className="space-y-3">
-                                                        {formData.customQuestions.map((question, index) => (
-                                                            <div key={question.id} className="flex gap-3 p-3 bg-muted/30 rounded-lg">
-                                                                <div className="flex-1 space-y-2">
-                                                                    <Input
-                                                                        placeholder="Question label"
-                                                                        value={question.label}
-                                                                        onChange={(e) => {
-                                                                            const updated = [...formData.customQuestions];
-                                                                            updated[index] = { ...updated[index], label: e.target.value };
-                                                                            setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                        }}
-                                                                        className="h-9"
-                                                                    />
-                                                                    <div className="flex items-center gap-3">
-                                                                        <Select
-                                                                            value={question.type}
-                                                                            onValueChange={(value) => {
-                                                                                const updated = [...formData.customQuestions];
-                                                                                const newType = value as 'text' | 'select' | 'checkbox';
-                                                                                updated[index] = {
-                                                                                    ...updated[index],
-                                                                                    type: newType,
-                                                                                    // Initialize options array when switching to select/checkbox
-                                                                                    options: (newType === 'select' || newType === 'checkbox')
-                                                                                        ? (updated[index].options ?? [])
-                                                                                        : undefined
-                                                                                };
-                                                                                setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                            }}
-                                                                        >
-                                                                            <SelectTrigger className="w-32 h-8">
-                                                                                <SelectValue />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                <SelectItem value="text">Text</SelectItem>
-                                                                                <SelectItem value="select">Dropdown</SelectItem>
-                                                                                <SelectItem value="checkbox">Checkbox</SelectItem>
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                        <label className="flex items-center gap-2 text-sm">
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={question.required}
-                                                                                onChange={(e) => {
-                                                                                    const updated = [...formData.customQuestions];
-                                                                                    updated[index] = { ...updated[index], required: e.target.checked };
-                                                                                    setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                                }}
-                                                                                className="rounded border-muted-foreground"
-                                                                            />
-                                                                            Required
-                                                                        </label>
-                                                                    </div>
-                                                                    {/* Options input for dropdown/checkbox types */}
-                                                                    {(question.type === 'select' || question.type === 'checkbox') && (
-                                                                        <div className="space-y-2 pt-2">
-                                                                            <Label className="text-xs text-muted-foreground">
-                                                                                Options
-                                                                            </Label>
-                                                                            {/* Display existing options as chips */}
-                                                                            {(question.options?.length ?? 0) > 0 && (
-                                                                                <div className="flex flex-wrap gap-1.5">
-                                                                                    {question.options?.map((opt, optIndex) => (
-                                                                                        <div
-                                                                                            key={optIndex}
-                                                                                            className="flex items-center gap-1 pl-2.5 pr-1 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium"
-                                                                                        >
-                                                                                            <span>{opt}</span>
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={() => {
-                                                                                                    const updated = [...formData.customQuestions];
-                                                                                                    const newOptions = [...(updated[index].options ?? [])];
-                                                                                                    newOptions.splice(optIndex, 1);
-                                                                                                    updated[index] = { ...updated[index], options: newOptions };
-                                                                                                    setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                                                }}
-                                                                                                className="p-0.5 hover:bg-primary/20 rounded-full transition-colors"
-                                                                                            >
-                                                                                                <X className="h-3 w-3" />
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    ))}
-                                                                                </div>
-                                                                            )}
-                                                                            {/* Add new option input */}
-                                                                            <div className="flex items-center gap-2">
-                                                                                <Input
-                                                                                    placeholder="Type an option and press Enter"
-                                                                                    className="h-8 text-sm flex-1"
-                                                                                    onKeyDown={(e) => {
-                                                                                        if (e.key === 'Enter') {
-                                                                                            e.preventDefault();
-                                                                                            const input = e.currentTarget;
-                                                                                            const value = input.value.trim();
-                                                                                            if (value) {
-                                                                                                const updated = [...formData.customQuestions];
-                                                                                                const currentOptions = updated[index].options ?? [];
-                                                                                                if (!currentOptions.includes(value)) {
-                                                                                                    updated[index] = { ...updated[index], options: [...currentOptions, value] };
-                                                                                                    setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                                                }
-                                                                                                input.value = '';
-                                                                                            }
-                                                                                        }
-                                                                                    }}
-                                                                                />
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    variant="outline"
-                                                                                    size="sm"
-                                                                                    className="h-8 px-3"
-                                                                                    onClick={(e) => {
-                                                                                        const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                                                                                        const value = input?.value?.trim();
-                                                                                        if (value) {
-                                                                                            const updated = [...formData.customQuestions];
-                                                                                            const currentOptions = updated[index].options ?? [];
-                                                                                            if (!currentOptions.includes(value)) {
-                                                                                                updated[index] = { ...updated[index], options: [...currentOptions, value] };
-                                                                                                setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                                            }
-                                                                                            input.value = '';
-                                                                                        }
-                                                                                    }}
-                                                                                >
-                                                                                    <Plus className="h-3.5 w-3.5 mr-1" />
-                                                                                    Add
-                                                                                </Button>
-                                                                            </div>
-                                                                            {(question.options?.length ?? 0) === 0 && (
-                                                                                <p className="text-xs text-amber-600">
-                                                                                    Add at least one option for attendees to choose from
-                                                                                </p>
-                                                                            )}
-                                                                        </div>
+                                                    <div className="p-4 space-y-3">
+                                                        <Select
+                                                            value={refundPolicySelection || undefined}
+                                                            onValueChange={handleRefundPolicyChange}
+                                                        >
+                                                            <SelectTrigger className="h-10">
+                                                                <SelectValue placeholder="Select a refund policy" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {refundPolicyOptions.map((option) => (
+                                                                    <SelectItem key={option.value} value={option.value}>
+                                                                        {option.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                                <SelectItem value="custom">Custom policy</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {refundPolicySelection === 'custom' && (
+                                                            <div className="space-y-1.5">
+                                                                <Label htmlFor="refundPolicy">Custom policy text</Label>
+                                                                <Textarea
+                                                                    id="refundPolicy"
+                                                                    name="refundPolicy"
+                                                                    placeholder="Describe your refund terms for attendees"
+                                                                    value={formData.refundPolicy}
+                                                                    onChange={handleFieldChange}
+                                                                    minLength={10}
+                                                                    maxLength={500}
+                                                                    className="min-h-[90px] resize-none"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {fieldErrors.refundPolicy && (
+                                                            <p className="text-xs text-destructive">{fieldErrors.refundPolicy}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Sub-step: Attendee Info */}
+                                        {currentSubStep === 'attendeeInfo' && (
+                                            <>
+                                                <div>
+                                                    <h2 className="font-display text-xl lg:text-2xl font-bold">Attendee Information</h2>
+                                                    <p className="mt-1 text-sm text-muted-foreground">Configure how you collect attendee details at checkout</p>
+                                                </div>
+
+                                                {/* Attendee Collection Mode */}
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                    <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                        <h3 className="text-sm font-medium text-foreground">Collection Mode</h3>
+                                                        <p className="text-xs text-muted-foreground mt-0.5">Choose how attendee info is collected during checkout</p>
+                                                    </div>
+                                                    <div className="p-4 space-y-4">
+
+                                                        <div className="space-y-3">
+                                                            <div
+                                                                onClick={() => setFormData(prev => ({ ...prev, attendeeInfoMode: 'buyer_choice' }))}
+                                                                className={cn(
+                                                                    "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all",
+                                                                    formData.attendeeInfoMode === 'buyer_choice'
+                                                                        ? "border-primary bg-primary/5"
+                                                                        : "border-border hover:bg-muted/50"
+                                                                )}
+                                                            >
+                                                                <div className={cn(
+                                                                    "mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center",
+                                                                    formData.attendeeInfoMode === 'buyer_choice' ? "border-primary" : "border-muted-foreground"
+                                                                )}>
+                                                                    {formData.attendeeInfoMode === 'buyer_choice' && (
+                                                                        <div className="h-2 w-2 rounded-full bg-primary" />
                                                                     )}
                                                                 </div>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8 text-destructive hover:text-destructive"
-                                                                    onClick={() => {
-                                                                        setFormData(prev => ({
-                                                                            ...prev,
-                                                                            customQuestions: prev.customQuestions.filter(q => q.id !== question.id)
-                                                                        }));
-                                                                    }}
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
+                                                                <div className="flex-1">
+                                                                    <p className="font-medium">Buyer info for all tickets</p>
+                                                                    <p className="text-sm text-muted-foreground mt-1">
+                                                                        Use the buyer&apos;s name, gender and age for all tickets. Best for general admission events.
+                                                                    </p>
+                                                                </div>
                                                             </div>
-                                                        ))}
+
+                                                            <div
+                                                                onClick={() => setFormData(prev => ({ ...prev, attendeeInfoMode: 'per_ticket' }))}
+                                                                className={cn(
+                                                                    "flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-all",
+                                                                    formData.attendeeInfoMode === 'per_ticket'
+                                                                        ? "border-primary bg-primary/5"
+                                                                        : "border-border hover:bg-muted/50"
+                                                                )}
+                                                            >
+                                                                <div className={cn(
+                                                                    "mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center",
+                                                                    formData.attendeeInfoMode === 'per_ticket' ? "border-primary" : "border-muted-foreground"
+                                                                )}>
+                                                                    {formData.attendeeInfoMode === 'per_ticket' && (
+                                                                        <div className="h-2 w-2 rounded-full bg-primary" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <p className="font-medium">Require info for each ticket</p>
+                                                                    <p className="text-sm text-muted-foreground mt-1">
+                                                                        Collect name, gender, age and custom questions (if any) for every ticket. Best for conferences or reserved seating.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                )}
-                                            </div>
-                                        </div>
+                                                </div>
+
+                                                {/* Default Fields Info */}
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                    <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                        <h3 className="text-sm font-medium text-foreground">Default Fields</h3>
+                                                        <p className="text-xs text-muted-foreground mt-0.5">These fields are always collected from attendees</p>
+                                                    </div>
+                                                    <div className="p-4">
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
+                                                                <Check className="h-4 w-4 text-primary" />
+                                                                <div>
+                                                                    <span className="text-sm">Email</span>
+                                                                    <span className="text-xs text-muted-foreground ml-1">(buyer email)</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
+                                                                <Check className="h-4 w-4 text-primary" />
+                                                                <span className="text-sm">Full Name</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
+                                                                <Check className="h-4 w-4 text-primary" />
+                                                                <span className="text-sm">Gender</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
+                                                                <Check className="h-4 w-4 text-primary" />
+                                                                <span className="text-sm">Age</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Custom Questions */}
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                    <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between">
+                                                        <div>
+                                                            <h3 className="text-sm font-medium text-foreground">Custom Questions</h3>
+                                                            <p className="text-xs text-muted-foreground mt-0.5">Add additional questions for attendees (max 10)</p>
+                                                        </div>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                if (formData.customQuestions.length >= 10) return;
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    customQuestions: [
+                                                                        ...prev.customQuestions,
+                                                                        {
+                                                                            id: `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                                                            label: '',
+                                                                            type: 'text',
+                                                                            required: false,
+                                                                        }
+                                                                    ]
+                                                                }));
+                                                            }}
+                                                            disabled={formData.customQuestions.length >= 10}
+                                                        >
+                                                            <Plus className="mr-1 h-3 w-3" />
+                                                            Add Question
+                                                        </Button>
+                                                    </div>
+                                                    <div className="p-4 space-y-4">
+
+                                                        {formData.customQuestions.length === 0 ? (
+                                                            <div className="text-center py-8 border border-dashed rounded-lg">
+                                                                <p className="text-sm text-muted-foreground">No custom questions added</p>
+                                                                <p className="text-xs text-muted-foreground mt-1">Click &ldquo;Add Question&rdquo; to collect more info</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="space-y-3">
+                                                                {formData.customQuestions.map((question, index) => (
+                                                                    <div key={question.id} className="flex gap-3 p-3 bg-muted/30 rounded-lg">
+                                                                        <div className="flex-1 space-y-2">
+                                                                            <Input
+                                                                                placeholder="Question label"
+                                                                                value={question.label}
+                                                                                onChange={(e) => {
+                                                                                    const updated = [...formData.customQuestions];
+                                                                                    updated[index] = { ...updated[index], label: e.target.value };
+                                                                                    setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                                }}
+                                                                                className="h-9"
+                                                                            />
+                                                                            <div className="flex items-center gap-3">
+                                                                                <Select
+                                                                                    value={question.type}
+                                                                                    onValueChange={(value) => {
+                                                                                        const updated = [...formData.customQuestions];
+                                                                                        const newType = value as 'text' | 'select' | 'checkbox';
+                                                                                        updated[index] = {
+                                                                                            ...updated[index],
+                                                                                            type: newType,
+                                                                                            // Initialize options array when switching to select/checkbox
+                                                                                            options: (newType === 'select' || newType === 'checkbox')
+                                                                                                ? (updated[index].options ?? [])
+                                                                                                : undefined
+                                                                                        };
+                                                                                        setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                                    }}
+                                                                                >
+                                                                                    <SelectTrigger className="w-32 h-8">
+                                                                                        <SelectValue />
+                                                                                    </SelectTrigger>
+                                                                                    <SelectContent>
+                                                                                        <SelectItem value="text">Text</SelectItem>
+                                                                                        <SelectItem value="select">Dropdown</SelectItem>
+                                                                                        <SelectItem value="checkbox">Checkbox</SelectItem>
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                                <label className="flex items-center gap-2 text-sm">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={question.required}
+                                                                                        onChange={(e) => {
+                                                                                            const updated = [...formData.customQuestions];
+                                                                                            updated[index] = { ...updated[index], required: e.target.checked };
+                                                                                            setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                                        }}
+                                                                                        className="rounded border-muted-foreground"
+                                                                                    />
+                                                                                    Required
+                                                                                </label>
+                                                                            </div>
+                                                                            {/* Options input for dropdown/checkbox types */}
+                                                                            {(question.type === 'select' || question.type === 'checkbox') && (
+                                                                                <div className="space-y-2 pt-2">
+                                                                                    <Label className="text-xs text-muted-foreground">
+                                                                                        Options
+                                                                                    </Label>
+                                                                                    {/* Display existing options as chips */}
+                                                                                    {(question.options?.length ?? 0) > 0 && (
+                                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                                            {question.options?.map((opt, optIndex) => (
+                                                                                                <div
+                                                                                                    key={optIndex}
+                                                                                                    className="flex items-center gap-1 pl-2.5 pr-1 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium"
+                                                                                                >
+                                                                                                    <span>{opt}</span>
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        onClick={() => {
+                                                                                                            const updated = [...formData.customQuestions];
+                                                                                                            const newOptions = [...(updated[index].options ?? [])];
+                                                                                                            newOptions.splice(optIndex, 1);
+                                                                                                            updated[index] = { ...updated[index], options: newOptions };
+                                                                                                            setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                                                        }}
+                                                                                                        className="p-0.5 hover:bg-primary/20 rounded-full transition-colors"
+                                                                                                    >
+                                                                                                        <X className="h-3 w-3" />
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+                                                                                    {/* Add new option input */}
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Input
+                                                                                            placeholder="Type an option and press Enter"
+                                                                                            className="h-8 text-sm flex-1"
+                                                                                            onKeyDown={(e) => {
+                                                                                                if (e.key === 'Enter') {
+                                                                                                    e.preventDefault();
+                                                                                                    const input = e.currentTarget;
+                                                                                                    const value = input.value.trim();
+                                                                                                    if (value) {
+                                                                                                        const updated = [...formData.customQuestions];
+                                                                                                        const currentOptions = updated[index].options ?? [];
+                                                                                                        if (!currentOptions.includes(value)) {
+                                                                                                            updated[index] = { ...updated[index], options: [...currentOptions, value] };
+                                                                                                            setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                                                        }
+                                                                                                        input.value = '';
+                                                                                                    }
+                                                                                                }
+                                                                                            }}
+                                                                                        />
+                                                                                        <Button
+                                                                                            type="button"
+                                                                                            variant="outline"
+                                                                                            size="sm"
+                                                                                            className="h-8 px-3"
+                                                                                            onClick={(e) => {
+                                                                                                const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                                                                                                const value = input?.value?.trim();
+                                                                                                if (value) {
+                                                                                                    const updated = [...formData.customQuestions];
+                                                                                                    const currentOptions = updated[index].options ?? [];
+                                                                                                    if (!currentOptions.includes(value)) {
+                                                                                                        updated[index] = { ...updated[index], options: [...currentOptions, value] };
+                                                                                                        setFormData(prev => ({ ...prev, customQuestions: updated }));
+                                                                                                    }
+                                                                                                    input.value = '';
+                                                                                                }
+                                                                                            }}
+                                                                                        >
+                                                                                            <Plus className="h-3.5 w-3.5 mr-1" />
+                                                                                            Add
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                    {(question.options?.length ?? 0) === 0 && (
+                                                                                        <p className="text-xs text-amber-600">
+                                                                                            Add at least one option for attendees to choose from
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8 text-destructive hover:text-destructive"
+                                                                            onClick={() => {
+                                                                                setFormData(prev => ({
+                                                                                    ...prev,
+                                                                                    customQuestions: prev.customQuestions.filter(q => q.id !== question.id)
+                                                                                }));
+                                                                            }}
+                                                                        >
+                                                                            <Trash2 className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
                                     </motion.div>
                                 )}
 
-                                {/* Step 6: Embed Widget */}
-                                {currentStep === 6 && (
+                                {/* Step 5: Embed Widget */}
+                                {currentStep === 5 && (
                                     <motion.div
-                                        key="step6"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
+                                        key="step5-embed"
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.2 }}
                                         className="space-y-4 lg:space-y-5"
                                     >
@@ -3933,16 +4190,16 @@ export function EventWizard({
                             <div className="mt-8 flex items-center justify-between">
                                 <Button
                                     variant="ghost"
-                                    onClick={prevStep}
-                                    disabled={currentStep === 1}
+                                    onClick={handleBack}
+                                    disabled={currentStep === 1 && currentSubStep === currentMainStep.subSteps[0]?.id}
                                     className="gap-2"
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                     <span className="hidden sm:inline">Back</span>
                                 </Button>
 
-                                {currentStep < steps.length && (
-                                    <Button onClick={nextStep} className="gap-2 px-4 sm:px-6">
+                                {(currentStep < steps.length || currentSubStep !== currentMainStep.subSteps[currentMainStep.subSteps.length - 1]?.id) && (
+                                    <Button onClick={handleContinue} className="gap-2 px-4 sm:px-6">
                                         Continue
                                         <ChevronRight className="h-4 w-4" />
                                     </Button>

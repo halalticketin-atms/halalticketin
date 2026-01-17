@@ -11,6 +11,7 @@ export const MAX_TICKET_QUANTITY = 100_000;
 export const MAX_PER_ORDER = 50;
 export const PROMO_CODE_MIN_LENGTH = 3;
 export const PROMO_CODE_MAX_LENGTH = 15;
+export const MAX_PROMO_CODES_PER_EVENT = 10;
 
 export const roundCurrencyLimit = (amount: number, currency?: string) =>
     ceilCurrencyAmount(amount, currency);

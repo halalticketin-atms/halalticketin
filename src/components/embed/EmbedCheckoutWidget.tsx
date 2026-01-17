@@ -14,6 +14,7 @@ export function EmbedCheckoutWidget({
     isLoading,
     error,
     theme,
+    isPreview = false,
     accessStatus,
     accessMessage,
     accessCode,
@@ -24,6 +25,7 @@ export function EmbedCheckoutWidget({
     isLoading: boolean;
     error: string | null;
     theme: string;
+    isPreview?: boolean;
     accessStatus?: 'required' | 'denied' | null;
     accessMessage?: string | null;
     accessCode?: string | null;
@@ -126,6 +128,7 @@ export function EmbedCheckoutWidget({
                 tickets={tickets}
                 isLoading={isLoading}
                 error={error}
+                isPreview={isPreview}
                 embedMode="checkout"
                 organizerNameOverride={event?.organizerName ?? null}
                 accessStatus={accessStatus}
@@ -133,13 +136,13 @@ export function EmbedCheckoutWidget({
                 accessCode={accessCode}
                 onAccessSubmit={onAccessSubmit}
             />
-            <div className={cn('container pb-6 pt-2 flex items-center gap-2 text-xs', isDark ? 'text-slate-300' : 'text-muted-foreground')}>
+            <div className={cn('container pb-6 pt-2 flex items-center gap-3 text-sm', isDark ? 'text-slate-300' : 'text-muted-foreground')}>
                 <img
                     src="/images/HTlogocr.png"
                     alt="HalalTicketin' logo"
-                    width={24}
-                    height={24}
-                    className="h-6 w-6 object-contain"
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 object-contain"
                 />
                 <span>Delivered with Ihsan by HalalTicketin&apos;</span>
             </div>

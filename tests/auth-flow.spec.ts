@@ -320,7 +320,7 @@ test.describe('Authentication Flow - Logout', () => {
             await accountMenuButton.click({ force: true });
         }
 
-        let desktopLogout = page.getByRole('menuitem', { name: /log out|sign out/i }).first();
+        const desktopLogout = page.getByRole('menuitem', { name: /log out|sign out/i }).first();
         if (await desktopLogout.isVisible()) {
             logoutButton = desktopLogout;
         }

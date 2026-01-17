@@ -81,14 +81,9 @@ const statusColors = {
 
 export function EventPerformanceCards({ events, organizerId }: EventPerformanceCardsProps) {
     const anim = useOptimizedAnimation();
-    const [renderCharts, setRenderCharts] = useState(false);
+    const [renderCharts, setRenderCharts] = useState(() => typeof window === 'undefined');
 
     useEffect(() => {
-        if (typeof window === 'undefined') {
-            setRenderCharts(true);
-            return;
-        }
-
         const idleCallback = (globalThis as typeof globalThis & {
             requestIdleCallback?: (callback: IdleRequestCallback) => number;
         }).requestIdleCallback;

@@ -82,13 +82,14 @@ export function usePublicEvents(options?: { limit?: number; organizerId?: string
 /**
  * Hook for fetching a single public event by slug.
  */
-export function usePublicEvent(slug: string | null) {
+export function usePublicEvent(slug: string | null, options?: { preview?: boolean }) {
     const [event, setEvent] = useState<PublicEventRecord | null>(null);
     const [tickets, setTickets] = useState<PublicTicketRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [accessStatus, setAccessStatus] = useState<'required' | 'denied' | null>(null);
     const [accessCode, setAccessCode] = useState<string | null>(null);
+    const preview = options?.preview ?? false;
 
     const fetch = useCallback(async () => {
         if (!slug) {
@@ -106,6 +107,7 @@ export function usePublicEvent(slug: string | null) {
         try {
             const response = await fetchPublicEventBySlug(slug, {
                 accessCode: accessCode ?? undefined,
+                preview,
             });
             setEvent(response.event);
             setTickets(response.tickets);
@@ -130,7 +132,7 @@ export function usePublicEvent(slug: string | null) {
         } finally {
             setIsLoading(false);
         }
-    }, [accessCode, slug]);
+    }, [accessCode, preview, slug]);
 
     useEffect(() => {
         fetch();

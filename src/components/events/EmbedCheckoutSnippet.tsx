@@ -86,7 +86,7 @@ export function EmbedCheckoutSnippet({
                         isLive ? "bg-emerald-500 ring-emerald-500/30" : "bg-amber-500 ring-amber-500/30"
                     )} />
                     <span className="text-sm font-medium text-muted-foreground">
-                        {isLive ? 'Ready for your website' : 'Save draft to generate code'}
+                        {!canCopy ? 'Save draft to generate code' : isLive ? 'Ready for your website' : 'Publish to make it live'}
                     </span>
                 </div>
 
@@ -242,7 +242,7 @@ export function EmbedCheckoutSnippet({
                     <div className="bg-muted/30 px-4 py-3 border-t border-border/10">
                         <p className="text-[11px] text-muted-foreground/70 flex items-center gap-2">
                             <Code2 className="h-3 w-3" />
-                            Paste this code anywhere in your website's body tag
+                            Paste this code anywhere in your website&apos;s body tag
                         </p>
                     </div>
                 </Card>

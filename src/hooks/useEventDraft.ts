@@ -31,6 +31,7 @@ export interface DraftFormData {
   venue: string;
   address: string;
   city: string;
+  country: string;
   latitude: number | null;
   longitude: number | null;
   onlineUrl: string;
@@ -103,6 +104,7 @@ const defaultFormData: DraftFormData = {
   venue: '',
   address: '',
   city: '',
+  country: '',
   latitude: null,
   longitude: null,
   onlineUrl: '',
@@ -168,11 +170,10 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
     if (!questions || questions.length === 0) {
       return [];
     }
-    const seed = Date.now();
     return questions.map((question, index) => {
       const id = typeof question.id === 'string' && question.id.trim().length > 0
         ? question.id
-        : `q-${seed}-${index}`;
+        : `q-${index}`;
       const hasOptions = question.type === 'select' || question.type === 'checkbox';
       const options = hasOptions
         ? (Array.isArray(question.options) ? question.options : [])

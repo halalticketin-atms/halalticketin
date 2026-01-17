@@ -76,6 +76,11 @@ interface FloatingShapeProps {
     shape: 'ticket' | 'diamond' | 'circle';
 }
 
+const pseudoRandom = (seed: number) => {
+    const value = Math.sin(seed) * 10000;
+    return value - Math.floor(value);
+};
+
 function FloatingShape({ delay, duration, size, startX, startY, endX, endY, rotation, shape }: FloatingShapeProps) {
     const shapeElement = useMemo(() => {
         const baseClass = 'absolute';
@@ -143,18 +148,18 @@ function CelebrationBurst() {
         // Create 12 shapes radiating outward
         for (let i = 0; i < 12; i++) {
             const angle = (i * 30) * (Math.PI / 180);
-            const distance = 120 + Math.random() * 80;
+            const distance = 120 + pseudoRandom(i + 1) * 80;
             const shape = shapeTypes[i % 3];
 
             items.push({
                 delay: 0.1 + (i * 0.05),
-                duration: 1.8 + Math.random() * 0.4,
-                size: 12 + Math.random() * 10,
+                duration: 1.8 + pseudoRandom(i + 2) * 0.4,
+                size: 12 + pseudoRandom(i + 3) * 10,
                 startX: 0,
                 startY: 0,
                 endX: Math.cos(angle) * distance,
                 endY: Math.sin(angle) * distance,
-                rotation: 180 + Math.random() * 360,
+                rotation: 180 + pseudoRandom(i + 4) * 360,
                 shape,
             });
         }

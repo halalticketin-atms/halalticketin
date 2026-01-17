@@ -145,6 +145,7 @@ function normalizeFormData(
     venue: raw.venue ?? '',
     address: raw.address ?? '',
     city: raw.city ?? '',
+    country: raw.country ?? '',
     latitude: typeof raw.latitude === 'number' ? raw.latitude : null,
     longitude: typeof raw.longitude === 'number' ? raw.longitude : null,
     onlineUrl: raw.onlineUrl ?? '',
