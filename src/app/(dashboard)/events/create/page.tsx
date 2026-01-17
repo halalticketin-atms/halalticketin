@@ -1070,12 +1070,11 @@ export function EventWizard({
     // Ref for scrolling to top of content area
     const mainContentRef = useRef<HTMLDivElement>(null);
 
-    // Scroll to top when step changes
+    // Scroll to top when step or substep changes
     useEffect(() => {
-        mainContentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        // Also scroll the window to ensure visibility on mobile
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, [currentStep]);
+        // Scroll window to absolute top immediately
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }, [currentStep, currentSubStep]);
 
     // Credit warning state
     const [isWarningOpen, setIsWarningOpen] = useState(false);
@@ -2195,27 +2194,30 @@ export function EventWizard({
             {/* Top Header with Progress Bar */}
             <div className="sticky top-0 z-40 bg-background border-b">
                 {/* Header Row */}
-                <div className="container flex h-14 items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild className="shrink-0">
+                <div className="container flex min-h-14 py-2.5 sm:py-0 sm:h-14 items-center gap-3 sm:gap-4">
+                    <Button variant="ghost" size="icon" asChild className="shrink-0 self-start sm:self-center mt-0.5 sm:mt-0">
                         <Link href={dashboardHref}>
                             <ArrowLeft className="h-5 w-5" />
                         </Link>
                     </Button>
                     <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h1 className="font-display text-lg font-semibold truncate">
+                        {/* Mobile: Stack title and badges vertically | Desktop: Single row */}
+                        <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+                            <h1 className="font-display text-base sm:text-lg font-semibold leading-tight">
                                 {headerTitle}
                             </h1>
-                            {entryContext?.label ? (
-                                <Badge variant="outline" className="text-xs px-2 py-0.5">
-                                    {entryContext.label}
-                                </Badge>
-                            ) : null}
-                            {hasUnsavedChanges && activeOrganizerId ? (
-                                <Badge variant="secondary" className="text-xs px-2 py-0.5">
-                                    Unsaved
-                                </Badge>
-                            ) : null}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                {entryContext?.label ? (
+                                    <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 h-5 sm:h-auto">
+                                        {entryContext.label}
+                                    </Badge>
+                                ) : null}
+                                {hasUnsavedChanges && activeOrganizerId ? (
+                                    <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 h-5 sm:h-auto">
+                                        Unsaved
+                                    </Badge>
+                                ) : null}
+                            </div>
                         </div>
                         {entryContext?.description ? (
                             <p className="hidden text-sm text-muted-foreground sm:block">
@@ -2254,7 +2256,7 @@ export function EventWizard({
             />
 
             {/* Main Layout */}
-            <div className="container py-6 lg:py-10">
+            <div className="container pt-8 pb-6 lg:py-10">
                 <div className="flex gap-6 lg:gap-10 xl:gap-16">
                     {/* Sub-step Sidebar - Desktop Only */}
                     <SubStepSidebar
@@ -4305,10 +4307,10 @@ export function EventWizard({
                                 size="sm"
                                 onClick={handlePreviewClick}
                                 disabled={disableSaveButtons}
-                                className="hidden sm:flex gap-1.5"
+                                className="flex gap-1.5"
                             >
                                 <Eye className="h-3.5 w-3.5" />
-                                Preview
+                                <span className="hidden sm:inline">Preview</span>
                             </Button>
                             <Button
                                 variant="outline"
