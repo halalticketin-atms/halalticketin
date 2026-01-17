@@ -534,6 +534,65 @@ const publishRequiredFieldsByStep: Record<number, string[]> = {
     4: ['tickets', 'currency', 'refundPolicy'],
 };
 
+/**
+ * Check if a step's required fields are filled out.
+ * Returns true if all minimum required fields for the step have valid values.
+ */
+const isStepComplete = (
+    stepId: number,
+    formData: DraftFormData,
+    tickets: DraftTicketType[],
+): boolean => {
+    const locationType = mapLocationType(formData.locationType);
+    const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
+    const isOnline = locationType === 'online' || locationType === 'hybrid';
+    const hasCoordinates = Number.isFinite(formData.latitude) && Number.isFinite(formData.longitude);
+
+    switch (stepId) {
+        case 1:
+            // Step 1: Title is required (min 3 chars)
+            return formData.title.trim().length >= 3;
+
+        case 2:
+            // Step 2: Date and times are required
+            if (!formData.date.trim() || !formData.startTime.trim() || !formData.endTime.trim()) {
+                return false;
+            }
+            // Multi-day events require end date
+            if (formData.isMultiDay && !formData.endDate.trim()) {
+                return false;
+            }
+            return true;
+
+        case 3:
+            // Step 3: Location requirements depend on type
+            if (isInPerson) {
+                if (!formData.venue.trim()) return false;
+                // If no coordinates from autocomplete, need manual address/city
+                if (!hasCoordinates && (!formData.address.trim() || !formData.city.trim())) {
+                    return false;
+                }
+            }
+            if (isOnline && !formData.onlineUrl.trim()) {
+                return false;
+            }
+            return true;
+
+        case 4:
+            // Step 4: Currency and at least one ticket required
+            if (!formData.currency) return false;
+            if (tickets.length < 1) return false;
+            return true;
+
+        case 5:
+            // Step 5 (Embed): No required fields
+            return true;
+
+        default:
+            return false;
+    }
+};
+
 const validatePublishForm = (
     formData: DraftFormData,
     tickets: DraftTicketType[],
@@ -711,10 +770,10 @@ export function EventWizard({
             title: step.title,
             icon: step.icon,
             isCurrent: step.id === currentStep,
-            isComplete: step.id < currentStep,
+            isComplete: step.id < currentStep && isStepComplete(step.id, formData, tickets),
             hasWarning: false,
         })),
-        [currentStep]
+        [currentStep, formData, tickets]
     );
 
     // Current step's sub-steps for sidebar
