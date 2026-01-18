@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import api from '@/lib/api';
 import { type OrganizerSummary } from '@/context/organizer-context';
-import { Check, Wand2, Banknote, ShieldCheck, QrCode } from 'lucide-react';
+import { Check, Wand2, Banknote, ShieldCheck, QrCode, BarChart3, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -197,6 +197,18 @@ export default function PricingPage() {
                                         </div>
                                         <span className="font-semibold text-lg">AI Integrated</span>
                                     </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                                            <BarChart3 className="h-5 w-5 text-white" />
+                                        </div>
+                                        <span className="font-semibold text-lg">Real-time Analytics</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                                            <Users className="h-5 w-5 text-white" />
+                                        </div>
+                                        <span className="font-semibold text-lg">Team Collaboration</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -220,7 +232,7 @@ export default function PricingPage() {
                             <div className="flex-1 text-center md:text-left z-10">
                                 <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
                                     <h3 className="font-display text-2xl font-bold text-slate-800">Free</h3>
-                                    <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider">
+                                    <span className="px-3 py-1 rounded-full bg-teal-100 text-teal-700 text-xs font-bold uppercase tracking-wider">
                                         Community
                                     </span>
                                 </div>
@@ -251,13 +263,10 @@ export default function PricingPage() {
 
                         {/* Pay Upfront Card (Highlighted) */}
                         <div className="glass-surface md:backdrop-blur-xl border-2 border-[var(--brand-cyan)] rounded-[2rem] p-6 md:p-8 shadow-xl shadow-[var(--brand-cyan)]/10 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden scale-[1.02] animate-fade-up" style={fadeStyle('0.2s')}>
-                            <div className="absolute top-0 right-0 bg-[var(--brand-cyan)] text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl z-20">
-                                MOST POPULAR
-                            </div>
                             <div className="flex-1 text-center md:text-left z-10">
                                 <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
                                     <h3 className="font-display text-2xl font-bold text-slate-800">Pay Upfront</h3>
-                                    <span className="px-3 py-1 rounded-full bg-[var(--brand-cyan)]/10 text-[var(--brand-teal)] text-xs font-bold uppercase tracking-wider">
+                                    <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold uppercase tracking-wider">
                                         Save Big
                                     </span>
                                 </div>
@@ -287,7 +296,7 @@ export default function PricingPage() {
                             <div className="flex-1 text-center md:text-left z-10">
                                 <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
                                     <h3 className="font-display text-2xl font-bold text-slate-800">Pay As You Sell</h3>
-                                    <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider">
+                                    <span className="px-3 py-1 rounded-full bg-teal-100 text-teal-700 text-xs font-bold uppercase tracking-wider">
                                         Flexible
                                     </span>
                                 </div>
@@ -309,6 +318,21 @@ export default function PricingPage() {
                                 >
                                     Calculate
                                 </Button>
+                            </div>
+                        </div>
+
+                        {/* Charity Discount Banner */}
+                        <div className="animate-fade-up" style={fadeStyle('0.3s')}>
+                            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600/10 via-purple-500/10 to-fuchsia-500/10 border border-purple-200/50 px-6 py-4 md:px-8 md:py-5">
+                                <div className="absolute inset-0 bg-white/40 backdrop-blur-sm" />
+                                <div className="relative z-10 flex items-center justify-center gap-4">
+                                    <div className="hidden md:flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg shadow-purple-500/25">
+                                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
+                                    </div>
+                                    <p className="font-display text-lg font-bold text-slate-800 text-center md:text-left">
+                                        Registered charities receive <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-600 to-purple-600">50% off</span> platform fees
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
