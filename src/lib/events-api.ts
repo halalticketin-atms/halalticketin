@@ -308,6 +308,7 @@ export interface PublicTicketRecord {
     salesStart: string | null;
     salesEnd: string | null;
     customFee?: number | null;
+    absorbFee?: boolean | null;
     earlyBirdPrice: string | null;
     earlyBirdEndDate: string | null;
 }
