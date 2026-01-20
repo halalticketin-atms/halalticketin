@@ -54,6 +54,7 @@ interface AnalyticsResponse {
         netRevenue: number;
         ticketsSold: number;
         donationCount: number;
+        donationRevenue: number;
         paidOrders: number;
         totalEvents: number;
         currency: string;
@@ -183,10 +184,13 @@ export default function AnalyticsPage() {
             return [];
         }
 
-        const baseStats = [
+        return [
             {
                 title: 'Net Revenue',
                 value: formatCurrency(analytics.stats.netRevenue, analytics.stats.currency),
+                subtitle: analytics.stats.donationCount > 0
+                    ? `Incl. ${formatCurrency(analytics.stats.donationRevenue, analytics.stats.currency)} from ${analytics.stats.donationCount.toLocaleString()} donation${analytics.stats.donationCount !== 1 ? 's' : ''}`
+                    : undefined,
                 icon: DollarSign,
                 cardClass: 'bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900',
                 iconClass: 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg',
@@ -198,20 +202,6 @@ export default function AnalyticsPage() {
                 cardClass: 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900',
                 iconClass: 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg',
             },
-        ];
-
-        // Only show donations card if organizer has received donations
-        if (analytics.stats.donationCount > 0) {
-            baseStats.push({
-                title: 'Donations',
-                value: analytics.stats.donationCount.toLocaleString(),
-                icon: Ticket, // Using Ticket icon as Heart isn't imported; visually distinguished by color
-                cardClass: 'bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-950/30 dark:to-rose-950/30 border-pink-100 dark:border-pink-900',
-                iconClass: 'bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-lg',
-            });
-        }
-
-        baseStats.push(
             {
                 title: 'Paid Orders',
                 value: analytics.stats.paidOrders.toLocaleString(),
@@ -226,9 +216,7 @@ export default function AnalyticsPage() {
                 cardClass: 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900',
                 iconClass: 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg',
             },
-        );
-
-        return baseStats;
+        ];
     }, [analytics]);
 
     // Calculate derived metrics
@@ -427,6 +415,9 @@ export default function AnalyticsPage() {
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-medium text-muted-foreground mb-1 truncate">{stat.title}</p>
                                             <p className="text-2xl sm:text-3xl font-bold break-words">{stat.value}</p>
+                                            {'subtitle' in stat && stat.subtitle && (
+                                                <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
+                                            )}
                                         </div>
                                         <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${stat.iconClass}`}>
                                             <stat.icon className="h-6 w-6" />

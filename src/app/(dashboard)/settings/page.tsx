@@ -1050,6 +1050,9 @@ export default function SettingsPage() {
                                                     <p className="text-xs text-muted-foreground">
                                                         This is the default currency for your events. You can override this when creating specific events.
                                                     </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Default currency is locked after the first paid order.
+                                                    </p>
                                                 </div>
 
                                                 <div className="pt-2">

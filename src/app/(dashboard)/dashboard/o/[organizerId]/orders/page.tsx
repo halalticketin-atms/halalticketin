@@ -56,6 +56,7 @@ import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
 import { toast } from '@/lib/notifications';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
+import { useOrganizers } from '@/context/organizer-context';
 import { OrderCard, type OrderResponse, type OrderItem, type OrderStatus } from '@/components/orders/OrderCard';
 import { ticketTypeColors } from '@/components/dashboard/CircularProgress';
 
@@ -122,6 +123,7 @@ const getEffectiveUnitPrice = (item: Pick<OrderItem, 'unitPrice' | 'organizerFee
 
 export default function OrdersPage() {
     const organizerId = useOrganizerFromParams();
+    const { organizers } = useOrganizers();
     const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -412,6 +414,14 @@ export default function OrdersPage() {
         return totals;
     }, [orders]);
 
+    const activeOrganizer = organizers.find((org) => org.id === organizerId);
+    const fallbackCurrency =
+        activeOrganizer?.defaultCurrency ??
+        orders[0]?.totals.netCurrency ??
+        orders[0]?.totals.currency ??
+        'GBP';
+    const netRevenueCurrency = orders[0]?.totals.netCurrency ?? fallbackCurrency;
+
     return (
         <div className="min-h-screen bg-muted/30">
             <div className="container py-8">
@@ -509,7 +519,7 @@ export default function OrdersPage() {
                                         <div>
                                             <p className="text-sm font-medium text-muted-foreground">Net Revenue</p>
                                             <p className="text-2xl font-bold">
-                                                {formatCurrency(revenueTotal, orders[0]?.totals.currency ?? 'GBP')}
+                                                {formatCurrency(revenueTotal, netRevenueCurrency)}
                                             </p>
                                         </div>
                                     </div>
