@@ -222,10 +222,12 @@ export function calculateFeePerTicket(
     }
 
     if (feeTier === 'charity') {
-        return convertFromGBP(CHARITY_FEE_GBP, currency, rates);
+        const fee = convertFromGBP(CHARITY_FEE_GBP, currency, rates);
+        return fromSmallestUnit(toSmallestUnit(fee, currency), currency);
     }
 
-    return convertFromGBP(PAYG_FEE_GBP, currency, rates);
+    const fee = convertFromGBP(PAYG_FEE_GBP, currency, rates);
+    return fromSmallestUnit(toSmallestUnit(fee, currency), currency);
 }
 
 /**
@@ -242,10 +244,14 @@ export function calculatePlatformFee(params: FeeCalculationParams): FeeCalculati
     } = params;
 
     if (feeTier === 'charity') {
-        const feePerTicket = convertFromGBP(CHARITY_FEE_GBP, currency, exchangeRates);
+        const feePerTicketRaw = convertFromGBP(CHARITY_FEE_GBP, currency, exchangeRates);
+        const feePerTicketSmallestUnit = toSmallestUnit(feePerTicketRaw, currency);
+        const feePerTicket = fromSmallestUnit(feePerTicketSmallestUnit, currency);
         return {
             feePerTicket,
-            totalFee: feePerTicket * ticketCount,
+            totalFee: feePerTicketSmallestUnit * ticketCount > 0
+                ? fromSmallestUnit(feePerTicketSmallestUnit * ticketCount, currency)
+                : 0,
             ticketsUsingCredits: 0,
             ticketsUsingPayg: ticketCount,
             feeDescription: `${getCurrencySymbol(currency)}${feePerTicket.toFixed(2)}/ticket (Charity rate)`
@@ -265,12 +271,15 @@ export function calculatePlatformFee(params: FeeCalculationParams): FeeCalculati
     }
 
     const baseFeePerTicket = convertFromGBP(PAYG_FEE_GBP, currency, exchangeRates);
-    let totalFeeSmallestUnit = toSmallestUnit(baseFeePerTicket * ticketCount, currency);
+    const feePerTicketSmallestUnit = toSmallestUnit(baseFeePerTicket, currency);
+    let totalFeeSmallestUnit = feePerTicketSmallestUnit * ticketCount;
     if (charityDiscountRate && charityDiscountRate > 0) {
         totalFeeSmallestUnit = applyCharityPlatformFeeDiscount(totalFeeSmallestUnit, charityDiscountRate);
     }
     const totalFee = fromSmallestUnit(totalFeeSmallestUnit, currency);
-    const feePerTicket = ticketCount > 0 ? totalFee / ticketCount : 0;
+    const feePerTicket = ticketCount > 0
+        ? (charityDiscountRate && charityDiscountRate > 0 ? totalFee / ticketCount : fromSmallestUnit(feePerTicketSmallestUnit, currency))
+        : 0;
     return {
         feePerTicket,
         totalFee,
