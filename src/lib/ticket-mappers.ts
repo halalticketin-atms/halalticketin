@@ -72,6 +72,7 @@ export const buildDraftFromEventRecord = (
         description: event.description ?? '',
         bannerImageDataUrl: event.bannerImageUrl ?? '', // FIX: Populate from backend's bannerImageUrl
         categories: event.category ? event.category.split(',').map((c) => c.trim()) : [],
+        totalCapacity: event.totalCapacity ?? event.totalTickets ?? 0,
         visibility: event.isListedPublicly ? 'public' : 'private',
         accessCodeEnabled: !event.isListedPublicly && (event.hasAccessPassword ?? false),
         accessCode: '',

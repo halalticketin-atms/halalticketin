@@ -33,6 +33,7 @@ interface EventPerformanceData {
     city: string | null;
     bannerImageUrl: string | null;
     ticketsSold: number;
+    donationCount?: number;
     totalTickets: number;
     revenue: number;
     currency: string;
@@ -206,6 +207,11 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                                                 <span className="text-muted-foreground flex-shrink-0">Capacity</span>
                                                 <span className="font-mono text-xs sm:text-sm font-bold text-primary truncate">
                                                     {event.ticketsSold}/{event.totalTickets} ({Math.round(percentage)}%)
+                                                    {event.donationCount && event.donationCount > 0 && (
+                                                        <span className="font-normal text-muted-foreground ml-1">
+                                                            + {event.donationCount} donation{event.donationCount !== 1 ? 's' : ''}
+                                                        </span>
+                                                    )}
                                                 </span>
                                             </div>
                                             <div className="h-2 bg-muted rounded-full overflow-hidden w-full">

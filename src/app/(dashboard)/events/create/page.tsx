@@ -313,6 +313,7 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
     return {
         title: formData.title.trim(),
         description: formData.description.trim() || null,
+        totalCapacity: formData.totalCapacity,
         startDatetime: start,
         endDatetime: end,
         timezone: formData.timezone || 'UTC',
@@ -515,7 +516,7 @@ const getStepForFieldErrors = (errors: Record<string, string>) => {
         { step: 1, fields: ['title', 'description', 'bannerImageDataUrl', 'categories', 'visibility', 'accessCode'] },
         { step: 2, fields: ['date', 'startTime', 'endDate', 'endTime', 'timezone'] },
         { step: 3, fields: ['locationType', 'venue', 'address', 'city', 'onlineUrl'] },
-        { step: 4, fields: ['tickets', 'currency', 'refundPolicy', 'attendeeInfoMode', 'customQuestions'] },
+        { step: 4, fields: ['tickets', 'currency', 'refundPolicy', 'totalCapacity', 'attendeeInfoMode', 'customQuestions'] },
     ];
 
     for (const entry of stepFields) {
@@ -531,7 +532,7 @@ const publishRequiredFieldsByStep: Record<number, string[]> = {
     1: ['title'],
     2: ['date', 'startTime', 'endDate', 'endTime'],
     3: ['venue', 'address', 'city', 'onlineUrl'],
-    4: ['tickets', 'currency', 'refundPolicy'],
+    4: ['tickets', 'currency', 'refundPolicy', 'totalCapacity'],
 };
 
 /**
@@ -581,6 +582,7 @@ const isStepComplete = (
         case 4:
             // Step 4: Currency and at least one ticket required
             if (!formData.currency) return false;
+            if (!formData.totalCapacity || formData.totalCapacity < 1) return false;
             if (tickets.length < 1) return false;
             return true;
 
@@ -617,6 +619,10 @@ const validatePublishForm = (
 
     if (!formData.currency) {
         errors.currency = 'Currency is required.';
+    }
+
+    if (!formData.totalCapacity || formData.totalCapacity < 1) {
+        errors.totalCapacity = 'Total event capacity is required.';
     }
 
     if (!formData.date.trim()) {
@@ -1043,6 +1049,7 @@ export function EventWizard({
     const [ticketOpenMap, setTicketOpenMap] = useState<Record<string, boolean>>({});
     const [showAccessCode, setShowAccessCode] = useState(false);
     const initialTicketOpenAppliedRef = useRef(false);
+    const capacityOverrideRef = useRef(formData.totalCapacity > 0);
 
     const publishRequirementErrors = useMemo(
         () => validatePublishForm(formData, tickets, hasExistingAccessCode),
@@ -1296,6 +1303,19 @@ export function EventWizard({
         () => tickets.filter((ticket) => ticket.type !== 'donation'),
         [tickets],
     );
+
+    useEffect(() => {
+        if (capacityOverrideRef.current) {
+            return;
+        }
+        const totalFromTickets = regularTickets.reduce((sum, ticket) => sum + (ticket.quantity || 0), 0);
+        if (totalFromTickets !== formData.totalCapacity) {
+            setFormData((prev) => ({
+                ...prev,
+                totalCapacity: totalFromTickets,
+            }));
+        }
+    }, [formData.totalCapacity, regularTickets, setFormData]);
 
     const activePromoCount = useMemo(
         () => promoCodes.filter((promo) => promo.isActive !== false).length,
@@ -2053,8 +2073,7 @@ export function EventWizard({
         if (canUseCredits && activeOrganizerId) {
             try {
                 const credits = await getCreditBalance(activeOrganizerId);
-                const totalCapacity = regularTickets.reduce((sum, t) => sum + (t.quantity || 0), 0);
-
+                const totalCapacity = formData.totalCapacity || 0;
                 if (credits.balance < totalCapacity) {
                     setOrganizerCredits(credits.balance);
                     setPublishCapacity(totalCapacity);
@@ -2937,6 +2956,39 @@ export function EventWizard({
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Set up your tickets</h2>
                                                     <p className="mt-1 text-sm text-muted-foreground">Create one or more ticket types</p>
                                                     {fieldErrors.tickets && <p className="text-xs text-destructive mt-1.5">{fieldErrors.tickets}</p>}
+                                                </div>
+
+                                                <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden p-4 sm:p-6">
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="totalCapacity">Total event capacity</Label>
+                                                        <Input
+                                                            id="totalCapacity"
+                                                            name="totalCapacity"
+                                                            type="number"
+                                                            min={1}
+                                                            max={MAX_TICKET_QUANTITY}
+                                                            value={formData.totalCapacity ? String(formData.totalCapacity) : ''}
+                                                            onChange={(e) => {
+                                                                capacityOverrideRef.current = true;
+                                                                const parsed = Number.parseInt(e.target.value, 10);
+                                                                setFormData((prev) => ({
+                                                                    ...prev,
+                                                                    totalCapacity: Number.isFinite(parsed) ? Math.max(parsed, 0) : 0,
+                                                                }));
+                                                                clearFieldErrors('totalCapacity');
+                                                            }}
+                                                            className={cn(
+                                                                'h-11',
+                                                                fieldErrors.totalCapacity ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                            )}
+                                                        />
+                                                        {fieldErrors.totalCapacity ? (
+                                                            <p className="text-xs text-destructive">{fieldErrors.totalCapacity}</p>
+                                                        ) : null}
+                                                        <p className="text-xs text-muted-foreground">
+                                                            This is the combined limit across all ticket types.
+                                                        </p>
+                                                    </div>
                                                 </div>
 
                                                 <div className="space-y-3">

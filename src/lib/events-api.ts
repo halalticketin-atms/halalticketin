@@ -57,7 +57,9 @@ export interface EventRecord {
     attendeeInfoMode: 'per_ticket' | 'buyer_choice';
     customQuestions: CustomQuestionPayload[] | null;
     ticketsSold?: number; // Aggregate from ticket_types
-    totalTickets?: number; // Aggregate from ticket_types (sum of maxQuantity)
+    donationCount?: number; // Donation quantities (non-seat)
+    totalTickets?: number; // Event-level total capacity
+    totalCapacity?: number | null;
     revenue?: number; // Net revenue from completed orders (organizer currency)
     createdAt: string;
     updatedAt: string;
@@ -114,6 +116,7 @@ export interface UpsertEventPayload {
     accessPassword?: string;
     clearAccessPassword?: boolean;
     category?: string | null;
+    totalCapacity?: number;
     absorbFee?: boolean;
     attendeeInfoMode?: 'per_ticket' | 'buyer_choice';
     customQuestions?: CustomQuestionPayload[] | null;

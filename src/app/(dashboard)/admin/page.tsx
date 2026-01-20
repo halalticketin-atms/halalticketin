@@ -573,10 +573,10 @@ function OrganizersTable() {
                                                 <Badge
                                                     variant="secondary"
                                                     className={`text-xs capitalize ${org.organizerType === 'charity'
-                                                            ? 'bg-emerald-500/10 text-emerald-600'
-                                                            : org.organizerType === 'organization'
-                                                                ? 'bg-purple-500/10 text-purple-600'
-                                                                : ''
+                                                        ? 'bg-emerald-500/10 text-emerald-600'
+                                                        : org.organizerType === 'organization'
+                                                            ? 'bg-purple-500/10 text-purple-600'
+                                                            : ''
                                                         }`}
                                                 >
                                                     {org.organizerType}
@@ -729,6 +729,11 @@ function EventsTable() {
                                                 <td className="px-4 py-3 text-center hidden md:table-cell">
                                                     <span className="font-medium">{event.totalSold}</span>
                                                     <span className="text-muted-foreground">/{event.totalCapacity}</span>
+                                                    {event.donationCount > 0 && (
+                                                        <span className="text-muted-foreground ml-1">
+                                                            +{event.donationCount}
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3 text-center hidden md:table-cell font-medium">
                                                     {event.ordersCount}

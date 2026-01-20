@@ -18,6 +18,7 @@ export interface DraftFormData {
   description: string;
   bannerImageDataUrl: string;
   categories: string[];
+  totalCapacity: number;
   visibility: 'public' | 'private';
   accessCodeEnabled: boolean;
   accessCode: string;
@@ -91,6 +92,7 @@ const defaultFormData: DraftFormData = {
   description: '',
   bannerImageDataUrl: '',
   categories: [],
+  totalCapacity: 0,
   visibility: 'public',
   accessCodeEnabled: false,
   accessCode: '',

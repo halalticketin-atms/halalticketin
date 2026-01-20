@@ -140,6 +140,7 @@ function EventCard({
 
     // Use actual data from backend
     const ticketsSold = event.ticketsSold || 0;
+    const donationCount = event.donationCount || 0;
     const totalTickets = event.totalTickets || 0;
     const revenue = event.revenue || 0;
 
@@ -300,7 +301,14 @@ function EventCard({
                         <div className="grid grid-cols-2 gap-2 text-xs mb-1.5">
                             <div>
                                 <p className="text-xs text-muted-foreground">Tickets Sold</p>
-                                <p className="font-bold text-primary">{ticketsSold}/{totalTickets || '∞'}</p>
+                                <p className="font-bold text-primary">
+                                    {ticketsSold}/{totalTickets || '∞'}
+                                    {donationCount > 0 && (
+                                        <span className="font-normal text-muted-foreground ml-1">
+                                            + {donationCount} donation{donationCount !== 1 ? 's' : ''}
+                                        </span>
+                                    )}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground">Net Revenue</p>

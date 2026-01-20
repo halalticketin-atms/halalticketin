@@ -54,6 +54,7 @@ export interface CheckoutErrorResponse {
     error?: unknown;
     unavailableTypes?: string[];
     issues?: string[];
+    adjustedItems?: Array<{ ticketTypeId: string; quantity: number }>;
     code?: string;
 }
 
@@ -138,12 +139,20 @@ export async function createCheckoutSession(
         if (!response.ok) {
             const parsed = parseBackendError(data);
             const details = getBackendErrorDetails<Record<string, unknown>>(data) ?? {};
+            const adjustedItems = Array.isArray(details.adjustedItems)
+                ? details.adjustedItems.filter((item): item is { ticketTypeId: string; quantity: number } =>
+                    Boolean(item)
+                    && typeof (item as { ticketTypeId?: unknown }).ticketTypeId === 'string'
+                    && typeof (item as { quantity?: unknown }).quantity === 'number'
+                )
+                : undefined;
             return {
                 success: false,
                 message: getBackendErrorMessage(data, 'Checkout failed'),
                 error: data,
                 unavailableTypes: Array.isArray(details.unavailableTypes) ? details.unavailableTypes : undefined,
                 issues: Array.isArray(details.issues) ? details.issues : undefined,
+                adjustedItems: adjustedItems && adjustedItems.length > 0 ? adjustedItems : undefined,
                 code: parsed?.code
             };
         }
@@ -209,6 +218,7 @@ export async function handleCheckout(
     orderId?: string;
     tickets?: CheckoutSuccessResponse['tickets'];
     error?: string;
+    adjustedItems?: Array<{ ticketTypeId: string; quantity: number }>;
 }> {
     const result = await createCheckoutSession(eventId, request, undefined, options?.accessCode);
 
@@ -218,7 +228,8 @@ export async function handleCheckout(
             : '';
         return {
             success: false,
-            error: `${result.message}${issuesSuffix}`.trim()
+            error: `${result.message}${issuesSuffix}`.trim(),
+            adjustedItems: result.adjustedItems
         };
     }
 

@@ -1209,6 +1209,23 @@ export function PublicEventPageContent({
         );
 
         if (!result.success) {
+            if (result.adjustedItems && result.adjustedItems.length > 0) {
+                setTicketQuantities((prev) => {
+                    const next = { ...prev };
+                    for (const item of result.adjustedItems ?? []) {
+                        next[item.ticketTypeId] = item.quantity;
+                    }
+                    return next;
+                });
+                setAppliedPromo(null);
+                setPromoError(null);
+                const errorMessage = result.error || 'Ticket quantities were adjusted to match availability. Please review and try again.';
+                setCheckoutError(errorMessage);
+                toast.error(errorMessage);
+                setIsProcessing(false);
+                return;
+            }
+
             const errorMessage = result.error || 'Checkout failed. Please try again.';
             setCheckoutError(errorMessage);
             toast.error(errorMessage);

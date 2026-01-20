@@ -95,6 +95,7 @@ export interface AdminEvent {
     ticketTypes: AdminEventTicketType[];
     totalCapacity: number;
     totalSold: number;
+    donationCount: number;
     ticketsAvailable: number;
     priceRange: { min: number; max: number };
     ordersCount: number;

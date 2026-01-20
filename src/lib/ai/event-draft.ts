@@ -154,6 +154,7 @@ function normalizeFormData(
     refundPolicy: raw.refundPolicy ?? '',
     attendeeInfoMode: raw.attendeeInfoMode ?? 'buyer_choice',
     customQuestions: raw.customQuestions ?? [],
+    totalCapacity: 0,
   };
 }
 

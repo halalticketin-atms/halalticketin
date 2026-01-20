@@ -32,6 +32,7 @@ interface AnalyticsEvent {
     bannerImageUrl: string | null;
     revenue: number;
     ticketsSold: number;
+    donationCount: number;
     lastOrderAt: string | null;
 }
 
@@ -52,6 +53,7 @@ interface AnalyticsResponse {
         totalRevenue: number;
         netRevenue: number;
         ticketsSold: number;
+        donationCount: number;
         paidOrders: number;
         totalEvents: number;
         currency: string;
@@ -181,7 +183,7 @@ export default function AnalyticsPage() {
             return [];
         }
 
-        return [
+        const baseStats = [
             {
                 title: 'Net Revenue',
                 value: formatCurrency(analytics.stats.netRevenue, analytics.stats.currency),
@@ -196,6 +198,20 @@ export default function AnalyticsPage() {
                 cardClass: 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900',
                 iconClass: 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg',
             },
+        ];
+
+        // Only show donations card if organizer has received donations
+        if (analytics.stats.donationCount > 0) {
+            baseStats.push({
+                title: 'Donations',
+                value: analytics.stats.donationCount.toLocaleString(),
+                icon: Ticket, // Using Ticket icon as Heart isn't imported; visually distinguished by color
+                cardClass: 'bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-950/30 dark:to-rose-950/30 border-pink-100 dark:border-pink-900',
+                iconClass: 'bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-lg',
+            });
+        }
+
+        baseStats.push(
             {
                 title: 'Paid Orders',
                 value: analytics.stats.paidOrders.toLocaleString(),
@@ -210,7 +226,9 @@ export default function AnalyticsPage() {
                 cardClass: 'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900',
                 iconClass: 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-lg',
             },
-        ];
+        );
+
+        return baseStats;
     }, [analytics]);
 
     // Calculate derived metrics
