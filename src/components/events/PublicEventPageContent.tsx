@@ -570,11 +570,11 @@ export function PublicEventPageContent({
         , [ticketCartItems]);
 
     const paidTicketCount = useMemo(() =>
-        cartItems.reduce((sum, item) => {
+        ticketCartItems.reduce((sum, item) => {
             const unitPrice = getCartItemUnitPrice(item);
             return unitPrice > 0 ? sum + item.quantity : sum;
         }, 0),
-        [cartItems, getCartItemUnitPrice]
+        [ticketCartItems, getCartItemUnitPrice]
     );
     const resolvedDonationAmount = donationAmount ?? 0;
     const hasSelections = totalTickets > 0 || resolvedDonationAmount > 0;
