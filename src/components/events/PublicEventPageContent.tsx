@@ -816,6 +816,9 @@ export function PublicEventPageContent({
         }
 
         const totalFee = cartItems.reduce((sum, item) => {
+            if (item.ticket.type === 'donation') {
+                return sum;
+            }
             const unitPrice = getCartItemUnitPrice(item);
             if (unitPrice <= 0) {
                 return sum;
@@ -863,6 +866,9 @@ export function PublicEventPageContent({
         const eventOrganizerFee = normalizeFeeValue(event.customBookingFee) ?? 0;
 
         return cartItems.reduce((sum, item) => {
+            if (item.ticket.type === 'donation') {
+                return sum;
+            }
             const unitPrice = getCartItemUnitPrice(item);
             if (unitPrice <= 0) {
                 return sum;
@@ -1046,8 +1052,8 @@ export function PublicEventPageContent({
             if (!attendee?.age?.trim()) return `Please enter age for Ticket ${currentTicketIndex + 1}.`;
             if (!attendee?.gender) return `Please select gender for Ticket ${currentTicketIndex + 1}.`;
             const ageNum = Number(attendee.age);
-            if (Number.isNaN(ageNum) || ageNum < 13 || ageNum > 120) {
-                return `Please enter a valid age (13-120) for Ticket ${currentTicketIndex + 1}.`;
+            if (Number.isNaN(ageNum) || ageNum < 0 || ageNum > 120) {
+                return `Please enter a valid age (0-120) for Ticket ${currentTicketIndex + 1}.`;
             }
             // Check custom questions
             if (event?.customQuestions?.length) {
@@ -1117,8 +1123,8 @@ export function PublicEventPageContent({
                 }
 
                 const ageNumber = Number(attendee.age);
-                if (Number.isNaN(ageNumber) || ageNumber < 13 || ageNumber > 120) {
-                    return `Ticket ${i + 1}: please enter a valid age (13-120).`;
+                if (Number.isNaN(ageNumber) || ageNumber < 0 || ageNumber > 120) {
+                    return `Ticket ${i + 1}: please enter a valid age (0-120).`;
                 }
 
                 if (event?.customQuestions?.length) {
@@ -2267,7 +2273,7 @@ export function PublicEventPageContent({
                                                                 setTicketAttendees(updated);
                                                             }}
                                                             disabled={isProcessing}
-                                                            min="13"
+                                                            min="0"
                                                             max="120"
                                                             className="h-10 bg-muted/30"
                                                         />
