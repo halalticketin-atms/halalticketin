@@ -75,11 +75,20 @@ export interface CheckoutQuoteResponse {
     promoCodeApplied: boolean;
 }
 
+export type CheckoutQuoteResult = {
+    quote: CheckoutQuoteResponse | null;
+    error?: {
+        code?: string;
+        message?: string;
+        retryAfter?: number;
+    };
+};
+
 export async function getCheckoutQuote(
     eventId: string,
     request: { items: CartItem[]; promoCode?: string },
     options?: { accessCode?: string; accessToken?: string }
-): Promise<CheckoutQuoteResponse | null> {
+): Promise<CheckoutQuoteResult> {
     try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (options?.accessToken) {
@@ -96,11 +105,39 @@ export async function getCheckoutQuote(
 
         const data = await response.json().catch(() => null);
         if (!response.ok) {
-            return null;
+            const parsed = parseBackendError(data);
+            const retryAfterHeader = response.headers.get('retry-after');
+            const retryAfterFromHeader = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : NaN;
+            const retryAfterFromBody =
+                typeof (data as { retryAfter?: unknown } | null)?.retryAfter === 'number'
+                    ? (data as { retryAfter: number }).retryAfter
+                    : typeof (data as { error?: { retryAfter?: unknown } } | null)?.error?.retryAfter === 'number'
+                        ? (data as { error: { retryAfter: number } }).error.retryAfter
+                        : undefined;
+            const retryAfter = retryAfterFromBody ?? (Number.isFinite(retryAfterFromHeader) ? retryAfterFromHeader : undefined);
+            const fallbackCode = typeof (data as { code?: unknown } | null)?.code === 'string'
+                ? (data as { code: string }).code
+                : undefined;
+            const fallbackMessage = typeof (data as { message?: unknown } | null)?.message === 'string'
+                ? (data as { message: string }).message
+                : undefined;
+            return {
+                quote: null,
+                error: {
+                    code: parsed?.code ?? fallbackCode,
+                    message: parsed?.message ?? fallbackMessage,
+                    retryAfter
+                }
+            };
         }
-        return data as CheckoutQuoteResponse;
+        return { quote: data as CheckoutQuoteResponse };
     } catch {
-        return null;
+        return {
+            quote: null,
+            error: {
+                message: 'Failed to load quote'
+            }
+        };
     }
 }
 

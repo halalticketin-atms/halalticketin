@@ -46,9 +46,8 @@ import {
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote, type CheckoutQuoteResponse, type TicketAttendeePayload } from '@/lib/checkout-api';
-import { applyCharityPlatformFeeDiscount, calculateFeePerTicket, formatCurrency, fromSmallestUnit, getCurrencySymbol, toSmallestUnit, type FeeTier } from '@/lib/fees';
+import { formatCurrency, getCurrencySymbol } from '@/lib/fees';
 import { formatCreditSplitNote } from '@/lib/credit-notes';
-import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { LIMITS_GBP, MAX_PER_ORDER, PROMO_CODE_MAX_LENGTH, PROMO_CODE_MIN_LENGTH, roundCurrencyLimit } from '@/lib/input-limits';
 import { useOptionalAuth } from '@/context/auth-context';
@@ -67,6 +66,11 @@ const EventLocationMap = dynamic(
 
 type EventLike = EventRecord | PublicEventRecord;
 type TicketLike = PublicTicketRecord | TicketRecord;
+
+const QUOTE_CACHE_TTL_MS = 30000;
+const QUOTE_MAX_AGE_MS = 120000;
+const DONATION_QUOTE_DEBOUNCE_MS = 500;
+const QUOTE_AGE_TICK_MS = 10000;
 
 interface PublicEventPageContentProps {
     event: EventLike | null;
@@ -188,12 +192,14 @@ function DonationCard({
     maxAmount,
     currencySymbol,
     onAmountChange,
+    onRemove,
 }: {
     ticket: TicketLike;
-    amount: number;
+    amount: number | null;
     maxAmount: number;
     currencySymbol: string;
     onAmountChange: (amount: number | null) => void;
+    onRemove: () => void;
 }) {
     const handleChange = (value: string) => {
         if (value === '') {
@@ -215,16 +221,14 @@ function DonationCard({
                         <p className="text-sm text-muted-foreground mt-1">{ticket.description}</p>
                     )}
                 </div>
-                {amount > 0 && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground"
-                        onClick={() => onAmountChange(null)}
-                    >
-                        Remove
-                    </Button>
-                )}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={onRemove}
+                >
+                    Remove
+                </Button>
             </div>
             <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground">Amount</Label>
@@ -237,7 +241,7 @@ function DonationCard({
                         min="0"
                         max={maxAmount}
                         step="0.01"
-                        value={amount.toString()}
+                        value={amount === null ? '' : amount.toString()}
                         onChange={(e) => handleChange(e.target.value)}
                         className="h-10 pl-6"
                     />
@@ -341,6 +345,8 @@ export function PublicEventPageContent({
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
     const [donationAmount, setDonationAmount] = useState<number | null>(null);
+    const [donationQuoteAmount, setDonationQuoteAmount] = useState<number | null>(null);
+    const [isDonationActive, setIsDonationActive] = useState(false);
     const [attendeeName, setAttendeeName] = useState('');
     const [attendeeEmail, setAttendeeEmail] = useState('');
     const [attendeeAge, setAttendeeAge] = useState('');
@@ -350,7 +356,17 @@ export function PublicEventPageContent({
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const [checkoutStep, setCheckoutStep] = useState(0);
     const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuoteResponse | null>(null);
+    const [isQuoteLoading, setIsQuoteLoading] = useState(false);
+    const [hasQuoteError, setHasQuoteError] = useState(false);
+    const [quoteCooldownUntil, setQuoteCooldownUntil] = useState<number | null>(null);
+    const [, setCooldownTick] = useState(0);
+    const [quoteAgeTick, setQuoteAgeTick] = useState(0);
     const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+    const quoteCacheRef = useRef(new Map<string, { quote: CheckoutQuoteResponse; cachedAt: number }>());
+    const lastQuoteSignatureRef = useRef<string | null>(null);
+    const lastQuoteAtRef = useRef<number | null>(null);
+    const quoteRequestIdRef = useRef(0);
+    const donationDebounceRef = useRef<number | null>(null);
 
     // Autofill user details - only runs once when user data first loads
     useEffect(() => {
@@ -407,16 +423,48 @@ export function PublicEventPageContent({
 
     useEffect(() => {
         if (!donationTicket) {
+            if (donationDebounceRef.current) {
+                window.clearTimeout(donationDebounceRef.current);
+                donationDebounceRef.current = null;
+            }
             setDonationAmount(null);
+            setDonationQuoteAmount(null);
+            setIsDonationActive(false);
             return;
         }
+        setIsDonationActive(true);
         setDonationAmount((prev) => {
             if (prev !== null) {
                 return prev;
             }
             return donationDefaultAmount;
         });
+        setDonationQuoteAmount((prev) => {
+            if (prev !== null) {
+                return prev;
+            }
+            return donationDefaultAmount;
+        });
     }, [donationTicket?.id, donationDefaultAmount]);
+
+    useEffect(() => {
+        if (donationAmount === donationQuoteAmount) {
+            return;
+        }
+        if (donationDebounceRef.current) {
+            window.clearTimeout(donationDebounceRef.current);
+        }
+        donationDebounceRef.current = window.setTimeout(() => {
+            setDonationQuoteAmount(donationAmount);
+            donationDebounceRef.current = null;
+        }, DONATION_QUOTE_DEBOUNCE_MS);
+        return () => {
+            if (donationDebounceRef.current) {
+                window.clearTimeout(donationDebounceRef.current);
+                donationDebounceRef.current = null;
+            }
+        };
+    }, [donationAmount, donationQuoteAmount]);
 
     // --- Checkout Draft Persistence ---
     const DRAFT_KEY = event?.id ? `checkout_draft_${event.id}` : null;
@@ -466,8 +514,12 @@ export function PublicEventPageContent({
             }
             if (draft.donationAmount === null) {
                 setDonationAmount(null);
+                setDonationQuoteAmount(null);
+                setIsDonationActive(false);
             } else if (typeof draft.donationAmount === 'number') {
                 setDonationAmount(draft.donationAmount);
+                setDonationQuoteAmount(draft.donationAmount);
+                setIsDonationActive(true);
             }
         } catch {
             // Ignore parse errors
@@ -561,6 +613,21 @@ export function PublicEventPageContent({
         [donationItem, ticketCartItems],
     );
 
+    const quoteItems = useMemo<CartItem[]>(() => {
+        const items: CartItem[] = ticketCartItems.map((item) => ({
+            ticketTypeId: item.ticket.id,
+            quantity: item.quantity
+        }));
+        if (donationTicket && donationQuoteAmount !== null && Number.isFinite(donationQuoteAmount) && donationQuoteAmount > 0) {
+            items.push({
+                ticketTypeId: donationTicket.id,
+                quantity: 1,
+                unitPrice: donationQuoteAmount
+            });
+        }
+        return items;
+    }, [ticketCartItems, donationTicket, donationQuoteAmount]);
+
     const totalAmount = useMemo(() =>
         cartItems.reduce((sum, item) => sum + item.subtotal, 0)
         , [cartItems]);
@@ -579,6 +646,31 @@ export function PublicEventPageContent({
     const resolvedDonationAmount = donationAmount ?? 0;
     const hasSelections = totalTickets > 0 || resolvedDonationAmount > 0;
     const itemCountForTracking = totalTickets + (resolvedDonationAmount > 0 ? 1 : 0);
+    const isDonationQuotePending = donationAmount !== donationQuoteAmount;
+
+    const cooldownRemaining = quoteCooldownUntil
+        ? Math.max(0, Math.ceil((quoteCooldownUntil - Date.now()) / 1000))
+        : 0;
+    const isRateLimited = cooldownRemaining > 0;
+
+    const quoteSignature = useMemo(() => {
+        if (!event?.id || quoteItems.length === 0) {
+            return null;
+        }
+        const normalizedItems = [...quoteItems]
+            .sort((a, b) => a.ticketTypeId.localeCompare(b.ticketTypeId))
+            .map((item) => ({
+                ticketTypeId: item.ticketTypeId,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice ?? null
+            }));
+        return JSON.stringify({
+            eventId: event.id,
+            items: normalizedItems,
+            promoCode: appliedPromo?.code?.toUpperCase() ?? '',
+            accessCode: accessCode ?? ''
+        });
+    }, [event?.id, quoteItems, appliedPromo?.code, accessCode]);
 
     const customQuestionCount = event?.customQuestions?.length ?? 0;
     const forcePerTicket = customQuestionCount > 0;
@@ -613,7 +705,12 @@ export function PublicEventPageContent({
 
     const handleDonationChange = (amount: number | null) => {
         if (amount === null || !Number.isFinite(amount)) {
+            if (donationDebounceRef.current) {
+                window.clearTimeout(donationDebounceRef.current);
+                donationDebounceRef.current = null;
+            }
             setDonationAmount(null);
+            setDonationQuoteAmount(null);
             setAppliedPromo(null);
             setPromoError(null);
             return;
@@ -621,6 +718,23 @@ export function PublicEventPageContent({
         const clamped = Math.min(Math.max(amount, 0), maxDonationAmount);
         setDonationAmount(clamped);
         // Clear applied promo when donation amount changes
+        setAppliedPromo(null);
+        setPromoError(null);
+    };
+
+    const handleAddDonation = () => {
+        setIsDonationActive(true);
+        handleDonationChange(donationDefaultAmount);
+    };
+
+    const handleRemoveDonation = () => {
+        if (donationDebounceRef.current) {
+            window.clearTimeout(donationDebounceRef.current);
+            donationDebounceRef.current = null;
+        }
+        setIsDonationActive(false);
+        setDonationAmount(null);
+        setDonationQuoteAmount(null);
         setAppliedPromo(null);
         setPromoError(null);
     };
@@ -802,89 +916,8 @@ export function PublicEventPageContent({
         track(eventPixelId, 'ViewContent', viewContentPayload);
     }, [eventPixelId, event?.id, event?.title, currencyCode, track]);
 
-    const platformFeeAmount = useMemo(() => {
-        if (checkoutQuote) {
-            return checkoutQuote.platformFee;
-        }
-        if (!event || paidTicketCount === 0 || finalTotal <= 0) {
-            return 0;
-        }
-
-        const feeTier = (event.feeTier ?? 'payg') as FeeTier;
-        if (feeTier === 'token') {
-            return 0;
-        }
-
-        const totalFee = cartItems.reduce((sum, item) => {
-            if (item.ticket.type === 'donation') {
-                return sum;
-            }
-            const unitPrice = getCartItemUnitPrice(item);
-            if (unitPrice <= 0) {
-                return sum;
-            }
-            const ticketAbsorbFee = 'absorbFee' in item.ticket
-                ? item.ticket.absorbFee ?? false
-                : event.absorbFee ?? false;
-            if (ticketAbsorbFee) {
-                return sum;
-            }
-
-            const feePerTicket = calculateFeePerTicket(
-                feeTier,
-                item.ticket.currency ?? currencyCode,
-                rates
-            );
-
-            return sum + feePerTicket * item.quantity;
-        }, 0);
-
-        if (feeTier !== 'charity' && charityDiscountRate > 0) {
-            const discounted = applyCharityPlatformFeeDiscount(
-                toSmallestUnit(totalFee, currencyCode),
-                charityDiscountRate
-            );
-            return fromSmallestUnit(discounted, currencyCode);
-        }
-
-        return totalFee;
-    }, [event, paidTicketCount, finalTotal, cartItems, getCartItemUnitPrice, currencyCode, rates, checkoutQuote, charityDiscountRate]);
-
-    const organizerFeeAmount = useMemo(() => {
-        if (checkoutQuote) {
-            return checkoutQuote.organizerFee;
-        }
-        if (!event || paidTicketCount === 0 || finalTotal <= 0) {
-            return 0;
-        }
-
-        const feeTier = (event.feeTier ?? 'payg') as FeeTier;
-        if (feeTier !== 'token') {
-            return 0;
-        }
-
-        const eventOrganizerFee = normalizeFeeValue(event.customBookingFee) ?? 0;
-
-        return cartItems.reduce((sum, item) => {
-            if (item.ticket.type === 'donation') {
-                return sum;
-            }
-            const unitPrice = getCartItemUnitPrice(item);
-            if (unitPrice <= 0) {
-                return sum;
-            }
-
-            const ticketOrganizerFee = 'customFee' in item.ticket
-                ? normalizeFeeValue(item.ticket.customFee)
-                : undefined;
-            const resolvedFee = ticketOrganizerFee ?? eventOrganizerFee;
-            if (!resolvedFee || resolvedFee <= 0) {
-                return sum;
-            }
-
-            return sum + resolvedFee * item.quantity;
-        }, 0);
-    }, [event, paidTicketCount, finalTotal, cartItems, getCartItemUnitPrice, checkoutQuote]);
+    const platformFeeAmount = checkoutQuote?.platformFee ?? 0;
+    const organizerFeeAmount = checkoutQuote?.organizerFee ?? 0;
 
     const hasOrganizerFeeOverride = useMemo(() => {
         if (!event || cartItems.length === 0) {
@@ -906,21 +939,37 @@ export function PublicEventPageContent({
         });
     }, [event, cartItems, getCartItemUnitPrice]);
 
-    const processingFeeAmount = useMemo(() => {
-        if (checkoutQuote) {
-            return checkoutQuote.processingFee;
-        }
-        const base = finalTotal + platformFeeAmount + organizerFeeAmount;
-        if (base <= 0) {
-            return 0;
-        }
-        return calculateStripeProcessingFee(base, currencyCode);
-    }, [finalTotal, platformFeeAmount, organizerFeeAmount, currencyCode, checkoutQuote]);
-
-    const grandTotal = checkoutQuote ? checkoutQuote.total : finalTotal + platformFeeAmount + organizerFeeAmount + processingFeeAmount;
+    const processingFeeAmount = checkoutQuote?.processingFee ?? 0;
+    const grandTotal = checkoutQuote?.total ?? 0;
     const creditsApplied = checkoutQuote?.creditsApplied ?? 0;
     const quotePaidTicketCount = checkoutQuote?.paidTicketCount ?? paidTicketCount;
-    const creditSplitNote = formatCreditSplitNote(creditsApplied, quotePaidTicketCount);
+    const creditSplitNote = checkoutQuote
+        ? formatCreditSplitNote(creditsApplied, quotePaidTicketCount)
+        : null;
+    const hasQuote = Boolean(checkoutQuote);
+    const quoteAgeMs = lastQuoteAtRef.current ? Date.now() - lastQuoteAtRef.current : null;
+    const quoteTooOld = hasQuote && quoteAgeMs !== null && quoteAgeMs > QUOTE_MAX_AGE_MS;
+    const quoteFresh = hasQuote
+        && quoteSignature === lastQuoteSignatureRef.current
+        && !quoteTooOld
+        && !isDonationQuotePending;
+    const isQuoteBlocked = hasSelections && !quoteFresh;
+    const isQuoteUpdating = (isQuoteLoading || isDonationQuotePending || quoteTooOld) && !isRateLimited;
+    const quoteStatusLabel = isRateLimited
+        ? `Retrying in ${cooldownRemaining}s`
+        : isQuoteUpdating
+            ? 'Calculating...'
+            : 'Unable to calculate totals';
+    const quoteTotalLabel = hasQuote
+        ? `${currencySymbol}${grandTotal.toFixed(2)}`
+        : quoteStatusLabel;
+    const quoteStatusMessage = isRateLimited
+        ? `Too many requests. Retrying in ${cooldownRemaining}s.`
+        : isQuoteUpdating
+            ? 'Updating totals...'
+            : hasQuoteError
+                ? 'Unable to calculate totals. Please wait or adjust your selection.'
+                : null;
 
     const organizerFeeDetails = useMemo(() => {
         const details = new Map<string, { feePerTicket: number; creditQuantity: number; quantity: number }>();
@@ -965,42 +1014,131 @@ export function PublicEventPageContent({
     }, [cartItems, creditsApplied, event, getCartItemUnitPrice]);
 
     useEffect(() => {
-        if (!event?.id) {
-            setCheckoutQuote(null);
+        if (!quoteCooldownUntil) {
             return;
         }
-        if (cartItems.length === 0) {
-            setCheckoutQuote(null);
+        const interval = window.setInterval(() => setCooldownTick((tick) => tick + 1), 1000);
+        return () => window.clearInterval(interval);
+    }, [quoteCooldownUntil]);
+
+    useEffect(() => {
+        if (!checkoutQuote) {
             return;
         }
-        const previewAccessToken = isPreview ? previewToken ?? getAuthToken() ?? undefined : undefined;
-        if (isPreview && !previewAccessToken) {
+        const interval = window.setInterval(() => setQuoteAgeTick((tick) => tick + 1), QUOTE_AGE_TICK_MS);
+        return () => window.clearInterval(interval);
+    }, [checkoutQuote]);
+
+    useEffect(() => {
+        if (quoteCooldownUntil && cooldownRemaining <= 0) {
+            setQuoteCooldownUntil(null);
+        }
+    }, [quoteCooldownUntil, cooldownRemaining]);
+
+    useEffect(() => {
+        if (!event?.id || !hasSelections) {
+            setCheckoutQuote(null);
+            setIsQuoteLoading(false);
+            setHasQuoteError(false);
+            lastQuoteSignatureRef.current = null;
+            lastQuoteAtRef.current = null;
+            return;
+        }
+        if (!quoteSignature || quoteItems.length === 0) {
+            setIsQuoteLoading(isDonationQuotePending);
+            setHasQuoteError(false);
             return;
         }
 
+        const previewAccessToken = isPreview ? previewToken ?? getAuthToken() ?? undefined : undefined;
+        if (isPreview && !previewAccessToken) {
+            setCheckoutQuote(null);
+            setIsQuoteLoading(false);
+            setHasQuoteError(false);
+            return;
+        }
+
+        const isSameSignature = quoteSignature === lastQuoteSignatureRef.current && checkoutQuote;
+        const lastQuoteAt = lastQuoteAtRef.current ?? 0;
+        const quoteAgeMs = Date.now() - lastQuoteAt;
+        const isQuoteStale = isSameSignature && quoteAgeMs > QUOTE_MAX_AGE_MS;
+        if (isSameSignature && !isQuoteStale) {
+            setHasQuoteError(false);
+            return;
+        }
+
+        const cached = quoteCacheRef.current.get(quoteSignature);
+        if (cached && Date.now() - cached.cachedAt <= QUOTE_CACHE_TTL_MS) {
+            setCheckoutQuote(cached.quote);
+            setIsQuoteLoading(false);
+            setHasQuoteError(false);
+            lastQuoteSignatureRef.current = quoteSignature;
+            lastQuoteAtRef.current = cached.cachedAt;
+            return;
+        }
+
+        if (quoteCooldownUntil && Date.now() < quoteCooldownUntil) {
+            setIsQuoteLoading(false);
+            setHasQuoteError(false);
+            return;
+        }
+
+        setIsQuoteLoading(true);
+        setHasQuoteError(false);
+
+        const requestId = ++quoteRequestIdRef.current;
         let cancelled = false;
         const timer = window.setTimeout(async () => {
-            const quote = await getCheckoutQuote(event.id, {
-                items: cartItems.map((item) => ({
-                    ticketTypeId: item.ticket.id,
-                    quantity: item.quantity,
-                    unitPrice: item.ticket.type === 'donation' ? item.subtotal : undefined
-                })),
+            const result = await getCheckoutQuote(event.id, {
+                items: quoteItems,
                 promoCode: appliedPromo?.code
             }, {
                 accessCode: accessCode ?? undefined,
                 accessToken: previewAccessToken
             });
-            if (!cancelled) {
-                setCheckoutQuote(quote);
+
+            if (cancelled || quoteRequestIdRef.current !== requestId) {
+                return;
             }
-        }, 150);
+
+            setIsQuoteLoading(false);
+            if (result.quote) {
+                const cachedAt = Date.now();
+                quoteCacheRef.current.set(quoteSignature, { quote: result.quote, cachedAt });
+                lastQuoteSignatureRef.current = quoteSignature;
+                lastQuoteAtRef.current = cachedAt;
+                setCheckoutQuote(result.quote);
+                setHasQuoteError(false);
+                return;
+            }
+
+            if (result.error?.code === 'RATE_LIMIT_EXCEEDED' && result.error.retryAfter) {
+                setQuoteCooldownUntil(Date.now() + result.error.retryAfter * 1000);
+                setHasQuoteError(false);
+                return;
+            }
+
+            setHasQuoteError(true);
+        }, 350);
 
         return () => {
             cancelled = true;
             window.clearTimeout(timer);
         };
-    }, [event?.id, cartItems, appliedPromo?.code, accessCode, isPreview, previewToken]);
+    }, [
+        event?.id,
+        hasSelections,
+        quoteItems,
+        quoteSignature,
+        isDonationQuotePending,
+        appliedPromo?.code,
+        accessCode,
+        isPreview,
+        previewToken,
+        checkoutQuote,
+        quoteCooldownUntil,
+        quoteAgeTick
+    ]);
 
     // Step-based checkout: Step 0 = Buyer, Step 1..N = Tickets (if per-ticket), Final = Confirm
     const totalCheckoutSteps = requiresPerTicket ? 1 + totalTickets + 1 : 2;
@@ -1162,11 +1300,18 @@ export function PublicEventPageContent({
         // Save form draft before redirecting to Stripe
         saveDraft();
 
-        const items: CartItem[] = cartItems.map(item => ({
-            ticketTypeId: item.ticket.id,
-            quantity: item.quantity,
-            unitPrice: item.ticket.type === 'donation' ? item.subtotal : undefined
-        }));
+        const latestQuoteAge = lastQuoteAtRef.current ? Date.now() - lastQuoteAtRef.current : null;
+        const isLatestQuoteTooOld = latestQuoteAge !== null && latestQuoteAge > QUOTE_MAX_AGE_MS;
+        const isQuoteReady = Boolean(checkoutQuote)
+            && quoteSignature === lastQuoteSignatureRef.current
+            && !isDonationQuotePending
+            && !isLatestQuoteTooOld;
+
+        if (!isQuoteReady) {
+            setCheckoutError('Calculating totals. Please wait a moment and try again.');
+            setIsProcessing(false);
+            return;
+        }
 
         if (eventPixelId && itemCountForTracking > 0) {
             track(eventPixelId, 'InitiateCheckout', {
@@ -1202,14 +1347,14 @@ export function PublicEventPageContent({
         const result = await handleCheckout(
             event.id,
             {
-                items,
+                items: quoteItems,
                 attendeeName: attendeeName.trim(),
                 attendeeEmail: attendeeEmail.trim(),
                 attendeeAge: Math.floor(buyerAgeNumber),
                 attendeeGender: attendeeGender as 'male' | 'female',
                 useSharedInfo: !requiresPerTicket && useSharedInfo,
                 ticketAttendees: ticketAttendeePayload,
-                promoCode: appliedPromo?.code || promoCode.trim() || undefined,
+                promoCode: appliedPromo?.code || undefined,
             },
             { redirectTarget: isEmbedCheckout ? 'top' : 'self', accessCode: accessCode ?? undefined },
         );
@@ -1775,11 +1920,11 @@ export function PublicEventPageContent({
                                                         Donation
                                                     </div>
                                                     <div className="pt-2">
-                                                        {donationAmount === null ? (
+                                                        {!isDonationActive ? (
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                onClick={() => handleDonationChange(donationDefaultAmount)}
+                                                                onClick={handleAddDonation}
                                                             >
                                                                 Add donation
                                                             </Button>
@@ -1790,6 +1935,7 @@ export function PublicEventPageContent({
                                                                 maxAmount={maxDonationAmount}
                                                                 currencySymbol={currencySymbol}
                                                                 onAmountChange={handleDonationChange}
+                                                                onRemove={handleRemoveDonation}
                                                             />
                                                         )}
                                                     </div>
@@ -1870,48 +2016,65 @@ export function PublicEventPageContent({
                                                     <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
                                                 </div>
                                             )}
-                                            {organizerFeeAmount > 0 && (
-                                                <div className="flex justify-between text-sm text-muted-foreground">
-                                                    <span>{hasOrganizerFeeOverride ? 'Organiser fee (custom)' : 'Organiser fee'}</span>
-                                                    <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
-                                                </div>
-                                            )}
-                                            {platformFeeAmount > 0 && (
-                                                <div className="flex justify-between text-sm text-muted-foreground">
-                                                    <span>Platform fee</span>
-                                                    <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
-                                                </div>
-                                            )}
-                                            {processingFeeAmount > 0 && (
-                                                <div className="flex justify-between text-sm text-muted-foreground">
-                                                    <span>Processing fee</span>
-                                                    <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
-                                                </div>
-                                            )}
-                                            <Separator />
-                                            <div className="flex justify-between font-semibold">
-                                                <span>Total</span>
-                                                <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
-                                            </div>
-                                            {finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount === 0 && (
-                                                <p className="text-xs text-muted-foreground text-center">
-                                                    No additional fees! 🎉
-                                                </p>
-                                            )}
-                                            {finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount > 0 && (
-                                                <p className="text-xs text-muted-foreground text-center">
-                                                    Processing fee applies.
-                                                </p>
-                                            )}
-                                            {finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount > 0 && processingFeeAmount > 0 && (
-                                                <p className="text-xs text-muted-foreground text-center">
-                                                    Organiser fee and processing fee apply.
-                                                </p>
-                                            )}
-                                            {creditSplitNote && (
-                                                <p className="text-xs text-muted-foreground text-center">
-                                                    {creditSplitNote}
-                                                </p>
+                                            {hasQuote ? (
+                                                <>
+                                                    {organizerFeeAmount > 0 && (
+                                                        <div className="flex justify-between text-sm text-muted-foreground">
+                                                            <span>{hasOrganizerFeeOverride ? 'Organiser fee (custom)' : 'Organiser fee'}</span>
+                                                            <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
+                                                        </div>
+                                                    )}
+                                                    {platformFeeAmount > 0 && (
+                                                        <div className="flex justify-between text-sm text-muted-foreground">
+                                                            <span>Platform fee</span>
+                                                            <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
+                                                        </div>
+                                                    )}
+                                                    {processingFeeAmount > 0 && (
+                                                        <div className="flex justify-between text-sm text-muted-foreground">
+                                                            <span>Processing fee</span>
+                                                            <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
+                                                        </div>
+                                                    )}
+                                                    <Separator />
+                                                    <div className="flex justify-between font-semibold">
+                                                        <span>Total</span>
+                                                        <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
+                                                    </div>
+                                                    {quoteFresh && finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount === 0 && (
+                                                        <p className="text-xs text-muted-foreground text-center">
+                                                            No additional fees! 🎉
+                                                        </p>
+                                                    )}
+                                                    {quoteFresh && finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount > 0 && (
+                                                        <p className="text-xs text-muted-foreground text-center">
+                                                            Processing fee applies.
+                                                        </p>
+                                                    )}
+                                                    {quoteFresh && finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount > 0 && processingFeeAmount > 0 && (
+                                                        <p className="text-xs text-muted-foreground text-center">
+                                                            Organiser fee and processing fee apply.
+                                                        </p>
+                                                    )}
+                                                    {creditSplitNote && (
+                                                        <p className="text-xs text-muted-foreground text-center">
+                                                            {creditSplitNote}
+                                                        </p>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Separator />
+                                                    <div className="flex justify-between font-semibold text-muted-foreground">
+                                                        <span>Total</span>
+                                                        <span>{quoteStatusLabel}</span>
+                                                    </div>
+                                                    {quoteStatusMessage && (
+                                                        <p className="text-xs text-muted-foreground text-center">
+                                                            {quoteStatusMessage}
+                                                        </p>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     )}
@@ -1999,7 +2162,7 @@ export function PublicEventPageContent({
                                     );
                                 })}
                                 {hasDonationOption && donationTicket && (
-                                    donationAmount === null ? (
+                                    !isDonationActive ? (
                                         <div className="flex justify-between items-center text-sm">
                                             <div className="flex flex-col">
                                                 <span className="font-medium text-foreground">{donationTicket.name}</span>
@@ -2008,7 +2171,7 @@ export function PublicEventPageContent({
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => handleDonationChange(donationDefaultAmount)}
+                                                onClick={handleAddDonation}
                                             >
                                                 Add
                                             </Button>
@@ -2025,7 +2188,7 @@ export function PublicEventPageContent({
                                                     min="0"
                                                     max={maxDonationAmount}
                                                     step="0.01"
-                                                    value={donationAmount.toString()}
+                                                    value={donationAmount === null ? '' : donationAmount.toString()}
                                                     onChange={(e) => {
                                                         const value = e.target.value;
                                                         if (value === '') {
@@ -2047,22 +2210,31 @@ export function PublicEventPageContent({
                                 {/* Fees & Discounts */}
                                 <Separator className="my-3 bg-primary/10" />
 
-                                {organizerFeeAmount > 0 && (
+                                {hasQuote ? (
+                                    <>
+                                        {organizerFeeAmount > 0 && (
+                                            <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                                <span>{hasOrganizerFeeOverride ? 'Organiser fee (custom)' : 'Organiser fee'}</span>
+                                                <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        {platformFeeAmount > 0 && (
+                                            <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                                <span>Platform fee</span>
+                                                <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        {processingFeeAmount > 0 && (
+                                            <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                                <span>Processing fee</span>
+                                                <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
                                     <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                        <span>{hasOrganizerFeeOverride ? 'Organiser fee (custom)' : 'Organiser fee'}</span>
-                                        <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                {platformFeeAmount > 0 && (
-                                    <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                        <span>Platform fee</span>
-                                        <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                {processingFeeAmount > 0 && (
-                                    <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                        <span>Processing fee</span>
-                                        <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
+                                        <span>Total</span>
+                                        <span>{quoteStatusLabel}</span>
                                     </div>
                                 )}
 
@@ -2083,8 +2255,20 @@ export function PublicEventPageContent({
                             <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-primary/10 relative z-10">
                                 <div className="flex justify-between items-center md:items-end">
                                     <span className="text-xs md:text-sm font-medium text-muted-foreground uppercase tracking-wider">Total</span>
-                                    <span className="text-2xl md:text-3xl font-bold text-primary">{currencySymbol}{grandTotal.toFixed(2)}</span>
+                                    <span
+                                        className={cn(
+                                            'text-2xl md:text-3xl font-bold text-primary',
+                                            !hasQuote && 'text-sm md:text-base text-muted-foreground font-medium'
+                                        )}
+                                    >
+                                        {quoteTotalLabel}
+                                    </span>
                                 </div>
+                                {quoteStatusMessage && (
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        {quoteStatusMessage}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -2410,7 +2594,14 @@ export function PublicEventPageContent({
                                                 <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
                                                     <div className="flex justify-between items-center mb-3">
                                                         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Order Total</span>
-                                                        <span className="text-2xl font-bold text-foreground">{currencySymbol}{grandTotal.toFixed(2)}</span>
+                                                        <span
+                                                            className={cn(
+                                                                'text-2xl font-bold text-foreground',
+                                                                !hasQuote && 'text-sm font-medium text-muted-foreground'
+                                                            )}
+                                                        >
+                                                            {quoteTotalLabel}
+                                                        </span>
                                                     </div>
                                                     <div className="space-y-1.5 text-sm">
                                                         {cartItems.map(item => {
@@ -2440,19 +2631,19 @@ export function PublicEventPageContent({
                                                                 <span>−{currencySymbol}{discountAmount.toFixed(2)}</span>
                                                             </div>
                                                         )}
-                                                        {organizerFeeAmount > 0 && (
+                                                        {hasQuote && organizerFeeAmount > 0 && (
                                                             <div className="flex justify-between text-muted-foreground">
                                                                 <span>{hasOrganizerFeeOverride ? 'Organiser fee (custom)' : 'Organiser fee'}</span>
                                                                 <span>{currencySymbol}{organizerFeeAmount.toFixed(2)}</span>
                                                             </div>
                                                         )}
-                                                        {platformFeeAmount > 0 && (
+                                                        {hasQuote && platformFeeAmount > 0 && (
                                                             <div className="flex justify-between text-muted-foreground">
                                                                 <span>Platform fee</span>
                                                                 <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                                             </div>
                                                         )}
-                                                        {processingFeeAmount > 0 && (
+                                                        {hasQuote && processingFeeAmount > 0 && (
                                                             <div className="flex justify-between text-muted-foreground">
                                                                 <span>Processing fee</span>
                                                                 <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
@@ -2512,13 +2703,22 @@ export function PublicEventPageContent({
                                     <Button
                                         className="w-full h-11 text-base font-bold shadow-lg shadow-primary/20"
                                         onClick={handleProceedToCheckout}
-                                        disabled={isProcessing}
+                                        disabled={isProcessing || isQuoteBlocked}
                                     >
                                         {isProcessing ? (
                                             <>
                                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                                 Processing...
                                             </>
+                                        ) : isRateLimited ? (
+                                            `Retry in ${cooldownRemaining}s`
+                                        ) : isQuoteUpdating ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                Calculating...
+                                            </>
+                                        ) : isQuoteBlocked ? (
+                                            'Totals unavailable'
                                         ) : (
                                             `Pay ${currencySymbol}${grandTotal.toFixed(2)} Now`
                                         )}
