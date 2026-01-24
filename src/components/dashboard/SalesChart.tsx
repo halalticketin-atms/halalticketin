@@ -25,7 +25,25 @@ const formatCurrency = (amount: number, currency: string) => {
 export function SalesChart({ data, currency }: SalesChartProps) {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const chartData = useMemo(() => {
-        return data.map((week, index) => {
+        const orderedData = data
+            .map((week, index) => ({
+                week,
+                index,
+                time: Date.parse(week.weekStart)
+            }))
+            .sort((a, b) => {
+                const aValid = Number.isFinite(a.time);
+                const bValid = Number.isFinite(b.time);
+                if (aValid && bValid) {
+                    return a.time - b.time;
+                }
+                if (aValid) return -1;
+                if (bValid) return 1;
+                return a.index - b.index;
+            })
+            .map(({ week }) => week);
+
+        return orderedData.map((week, index) => {
             const date = new Date(week.weekStart);
             const weekLabel = `W${index + 1}`;
             const dateLabel = date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });

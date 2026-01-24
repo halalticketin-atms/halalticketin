@@ -822,7 +822,7 @@ export default function AdminDashboardPage() {
             setIsLoading(true);
             try {
                 const response = await api.get<AdminOverviewResponse>('/api/v1/admin/overview', {
-                    params: { days: '7', activityLimit: '12' },
+                    params: { activityLimit: '12' },
                 });
                 if (!cancelled) {
                     setOverview(response);
@@ -912,31 +912,28 @@ export default function AdminDashboardPage() {
     }, [timeSeriesPeriod]);
 
     const stats = useMemo(() => {
-        const windowDays = overview?.windowDays ?? 7;
+        const totals = overview?.totals ?? { users: 0, events: 0, tickets: 0 };
         return [
             {
-                title: 'New Users',
-                subtitle: `Last ${windowDays} days`,
-                value: overview?.window.users ?? 0,
-                total: overview?.totals.users ?? 0,
+                title: 'Users',
+                subtitle: 'All time',
+                value: totals.users,
                 icon: UserPlus,
                 gradient: 'from-[var(--brand-teal)] to-[var(--brand-cyan)]',
                 bgGradient: 'from-[var(--brand-mint)]/10 to-[var(--brand-cyan)]/10',
             },
             {
-                title: 'New Events',
-                subtitle: `Last ${windowDays} days`,
-                value: overview?.window.events ?? 0,
-                total: overview?.totals.events ?? 0,
+                title: 'Events',
+                subtitle: 'All time',
+                value: totals.events,
                 icon: CalendarPlus,
                 gradient: 'from-purple-500 to-violet-500',
                 bgGradient: 'from-purple-500/10 to-violet-500/10',
             },
             {
                 title: 'Tickets Sold',
-                subtitle: `Last ${windowDays} days`,
-                value: overview?.window.tickets ?? 0,
-                total: overview?.totals.tickets ?? 0,
+                subtitle: 'All time',
+                value: totals.tickets,
                 icon: Ticket,
                 gradient: 'from-amber-500 to-orange-500',
                 bgGradient: 'from-amber-500/10 to-orange-500/10',
@@ -1083,9 +1080,6 @@ export default function AdminDashboardPage() {
                                                 <div className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}>
                                                     {Number(stat.value).toLocaleString()}
                                                 </div>
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    Total: <span className="font-medium text-foreground">{Number(stat.total).toLocaleString()}</span>
-                                                </p>
                                             </CardContent>
                                         </Card>
                                     </motion.div>
@@ -1293,8 +1287,7 @@ export default function AdminDashboardPage() {
                     className="text-center py-4"
                 >
                     <p className="text-xs text-muted-foreground">
-                        Data refreshes automatically. Last window started{' '}
-                        {overview?.windowStart ? formatTimestamp(overview.windowStart) : 'recently'}.
+                        Data refreshes automatically. Showing all-time totals.
                     </p>
                 </motion.div>
             </div>
