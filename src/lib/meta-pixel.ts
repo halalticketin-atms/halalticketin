@@ -122,6 +122,21 @@ export const teardownMetaPixel = () => {
         // Ignore fbq errors during teardown.
     }
 
+    if (typeof document !== 'undefined') {
+        const secureAttribute = window.location.protocol === 'https:' ? '; Secure' : '';
+        const deleteCookie = (name: string) => {
+            try {
+                document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax${secureAttribute}`;
+            } catch {
+                // Ignore cookie deletion errors.
+            }
+        };
+
+        // Best-effort cleanup for Meta Pixel cookies on our domain when marketing is turned off.
+        deleteCookie('_fbp');
+        deleteCookie('_fbc');
+    }
+
     delete window.fbq;
     delete window._fbq;
 };

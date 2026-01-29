@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, useTransition } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { usePathname } from 'next/navigation';
 import { readConsentPreferences, writeConsentPreferences, type ConsentPreferences } from '@/lib/consent';
 import { useOptionalAuth } from '@/context/auth-context';
 import api from '@/lib/api';
@@ -10,6 +11,7 @@ interface CookieConsentContextValue {
     hasResponded: boolean;
     isBannerVisible: boolean;
     showDetailedPreferences: boolean;
+    setMarketingNeeded: (needed: boolean) => void;
     acceptAll: () => void;
     rejectMarketing: () => void;
     savePreferences: (marketing: boolean) => void;
@@ -23,35 +25,101 @@ const DEFAULT_PREFERENCES: ConsentPreferences = {
     marketing: false
 };
 
+const EMBED_CONSENT_STORAGE_KEY = 'ht_embed_consent';
+
+const parseStoredPreferences = (value: string | null): ConsentPreferences | null => {
+    if (!value) {
+        return null;
+    }
+    try {
+        const parsed = JSON.parse(value) as ConsentPreferences;
+        if (typeof parsed.marketing === 'boolean') {
+            return parsed;
+        }
+    } catch {
+        // ignore malformed storage
+    }
+    return null;
+};
+
+const readEmbedConsentPreferences = (): ConsentPreferences | null => {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+    try {
+        const stored = window.sessionStorage.getItem(EMBED_CONSENT_STORAGE_KEY);
+        const parsed = parseStoredPreferences(stored);
+        return parsed ?? readConsentPreferences();
+    } catch {
+        return readConsentPreferences();
+    }
+};
+
+const writeEmbedConsentPreferences = (preferences: ConsentPreferences) => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+    try {
+        window.sessionStorage.setItem(EMBED_CONSENT_STORAGE_KEY, JSON.stringify(preferences));
+    } catch {
+        // Ignore storage errors (e.g., privacy mode).
+    }
+    try {
+        if (!readConsentPreferences()) {
+            const value = encodeURIComponent(JSON.stringify(preferences));
+            const secureAttribute = window.location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = `ht_consent=${value}; Path=/; SameSite=Lax${secureAttribute}`;
+        }
+    } catch {
+        // Ignore cookie write errors.
+    }
+};
+
+
 export function CookieConsentProvider({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname();
+    const isEmbedRoute = Boolean(pathname?.startsWith('/embed'));
     const [preferences, setPreferences] = useState<ConsentPreferences>(DEFAULT_PREFERENCES);
     const [hasResponded, setHasResponded] = useState(false);
     const [isBannerVisible, setIsBannerVisible] = useState(false);
     const [showDetailedPreferences, setShowDetailedPreferences] = useState(false);
+    const [marketingNeeded, setMarketingNeeded] = useState(false);
     const [, startTransition] = useTransition();
+    const hasSyncedCookieToDbRef = useRef(false);
 
     const auth = useOptionalAuth();
     const isLoggedIn = auth?.user !== null && auth?.user !== undefined;
 
     // Load consent from cookie on mount
     useEffect(() => {
-        const stored = readConsentPreferences();
+        const stored = isEmbedRoute ? readEmbedConsentPreferences() : readConsentPreferences();
         startTransition(() => {
             if (stored) {
                 setPreferences(stored);
                 setHasResponded(true);
-                setIsBannerVisible(false);
             } else {
                 setPreferences(DEFAULT_PREFERENCES);
                 setHasResponded(false);
-                setIsBannerVisible(true);
             }
+            setIsBannerVisible(false);
         });
-    }, [startTransition]);
+    }, [isEmbedRoute, startTransition]);
+
+    useEffect(() => {
+        if (!marketingNeeded) {
+            setIsBannerVisible(false);
+            setShowDetailedPreferences(false);
+            return;
+        }
+        if (!hasResponded) {
+            setIsBannerVisible(true);
+        }
+    }, [hasResponded, marketingNeeded]);
 
     // Sync consent from DB when user logs in (DB takes precedence if set)
     useEffect(() => {
-        if (!isLoggedIn) return;
+        if (!isLoggedIn || isEmbedRoute) return;
+        hasSyncedCookieToDbRef.current = false;
 
         const syncFromDb = async () => {
             try {
@@ -63,6 +131,15 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                     setHasResponded(true);
                     setIsBannerVisible(false);
                     writeConsentPreferences(dbPreferences); // Sync cookie with DB
+                    hasSyncedCookieToDbRef.current = true;
+                    return;
+                }
+
+                // If the user already made a cookie choice before logging in,
+                // persist that choice to the DB so it follows them across devices.
+                if (hasResponded && !hasSyncedCookieToDbRef.current) {
+                    await api.patch('/api/v1/auth/me/consent', { marketing: preferences.marketing });
+                    hasSyncedCookieToDbRef.current = true;
                 }
             } catch {
                 // Silently fail - cookie consent still works
@@ -70,7 +147,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         };
 
         syncFromDb();
-    }, [isLoggedIn]);
+    }, [isEmbedRoute, isLoggedIn, hasResponded, preferences.marketing]);
 
     const persistPreferences = useCallback((marketing: boolean) => {
         const next = { marketing };
@@ -78,15 +155,19 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         setHasResponded(true);
         setIsBannerVisible(false);
         setShowDetailedPreferences(false);
-        writeConsentPreferences(next);
+        if (isEmbedRoute) {
+            writeEmbedConsentPreferences(next);
+        } else {
+            writeConsentPreferences(next);
+        }
 
         // If logged in, also sync to database
-        if (isLoggedIn) {
+        if (isLoggedIn && !isEmbedRoute) {
             api.patch('/api/v1/auth/me/consent', { marketing }).catch(() => {
                 // Silently fail - cookie consent still works as fallback
             });
         }
-    }, [isLoggedIn]);
+    }, [isEmbedRoute, isLoggedIn]);
 
     const acceptAll = useCallback(() => {
         persistPreferences(true);
@@ -121,6 +202,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
             hasResponded,
             isBannerVisible,
             showDetailedPreferences,
+            setMarketingNeeded,
             acceptAll,
             rejectMarketing,
             savePreferences,
@@ -132,6 +214,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
             hasResponded,
             isBannerVisible,
             showDetailedPreferences,
+            setMarketingNeeded,
             acceptAll,
             rejectMarketing,
             savePreferences,

@@ -29,6 +29,7 @@ export interface OrganizerSummary {
     defaultTimezone?: string;
     defaultCurrency?: string;
     metaPixelId: string | null;
+    metaCapiTokenLast4?: string | null;
     feeTier: 'payg' | 'token' | 'charity';
     charityNumber: string | null;
     isCharityVerified: boolean;

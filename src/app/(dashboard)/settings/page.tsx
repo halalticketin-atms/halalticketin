@@ -34,7 +34,8 @@ import {
     X,
     Youtube,
     Upload,
-    Lock
+    Lock,
+    Target
 } from 'lucide-react';
 import { SUPPORTED_CURRENCIES } from '@/lib/fees';
 import { COUNTRIES } from '@/lib/organizer-options';
@@ -57,7 +58,7 @@ const TABS: TabItem[] = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'organizer-profile', label: 'Organiser', icon: Building, organizerOnly: true },
     { id: 'currency', label: 'Currency', icon: Coins, organizerOnly: true },
-    // { id: 'marketing', label: 'Marketing', icon: Target, organizerOnly: true }, // Hidden: not in use
+    ...(process.env.NODE_ENV !== 'production' ? [{ id: 'marketing' as SettingsTab, label: 'Marketing', icon: Target, organizerOnly: true }] : []),
     { id: 'payments', label: 'Payments', icon: CreditCard, organizerOnly: true },
 ];
 
@@ -105,6 +106,10 @@ export default function SettingsPage() {
     const [isSavingMetaPixel, setIsSavingMetaPixel] = useState(false);
     const [metaPixelStatus, setMetaPixelStatus] = useState<'success' | 'error' | null>(null);
     const [metaPixelError, setMetaPixelError] = useState<string | null>(null);
+    const [metaCapiTokenInput, setMetaCapiTokenInput] = useState<string>('');
+    const [isSavingMetaCapiToken, setIsSavingMetaCapiToken] = useState(false);
+    const [metaCapiStatus, setMetaCapiStatus] = useState<'success' | 'error' | null>(null);
+    const [metaCapiError, setMetaCapiError] = useState<string | null>(null);
 
     // Profile form state
     const [profileForm, setProfileForm] = useState<ProfileFormData>({
@@ -173,6 +178,10 @@ export default function SettingsPage() {
     useEffect(() => {
         setMetaPixelInput(currentOrganizer?.metaPixelId || '');
     }, [currentOrganizer?.metaPixelId]);
+
+    useEffect(() => {
+        setMetaCapiTokenInput('');
+    }, [currentOrganizer?.metaCapiTokenLast4]);
 
     // Initialize organizer profile form
     useEffect(() => {
@@ -377,6 +386,33 @@ export default function SettingsPage() {
         }
     };
 
+    const handleSaveMetaCapiToken = async (clearToken: boolean) => {
+        if (!activeOrganizerId) return;
+
+        setIsSavingMetaCapiToken(true);
+        setMetaCapiStatus(null);
+        setMetaCapiError(null);
+
+        const payloadValue = metaCapiTokenInput.trim();
+
+        try {
+            await api.patch(`/api/v1/organizers/${activeOrganizerId}`, {
+                metaCapiToken: clearToken ? null : (payloadValue === '' ? null : payloadValue)
+            });
+            setMetaCapiStatus('success');
+            setMetaCapiTokenInput('');
+            await refresh();
+            setTimeout(() => setMetaCapiStatus(null), 2000);
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : 'Failed to update Meta CAPI token. Please try again.';
+            setMetaCapiStatus('error');
+            setMetaCapiError(message);
+        } finally {
+            setIsSavingMetaCapiToken(false);
+        }
+    };
+
     const handleSaveOrganizerProfile = async () => {
         if (!activeOrganizerId) return;
 
@@ -426,6 +462,7 @@ export default function SettingsPage() {
     const normalizedPixelInput = metaPixelInput.trim();
     const normalizedCurrentPixel = currentOrganizer?.metaPixelId || '';
     const metaPixelChanged = normalizedPixelInput !== normalizedCurrentPixel;
+    const metaCapiConnected = Boolean(currentOrganizer?.metaCapiTokenLast4);
 
     // Check if profile has changed
     const profileHasChanges = user && (
@@ -1207,6 +1244,66 @@ export default function SettingsPage() {
                                                     </>
                                                 ) : (
                                                     'Save Pixel'
+                                                )}
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-2 pt-4">
+                                            <Label htmlFor="metaCapiToken" className="text-muted-foreground">
+                                                Conversions API token (optional)
+                                            </Label>
+                                            <Input
+                                                id="metaCapiToken"
+                                                type="password"
+                                                value={metaCapiTokenInput}
+                                                onChange={(event) => setMetaCapiTokenInput(event.target.value)}
+                                                disabled={!canEditOrgSettings}
+                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                placeholder="Paste token from Meta Events Manager"
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Enables server-side purchase tracking for improved attribution when browsers block pixels.
+                                            </p>
+                                            {metaCapiConnected && (
+                                                <p className="text-xs text-emerald-600">
+                                                    Connected (••••{currentOrganizer?.metaCapiTokenLast4})
+                                                </p>
+                                            )}
+                                            {metaCapiStatus === 'success' && (
+                                                <p className="text-sm text-green-600 flex items-center gap-1">
+                                                    <Check className="h-4 w-4" />
+                                                    Token saved.
+                                                </p>
+                                            )}
+                                            {metaCapiStatus === 'error' && (
+                                                <p className="text-sm text-destructive flex items-center gap-1">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    {metaCapiError || 'Unable to save token.'}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3 pt-2">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => handleSaveMetaCapiToken(true)}
+                                                disabled={isSavingMetaCapiToken || !metaCapiConnected}
+                                                className="rounded-xl"
+                                            >
+                                                Remove token
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleSaveMetaCapiToken(false)}
+                                                disabled={isSavingMetaCapiToken || metaCapiTokenInput.trim() === ''}
+                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                            >
+                                                {isSavingMetaCapiToken ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Saving...
+                                                    </>
+                                                ) : (
+                                                    'Save Token'
                                                 )}
                                             </Button>
                                         </div>

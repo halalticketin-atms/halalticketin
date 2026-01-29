@@ -42,7 +42,6 @@
         const previewEnabled = previewValue
             ? previewValue === 'true' || previewValue === '1'
             : true;
-
         const frame = document.createElement('iframe');
         frame.src = buildIframeSrc(slug, theme, previewEnabled);
         frame.title = 'Halal Ticketin Checkout';

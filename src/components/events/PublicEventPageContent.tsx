@@ -44,6 +44,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useMetaPixel } from '@/hooks/useMetaPixel';
+import { useMarketingConsentRequirement } from '@/hooks/useMarketingConsentRequirement';
+import { useCookieConsent } from '@/context/cookie-consent-context';
+import { getMetaTrackingContext } from '@/lib/meta-tracking';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote, type CheckoutQuoteResponse, type TicketAttendeePayload } from '@/lib/checkout-api';
 import { formatCurrency, getCurrencySymbol } from '@/lib/fees';
@@ -291,10 +294,13 @@ export function PublicEventPageContent({
     );
     const { rates } = useExchangeRates();
     const { track } = useMetaPixel();
+    const { marketingAllowed } = useCookieConsent();
     const eventPixelId =
         !isPreview && event && 'metaPixelId' in event ? event.metaPixelId : null;
     const organizerName =
         organizerNameOverride ?? (event && 'organizerName' in event ? event.organizerName : null);
+
+    useMarketingConsentRequirement(Boolean(eventPixelId));
 
     const auth = useOptionalAuth();
     const user = auth?.user;
@@ -647,6 +653,8 @@ export function PublicEventPageContent({
     const hasSelections = totalTickets > 0 || resolvedDonationAmount > 0;
     const itemCountForTracking = totalTickets + (resolvedDonationAmount > 0 ? 1 : 0);
     const isDonationQuotePending = donationAmount !== donationQuoteAmount;
+    const addToCartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastAddToCartSignatureRef = useRef<string | null>(null);
 
     const cooldownRemaining = quoteCooldownUntil
         ? Math.max(0, Math.ceil((quoteCooldownUntil - Date.now()) / 1000))
@@ -915,6 +923,65 @@ export function PublicEventPageContent({
 
         track(eventPixelId, 'ViewContent', viewContentPayload);
     }, [eventPixelId, event?.id, event?.title, currencyCode, track]);
+
+    useEffect(() => {
+        if (!eventPixelId || !hasSelections || isDonationQuotePending || cartItems.length === 0) {
+            return;
+        }
+
+        const signature = JSON.stringify({
+            items: cartItems.map((item) => ({
+                id: item.ticket.id,
+                quantity: item.quantity,
+                subtotal: Number(item.subtotal.toFixed(2))
+            })),
+            currency: currencyCode
+        });
+
+        if (signature === lastAddToCartSignatureRef.current) {
+            return;
+        }
+
+        if (addToCartTimeoutRef.current !== null) {
+            window.clearTimeout(addToCartTimeoutRef.current);
+        }
+
+        addToCartTimeoutRef.current = window.setTimeout(() => {
+            const contents = cartItems.map((item) => ({
+                id: item.ticket.id,
+                quantity: item.quantity,
+                item_price: Number(getCartItemUnitPrice(item).toFixed(2))
+            }));
+
+            track(eventPixelId, 'AddToCart', {
+                value: Number(totalAmount.toFixed(2)),
+                currency: currencyCode,
+                num_items: itemCountForTracking,
+                content_ids: event?.id ? [event.id] : undefined,
+                content_type: 'product',
+                contents
+            });
+
+            lastAddToCartSignatureRef.current = signature;
+        }, 1200);
+
+        return () => {
+            if (addToCartTimeoutRef.current !== null) {
+                window.clearTimeout(addToCartTimeoutRef.current);
+            }
+        };
+    }, [
+        cartItems,
+        currencyCode,
+        event?.id,
+        eventPixelId,
+        getCartItemUnitPrice,
+        hasSelections,
+        isDonationQuotePending,
+        itemCountForTracking,
+        totalAmount,
+        track
+    ]);
 
     const platformFeeAmount = checkoutQuote?.platformFee ?? 0;
     const organizerFeeAmount = checkoutQuote?.organizerFee ?? 0;
@@ -1355,6 +1422,7 @@ export function PublicEventPageContent({
                 useSharedInfo: !requiresPerTicket && useSharedInfo,
                 ticketAttendees: ticketAttendeePayload,
                 promoCode: appliedPromo?.code || undefined,
+                tracking: getMetaTrackingContext(marketingAllowed),
             },
             { redirectTarget: isEmbedCheckout ? 'top' : 'self', accessCode: accessCode ?? undefined },
         );

@@ -2,15 +2,13 @@
 
 import { useCallback, useEffect } from 'react';
 import { useCookieConsent } from '@/context/cookie-consent-context';
-import { ensureMetaPixel, initMetaPixel, teardownMetaPixel, trackPixelEvent, type PixelEventOptions } from '@/lib/meta-pixel';
+import { initMetaPixel, teardownMetaPixel, trackPixelEvent, type PixelEventOptions } from '@/lib/meta-pixel';
 
 export function useMetaPixel() {
     const { marketingAllowed } = useCookieConsent();
 
     useEffect(() => {
-        if (marketingAllowed) {
-            ensureMetaPixel();
-        } else {
+        if (!marketingAllowed) {
             teardownMetaPixel();
         }
     }, [marketingAllowed]);

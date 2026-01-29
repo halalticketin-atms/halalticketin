@@ -49,7 +49,7 @@ export const CONSENT_CATEGORIES: ConsentCategory[] = [
         id: 'marketing',
         label: 'Marketing storage',
         description:
-            'Lets event organisers load their Meta Pixel so they can measure ad conversions. We only activate it on public + checkout pages *after* you opt in.',
+            'Lets event organisers understand how people find their events using Meta Pixel. We only activate it on public + checkout pages after you opt in.',
         required: false
     }
 ];

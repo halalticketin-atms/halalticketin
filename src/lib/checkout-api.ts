@@ -29,6 +29,13 @@ export interface CheckoutRequest {
     useSharedInfo?: boolean;
     ticketAttendees?: TicketAttendeePayload[];
     promoCode?: string;
+    tracking?: {
+        marketingConsent: boolean;
+        fbp?: string;
+        fbc?: string;
+        fbclid?: string;
+        eventSourceUrl?: string;
+    };
 }
 
 export interface CheckoutSuccessResponse {
@@ -217,6 +224,7 @@ export async function getOrderStatus(orderId: string): Promise<{
     organizerId: string;
     eventId: string;
     metaPixelId: string | null;
+    metaEventId?: string | null;
     tickets?: Array<{
         id: string;
         ticketCode: string;

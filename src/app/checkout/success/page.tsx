@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { Check, CheckCircle, Calendar, Loader2, Download, AlertCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
+import { useMarketingConsentRequirement } from '@/hooks/useMarketingConsentRequirement';
 import { QRCodeCanvas } from 'qrcode.react';
 import { getBackendErrorMessage } from '@/lib/api-errors';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,7 @@ interface OrderStatus {
     organizerId: string;
     eventId: string;
     metaPixelId: string | null;
+    metaEventId?: string | null;
     tickets?: TicketInfo[];
 }
 
@@ -43,6 +45,8 @@ function CheckoutSuccessContent() {
     const { track, canTrack } = useMetaPixel();
     const purchaseTrackedRef = useRef(false);
     const purchaseEventIdRef = useRef<string | null>(null);
+
+    useMarketingConsentRequirement(Boolean(orderStatus?.metaPixelId));
 
     // Fetch order status with polling for pending orders
     useEffect(() => {
@@ -113,8 +117,8 @@ function CheckoutSuccessContent() {
             return;
         }
 
-        if (!purchaseEventIdRef.current && typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-            purchaseEventIdRef.current = crypto.randomUUID();
+        if (!purchaseEventIdRef.current) {
+            purchaseEventIdRef.current = orderStatus.metaEventId ?? null;
         }
 
         const purchasePayload: Record<string, unknown> = {
