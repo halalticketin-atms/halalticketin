@@ -128,7 +128,7 @@ export function RefundDialog({
                 // For now, we just use the amount approach
             }
 
-            await api.post(`/orders/${orderId}/refund`, body);
+            await api.post(`/api/v1/orders/${orderId}/refund`, body);
             onRefundComplete();
             onOpenChange(false);
         } catch (err) {

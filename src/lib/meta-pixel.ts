@@ -19,14 +19,11 @@ declare global {
 }
 
 const initializedPixels = new Set<string>();
-let snippetInserted = false;
 
 const ensureBaseSnippet = () => {
-    if (typeof window === 'undefined' || snippetInserted) {
+    if (typeof window === 'undefined') {
         return;
     }
-
-    snippetInserted = true;
 
     if (!window.fbq) {
         const fbq: FbqFunction = function (...args: unknown[]) {
@@ -40,18 +37,27 @@ const ensureBaseSnippet = () => {
         fbq.version = '2.0';
         fbq.push = fbq;
         window.fbq = fbq;
+    }
 
-        const script = document.createElement('script');
-        script.async = true;
-        script.src = META_PIXEL_SRC;
-        const firstScript = document.getElementsByTagName('script')[0];
+    if (!window._fbq) {
+        window._fbq = window.fbq;
+    }
 
-        if (firstScript?.parentNode) {
-            firstScript.parentNode.insertBefore(script, firstScript);
-        } else if (document.head) {
-            document.head.appendChild(script);
-        } else if (document.body) {
-            document.body.appendChild(script);
+    if (typeof document !== 'undefined') {
+        const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${META_PIXEL_SRC}"]`);
+        if (!existingScript) {
+            const script = document.createElement('script');
+            script.async = true;
+            script.src = META_PIXEL_SRC;
+            const firstScript = document.getElementsByTagName('script')[0];
+
+            if (firstScript?.parentNode) {
+                firstScript.parentNode.insertBefore(script, firstScript);
+            } else if (document.head) {
+                document.head.appendChild(script);
+            } else if (document.body) {
+                document.body.appendChild(script);
+            }
         }
     }
 };
@@ -109,7 +115,6 @@ export const teardownMetaPixel = () => {
     }
 
     initializedPixels.clear();
-    snippetInserted = false;
 
     if (typeof document !== 'undefined') {
         const scripts = document.querySelectorAll<HTMLScriptElement>(`script[src="${META_PIXEL_SRC}"]`);

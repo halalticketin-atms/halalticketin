@@ -58,7 +58,7 @@ const TABS: TabItem[] = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'organizer-profile', label: 'Organiser', icon: Building, organizerOnly: true },
     { id: 'currency', label: 'Currency', icon: Coins, organizerOnly: true },
-    ...(process.env.NODE_ENV !== 'production' ? [{ id: 'marketing' as SettingsTab, label: 'Marketing', icon: Target, organizerOnly: true }] : []),
+    { id: 'marketing', label: 'Marketing', icon: Target, organizerOnly: true },
     { id: 'payments', label: 'Payments', icon: CreditCard, organizerOnly: true },
 ];
 

@@ -83,7 +83,6 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
     const [hasResponded, setHasResponded] = useState(false);
     const [isBannerVisible, setIsBannerVisible] = useState(false);
     const [showDetailedPreferences, setShowDetailedPreferences] = useState(false);
-    const [marketingNeeded, setMarketingNeeded] = useState(false);
     const [, startTransition] = useTransition();
     const hasSyncedCookieToDbRef = useRef(false);
 
@@ -105,8 +104,8 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         });
     }, [isEmbedRoute, startTransition]);
 
-    useEffect(() => {
-        if (!marketingNeeded) {
+    const setMarketingNeeded = useCallback((needed: boolean) => {
+        if (!needed) {
             setIsBannerVisible(false);
             setShowDetailedPreferences(false);
             return;
@@ -114,7 +113,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         if (!hasResponded) {
             setIsBannerVisible(true);
         }
-    }, [hasResponded, marketingNeeded]);
+    }, [hasResponded]);
 
     // Sync consent from DB when user logs in (DB takes precedence if set)
     useEffect(() => {

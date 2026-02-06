@@ -653,7 +653,7 @@ export function PublicEventPageContent({
     const hasSelections = totalTickets > 0 || resolvedDonationAmount > 0;
     const itemCountForTracking = totalTickets + (resolvedDonationAmount > 0 ? 1 : 0);
     const isDonationQuotePending = donationAmount !== donationQuoteAmount;
-    const addToCartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const addToCartTimeoutRef = useRef<number | null>(null);
     const lastAddToCartSignatureRef = useRef<string | null>(null);
 
     const cooldownRemaining = quoteCooldownUntil
@@ -925,7 +925,12 @@ export function PublicEventPageContent({
     }, [eventPixelId, event?.id, event?.title, currencyCode, track]);
 
     useEffect(() => {
-        if (!eventPixelId || !hasSelections || isDonationQuotePending || cartItems.length === 0) {
+        if (!hasSelections || cartItems.length === 0) {
+            lastAddToCartSignatureRef.current = null;
+            return;
+        }
+
+        if (!eventPixelId || isDonationQuotePending) {
             return;
         }
 
