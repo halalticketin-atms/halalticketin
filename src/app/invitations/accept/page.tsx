@@ -10,15 +10,39 @@ import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 import { acceptInvitationToken } from '@/lib/organizers-api';
 import { buildDashboardPath } from '@/lib/organizer-path';
+import { clearPendingInviteContext, getPendingInviteContext, savePendingInviteContext } from '@/lib/pending-invite';
 
 function AcceptInvitationContent() {
     const searchParams = useSearchParams();
-    const token = searchParams.get('token');
+    const queryToken = searchParams.get('token');
     const router = useRouter();
     const { user, isLoading, refresh } = useAuth();
     const { refresh: refreshOrganizers, setActiveOrganizerId } = useOrganizers();
+    const [token, setToken] = useState<string | null>(queryToken);
     const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState<string | null>(null);
+    const [isTerminalError, setIsTerminalError] = useState(false);
+
+    useEffect(() => {
+        if (queryToken) {
+            setToken(queryToken);
+            return;
+        }
+        const pendingInvite = getPendingInviteContext();
+        setToken(pendingInvite?.token ?? null);
+    }, [queryToken]);
+
+    useEffect(() => {
+        if (!token) {
+            return;
+        }
+        const pendingInvite = getPendingInviteContext();
+        savePendingInviteContext({
+            token,
+            invitedEmail: pendingInvite?.invitedEmail,
+            nextPath: `/invitations/accept?token=${encodeURIComponent(token)}`,
+        });
+    }, [token]);
 
     const nextLoginUrl = useMemo(() => {
         if (!token) return '/login';
@@ -42,11 +66,13 @@ function AcceptInvitationContent() {
             try {
                 setStatus('processing');
                 setMessage(null);
+                setIsTerminalError(false);
                 const response = await acceptInvitationToken(token);
                 await refresh();
                 await refreshOrganizers();
                 setActiveOrganizerId(response.membership.organizerId, { persist: true });
                 setStatus('success');
+                clearPendingInviteContext();
 
                 // Format role for display
                 const roleDisplay = response.membership.role.replace('_', '-');
@@ -63,7 +89,22 @@ function AcceptInvitationContent() {
             } catch (err) {
                 console.error(err);
                 setStatus('error');
-                setMessage(err instanceof Error ? err.message : 'Unable to accept invitation.');
+                const rawMessage = err instanceof Error ? err.message : 'Unable to accept invitation.';
+                const normalized = rawMessage.toLowerCase();
+                const terminalError = normalized.includes('expired')
+                    || normalized.includes('revoked')
+                    || normalized.includes('not found')
+                    || normalized.includes('accepted by another user');
+                setIsTerminalError(terminalError);
+
+                if (terminalError) {
+                    clearPendingInviteContext();
+                    setMessage('This invitation link is no longer valid. Please ask the organizer to send a new invite.');
+                } else if (normalized.includes('invited email')) {
+                    setMessage('Please sign in with the invited email address to continue.');
+                } else {
+                    setMessage(rawMessage);
+                }
             }
         };
 
@@ -133,9 +174,15 @@ function AcceptInvitationContent() {
                                     <Button variant="outline" asChild className="w-full">
                                         <Link href="/dashboard">Go to dashboard</Link>
                                     </Button>
-                                    <Button variant="secondary" onClick={() => setStatus('idle')} className="w-full">
-                                        Try again
-                                    </Button>
+                                    {isTerminalError ? (
+                                        <p className="text-xs text-muted-foreground px-2">
+                                            Ask your organizer to send a fresh invitation link.
+                                        </p>
+                                    ) : (
+                                        <Button variant="secondary" onClick={() => setStatus('idle')} className="w-full">
+                                            Try again
+                                        </Button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -161,4 +208,3 @@ export default function AcceptInvitationPage() {
         </Suspense>
     );
 }
-

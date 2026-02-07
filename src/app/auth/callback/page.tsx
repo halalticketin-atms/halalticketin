@@ -8,6 +8,7 @@ import { getSupabase } from '@/lib/supabase';
 import { setAuthToken, setRefreshToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { setLastAuthMethod } from '@/lib/last-auth-method';
+import { getPendingInviteContext, resolveContinuationPath } from '@/lib/pending-invite';
 
 function CallbackContent() {
     const router = useRouter();
@@ -66,20 +67,34 @@ function CallbackContent() {
         }
 
         const nextParam = searchParams.get('next');
+        const pendingInvite = getPendingInviteContext();
+        const continuationPath = resolveContinuationPath(nextParam, pendingInvite);
         if (needsOnboarding) {
             const roleParam = searchParams.get('role');
             const safeRoleParam = roleParam === 'organizer' || roleParam === 'buyer' ? roleParam : null;
-            const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
+            let inviteTokenFromNext: string | null = null;
+            if (continuationPath) {
+                try {
+                    const parsed = new URL(continuationPath, 'https://halalticketin.local');
+                    if (parsed.pathname === '/invitations/accept') {
+                        inviteTokenFromNext = parsed.searchParams.get('token');
+                    }
+                } catch {
+                    inviteTokenFromNext = null;
+                }
+            }
+            const inviteToken = pendingInvite?.token ?? inviteTokenFromNext;
             const params = new URLSearchParams();
             if (safeRoleParam) params.set('role', safeRoleParam);
-            if (safeNextParam) params.set('next', safeNextParam);
+            if (continuationPath) params.set('next', continuationPath);
+            if (inviteToken) params.set('inviteToken', inviteToken);
             const onboardingPath = params.size > 0 ? `/register?${params.toString()}` : '/register';
             router.push(onboardingPath);
             return;
         }
 
         const fallbackRedirect = isOrganizer ? '/dashboard' : '/events';
-        const redirectPath = nextParam && nextParam.startsWith('/') ? nextParam : fallbackRedirect;
+        const redirectPath = continuationPath ?? fallbackRedirect;
         router.push(redirectPath);
     }, [authLoading, isOrganizer, needsOnboarding, redirectPending, router, searchParams, user]);
 

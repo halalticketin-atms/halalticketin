@@ -60,6 +60,7 @@ import { fileToDataUrl, uploadOrganizerAvatar } from '@/lib/upload-api';
 import { COUNTRIES, TIMEZONES } from '@/lib/organizer-options';
 import { getPasswordValidationError } from '@/lib/password';
 import { getLastAuthMethod, setLastAuthMethod, type LastAuthMethod } from '@/lib/last-auth-method';
+import { getDefaultInviteNextPath } from '@/lib/pending-invite';
 
 const TERMS_VERSION = '2024-12-20';
 const SUPPORT_URL = '/contact';
@@ -216,6 +217,13 @@ export function SignupOnboardingDialog({
 }: SignupOnboardingDialogProps) {
     // Invite mode: user is joining an existing org via invitation
     const isInviteFlow = Boolean(inviteToken || inviteEmail);
+    const inviteContinuationPath = isInviteFlow
+        ? (
+            (redirectAfterComplete && redirectAfterComplete.startsWith('/') ? redirectAfterComplete : undefined)
+            ?? getDefaultInviteNextPath(inviteToken)
+            ?? '/dashboard'
+        )
+        : null;
     const isAuthenticatedOnboarding = authMode === 'existing';
     const shouldSkipWelcome = isAuthenticatedOnboarding && Boolean(defaultRole) && !isInviteFlow;
 
@@ -798,12 +806,19 @@ export function SignupOnboardingDialog({
 
     const handleComplete = () => {
         if (pendingEmailConfirmation) {
-            router.push('/login');
+            const loginContinuationPath = isInviteFlow ? inviteContinuationPath : redirectAfterComplete;
+            if (loginContinuationPath && loginContinuationPath.startsWith('/')) {
+                router.push(`/login?next=${encodeURIComponent(loginContinuationPath)}`);
+            } else {
+                router.push('/login');
+            }
             onOpenChange(false);
             return;
         }
 
-        const redirectTo = redirectAfterComplete ?? (formData.role === 'organizer' ? '/dashboard' : '/events');
+        const redirectTo = isInviteFlow
+            ? (inviteContinuationPath ?? '/dashboard')
+            : (redirectAfterComplete ?? (formData.role === 'organizer' ? '/dashboard' : '/events'));
         if (onComplete) {
             onComplete(redirectTo);
         } else {
@@ -842,7 +857,8 @@ export function SignupOnboardingDialog({
             setIsLoading(true);
             setError(null);
 
-            const emailRedirectTo = `${window.location.origin}/auth/callback${redirectAfterComplete ? `?next=${encodeURIComponent(redirectAfterComplete)}` : ''}`;
+            const callbackContinuationPath = isInviteFlow ? inviteContinuationPath : redirectAfterComplete;
+            const emailRedirectTo = `${window.location.origin}/auth/callback${callbackContinuationPath ? `?next=${encodeURIComponent(callbackContinuationPath)}` : ''}`;
             const { error } = await getSupabase().auth.resend({
                 type: 'signup',
                 email: formData.email,

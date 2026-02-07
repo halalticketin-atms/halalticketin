@@ -8,6 +8,13 @@ import { useAuth } from '@/context/auth-context';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
 import { Loader2 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
+import {
+    clearPendingInviteContext,
+    getDefaultInviteNextPath,
+    getPendingInviteContext,
+    resolveContinuationPath,
+    savePendingInviteContext,
+} from '@/lib/pending-invite';
 
 // Lazy load the dialog to reduce initial bundle size
 const SignupOnboardingDialog = dynamic(
@@ -26,20 +33,36 @@ function RegisterPageContent() {
     const { user, isLoading, needsOnboarding } = useAuth();
     const isAuthenticatedOnboarding = Boolean(user && needsOnboarding);
     const [prefill, setPrefill] = useState<{ email?: string; name?: string } | null>(null);
+    const [pendingInvite, setPendingInvite] = useState(() => getPendingInviteContext());
 
     // Get params from URL
     const roleParam = searchParams.get('role');
     const defaultRole = roleParam === 'organizer'
         ? 'organizer'
         : (roleParam === 'buyer' ? 'buyer' : undefined);
+    const queryInviteToken = searchParams.get('inviteToken');
     const nextParam = searchParams.get('next');
+    const inviteToken = queryInviteToken ?? pendingInvite?.token ?? null;
     const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
-    const redirectPath = safeNextParam ?? '/dashboard';
-    const inviteToken = searchParams.get('inviteToken');
+    const inviteDefaultNextPath = getDefaultInviteNextPath(inviteToken);
+    const pendingNextPath = queryInviteToken && pendingInvite?.token !== queryInviteToken
+        ? null
+        : (pendingInvite?.nextPath ?? null);
+    const continuationPath = resolveContinuationPath(safeNextParam, {
+        token: inviteToken ?? '',
+        invitedEmail: pendingInvite?.invitedEmail,
+        nextPath: pendingNextPath ?? inviteDefaultNextPath,
+        createdAt: pendingInvite?.createdAt ?? Date.now(),
+    });
+    const redirectPath = continuationPath ?? '/dashboard';
 
     const markInitialLoadComplete = useEffectEvent(() => {
         setInitialLoadComplete(true);
     });
+
+    useEffect(() => {
+        setPendingInvite(getPendingInviteContext());
+    }, []);
 
     // Mark initial load as complete once auth state is first resolved
     useEffect(() => {
@@ -49,31 +72,53 @@ function RegisterPageContent() {
     }, [isLoading]);
 
     // Fetch invite email if token is present
-    const [inviteEmailLoading, setInviteEmailLoading] = useState(Boolean(inviteToken));
+    const [inviteEmailLoading, setInviteEmailLoading] = useState(false);
     const [inviteTokenError, setInviteTokenError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!inviteToken) return;
+        if (!inviteToken) {
+            setInviteEmailLoading(false);
+            setInviteTokenError(null);
+            return;
+        }
 
         const fetchEmail = async () => {
+            setInviteEmailLoading(true);
             try {
                 const { fetchInvitationInfo } = await import('@/lib/organizers-api');
                 const info = await fetchInvitationInfo(inviteToken);
                 setInviteEmail(info.email);
                 setInviteTokenError(null);
+                savePendingInviteContext({
+                    token: inviteToken,
+                    invitedEmail: info.email,
+                    nextPath: continuationPath ?? inviteDefaultNextPath,
+                });
+                setPendingInvite(getPendingInviteContext());
             } catch (err) {
                 console.warn('Could not fetch invite info:', err);
+                const message = err instanceof Error
+                    ? err.message
+                    : 'This invitation link is invalid or expired. Ask the organizer to send a new invite.';
+                const normalized = message.toLowerCase();
+                const isTerminalInviteError = normalized.includes('invalid')
+                    || normalized.includes('expired')
+                    || normalized.includes('revoked')
+                    || normalized.includes('not found');
                 setInviteTokenError(
-                    err instanceof Error
-                        ? err.message
-                        : 'This invitation link is invalid or expired. Ask the organizer to send a new invite.'
+                    message
                 );
+                setInviteEmail(undefined);
+                if (isTerminalInviteError) {
+                    clearPendingInviteContext();
+                    setPendingInvite(null);
+                }
             } finally {
                 setInviteEmailLoading(false);
             }
         };
         void fetchEmail();
-    }, [inviteToken]);
+    }, [continuationPath, inviteDefaultNextPath, inviteToken]);
 
     // If already logged in AND not in the middle of onboarding, redirect to dashboard
     // Only check this on initial load, not during the signup flow
@@ -172,7 +217,7 @@ function RegisterPageContent() {
                 onOpenChange={handleDialogClose}
                 onComplete={handleComplete}
                 defaultRole={defaultRole}
-                redirectAfterComplete={safeNextParam ?? undefined}
+                redirectAfterComplete={continuationPath ?? undefined}
                 inviteEmail={inviteEmail}
                 inviteToken={inviteToken ?? undefined}
                 authMode={isAuthenticatedOnboarding ? 'existing' : undefined}

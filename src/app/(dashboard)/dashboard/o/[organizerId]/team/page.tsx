@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -329,6 +329,7 @@ export default function OrganizerTeamPage() {
     const [isInviting, setIsInviting] = useState(false);
     const [inviteError, setInviteError] = useState<string | null>(null);
     const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+    const inviteCloseTimeoutRef = useRef<number | null>(null);
     const [inviteForm, setInviteForm] = useState<CreateInvitationPayload & { eventScope: EventScopeInput }>({
         email: '',
         role: 'check_in',
@@ -364,7 +365,15 @@ export default function OrganizerTeamPage() {
 
     const eventsMap = useMemo(() => new Map(events.map((evt) => [evt.id, evt])), [events]);
 
-    const resetInviteDialogState = () => {
+    const clearInviteCloseTimeout = useCallback(() => {
+        if (inviteCloseTimeoutRef.current !== null) {
+            window.clearTimeout(inviteCloseTimeoutRef.current);
+            inviteCloseTimeoutRef.current = null;
+        }
+    }, []);
+
+    const resetInviteDialogState = useCallback(() => {
+        clearInviteCloseTimeout();
         setInviteError(null);
         setInviteSuccess(null);
         setInviteForm({
@@ -372,7 +381,7 @@ export default function OrganizerTeamPage() {
             role: 'check_in',
             eventScope: defaultEventScope,
         });
-    };
+    }, [clearInviteCloseTimeout]);
 
     const openInviteDialog = () => {
         resetInviteDialogState();
@@ -380,10 +389,23 @@ export default function OrganizerTeamPage() {
     };
 
     const closeInviteDialog = () => {
+        clearInviteCloseTimeout();
         setIsInviteOpen(false);
         setInviteError(null);
         setInviteSuccess(null);
     };
+
+    useEffect(() => {
+        if (isInviteOpen) {
+            resetInviteDialogState();
+        }
+    }, [isInviteOpen, resetInviteDialogState]);
+
+    useEffect(() => {
+        return () => {
+            clearInviteCloseTimeout();
+        };
+    }, [clearInviteCloseTimeout]);
 
     const loadTeamData = useCallback(async () => {
         if (!organizerId) return;
@@ -464,7 +486,11 @@ export default function OrganizerTeamPage() {
                 eventScope: defaultEventScope,
             });
             await loadTeamData();
-            setTimeout(() => closeInviteDialog(), 1500);
+            clearInviteCloseTimeout();
+            inviteCloseTimeoutRef.current = window.setTimeout(() => {
+                closeInviteDialog();
+                inviteCloseTimeoutRef.current = null;
+            }, 1500);
         } catch (err) {
             console.error(err);
             setInviteError(err instanceof Error ? err.message : 'Failed to create invitation');
