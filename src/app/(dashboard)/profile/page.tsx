@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, type ChangeEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
     Calendar,
@@ -40,10 +41,12 @@ type ProfileEventCard = {
 };
 
 export default function ProfilePage() {
+    const router = useRouter();
     const { user, memberships, refresh: refreshAuth } = useAuth();
     const { activeOrganizerId, setActiveOrganizerId, organizers } = useOrganizers();
     const { getByStatus, counts } = useOrganizerEvents(activeOrganizerId);
     const [activeTab, setActiveTab] = useState('upcoming');
+    const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
     // Avatar upload state
     const [avatarPreview, setAvatarPreview] = useState<string>('');
@@ -111,6 +114,28 @@ export default function ProfilePage() {
             fetchFollowedOrganizers();
         }
     }, [user, fetchSavedEvents, fetchFollowedOrganizers]);
+
+    useEffect(() => {
+        router.prefetch('/settings');
+        router.prefetch('/events/new');
+        router.prefetch('/events');
+    }, [router]);
+
+    useEffect(() => {
+        if (!pendingNavigation) return;
+        const resetId = window.setTimeout(() => {
+            setPendingNavigation(null);
+        }, 2500);
+        return () => window.clearTimeout(resetId);
+    }, [pendingNavigation]);
+
+    const handleProfileNavigation = useCallback((href: string) => {
+        if (pendingNavigation) return;
+        setPendingNavigation(href);
+        window.requestAnimationFrame(() => {
+            router.push(href);
+        });
+    }, [pendingNavigation, router]);
 
     const handleAvatarSelect = async (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -289,8 +314,23 @@ export default function ProfilePage() {
 
                             {/* Actions */}
                             <div className="flex gap-3 shrink-0">
-                                <Button variant="outline" size="sm" className="rounded-full px-5 hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all duration-300 active:scale-95" asChild>
-                                    <Link href="/settings">Edit Profile</Link>
+                                <Button
+                                    type="button"
+                                    variant={pendingNavigation === '/settings' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => handleProfileNavigation('/settings')}
+                                    disabled={pendingNavigation !== null}
+                                    aria-busy={pendingNavigation === '/settings'}
+                                    className="rounded-full px-5 min-w-[132px] touch-manipulation hover:bg-primary/5 hover:text-primary hover:border-primary/20 transition-all duration-200 active:scale-95 active:bg-primary/15 active:border-primary/30"
+                                >
+                                    {pendingNavigation === '/settings' ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Opening...
+                                        </>
+                                    ) : (
+                                        'Edit Profile'
+                                    )}
                                 </Button>
                             </div>
                         </div>
@@ -341,6 +381,8 @@ export default function ProfilePage() {
                                         description="You don't have any upcoming events scheduled."
                                         actionLabel="Create Event"
                                         actionHref="/events/new"
+                                        pendingNavigation={pendingNavigation}
+                                        onActionNavigate={handleProfileNavigation}
                                     />
                                 )}
                             </TabsContent>
@@ -355,6 +397,8 @@ export default function ProfilePage() {
                                         icon={Ticket}
                                         title="No past events"
                                         description="Events you've organized in the past will appear here."
+                                        pendingNavigation={pendingNavigation}
+                                        onActionNavigate={handleProfileNavigation}
                                     />
                                 )}
                             </TabsContent>
@@ -375,6 +419,8 @@ export default function ProfilePage() {
                                         description="Events you save will appear here for quick access."
                                         actionLabel="Discover Events"
                                         actionHref="/events"
+                                        pendingNavigation={pendingNavigation}
+                                        onActionNavigate={handleProfileNavigation}
                                     />
                                 )}
                             </TabsContent>
@@ -395,6 +441,8 @@ export default function ProfilePage() {
                                         description="Organisers you follow will appear here."
                                         actionLabel="Discover Events"
                                         actionHref="/events"
+                                        pendingNavigation={pendingNavigation}
+                                        onActionNavigate={handleProfileNavigation}
                                     />
                                 )}
                             </TabsContent>
@@ -459,14 +507,21 @@ function EmptyState({
     title,
     description,
     actionLabel,
-    actionHref
+    actionHref,
+    pendingNavigation,
+    onActionNavigate
 }: {
     icon: LucideIcon;
     title: string,
     description: string,
     actionLabel?: string,
-    actionHref?: string
+    actionHref?: string,
+    pendingNavigation?: string | null,
+    onActionNavigate?: (href: string) => void
 }) {
+    const isActionPending = Boolean(actionHref && pendingNavigation === actionHref);
+    const isAnyNavigationPending = Boolean(pendingNavigation);
+
     return (
         <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed rounded-2xl border-muted bg-muted/5">
             <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
@@ -475,9 +530,29 @@ function EmptyState({
             <h3 className="text-lg font-semibold mb-1">{title}</h3>
             <p className="text-muted-foreground max-w-sm mx-auto mb-6">{description}</p>
             {actionLabel && actionHref && (
-                <Button asChild variant="outline" className="rounded-full">
-                    <Link href={actionHref}>{actionLabel}</Link>
-                </Button>
+                onActionNavigate ? (
+                    <Button
+                        type="button"
+                        variant={isActionPending ? 'default' : 'outline'}
+                        disabled={isAnyNavigationPending}
+                        onClick={() => onActionNavigate(actionHref)}
+                        aria-busy={isActionPending}
+                        className="rounded-full min-w-[148px] touch-manipulation transition-all duration-200 active:scale-95 active:bg-primary/15 active:border-primary/30"
+                    >
+                        {isActionPending ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Opening...
+                            </>
+                        ) : (
+                            actionLabel
+                        )}
+                    </Button>
+                ) : (
+                    <Button asChild variant="outline" className="rounded-full min-w-[148px] touch-manipulation transition-all duration-200 active:scale-95 active:bg-primary/15 active:border-primary/30">
+                        <Link href={actionHref}>{actionLabel}</Link>
+                    </Button>
+                )
             )}
         </div>
     );
