@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect, useRef, useEffectEvent } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/context/auth-context';
@@ -49,6 +50,7 @@ function RegisterPageContent() {
 
     // Fetch invite email if token is present
     const [inviteEmailLoading, setInviteEmailLoading] = useState(Boolean(inviteToken));
+    const [inviteTokenError, setInviteTokenError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!inviteToken) return;
@@ -58,8 +60,14 @@ function RegisterPageContent() {
                 const { fetchInvitationInfo } = await import('@/lib/organizers-api');
                 const info = await fetchInvitationInfo(inviteToken);
                 setInviteEmail(info.email);
+                setInviteTokenError(null);
             } catch (err) {
                 console.warn('Could not fetch invite info:', err);
+                setInviteTokenError(
+                    err instanceof Error
+                        ? err.message
+                        : 'This invitation link is invalid or expired. Ask the organizer to send a new invite.'
+                );
             } finally {
                 setInviteEmailLoading(false);
             }
@@ -131,6 +139,27 @@ function RegisterPageContent() {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-cyan)]" />
+            </div>
+        );
+    }
+
+    if (inviteToken && (!inviteEmail || inviteTokenError)) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-4">
+                <div className="max-w-md w-full rounded-2xl border bg-white p-6 text-center space-y-3">
+                    <h1 className="text-xl font-semibold text-slate-900">Invitation unavailable</h1>
+                    <p className="text-sm text-slate-600">
+                        {inviteTokenError ?? 'This invitation link is invalid or expired. Ask the organizer to send a new invite.'}
+                    </p>
+                    <p className="text-sm text-slate-600">
+                        If you already have an account, sign in with the invited email and open the invite link again.
+                    </p>
+                    <div className="pt-2">
+                        <Link href="/login" className="text-sm font-medium text-[var(--brand-cyan)] hover:underline">
+                            Go to sign in
+                        </Link>
+                    </div>
+                </div>
             </div>
         );
     }

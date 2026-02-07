@@ -293,7 +293,7 @@ export function SignupOnboardingDialog({
 
     const currentStepIndex = steps.findIndex(s => s.id === step);
     const canGoBack = currentStepIndex > 0;
-    const isEmailLocked = Boolean(inviteEmail)
+    const isEmailLocked = isInviteFlow
         || (isAuthenticatedOnboarding && Boolean(prefill?.email) && !emailEditedRef.current);
     const showSignInEmailHint = isAuthenticatedOnboarding && !isInviteFlow && Boolean(prefill?.email) && !emailEditedRef.current;
 
