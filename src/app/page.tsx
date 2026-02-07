@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
@@ -64,28 +64,28 @@ function FloatingEventCard({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: shouldUseLiteAnimations ? 16 : 40, rotate: event.rotation }}
+      initial={{ opacity: 0, y: shouldUseLiteAnimations ? 10 : 20, rotate: event.rotation }}
       animate={{ opacity: 1, y: 0, rotate: event.rotation }}
       transition={{
-        duration: shouldUseLiteAnimations ? 0.45 : 0.8,
+        duration: shouldUseLiteAnimations ? 0.35 : 0.55,
         delay: event.delay,
         ease: [0.25, 0.46, 0.45, 0.94],
       }}
-      className="absolute hidden lg:block"
+      className="absolute hidden lg:block transform-gpu will-change-transform"
       style={event.position as React.CSSProperties}
     >
       <motion.div
-        animate={shouldUseLiteAnimations ? { y: 0 } : { y: [0, -10, 0] }}
+        animate={shouldUseLiteAnimations ? undefined : { y: [0, -8, 0] }}
         transition={{
-          duration: shouldUseLiteAnimations ? 0.2 : 7,
-          repeat: shouldUseLiteAnimations ? 0 : Infinity,
-          ease: shouldUseLiteAnimations ? 'linear' : 'easeInOut',
-          delay: shouldUseLiteAnimations ? 0 : event.delay,
+          duration: 9,
+          repeat: Infinity,
+          ease: 'easeInOut',
+          delay: event.delay,
         }}
-        whileHover={{ scale: 1.05, rotate: 0 }}
-        className="cursor-pointer"
+        whileHover={shouldUseLiteAnimations ? undefined : { scale: 1.04, rotate: 0 }}
+        className="cursor-pointer transform-gpu"
       >
-        <Card className="w-48 border-none shadow-2xl backdrop-blur-sm py-0 overflow-hidden">
+        <Card className={`w-48 border-none shadow-2xl py-0 overflow-hidden ${shouldUseLiteAnimations ? '' : 'backdrop-blur-sm'}`}>
           <div className={`h-2 ${event.color}`} />
           <CardContent className="p-4">
             <p className="font-display text-sm font-semibold text-foreground">{event.title}</p>
@@ -107,13 +107,20 @@ export default function Home() {
   const router = useRouter();
   const auth = useOptionalAuth();
   const prefersReducedMotion = useReducedMotion();
+  const [isSafari, setIsSafari] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const isSafari =
-    typeof navigator !== 'undefined' &&
-    /Safari/i.test(navigator.userAgent) &&
-    !/Chrome|Chromium|CriOS|Edg|OPR|SamsungBrowser|Android/i.test(navigator.userAgent);
   const startForFreeHref = auth?.user ? '/dashboard' : '/register?role=organizer';
   const shouldUseLiteAnimations = Boolean(prefersReducedMotion) || isSafari;
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return;
+    const rafId = window.requestAnimationFrame(() => {
+      const ua = navigator.userAgent;
+      const safari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|SamsungBrowser|Android/i.test(ua);
+      setIsSafari(safari);
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,28 +142,9 @@ export default function Home() {
         {/* Background Decorative Elements */}
         <div className="absolute inset-0 bg-noise pointer-events-none" />
 
-        {/* Animated gradient orbs - desktop only for performance, static on mobile */}
-        {shouldUseLiteAnimations ? (
-          <>
-            <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.18)] blur-2xl" />
-            <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.18)] blur-2xl" />
-          </>
-        ) : (
-          <>
-            <motion.div
-              initial={{ scale: 1, opacity: 0.35 }}
-              animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-              className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.25)] blur-3xl"
-            />
-            <motion.div
-              initial={{ scale: 1, opacity: 0.35 }}
-              animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.5, 0.3] }}
-              transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-              className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.25)] blur-3xl"
-            />
-          </>
-        )}
+        {/* Animated gradient orbs - CSS-driven to keep JS animation budget low */}
+        <div className={`absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.2)] ${shouldUseLiteAnimations ? 'blur-2xl opacity-80' : 'blur-3xl lg:animate-[pulse_12s_ease-in-out_infinite] will-change-transform'}`} />
+        <div className={`absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.2)] ${shouldUseLiteAnimations ? 'blur-2xl opacity-80' : 'blur-3xl lg:animate-[pulse_14s_ease-in-out_infinite] will-change-transform'}`} />
 
         {/* Bottom gradient fade for seamless transition */}
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent pointer-events-none" />
@@ -166,9 +154,9 @@ export default function Home() {
         {/* Updated to 100svh to match hero section height */}
         <div className="container relative z-10 flex min-h-[100svh] flex-col items-center justify-center py-20">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: shouldUseLiteAnimations ? 0 : 0.65, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="text-center"
           >
             {/* Headline */}
@@ -182,9 +170,9 @@ export default function Home() {
 
             {/* Subheadline */}
             <motion.p
-              initial={{ opacity: 0 }}
+              initial={shouldUseLiteAnimations ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.6 }}
+              transition={{ delay: shouldUseLiteAnimations ? 0 : 0.3, duration: shouldUseLiteAnimations ? 0 : 0.5 }}
               className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground md:text-xl"
             >
               Connect with your community by <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)]">ticketin’</span> the right away
@@ -193,9 +181,9 @@ export default function Home() {
 
           {/* Search Section */}
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={shouldUseLiteAnimations ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.5, duration: 0.5 }}
+            transition={{ delay: shouldUseLiteAnimations ? 0 : 0.45, duration: shouldUseLiteAnimations ? 0 : 0.45 }}
             className="mt-10 w-full max-w-2xl"
           >
             <Card
@@ -231,19 +219,19 @@ export default function Home() {
         <div className="absolute inset-0 bg-noise pointer-events-none opacity-30" />
 
         {/* Ambient gradient orbs - static on mobile, animated on desktop */}
-        <div className="absolute -top-32 -left-32 h-80 w-80 rounded-full bg-[oklch(0.78_0.14_165/0.15)] blur-3xl pointer-events-none lg:animate-[pulse_12s_ease-in-out_infinite]" />
-        <div className="absolute top-1/2 -right-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.12)] blur-3xl pointer-events-none lg:animate-[pulse_15s_ease-in-out_infinite]" />
-        <div className="absolute -bottom-20 left-1/3 h-72 w-72 rounded-full bg-[oklch(0.65_0.12_190/0.1)] blur-3xl pointer-events-none lg:animate-[pulse_10s_ease-in-out_infinite]" />
+        <div className={`absolute -top-32 -left-32 h-80 w-80 rounded-full bg-[oklch(0.78_0.14_165/0.15)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl lg:animate-[pulse_12s_ease-in-out_infinite] will-change-transform'}`} />
+        <div className={`absolute top-1/2 -right-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.12)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl lg:animate-[pulse_15s_ease-in-out_infinite] will-change-transform'}`} />
+        <div className={`absolute -bottom-20 left-1/3 h-72 w-72 rounded-full bg-[oklch(0.65_0.12_190/0.1)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl lg:animate-[pulse_10s_ease-in-out_infinite] will-change-transform'}`} />
 
         {/* Top gradient fade for seamless transition from hero */}
         <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-background to-transparent pointer-events-none" />
 
         <div className="container relative z-10">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.6 }}
+            initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 16 }}
+            whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
+            viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-100px' }}
+            transition={{ duration: shouldUseLiteAnimations ? 0 : 0.55 }}
             className="mx-auto max-w-3xl text-center mb-20"
           >
             <Badge variant="secondary" className="mb-6 text-sm px-4 py-1.5">
@@ -261,14 +249,14 @@ export default function Home() {
             <div className="grid gap-8 md:grid-cols-3">
               {/* Card 1: Text first, icon bottom-left */}
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.5 }}
+                initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 18 }}
+                whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
+                viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-50px' }}
+                transition={{ duration: shouldUseLiteAnimations ? 0 : 0.45 }}
               >
-                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.72_0.15_185/0.5)] to-[oklch(0.72_0.15_185/0.1)] transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.72_0.15_185/0.15)]">
+                <div className={`group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.72_0.15_185/0.5)] to-[oklch(0.72_0.15_185/0.1)] ${shouldUseLiteAnimations ? 'transition-colors duration-200' : 'transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.72_0.15_185/0.15)]'}`}>
                   <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
-                    <div className="absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-[oklch(0.72_0.15_185/0.1)] blur-3xl pointer-events-none" />
+                    <div className={`absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-[oklch(0.72_0.15_185/0.1)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl'}`} />
                     <CardContent className="relative p-10">
                       {/* Title + Icon side by side */}
                       <div className="flex items-center justify-between gap-4 mb-5">
@@ -289,14 +277,14 @@ export default function Home() {
 
               {/* Card 2: Horizontal header - Icon + Title side by side */}
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.5, delay: 0.1 }}
+                initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 18 }}
+                whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
+                viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-50px' }}
+                transition={{ duration: shouldUseLiteAnimations ? 0 : 0.45, delay: shouldUseLiteAnimations ? 0 : 0.1 }}
               >
-                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.78_0.14_165/0.5)] to-[oklch(0.78_0.14_165/0.1)] transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.78_0.14_165/0.15)]">
+                <div className={`group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.78_0.14_165/0.5)] to-[oklch(0.78_0.14_165/0.1)] ${shouldUseLiteAnimations ? 'transition-colors duration-200' : 'transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.78_0.14_165/0.15)]'}`}>
                   <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
-                    <div className="absolute -top-16 -right-16 h-64 w-64 rounded-full bg-[oklch(0.78_0.14_165/0.1)] blur-3xl pointer-events-none" />
+                    <div className={`absolute -top-16 -right-16 h-64 w-64 rounded-full bg-[oklch(0.78_0.14_165/0.1)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl'}`} />
                     <CardContent className="relative p-10">
                       {/* Horizontal header: Icon + Title */}
                       <div className="flex items-center gap-4 mb-5">
@@ -317,14 +305,14 @@ export default function Home() {
 
               {/* Card 3: Content first, icon as finishing accent */}
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.5, delay: 0.2 }}
+                initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 18 }}
+                whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
+                viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-50px' }}
+                transition={{ duration: shouldUseLiteAnimations ? 0 : 0.45, delay: shouldUseLiteAnimations ? 0 : 0.2 }}
               >
-                <div className="group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.65_0.12_190/0.5)] to-[oklch(0.65_0.12_190/0.1)] transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.65_0.12_190/0.15)]">
+                <div className={`group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.65_0.12_190/0.5)] to-[oklch(0.65_0.12_190/0.1)] ${shouldUseLiteAnimations ? 'transition-colors duration-200' : 'transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.65_0.12_190/0.15)]'}`}>
                   <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
-                    <div className="absolute -bottom-24 -right-12 h-68 w-68 rounded-full bg-[oklch(0.65_0.12_190/0.1)] blur-3xl pointer-events-none" />
+                    <div className={`absolute -bottom-24 -right-12 h-68 w-68 rounded-full bg-[oklch(0.65_0.12_190/0.1)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl'}`} />
                     <CardContent className="relative p-10">
                       {/* Title + Icon side by side */}
                       <div className="flex items-center justify-between gap-4 mb-5">
@@ -356,19 +344,19 @@ export default function Home() {
         <div className="absolute inset-0 bg-noise pointer-events-none opacity-20" />
 
         {/* Ambient gradient orbs - static on mobile, animated on desktop */}
-        <div className="absolute -top-20 -right-32 h-80 w-80 rounded-full bg-[oklch(0.72_0.15_185/0.15)] blur-3xl pointer-events-none lg:animate-[pulse_14s_ease-in-out_infinite]" />
-        <div className="absolute bottom-0 -left-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.12)] blur-3xl pointer-events-none lg:animate-[pulse_11s_ease-in-out_infinite]" />
-        <div className="absolute top-1/2 right-1/4 h-64 w-64 rounded-full bg-[oklch(0.65_0.12_190/0.08)] blur-3xl pointer-events-none lg:animate-[pulse_16s_ease-in-out_infinite]" />
+        <div className={`absolute -top-20 -right-32 h-80 w-80 rounded-full bg-[oklch(0.72_0.15_185/0.15)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl lg:animate-[pulse_14s_ease-in-out_infinite] will-change-transform'}`} />
+        <div className={`absolute bottom-0 -left-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.12)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl lg:animate-[pulse_11s_ease-in-out_infinite] will-change-transform'}`} />
+        <div className={`absolute top-1/2 right-1/4 h-64 w-64 rounded-full bg-[oklch(0.65_0.12_190/0.08)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl lg:animate-[pulse_16s_ease-in-out_infinite] will-change-transform'}`} />
 
         {/* Top gradient fade for seamless transition from features */}
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-background to-transparent pointer-events-none" />
 
         <div className="container relative z-10">
           <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.8 }}
+            initial={shouldUseLiteAnimations ? false : { opacity: 0 }}
+            whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1 }}
+            viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-100px' }}
+            transition={{ duration: shouldUseLiteAnimations ? 0 : 0.7 }}
             className="grid md:grid-cols-2 gap-12 md:gap-20 items-center"
           >
             {/* Left: Bold headline */}
@@ -413,10 +401,10 @@ export default function Home() {
 
           {/* Bottom accent line */}
           <motion.div
-            initial={{ scaleX: 0 }}
-            whileInView={{ scaleX: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }}
+            initial={shouldUseLiteAnimations ? false : { scaleX: 0 }}
+            whileInView={shouldUseLiteAnimations ? undefined : { scaleX: 1 }}
+            viewport={shouldUseLiteAnimations ? undefined : { once: true }}
+            transition={{ duration: shouldUseLiteAnimations ? 0 : 1, delay: shouldUseLiteAnimations ? 0 : 0.3, ease: 'easeOut' }}
             className="mt-20 h-px bg-gradient-to-r from-[oklch(0.72_0.15_185/0.5)] via-[oklch(0.78_0.14_165/0.3)] to-transparent origin-left"
           />
         </div>
