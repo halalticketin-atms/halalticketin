@@ -31,7 +31,9 @@ function RegisterPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, isLoading, needsOnboarding } = useAuth();
-    const isAuthenticatedOnboarding = Boolean(user && needsOnboarding);
+    const forceOnboarding = searchParams.get('forceOnboarding');
+    const isForceOnboarding = forceOnboarding === '1' || forceOnboarding === 'true';
+    const isAuthenticatedOnboarding = Boolean(user && (needsOnboarding || isForceOnboarding));
     const [prefill, setPrefill] = useState<{ email?: string; name?: string } | null>(null);
     const [pendingInvite, setPendingInvite] = useState(() => getPendingInviteContext());
 

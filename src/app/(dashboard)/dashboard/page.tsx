@@ -9,10 +9,8 @@ import { Building2, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
-import api from '@/lib/api';
 import { buildDashboardPath } from '@/lib/organizer-path';
 
 // Lazy load the dialog to reduce initial bundle size
@@ -33,9 +31,6 @@ export default function DashboardLandingPage() {
         error: organizerError,
     } = useOrganizers();
 
-    const [name, setName] = useState('');
-    const [creating, setCreating] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [redirecting, setRedirecting] = useState(false);
 
     useEffect(() => {
@@ -45,28 +40,8 @@ export default function DashboardLandingPage() {
         }
     }, [activeOrganizerId, organizersLoading, router]);
 
-    const handleCreateOrganizer = async () => {
-        if (!name.trim()) {
-            setError('Please enter an organiser name');
-            return;
-        }
-
-        try {
-            setCreating(true);
-            setError(null);
-            const response = await api.post<{
-                organizer: { id: string };
-            }>('/api/v1/organizers', { name: name.trim() });
-            setName('');
-            setActiveOrganizerId(response.organizer.id);
-            router.replace(buildDashboardPath(response.organizer.id));
-            await refresh();
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Unable to create organiser';
-            setError(message);
-        } finally {
-            setCreating(false);
-        }
+    const handleStartOrganizerOnboarding = () => {
+        router.push('/register?role=organizer&forceOnboarding=1&next=%2Fdashboard');
     };
 
     const organizerCards = useMemo(
@@ -222,16 +197,12 @@ export default function DashboardLandingPage() {
                                 </p>
                             </div>
                             <div className="space-y-3 max-w-md mx-auto">
-                                <Input
-                                    placeholder="Organiser name"
-                                    value={name}
-                                    onChange={(event) => setName(event.target.value)}
-                                    disabled={creating}
-                                />
-                                {error && <p className="text-sm text-destructive">{error}</p>}
-                                <Button onClick={handleCreateOrganizer} disabled={creating} className="w-full">
-                                    {creating ? 'Creating...' : 'Create organiser'}
+                                <Button onClick={handleStartOrganizerOnboarding} className="w-full">
+                                    Continue with organiser onboarding
                                 </Button>
+                                <p className="text-xs text-muted-foreground">
+                                    We&apos;ll collect your organiser details before creating the dashboard.
+                                </p>
                             </div>
                         </CardContent>
                     </Card>
