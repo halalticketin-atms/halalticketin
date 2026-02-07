@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, type ChangeEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import {
     Calendar,
     Ticket,
@@ -30,6 +30,7 @@ import { getFavoriteEvents, type FavoriteEvent } from '@/lib/favorites-api';
 import { getFollowedOrganizers, type FollowedOrganizer } from '@/lib/follows-api';
 import { CreateOrganizerDialog } from '@/components/auth/CreateOrganizerDialog';
 import { COUNTRIES } from '@/lib/organizer-options';
+import { cn } from '@/lib/utils';
 
 type ProfileEventCard = {
     id: string;
@@ -44,6 +45,8 @@ export default function ProfilePage() {
     const { activeOrganizerId, setActiveOrganizerId, organizers } = useOrganizers();
     const { getByStatus, counts } = useOrganizerEvents(activeOrganizerId);
     const [activeTab, setActiveTab] = useState('upcoming');
+    const prefersReducedMotion = useReducedMotion();
+    const [isMobileSafari, setIsMobileSafari] = useState(false);
 
     // Avatar upload state
     const [avatarPreview, setAvatarPreview] = useState<string>('');
@@ -172,40 +175,72 @@ export default function ProfilePage() {
     const upcomingEvents = getByStatus('active').map(formatEvent);
     const pastEvents = getByStatus('past').map(formatEvent);
     const savedEventCards = savedEvents.map(formatSavedEvent);
+    const useLiteProfileEffects = Boolean(prefersReducedMotion) || isMobileSafari;
+
+    useEffect(() => {
+        if (typeof navigator === 'undefined') return;
+
+        const ua = navigator.userAgent;
+        const isIOSDevice = /iP(hone|ad|od)/i.test(ua);
+        const isSafariEngine = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|SamsungBrowser|Android/i.test(ua);
+        setIsMobileSafari(isIOSDevice && isSafariEngine);
+    }, []);
 
 
     return (
         <div className="relative min-h-screen bg-background -mt-[var(--nav-safe-offset)] overflow-hidden">
             {/* Background Orbs */}
-            <div className="absolute inset-0 bg-noise pointer-events-none opacity-50" />
-            <motion.div
-                animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.3, 0.15] }}
-                transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-                className="absolute top-0 right-0 h-[500px] w-[500px] rounded-full bg-[oklch(0.78_0.14_165/0.2)] blur-[100px] pointer-events-none"
-            />
-            <motion.div
-                animate={{ scale: [1.2, 1, 1.2], opacity: [0.15, 0.3, 0.15] }}
-                transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-                className="absolute top-20 left-0 h-[500px] w-[500px] rounded-full bg-[oklch(0.72_0.15_185/0.2)] blur-[100px] pointer-events-none"
-            />
+            <div aria-hidden className={cn('absolute inset-0 bg-noise pointer-events-none', useLiteProfileEffects ? 'opacity-30' : 'opacity-50')} />
+            {useLiteProfileEffects ? (
+                <>
+                    <div
+                        aria-hidden
+                        className="absolute top-0 right-0 h-[340px] w-[340px] rounded-full bg-[oklch(0.78_0.14_165/0.12)] blur-[60px] pointer-events-none"
+                    />
+                    <div
+                        aria-hidden
+                        className="absolute top-20 left-0 h-[340px] w-[340px] rounded-full bg-[oklch(0.72_0.15_185/0.1)] blur-[60px] pointer-events-none"
+                    />
+                </>
+            ) : (
+                <>
+                    <motion.div
+                        aria-hidden
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.3, 0.15] }}
+                        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+                        className="absolute top-0 right-0 h-[500px] w-[500px] rounded-full bg-[oklch(0.78_0.14_165/0.2)] blur-[100px] pointer-events-none"
+                    />
+                    <motion.div
+                        aria-hidden
+                        animate={{ scale: [1.2, 1, 1.2], opacity: [0.15, 0.3, 0.15] }}
+                        transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+                        className="absolute top-20 left-0 h-[500px] w-[500px] rounded-full bg-[oklch(0.72_0.15_185/0.2)] blur-[100px] pointer-events-none"
+                    />
+                </>
+            )}
 
             {/* Content Wrapper */}
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
+                initial={useLiteProfileEffects ? false : { opacity: 0, y: 20 }}
+                animate={useLiteProfileEffects ? undefined : { opacity: 1, y: 0 }}
+                transition={useLiteProfileEffects ? undefined : { duration: 0.6, ease: "easeOut" }}
                 className="relative z-10"
             >
                 {/* Minimal Header */}
-                <div className="border-b pt-[calc(var(--nav-safe-offset)+2rem)] pb-8 bg-background/50 backdrop-blur-sm">
+                <div
+                    className={cn(
+                        'border-b pt-[calc(var(--nav-safe-offset)+2rem)] pb-8',
+                        useLiteProfileEffects ? 'bg-background/90' : 'bg-background/50 backdrop-blur-sm'
+                    )}
+                >
                     <div className="container max-w-4xl">
                         <div className="flex flex-col md:flex-row gap-8 items-start">
                             {/* Avatar */}
                             <motion.div
-                                initial={{ scale: 0.9, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ delay: 0.2 }}
-                                whileHover={{ scale: 1.05 }}
+                                initial={useLiteProfileEffects ? false : { scale: 0.9, opacity: 0 }}
+                                animate={useLiteProfileEffects ? undefined : { scale: 1, opacity: 1 }}
+                                transition={useLiteProfileEffects ? undefined : { delay: 0.2 }}
+                                whileHover={useLiteProfileEffects ? undefined : { scale: 1.05 }}
                                 className="relative shrink-0 cursor-pointer"
                             >
                                 <Avatar className="h-24 w-24 md:h-32 md:w-32 border-4 border-background bg-muted shadow-lg transition-transform text-2xl md:text-3xl">
@@ -347,7 +382,7 @@ export default function ProfilePage() {
                             <TabsContent value="upcoming" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 {upcomingEvents.length > 0 ? (
                                     upcomingEvents.map((event) => (
-                                        <EventCard key={event.id} event={event} />
+                                        <EventCard key={event.id} event={event} useLiteProfileEffects={useLiteProfileEffects} />
                                     ))
                                 ) : (
                                     <EmptyState
@@ -363,7 +398,7 @@ export default function ProfilePage() {
                             <TabsContent value="past" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 {pastEvents.length > 0 ? (
                                     pastEvents.map((event) => (
-                                        <EventCard key={event.id} event={event} />
+                                        <EventCard key={event.id} event={event} useLiteProfileEffects={useLiteProfileEffects} />
                                     ))
                                 ) : (
                                     <EmptyState
@@ -381,7 +416,7 @@ export default function ProfilePage() {
                                     </div>
                                 ) : savedEventCards.length > 0 ? (
                                     savedEventCards.map((event) => (
-                                        <EventCard key={event.id} event={event} />
+                                        <EventCard key={event.id} event={event} useLiteProfileEffects={useLiteProfileEffects} />
                                     ))
                                 ) : (
                                     <EmptyState
@@ -401,7 +436,7 @@ export default function ProfilePage() {
                                     </div>
                                 ) : followedOrganizers.length > 0 ? (
                                     followedOrganizers.map((organizer) => (
-                                        <OrganizerCard key={organizer.id} organizer={organizer} />
+                                        <OrganizerCard key={organizer.id} organizer={organizer} useLiteProfileEffects={useLiteProfileEffects} />
                                     ))
                                 ) : (
                                     <EmptyState
@@ -430,16 +465,21 @@ export default function ProfilePage() {
     );
 }
 
-function EventCard({ event }: { event: ProfileEventCard }) {
+function EventCard({ event, useLiteProfileEffects }: { event: ProfileEventCard; useLiteProfileEffects: boolean }) {
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -2 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            initial={useLiteProfileEffects ? false : { opacity: 0, y: 10 }}
+            animate={useLiteProfileEffects ? undefined : { opacity: 1, y: 0 }}
+            whileHover={useLiteProfileEffects ? undefined : { y: -2 }}
+            transition={useLiteProfileEffects ? undefined : { type: "spring", stiffness: 300, damping: 20 }}
         >
             <Link href={`/events/${event.slug || event.id}`} className="block h-full">
-                <Card className="group overflow-hidden border-border/50 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20">
+                <Card
+                    className={cn(
+                        'group overflow-hidden border-border/50 transition-all duration-300 hover:bg-card/60 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20',
+                        useLiteProfileEffects ? 'bg-card/80' : 'bg-card/40 backdrop-blur-sm'
+                    )}
+                >
                     <CardContent className="flex items-center gap-5 p-4">
                         <div className="relative w-16 sm:w-20 aspect-[4/5] shrink-0 overflow-hidden rounded-xl bg-muted shadow-inner">
                             {event.image ? (
@@ -503,16 +543,21 @@ function EmptyState({
     );
 }
 
-function OrganizerCard({ organizer }: { organizer: FollowedOrganizer }) {
+function OrganizerCard({ organizer, useLiteProfileEffects }: { organizer: FollowedOrganizer; useLiteProfileEffects: boolean }) {
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -2 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            initial={useLiteProfileEffects ? false : { opacity: 0, y: 10 }}
+            animate={useLiteProfileEffects ? undefined : { opacity: 1, y: 0 }}
+            whileHover={useLiteProfileEffects ? undefined : { y: -2 }}
+            transition={useLiteProfileEffects ? undefined : { type: "spring", stiffness: 300, damping: 20 }}
         >
             <Link href={`/organizers/${organizer.id}`} className="block h-full">
-                <Card className="group overflow-hidden border-border/50 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20">
+                <Card
+                    className={cn(
+                        'group overflow-hidden border-border/50 transition-all duration-300 hover:bg-card/60 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20',
+                        useLiteProfileEffects ? 'bg-card/80' : 'bg-card/40 backdrop-blur-sm'
+                    )}
+                >
                     <CardContent className="flex items-center gap-5 p-4">
                         <Avatar className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 border-2 border-background shadow-md">
                             <AvatarImage src={organizer.avatarUrl || ''} alt={organizer.name} className="object-cover" />
