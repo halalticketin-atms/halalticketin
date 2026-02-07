@@ -209,14 +209,25 @@
   }
 
   .glass-surface {
-    border: 1px solid color-mix(in oklch, var(--border), transparent 30%);
-    background-color: color-mix(in oklch, var(--card), transparent 20%);
+    border: 1px solid var(--border);
+    background-color: var(--card);
   }
 
   /* Mobile-optimized glass effect - solid bg on mobile, blur on desktop */
   .glass-mobile-safe {
     background-color: rgba(255, 255, 255, 0.9);
-    border: 1px solid color-mix(in oklch, var(--border), transparent 30%);
+    border: 1px solid var(--border);
+  }
+
+  @supports (color: color-mix(in oklch, white, transparent)) {
+    .glass-surface {
+      border: 1px solid color-mix(in oklch, var(--border), transparent 30%);
+      background-color: color-mix(in oklch, var(--card), transparent 20%);
+    }
+
+    .glass-mobile-safe {
+      border: 1px solid color-mix(in oklch, var(--border), transparent 30%);
+    }
   }
 
   @media (min-width: 768px) {
