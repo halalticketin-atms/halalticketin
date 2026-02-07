@@ -12,6 +12,7 @@ import {
     ScanLine,
     Users,
     Mail,
+    Send,
     Wallet,
     Lock,
 } from 'lucide-react';
@@ -64,9 +65,15 @@ const buildNavItems = (organizerId?: string): NavItem[] => {
             allowedRoles: ['owner', 'co_owner', 'admin', 'editor'] // check_in excluded
         },
         {
+            title: 'Email Marketing',
+            href: `${base}/email-marketing`,
+            icon: Mail,
+            allowedRoles: ['owner', 'co_owner', 'admin', 'editor'] // check_in excluded
+        },
+        {
             title: 'Email Attendees',
             href: `${base}/email-attendees`,
-            icon: Mail,
+            icon: Send,
             allowedRoles: ['owner', 'co_owner', 'admin', 'editor'] // check_in excluded
         },
         {

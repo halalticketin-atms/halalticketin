@@ -15,6 +15,7 @@ import {
     LogOut,
     X,
     Mail,
+    Send,
     Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -48,7 +49,8 @@ const moreMenuItems = (organizerId?: string): NavItem[] => {
     return [
         { title: 'Team', href: `${base}/team`, icon: Users },
         { title: 'Check-in', href: `${base}/check-in`, icon: ScanLine },
-        { title: 'Email', href: `${base}/email-attendees`, icon: Mail },
+        { title: 'Email Marketing', href: `${base}/email-marketing`, icon: Mail },
+        { title: 'Email Attendees', href: `${base}/email-attendees`, icon: Send },
         { title: 'Credits', href: `${base}/billing`, icon: Wallet },
         { title: 'Settings', href: '/settings', icon: Settings },
     ];
