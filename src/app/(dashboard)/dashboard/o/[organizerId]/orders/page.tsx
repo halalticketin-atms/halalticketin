@@ -8,6 +8,7 @@ import {
     Filter,
     Download,
     Receipt,
+    Clock3,
     CreditCard,
     Calendar,
     User,
@@ -59,6 +60,7 @@ import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizers } from '@/context/organizer-context';
 import { OrderCard, type OrderResponse, type OrderItem, type OrderStatus } from '@/components/orders/OrderCard';
 import { ticketTypeColors } from '@/components/dashboard/CircularProgress';
+import WaitlistManager from '@/components/dashboard/WaitlistManager';
 
 const progressColorMap: Record<string, string> = {
     primary: 'bg-linear-to-r from-violet-500 to-purple-500',
@@ -157,8 +159,8 @@ export default function OrdersPage() {
     const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
     const [showAllBreakdown, setShowAllBreakdown] = useState(false);
 
-    // Page tab state - Orders or Tickets view
-    const [pageTab, setPageTab] = useState<'orders' | 'tickets'>('orders');
+    // Page tab state - Orders / Tickets / Waitlist view
+    const [pageTab, setPageTab] = useState<'orders' | 'tickets' | 'waitlist'>('orders');
 
     const EMAIL_COOLDOWN_SECONDS = 60;
 
@@ -431,11 +433,11 @@ export default function OrdersPage() {
                     animate={{ opacity: 1, y: 0 }}
                     className="mb-8"
                 >
-                    <h1 className="font-display text-3xl font-bold">Orders</h1>
-                    <p className="text-muted-foreground mt-1">Manage purchases and process refunds</p>
+                    <h1 className="font-display text-3xl font-bold">Orders &amp; Waitlist</h1>
+                    <p className="text-muted-foreground mt-1">Manage purchases, ticket sales, refunds, and waitlist handoff</p>
                 </motion.div>
 
-                {/* Orders / Tickets Toggle */}
+                {/* Orders / Tickets / Waitlist Toggle */}
                 <div className="mb-6">
                     <div className="inline-flex p-1 bg-muted/80 rounded-xl">
                         <button
@@ -458,78 +460,99 @@ export default function OrdersPage() {
                             <Ticket className="inline-block h-4 w-4 mr-2" />
                             Tickets
                         </button>
+                        <button
+                            onClick={() => setPageTab('waitlist')}
+                            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pageTab === 'waitlist'
+                                ? 'bg-background text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            <Clock3 className="inline-block h-4 w-4 mr-2" />
+                            Waitlist
+                        </button>
                     </div>
                 </div>
 
                 {/* Stats Cards - Horizontal scroll on mobile */}
-                <div className="mb-8 -mx-4 px-4 md:mx-0 md:px-0">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="min-w-[280px] snap-start md:min-w-0"
-                        >
-                            <Card className="bg-linear-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900">
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 rounded-xl bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
-                                            <Receipt className="h-6 w-6 text-white" />
+                {pageTab !== 'waitlist' && (
+                    <div className="mb-8 -mx-4 px-4 md:mx-0 md:px-0">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 }}
+                                className="min-w-[280px] snap-start md:min-w-0"
+                            >
+                                <Card className="bg-linear-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900">
+                                    <CardContent className="pt-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-12 w-12 rounded-xl bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
+                                                <Receipt className="h-6 w-6 text-white" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
+                                                <p className="text-2xl font-bold">{totalOrders}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
-                                            <p className="text-2xl font-bold">{totalOrders}</p>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 }}
+                                className="min-w-[280px] snap-start md:min-w-0"
+                            >
+                                <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
+                                    <CardContent className="pt-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
+                                                <Check className="h-6 w-6 text-white" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-muted-foreground">Paid Orders</p>
+                                                <p className="text-2xl font-bold">{paidOrders}</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="min-w-[280px] snap-start md:min-w-0"
-                        >
-                            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
-                                            <Check className="h-6 w-6 text-white" />
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 }}
+                                className="min-w-[280px] snap-start md:min-w-0"
+                            >
+                                <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
+                                    <CardContent className="pt-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                                                <CreditCard className="h-6 w-6 text-white" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-muted-foreground">Net Revenue</p>
+                                                <p className="text-2xl font-bold">
+                                                    {formatCurrency(revenueTotal, netRevenueCurrency)}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Paid Orders</p>
-                                            <p className="text-2xl font-bold">{paidOrders}</p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="min-w-[280px] snap-start md:min-w-0"
-                        >
-                            <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                                            <CreditCard className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Net Revenue</p>
-                                            <p className="text-2xl font-bold">
-                                                {formatCurrency(revenueTotal, netRevenueCurrency)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        </div>
                     </div>
-                </div>
-
-
+                )}
+                
+                {/* Waitlist Tab */}
+                {pageTab === 'waitlist' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <WaitlistManager showHeader={false} />
+                    </motion.div>
+                )}
 
                 {/* Tickets Tab - Ticket Breakdown Section */}
                 {pageTab === 'tickets' && (

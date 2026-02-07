@@ -29,6 +29,7 @@ export interface CheckoutRequest {
     useSharedInfo?: boolean;
     ticketAttendees?: TicketAttendeePayload[];
     promoCode?: string;
+    waitlistOfferToken?: string;
     tracking?: {
         marketingConsent: boolean;
         fbp?: string;
@@ -392,4 +393,71 @@ export async function fetchUnlockedTickets(
     } catch {
         return [];
     }
+}
+
+export interface JoinWaitlistRequest {
+    ticketTypeId: string;
+    quantity: number;
+    email: string;
+    name?: string;
+}
+
+export interface JoinWaitlistResponse {
+    entryId: string;
+    status: 'joined' | 'updated';
+    position: number;
+    ticketTypeId: string;
+    quantity: number;
+}
+
+export async function joinWaitlist(
+    eventSlug: string,
+    payload: JoinWaitlistRequest,
+    accessCode?: string
+): Promise<JoinWaitlistResponse> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessCode) {
+        headers['x-event-access-code'] = accessCode;
+    }
+
+    const response = await fetch(`${API_URL}/api/v1/public/events/${eventSlug}/waitlist`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        throw new Error(getBackendErrorMessage(data, 'Failed to join waitlist'));
+    }
+
+    return data as JoinWaitlistResponse;
+}
+
+export async function claimWaitlistOffer(
+    token: string,
+    request: Omit<CheckoutRequest, 'items' | 'waitlistOfferToken'>,
+    accessCode?: string
+): Promise<CheckoutResponse> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessCode) {
+        headers['x-event-access-code'] = accessCode;
+    }
+
+    const response = await fetch(`${API_URL}/api/v1/public/waitlist-offers/${token}/claim`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(request)
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+        return {
+            success: false,
+            message: getBackendErrorMessage(data, 'Failed to claim waitlist offer'),
+            error: data
+        };
+    }
+
+    return data as CheckoutSuccessResponse;
 }

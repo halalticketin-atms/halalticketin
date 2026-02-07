@@ -48,7 +48,7 @@ import { useMarketingConsentRequirement } from '@/hooks/useMarketingConsentRequi
 import { useCookieConsent } from '@/context/cookie-consent-context';
 import { getMetaTrackingContext } from '@/lib/meta-tracking';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
-import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote, type CheckoutQuoteResponse, type TicketAttendeePayload } from '@/lib/checkout-api';
+import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote, joinWaitlist, type CheckoutQuoteResponse, type TicketAttendeePayload } from '@/lib/checkout-api';
 import { formatCurrency, getCurrencySymbol } from '@/lib/fees';
 import { formatCreditSplitNote } from '@/lib/credit-notes';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
@@ -360,6 +360,14 @@ export function PublicEventPageContent({
     const [promoCode, setPromoCode] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
+    const [waitlistDialogOpen, setWaitlistDialogOpen] = useState(false);
+    const [waitlistTicket, setWaitlistTicket] = useState<TicketLike | null>(null);
+    const [waitlistEmail, setWaitlistEmail] = useState('');
+    const [waitlistName, setWaitlistName] = useState('');
+    const [waitlistQuantity, setWaitlistQuantity] = useState(1);
+    const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+    const [waitlistFeedback, setWaitlistFeedback] = useState<string | null>(null);
+    const [waitlistFeedbackTone, setWaitlistFeedbackTone] = useState<'success' | 'error' | null>(null);
     const [checkoutStep, setCheckoutStep] = useState(0);
     const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuoteResponse | null>(null);
     const [isQuoteLoading, setIsQuoteLoading] = useState(false);
@@ -394,6 +402,15 @@ export function PublicEventPageContent({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]); // Only re-run if user changes (login/logout)
 
+    useEffect(() => {
+        if (user?.email && !waitlistEmail) {
+            setWaitlistEmail(user.email);
+        }
+        if (user?.name && !waitlistName) {
+            setWaitlistName(user.name);
+        }
+    }, [user?.email, user?.name, waitlistEmail, waitlistName]);
+
     // Attendee info mode states
     const [useSharedInfo, setUseSharedInfo] = useState(true);
     const [ticketAttendees, setTicketAttendees] = useState<TicketAttendee[]>([]);
@@ -418,6 +435,32 @@ export function PublicEventPageContent({
     );
     const hasDonationOption = Boolean(donationTicket);
     const hasRegularTickets = regularTickets.length > 0 || regularUnlockedTickets.length > 0;
+    const isTicketSoldOut = useCallback((ticket: TicketLike) => {
+        if (ticket.type === 'donation') {
+            return false;
+        }
+        if ('isSoldOut' in ticket && typeof ticket.isSoldOut === 'boolean') {
+            return ticket.isSoldOut;
+        }
+        const soldCount = 'ticketsSold' in ticket && typeof ticket.ticketsSold === 'number'
+            ? ticket.ticketsSold
+            : null;
+        if (ticket.maxQuantity === null || soldCount === null) {
+            return false;
+        }
+        return soldCount >= ticket.maxQuantity;
+    }, []);
+    const soldOutTicketIds = useMemo(
+        () => [...regularTickets, ...regularUnlockedTickets]
+            .filter((ticket) => isTicketSoldOut(ticket))
+            .map((ticket) => ticket.id),
+        [isTicketSoldOut, regularTickets, regularUnlockedTickets]
+    );
+    const soldOutTicketIdSet = useMemo(() => new Set(soldOutTicketIds), [soldOutTicketIds]);
+    const hasSelectableRegularTickets = useMemo(
+        () => [...regularTickets, ...regularUnlockedTickets].some((ticket) => !isTicketSoldOut(ticket)),
+        [isTicketSoldOut, regularTickets, regularUnlockedTickets]
+    );
 
     const donationDefaultAmount = useMemo(() => {
         if (!donationTicket) {
@@ -572,6 +615,74 @@ export function PublicEventPageContent({
         setIsCheckoutOpen(true);
     };
 
+    const getWaitlistMaxQuantity = useCallback((ticket: TicketLike) => {
+        const cap = ticket.maxPerOrder ?? 20;
+        return Math.max(1, Math.min(cap, 20));
+    }, []);
+
+    const handleOpenWaitlistDialog = useCallback((ticket: TicketLike) => {
+        const maxQuantity = getWaitlistMaxQuantity(ticket);
+        setWaitlistTicket(ticket);
+        setWaitlistQuantity((prev) => Math.max(1, Math.min(prev, maxQuantity)));
+        setWaitlistFeedback(null);
+        setWaitlistFeedbackTone(null);
+        setWaitlistDialogOpen(true);
+    }, [getWaitlistMaxQuantity]);
+
+    const handleJoinWaitlistSubmit = useCallback(async (formEvent: FormEvent<HTMLFormElement>) => {
+        formEvent.preventDefault();
+        if (!event?.slug || !waitlistTicket) {
+            return;
+        }
+
+        const email = waitlistEmail.trim();
+        const name = waitlistName.trim();
+        if (!email) {
+            setWaitlistFeedback('Please enter your email.');
+            setWaitlistFeedbackTone('error');
+            return;
+        }
+
+        const maxQuantity = getWaitlistMaxQuantity(waitlistTicket);
+        const safeQuantity = Math.max(1, Math.min(waitlistQuantity, maxQuantity));
+
+        try {
+            setWaitlistSubmitting(true);
+            const result = await joinWaitlist(
+                event.slug,
+                {
+                    ticketTypeId: waitlistTicket.id,
+                    quantity: safeQuantity,
+                    email,
+                    name: name || undefined
+                },
+                accessCode ?? undefined
+            );
+
+            const message = result.status === 'updated'
+                ? `You’re still in the queue. Your request was updated. Current position: ${result.position}.`
+                : `You’ve joined the waitlist. Current position: ${result.position}.`;
+            setWaitlistFeedback(message);
+            setWaitlistFeedbackTone('success');
+            toast.success('Waitlist updated', { description: message });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to join waitlist right now.';
+            setWaitlistFeedback(message);
+            setWaitlistFeedbackTone('error');
+            toast.error(message);
+        } finally {
+            setWaitlistSubmitting(false);
+        }
+    }, [
+        accessCode,
+        event?.slug,
+        getWaitlistMaxQuantity,
+        waitlistEmail,
+        waitlistName,
+        waitlistQuantity,
+        waitlistTicket
+    ]);
+
     // Helper to get effective price (early bird or regular)
     const getEffectivePrice = useCallback((t: TicketLike) => {
         const now = new Date();
@@ -700,6 +811,23 @@ export function PublicEventPageContent({
             startTransition(() => setUseSharedInfo(false));
         }
     }, [forcePerTicket, useSharedInfo]);
+
+    useEffect(() => {
+        if (soldOutTicketIds.length === 0) {
+            return;
+        }
+        setTicketQuantities((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            for (const ticketId of soldOutTicketIds) {
+                if ((next[ticketId] ?? 0) > 0) {
+                    next[ticketId] = 0;
+                    changed = true;
+                }
+            }
+            return changed ? next : prev;
+        });
+    }, [soldOutTicketIds]);
 
     const handleQuantityChange = (ticketId: string, quantity: number) => {
         setTicketQuantities(prev => ({
@@ -1479,6 +1607,14 @@ export function PublicEventPageContent({
             : null;
     const isPastEvent = !isPreview && eventEndTimestamp !== null && Date.now() > eventEndTimestamp;
     const hasShownPastToast = useRef(false);
+    const canJoinWaitlist = Boolean(
+        event
+        && 'waitlistEnabled' in event
+        && event.waitlistEnabled
+        && event.slug
+        && !isPreview
+        && !isPastEvent
+    );
 
     useEffect(() => {
         if (!isPastEvent || hasShownPastToast.current) return;
@@ -1955,15 +2091,51 @@ export function PublicEventPageContent({
                                         </p>
                                     ) : (
                                         <>
-                                            {regularTickets.map((ticket) => (
-                                                <TicketCard
-                                                    key={ticket.id}
-                                                    ticket={ticket}
-                                                    quantity={ticketQuantities[ticket.id] || 0}
-                                                    onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
-                                                    organizerFeeNote={organizerFeeNotes.get(ticket.id)}
-                                                />
-                                            ))}
+                                            {regularTickets.map((ticket) => {
+                                                const isSoldOut = soldOutTicketIdSet.has(ticket.id);
+                                                if (isSoldOut) {
+                                                    return (
+                                                        <div key={ticket.id} className="p-4 border rounded-lg border-dashed bg-muted/30 space-y-3">
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div>
+                                                                    <h4 className="font-medium">{ticket.name}</h4>
+                                                                    {ticket.description ? (
+                                                                        <p className="text-sm text-muted-foreground mt-1">{ticket.description}</p>
+                                                                    ) : null}
+                                                                    <p className="text-sm font-semibold text-muted-foreground mt-2">
+                                                                        {formatPrice(ticket.price, ticket.currency)}
+                                                                    </p>
+                                                                </div>
+                                                                <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                                                                    Sold out
+                                                                </span>
+                                                            </div>
+                                                            {canJoinWaitlist ? (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="w-full"
+                                                                    onClick={() => handleOpenWaitlistDialog(ticket)}
+                                                                >
+                                                                    Join waitlist
+                                                                </Button>
+                                                            ) : (
+                                                                <p className="text-xs text-muted-foreground">This ticket is currently sold out.</p>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <TicketCard
+                                                        key={ticket.id}
+                                                        ticket={ticket}
+                                                        quantity={ticketQuantities[ticket.id] || 0}
+                                                        onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
+                                                        organizerFeeNote={organizerFeeNotes.get(ticket.id)}
+                                                    />
+                                                );
+                                            })}
 
                                             {/* Unlocked Hidden Tickets */}
                                             {regularUnlockedTickets.length > 0 && (
@@ -1972,17 +2144,51 @@ export function PublicEventPageContent({
                                                         Unlocked Tickets
                                                     </div>
                                                     <div className="space-y-4 pt-2">
-                                                        {regularUnlockedTickets.map((ticket) => (
-                                                            <div key={ticket.id} className="relative">
-                                                                <div className="absolute -left-1 top-4 w-1 h-8 bg-amber-500 rounded-r-full" />
-                                                                <TicketCard
-                                                                    ticket={ticket}
-                                                                    quantity={ticketQuantities[ticket.id] || 0}
-                                                                    onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
-                                                                    organizerFeeNote={organizerFeeNotes.get(ticket.id)}
-                                                                />
-                                                            </div>
-                                                        ))}
+                                                        {regularUnlockedTickets.map((ticket) => {
+                                                            const isSoldOut = soldOutTicketIdSet.has(ticket.id);
+                                                            return (
+                                                                <div key={ticket.id} className="relative">
+                                                                    <div className="absolute -left-1 top-4 w-1 h-8 bg-amber-500 rounded-r-full" />
+                                                                    {isSoldOut ? (
+                                                                        <div className="p-4 border rounded-lg border-dashed bg-muted/30 space-y-3">
+                                                                            <div className="flex items-start justify-between gap-3">
+                                                                                <div>
+                                                                                    <h4 className="font-medium">{ticket.name}</h4>
+                                                                                    {ticket.description ? (
+                                                                                        <p className="text-sm text-muted-foreground mt-1">{ticket.description}</p>
+                                                                                    ) : null}
+                                                                                    <p className="text-sm font-semibold text-muted-foreground mt-2">
+                                                                                        {formatPrice(ticket.price, ticket.currency)}
+                                                                                    </p>
+                                                                                </div>
+                                                                                <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                                                                                    Sold out
+                                                                                </span>
+                                                                            </div>
+                                                                            {canJoinWaitlist ? (
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    size="sm"
+                                                                                    className="w-full"
+                                                                                    onClick={() => handleOpenWaitlistDialog(ticket)}
+                                                                                >
+                                                                                    Join waitlist
+                                                                                </Button>
+                                                                            ) : (
+                                                                                <p className="text-xs text-muted-foreground">This ticket is currently sold out.</p>
+                                                                            )}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <TicketCard
+                                                                            ticket={ticket}
+                                                                            quantity={ticketQuantities[ticket.id] || 0}
+                                                                            onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
+                                                                            organizerFeeNote={organizerFeeNotes.get(ticket.id)}
+                                                                        />
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             )}
@@ -2162,7 +2368,9 @@ export function PublicEventPageContent({
                                         {!hasRegularTickets && !hasDonationOption
                                             ? 'No Tickets Available'
                                             : !hasSelections
-                                                ? hasDonationOption && !hasRegularTickets
+                                                ? !hasSelectableRegularTickets && canJoinWaitlist && !hasDonationOption
+                                                    ? 'Join Waitlist Above'
+                                                    : hasDonationOption && !hasRegularTickets
                                                     ? 'Add Donation'
                                                     : 'Select Tickets'
                                                 : 'Proceed to Checkout'
@@ -2810,6 +3018,88 @@ export function PublicEventPageContent({
                             </div>
                         </div>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={waitlistDialogOpen}
+                onOpenChange={(open) => {
+                    setWaitlistDialogOpen(open);
+                    if (!open) {
+                        setWaitlistFeedback(null);
+                        setWaitlistFeedbackTone(null);
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-md">
+                    <DialogTitle>Join Waitlist</DialogTitle>
+                    <form onSubmit={handleJoinWaitlistSubmit} className="space-y-4 pt-2">
+                        <div className="space-y-1">
+                            <p className="text-sm text-muted-foreground">
+                                {waitlistTicket
+                                    ? `Get notified when "${waitlistTicket.name}" becomes available.`
+                                    : 'Get notified when tickets become available.'}
+                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="waitlistName">Name (optional)</Label>
+                            <Input
+                                id="waitlistName"
+                                value={waitlistName}
+                                onChange={(event) => setWaitlistName(event.target.value)}
+                                maxLength={120}
+                                placeholder="Your name"
+                                disabled={waitlistSubmitting}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="waitlistEmail">Email</Label>
+                            <Input
+                                id="waitlistEmail"
+                                type="email"
+                                value={waitlistEmail}
+                                onChange={(event) => setWaitlistEmail(event.target.value)}
+                                required
+                                maxLength={254}
+                                placeholder="you@example.com"
+                                disabled={waitlistSubmitting}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="waitlistQuantity">Quantity</Label>
+                            <Input
+                                id="waitlistQuantity"
+                                type="number"
+                                min={1}
+                                max={waitlistTicket ? getWaitlistMaxQuantity(waitlistTicket) : 20}
+                                value={waitlistQuantity}
+                                onChange={(event) => {
+                                    const parsed = Number(event.target.value);
+                                    if (!Number.isFinite(parsed)) {
+                                        return;
+                                    }
+                                    const maxValue = waitlistTicket ? getWaitlistMaxQuantity(waitlistTicket) : 20;
+                                    setWaitlistQuantity(Math.max(1, Math.min(Math.floor(parsed), maxValue)));
+                                }}
+                                disabled={waitlistSubmitting}
+                            />
+                        </div>
+                        {waitlistFeedback ? (
+                            <p className={cn('text-sm', waitlistFeedbackTone === 'error' ? 'text-destructive' : 'text-emerald-600')}>
+                                {waitlistFeedback}
+                            </p>
+                        ) : null}
+                        <Button type="submit" className="w-full" disabled={waitlistSubmitting || !waitlistTicket}>
+                            {waitlistSubmitting ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Joining...
+                                </>
+                            ) : (
+                                'Join waitlist'
+                            )}
+                        </Button>
+                    </form>
                 </DialogContent>
             </Dialog>
         </div>

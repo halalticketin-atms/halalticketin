@@ -28,6 +28,11 @@ const ERROR_CODE_FALLBACKS: Record<string, string> = {
     STRIPE_CONNECT_REQUIRED: 'Payment setup is incomplete for this organizer.',
     EVENT_ACCESS_REQUIRED: 'This event requires an access code.',
     EVENT_ACCESS_DENIED: 'That access code is incorrect.',
+    WAITLIST_OFFER_INVALID: 'This waitlist link is invalid.',
+    WAITLIST_OFFER_EXPIRED: 'This waitlist offer has expired.',
+    WAITLIST_OFFER_ALREADY_CLAIMED: 'This waitlist offer has already been used.',
+    WAITLIST_NOT_OPEN: 'Waitlist is not enabled for this event.',
+    WAITLIST_LOCK_INVALID: 'This waitlist reservation is no longer valid.',
 };
 
 export function parseBackendError(payload: unknown): ParsedBackendError | null {

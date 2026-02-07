@@ -293,6 +293,9 @@ export interface PublicEventRecord {
     status?: 'draft' | 'published' | 'cancelled' | 'archived';
     attendeeInfoMode: 'per_ticket' | 'buyer_choice' | null;
     customQuestions: CustomQuestionPayload[] | null;
+    waitlistEnabled?: boolean;
+    waitlistHandoffMode?: 'manual' | 'automatic';
+    waitlistClaimWindowMinutes?: number;
     // Favorite status (only present when authenticated)
     isFavorited?: boolean | null;
 }
@@ -314,6 +317,8 @@ export interface PublicTicketRecord {
     absorbFee?: boolean | null;
     earlyBirdPrice: string | null;
     earlyBirdEndDate: string | null;
+    ticketsSold?: number;
+    isSoldOut?: boolean;
 }
 
 export const fetchPublicEvents = async (options?: { limit?: number; offset?: number; organizerId?: string }) => {
