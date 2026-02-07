@@ -59,16 +59,17 @@ interface CampaignsResponse {
     data: EmailMarketingCampaign[];
 }
 
-export interface ImportContactsResponse {
+export interface ImportCsvResponse {
     inserted: number;
     updated: number;
     skippedInvalid: number;
     deduped: number;
     total: number;
+    contactIds?: string[];
 }
 
 export const importEmailMarketingContactsCsv = async (organizerId: string, csvText: string) => {
-    return api.post<ImportContactsResponse>(
+    return api.post<ImportCsvResponse>(
         `/api/v1/organizers/${organizerId}/email-marketing/contacts/import-csv`,
         { csvText }
     );
@@ -180,14 +181,20 @@ export const fetchEmailMarketingCampaigns = async (organizerId: string) => {
 };
 
 export const estimateEmailMarketingRecipients = async (organizerId: string, groupIds: string[]) => {
-    return api.post<{ recipientCount: number }>(
+    return api.post<{
+        recipientCount: number;
+        stampsRequired: number;
+        stampsAvailable: number;
+        shortfall: number;
+        canSend: boolean;
+    }>(
         `/api/v1/organizers/${organizerId}/email-marketing/campaigns/estimate`,
         { groupIds }
     );
 };
 
 export const sendEmailMarketingCampaign = async (organizerId: string, campaignId: string) => {
-    return api.post<{ sent: number; skipped: number; failed: number; recipientCount: number }>(
+    return api.post<{ sent: number; skipped: number; failed: number; recipientCount: number; stampsCharged?: number }>(
         `/api/v1/organizers/${organizerId}/email-marketing/campaigns/${campaignId}/send`
     );
 };

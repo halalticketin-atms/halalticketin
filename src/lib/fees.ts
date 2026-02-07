@@ -22,6 +22,10 @@ export const MIN_CREDITS = 100;
 export const MAX_CREDITS = 20000;
 export const MAX_PRICE_GBP = 0.47; // £0.47 per credit at 100 credits (equivalent to ~€0.55)
 export const MIN_PRICE_GBP = 0.23; // £0.23 per credit at 20,000 credits (equivalent to ~€0.27)
+export const MIN_STAMPS = 100;
+export const MAX_STAMPS = 200000;
+export const MAX_STAMP_PRICE_GBP = 0.0012; // £1.20 per 1,000 stamps at 100 stamps
+export const MIN_STAMP_PRICE_GBP = 0.0005; // £0.50 per 1,000 stamps at 200,000 stamps
 
 // Legacy EUR constants (kept for reference)
 export const MAX_PRICE_EUR = 0.55; // €0.55 per credit at 100 credits
@@ -168,6 +172,19 @@ export function calculateCreditPrice(credits: number): number {
     const clampedCredits = Math.min(credits, MAX_CREDITS);
     return MAX_PRICE_GBP - (MAX_PRICE_GBP - MIN_PRICE_GBP) *
         (clampedCredits - MIN_CREDITS) / (MAX_CREDITS - MIN_CREDITS);
+}
+
+export function calculateStampPrice(stamps: number): number {
+    if (stamps < MIN_STAMPS) {
+        return MAX_STAMP_PRICE_GBP;
+    }
+    const clampedStamps = Math.min(stamps, MAX_STAMPS);
+    return MAX_STAMP_PRICE_GBP - (MAX_STAMP_PRICE_GBP - MIN_STAMP_PRICE_GBP) *
+        (clampedStamps - MIN_STAMPS) / (MAX_STAMPS - MIN_STAMPS);
+}
+
+export function calculateStampPurchaseCost(stamps: number): number {
+    return stamps * calculateStampPrice(stamps);
 }
 
 export const applyCharityPlatformFeeDiscount = (
