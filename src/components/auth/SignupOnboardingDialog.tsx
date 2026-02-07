@@ -215,7 +215,7 @@ export function SignupOnboardingDialog({
     prefill,
 }: SignupOnboardingDialogProps) {
     // Invite mode: user is joining an existing org via invitation
-    const isInviteFlow = Boolean(inviteEmail);
+    const isInviteFlow = Boolean(inviteToken || inviteEmail);
     const isAuthenticatedOnboarding = authMode === 'existing';
     const shouldSkipWelcome = isAuthenticatedOnboarding && Boolean(defaultRole) && !isInviteFlow;
 
@@ -293,7 +293,7 @@ export function SignupOnboardingDialog({
 
     const currentStepIndex = steps.findIndex(s => s.id === step);
     const canGoBack = currentStepIndex > 0;
-    const isEmailLocked = isInviteFlow
+    const isEmailLocked = Boolean(inviteEmail)
         || (isAuthenticatedOnboarding && Boolean(prefill?.email) && !emailEditedRef.current);
     const showSignInEmailHint = isAuthenticatedOnboarding && !isInviteFlow && Boolean(prefill?.email) && !emailEditedRef.current;
 
@@ -505,6 +505,12 @@ export function SignupOnboardingDialog({
                         setIsLoading(false);
                     }
                 }
+                // Invite flow skips organizer-specific onboarding and goes straight to profile.
+                if (isInviteFlow) {
+                    setStep('profile');
+                    break;
+                }
+
                 // Organizers go through granular steps, buyers go to profile
                 setStep(formData.role === 'organizer' ? 'about-you' : 'profile');
                 break;

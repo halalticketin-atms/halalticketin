@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
@@ -51,6 +51,28 @@ function LoginContent() {
     const fallbackRedirect = isOrganizer ? '/dashboard' : '/events';
     const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
     const redirectPath = safeNextParam ?? fallbackRedirect;
+    const registerPath = useMemo(() => {
+        if (!safeNextParam) {
+            return '/register';
+        }
+
+        const params = new URLSearchParams();
+        params.set('next', safeNextParam);
+
+        try {
+            const nextUrl = new URL(safeNextParam, 'https://halalticketin.local');
+            if (nextUrl.pathname === '/invitations/accept') {
+                const inviteToken = nextUrl.searchParams.get('token');
+                if (inviteToken) {
+                    params.set('inviteToken', inviteToken);
+                }
+            }
+        } catch {
+            // Keep a safe fallback and continue with the next path only.
+        }
+
+        return `/register?${params.toString()}`;
+    }, [safeNextParam]);
     const prefersReducedMotion = useReducedMotion();
     const shouldAnimateEntry = !isMobile && !prefersReducedMotion;
     const entryMotionProps = shouldAnimateEntry
@@ -419,7 +441,7 @@ function LoginContent() {
                                     <p className="text-slate-600 dark:text-slate-400">
                                         Don&apos;t have an account?{' '}
                                         <Link
-                                            href="/register"
+                                            href={registerPath}
                                             className="font-semibold text-[var(--brand-cyan)] hover:text-[var(--brand-teal)] transition-colors"
                                         >
                                             Sign up

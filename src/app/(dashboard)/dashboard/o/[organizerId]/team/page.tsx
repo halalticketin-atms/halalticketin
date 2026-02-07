@@ -364,6 +364,27 @@ export default function OrganizerTeamPage() {
 
     const eventsMap = useMemo(() => new Map(events.map((evt) => [evt.id, evt])), [events]);
 
+    const resetInviteDialogState = () => {
+        setInviteError(null);
+        setInviteSuccess(null);
+        setInviteForm({
+            email: '',
+            role: 'check_in',
+            eventScope: defaultEventScope,
+        });
+    };
+
+    const openInviteDialog = () => {
+        resetInviteDialogState();
+        setIsInviteOpen(true);
+    };
+
+    const closeInviteDialog = () => {
+        setIsInviteOpen(false);
+        setInviteError(null);
+        setInviteSuccess(null);
+    };
+
     const loadTeamData = useCallback(async () => {
         if (!organizerId) return;
 
@@ -443,7 +464,7 @@ export default function OrganizerTeamPage() {
                 eventScope: defaultEventScope,
             });
             await loadTeamData();
-            setTimeout(() => setIsInviteOpen(false), 1500);
+            setTimeout(() => closeInviteDialog(), 1500);
         } catch (err) {
             console.error(err);
             setInviteError(err instanceof Error ? err.message : 'Failed to create invitation');
@@ -587,7 +608,7 @@ export default function OrganizerTeamPage() {
                             </p>
                         </div>
                         <Button
-                            onClick={() => setIsInviteOpen(true)}
+                            onClick={openInviteDialog}
                             className="bg-gradient-to-r from-primary to-[var(--brand-teal)] hover:opacity-90 transition-opacity"
                         >
                             <UserPlus className="mr-2 h-4 w-4" />
@@ -829,7 +850,16 @@ export default function OrganizerTeamPage() {
             </div>
 
             {/* Invite Dialog */}
-            <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+            <Dialog
+                open={isInviteOpen}
+                onOpenChange={(open) => {
+                    if (open) {
+                        openInviteDialog();
+                        return;
+                    }
+                    closeInviteDialog();
+                }}
+            >
                 <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
                     {/* Header with gradient accent */}
                     <div className="relative px-6 pt-6 pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
@@ -957,7 +987,7 @@ export default function OrganizerTeamPage() {
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => setIsInviteOpen(false)}
+                                onClick={closeInviteDialog}
                                 className="rounded-xl"
                             >
                                 Cancel
