@@ -149,6 +149,14 @@ export default function AnalyticsPage() {
     }, [fetchAnalytics, organizerId, selectedEvent]);
 
     useEffect(() => {
+        if (!analytics || selectedEvent === 'all') return;
+        const stillExists = analytics.filters.events.some((event) => event.id === selectedEvent);
+        if (!stillExists) {
+            setSelectedEvent('all');
+        }
+    }, [analytics, selectedEvent]);
+
+    useEffect(() => {
         setMounted(true);
     }, []);
 

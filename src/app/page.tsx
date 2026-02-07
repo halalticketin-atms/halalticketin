@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Search, MapPin, ArrowRight, QrCode, HeartHandshake, BadgeCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useOptionalAuth } from '@/context/auth-context';
 
 // Floating event cards data - using brand colors
 const floatingEvents = [
@@ -56,15 +57,17 @@ const floatingEvents = [
 
 function FloatingEventCard({
   event,
+  shouldUseLiteAnimations,
 }: {
   event: (typeof floatingEvents)[0];
+  shouldUseLiteAnimations: boolean;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 40, rotate: event.rotation }}
+      initial={{ opacity: 0, y: shouldUseLiteAnimations ? 16 : 40, rotate: event.rotation }}
       animate={{ opacity: 1, y: 0, rotate: event.rotation }}
       transition={{
-        duration: 0.8,
+        duration: shouldUseLiteAnimations ? 0.45 : 0.8,
         delay: event.delay,
         ease: [0.25, 0.46, 0.45, 0.94],
       }}
@@ -72,12 +75,12 @@ function FloatingEventCard({
       style={event.position as React.CSSProperties}
     >
       <motion.div
-        animate={{ y: [0, -15, 0] }}
+        animate={shouldUseLiteAnimations ? { y: 0 } : { y: [0, -10, 0] }}
         transition={{
-          duration: 5,
-          repeat: Infinity,
-          ease: 'easeInOut',
-          delay: event.delay,
+          duration: shouldUseLiteAnimations ? 0.2 : 7,
+          repeat: shouldUseLiteAnimations ? 0 : Infinity,
+          ease: shouldUseLiteAnimations ? 'linear' : 'easeInOut',
+          delay: shouldUseLiteAnimations ? 0 : event.delay,
         }}
         whileHover={{ scale: 1.05, rotate: 0 }}
         className="cursor-pointer"
@@ -102,7 +105,15 @@ function FloatingEventCard({
 
 export default function Home() {
   const router = useRouter();
+  const auth = useOptionalAuth();
+  const prefersReducedMotion = useReducedMotion();
   const [searchQuery, setSearchQuery] = useState('');
+  const isSafari =
+    typeof navigator !== 'undefined' &&
+    /Safari/i.test(navigator.userAgent) &&
+    !/Chrome|Chromium|CriOS|Edg|OPR|SamsungBrowser|Android/i.test(navigator.userAgent);
+  const startForFreeHref = auth?.user ? '/dashboard' : '/register?role=organizer';
+  const shouldUseLiteAnimations = Boolean(prefersReducedMotion) || isSafari;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,25 +129,34 @@ export default function Home() {
       <section className="relative min-h-[100svh] overflow-hidden gradient-mesh -mt-[var(--nav-safe-offset)] pt-[var(--nav-safe-offset)]">
         {/* Floating Event Cards */}
         {floatingEvents.map((event) => (
-          <FloatingEventCard key={event.id} event={event} />
+          <FloatingEventCard key={event.id} event={event} shouldUseLiteAnimations={shouldUseLiteAnimations} />
         ))}
 
         {/* Background Decorative Elements */}
         <div className="absolute inset-0 bg-noise pointer-events-none" />
 
         {/* Animated gradient orbs - desktop only for performance, static on mobile */}
-        <motion.div
-          initial={{ scale: 1, opacity: 0.35 }}
-          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.25)] blur-3xl lg:animate-pulse-slow"
-        />
-        <motion.div
-          initial={{ scale: 1, opacity: 0.35 }}
-          animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.25)] blur-3xl lg:animate-pulse-slow"
-        />
+        {shouldUseLiteAnimations ? (
+          <>
+            <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.18)] blur-2xl" />
+            <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.18)] blur-2xl" />
+          </>
+        ) : (
+          <>
+            <motion.div
+              initial={{ scale: 1, opacity: 0.35 }}
+              animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-[oklch(0.78_0.14_165/0.25)] blur-3xl"
+            />
+            <motion.div
+              initial={{ scale: 1, opacity: 0.35 }}
+              animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.5, 0.3] }}
+              transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.25)] blur-3xl"
+            />
+          </>
+        )}
 
         {/* Bottom gradient fade for seamless transition */}
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent pointer-events-none" />
@@ -152,11 +172,13 @@ export default function Home() {
             className="text-center"
           >
             {/* Headline */}
-            <h1 className="font-display text-5xl font-bold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl">
-              Your home for
-              <br />
-              <span className="text-gradient">meaningful events.</span>
-            </h1>
+            <div className="mx-auto min-h-[130px] sm:min-h-[160px] md:min-h-[190px] lg:min-h-[250px]">
+              <h1 className="font-display text-5xl font-bold tracking-tight leading-[0.95] sm:text-6xl md:text-7xl lg:text-8xl">
+                Your home for
+                <br />
+                <span className="text-gradient">meaningful events.</span>
+              </h1>
+            </div>
 
             {/* Subheadline */}
             <motion.p
@@ -171,12 +193,14 @@ export default function Home() {
 
           {/* Search Section */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
             className="mt-10 w-full max-w-2xl"
           >
-            <Card className="border-border/50 bg-card/80 backdrop-blur-md shadow-xl">
+            <Card
+              className={`border-border/50 bg-card/80 shadow-xl ${shouldUseLiteAnimations ? '' : 'backdrop-blur-md'}`}
+            >
               <CardContent className="p-3 sm:p-4">
                 <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   {/* Search Input */}
@@ -367,7 +391,7 @@ export default function Home() {
               {/* Stacked buttons with raw styling */}
               <div className="mt-10 flex flex-col gap-3 sm:max-w-xs">
                 <Button size="lg" className="h-14 text-base font-semibold justify-between group" asChild>
-                  <Link href="/register?role=organizer">
+                  <Link href={startForFreeHref}>
                     Start For Free
                     <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                   </Link>
