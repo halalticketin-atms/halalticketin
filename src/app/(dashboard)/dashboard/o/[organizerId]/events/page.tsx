@@ -280,12 +280,12 @@ function EventCard({
                 {/* Card Content */}
                 <CardContent className="p-3 space-y-2 bg-gradient-to-b from-background to-muted/20">
                     {/* Title */}
-                    <h3 className="font-bold text-sm line-clamp-2 min-h-[2.5rem] leading-tight">
+                    <h3 className="font-bold text-sm leading-snug break-words [overflow-wrap:anywhere] sm:line-clamp-2 sm:min-h-[2.5rem] sm:leading-tight">
                         {event.title || 'Untitled Event'}
                     </h3>
 
                     {/* Event Details */}
-                    <div className="space-y-1 text-xs text-muted-foreground">
+                    <div className="space-y-1 pt-0.5 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1.5">
                             <Calendar className="h-3 w-3 shrink-0 text-primary/70" />
                             <span className="truncate sm:hidden">{date}</span>
