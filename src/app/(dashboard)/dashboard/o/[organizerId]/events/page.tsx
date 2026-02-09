@@ -288,9 +288,10 @@ function EventCard({
                     <div className="space-y-1 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1.5">
                             <Calendar className="h-3 w-3 shrink-0 text-primary/70" />
-                            <span className="truncate">{date}{time && ` at ${time}`}</span>
+                            <span className="truncate sm:hidden">{date}</span>
+                            <span className="hidden truncate sm:inline">{date}{time && ` at ${time}`}</span>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="hidden items-center gap-1.5 sm:flex">
                             <MapPin className="h-3 w-3 shrink-0 text-primary/70" />
                             <span className="truncate">{location}</span>
                         </div>
