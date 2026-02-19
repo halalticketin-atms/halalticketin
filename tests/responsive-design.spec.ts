@@ -22,13 +22,6 @@ const devices = {
     desktop: { width: 1920, height: 1080, name: 'Desktop' }
 };
 
-// Helper to check for horizontal scroll
-async function hasHorizontalScroll(page: Page): Promise<boolean> {
-    return await page.evaluate(() => {
-        return document.body.scrollWidth > window.innerWidth;
-    });
-}
-
 // Helper to get scrollbar width
 async function getScrollbarInfo(page: Page): Promise<{ bodyWidth: number; viewportWidth: number; hasOverflow: boolean }> {
     return await page.evaluate(() => ({
@@ -100,7 +93,7 @@ test.describe('Responsive Design - Event Page', () => {
         });
     });
 
-    for (const [deviceType, device] of Object.entries(devices)) {
+    for (const [, device] of Object.entries(devices)) {
         test(`event page fits ${device.name}`, async ({ page }) => {
             await page.setViewportSize({ width: device.width, height: device.height });
             await page.goto('/events/test-event');

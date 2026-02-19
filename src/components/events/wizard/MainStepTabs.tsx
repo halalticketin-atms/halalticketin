@@ -25,7 +25,7 @@ export function MainStepTabs({ steps, onStepClick, className }: MainStepTabsProp
         <div className={cn('border-b border-border/50 bg-card/50', className)}>
             {/* Desktop: Full tabs */}
             <div className="hidden sm:flex items-center justify-center gap-1 px-4 py-2">
-                {steps.map((step, index) => {
+                {steps.map((step) => {
                     const StepIcon = step.icon;
                     return (
                         <button

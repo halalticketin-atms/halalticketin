@@ -7,6 +7,7 @@ import { CookieConsentProvider } from '@/context/cookie-consent-context';
 import { AuthProvider } from '@/context/auth-context';
 import { ExchangeRatesProvider } from '@/hooks/useExchangeRates';
 import { CookieBanner } from '@/components/privacy/cookie-banner';
+import { MetaPixelScript } from '@/components/analytics/meta-pixel-script';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -32,6 +33,8 @@ const sora = Sora({
   display: 'swap',
 });
 
+const metadataBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://halalticketin.com';
+
 export const viewport = {
   themeColor: '#ffffff',
   width: 'device-width',
@@ -41,6 +44,7 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(metadataBaseUrl),
   title: "HalalTicketin' - Your Trusted Halal Event Platform",
   description:
     'Discover and create halal events with ease. The trusted ticketing platform for the Muslim community.',
@@ -62,6 +66,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${sora.variable} antialiased`}
       >
         <CookieConsentProvider>
+          <MetaPixelScript />
           <AuthProvider>
             <ExchangeRatesProvider>
               <div className="flex min-h-screen flex-col">

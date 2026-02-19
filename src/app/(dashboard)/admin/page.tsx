@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     CalendarPlus,
@@ -17,7 +17,6 @@ import {
     ChevronUp,
     ChevronLeft,
     ChevronRight,
-    ShoppingCart,
 } from 'lucide-react';
 import {
     AreaChart,
@@ -353,6 +352,7 @@ function UsersTable() {
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<'all' | 'true' | 'false'>('all');
+    const hasLoadedInitialUsersRef = useRef(false);
 
     const fetchUsers = useCallback(async (params: { offset?: number; search?: string; isOrganizer?: 'all' | 'true' | 'false' }) => {
         setIsLoading(true);
@@ -373,8 +373,12 @@ function UsersTable() {
     }, [pagination.offset, search, filter]);
 
     useEffect(() => {
+        if (hasLoadedInitialUsersRef.current) {
+            return;
+        }
+        hasLoadedInitialUsersRef.current = true;
         fetchUsers({});
-    }, []);
+    }, [fetchUsers]);
 
     const handleSearch = (value: string) => {
         setSearch(value);
@@ -480,6 +484,7 @@ function OrganizersTable() {
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<'all' | 'individual' | 'organization' | 'charity'>('all');
+    const hasLoadedInitialOrganizersRef = useRef(false);
 
     const fetchOrganizers = useCallback(async (params: { offset?: number; search?: string; type?: typeof filter }) => {
         setIsLoading(true);
@@ -500,8 +505,12 @@ function OrganizersTable() {
     }, [pagination.offset, search, filter]);
 
     useEffect(() => {
+        if (hasLoadedInitialOrganizersRef.current) {
+            return;
+        }
+        hasLoadedInitialOrganizersRef.current = true;
         fetchOrganizers({});
-    }, []);
+    }, [fetchOrganizers]);
 
     const handleSearch = (value: string) => {
         setSearch(value);
@@ -619,6 +628,7 @@ function EventsTable() {
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const hasLoadedInitialEventsRef = useRef(false);
 
     const fetchEvents = useCallback(async (params: { offset?: number; search?: string }) => {
         setIsLoading(true);
@@ -639,8 +649,12 @@ function EventsTable() {
     }, [pagination.offset, search]);
 
     useEffect(() => {
+        if (hasLoadedInitialEventsRef.current) {
+            return;
+        }
+        hasLoadedInitialEventsRef.current = true;
         fetchEvents({});
-    }, []);
+    }, [fetchEvents]);
 
     const handleSearch = (value: string) => {
         setSearch(value);

@@ -185,7 +185,7 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
         setUpdatingTicketId(null);
       }
     },
-    [eventId]
+    [applyCheckInUpdate, eventId]
   );
 
   const undo = useCallback(
@@ -213,7 +213,7 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
         setUpdatingTicketId(null);
       }
     },
-    [eventId]
+    [applyCheckInUpdate, eventId]
   );
 
   return {

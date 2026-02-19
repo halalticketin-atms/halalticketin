@@ -1,7 +1,5 @@
 'use client';
 
-const META_PIXEL_SRC = 'https://connect.facebook.net/en_US/fbevents.js';
-
 type FbqFunction = {
     (...args: unknown[]): void;
     queue?: unknown[];
@@ -43,23 +41,6 @@ const ensureBaseSnippet = () => {
         window._fbq = window.fbq;
     }
 
-    if (typeof document !== 'undefined') {
-        const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${META_PIXEL_SRC}"]`);
-        if (!existingScript) {
-            const script = document.createElement('script');
-            script.async = true;
-            script.src = META_PIXEL_SRC;
-            const firstScript = document.getElementsByTagName('script')[0];
-
-            if (firstScript?.parentNode) {
-                firstScript.parentNode.insertBefore(script, firstScript);
-            } else if (document.head) {
-                document.head.appendChild(script);
-            } else if (document.body) {
-                document.body.appendChild(script);
-            }
-        }
-    }
 };
 
 export const ensureMetaPixel = () => {
@@ -75,6 +56,12 @@ export const initMetaPixel = (pixelId: string) => {
 
     if (initializedPixels.has(pixelId)) {
         return;
+    }
+
+    try {
+        window.fbq?.('consent', 'grant');
+    } catch {
+        // Ignore consent command errors.
     }
 
     initializedPixels.add(pixelId);
@@ -116,11 +103,6 @@ export const teardownMetaPixel = () => {
 
     initializedPixels.clear();
 
-    if (typeof document !== 'undefined') {
-        const scripts = document.querySelectorAll<HTMLScriptElement>(`script[src="${META_PIXEL_SRC}"]`);
-        scripts.forEach((script) => script.parentNode?.removeChild(script));
-    }
-
     try {
         window.fbq?.('consent', 'revoke');
     } catch {
@@ -142,6 +124,4 @@ export const teardownMetaPixel = () => {
         deleteCookie('_fbc');
     }
 
-    delete window.fbq;
-    delete window._fbq;
 };

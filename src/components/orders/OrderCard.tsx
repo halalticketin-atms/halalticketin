@@ -17,7 +17,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useState } from 'react';
 
 export type OrderStatus = 'completed' | 'refunded' | 'partially_refunded';
 

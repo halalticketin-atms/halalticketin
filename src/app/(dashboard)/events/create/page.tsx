@@ -32,7 +32,6 @@ import {
     Settings2,
     X,
     Code,
-    AlertTriangle,
     FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -528,13 +527,6 @@ const getStepForFieldErrors = (errors: Record<string, string>) => {
     return null;
 };
 
-const publishRequiredFieldsByStep: Record<number, string[]> = {
-    1: ['title'],
-    2: ['date', 'startTime', 'endDate', 'endTime'],
-    3: ['venue', 'address', 'city', 'onlineUrl'],
-    4: ['tickets', 'currency', 'refundPolicy', 'totalCapacity'],
-};
-
 /**
  * Check if a step's required fields are filled out.
  * Returns true if all minimum required fields for the step have valid values.
@@ -742,7 +734,6 @@ export function EventWizard({
         updatePromoCode: updatePromoCodeBase,
         removePromoCode: removePromoCodeBase,
         nextStep,
-        prevStep,
         progressPercentage,
     } = useEventDraft(initialDraft, steps.length);
 
@@ -1038,9 +1029,9 @@ export function EventWizard({
     );
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
-    const [actionMessage, setActionMessage] = useState<string | null>(null);
+    const [, setActionMessage] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
-    const [publishErrors, setPublishErrors] = useState<string[]>([]);
+    const [, setPublishErrors] = useState<string[]>([]);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [ticketErrors, setTicketErrors] = useState<Record<string, TicketFieldErrors>>({});
     const [promoErrors, setPromoErrors] = useState<Record<string, PromoFieldErrors>>({});
@@ -1050,29 +1041,6 @@ export function EventWizard({
     const [showAccessCode, setShowAccessCode] = useState(false);
     const initialTicketOpenAppliedRef = useRef(false);
     const capacityOverrideRef = useRef(formData.totalCapacity > 0);
-
-    const publishRequirementErrors = useMemo(
-        () => validatePublishForm(formData, tickets, hasExistingAccessCode),
-        [formData, tickets, hasExistingAccessCode],
-    );
-    const stepStatuses = useMemo(
-        () =>
-            steps.map((step) => {
-                const requiredFields = publishRequiredFieldsByStep[step.id] ?? [];
-                const hasRequiredFields = requiredFields.length > 0;
-                const hasMissingRequired = hasRequiredFields && requiredFields.some((field) => publishRequirementErrors[field]);
-                const isCurrent = currentStep === step.id;
-                const isPast = currentStep > step.id;
-                const showWarning = hasMissingRequired && isPast;
-                return {
-                    ...step,
-                    isCurrent,
-                    isPast,
-                    showWarning,
-                };
-            }),
-        [currentStep, publishRequirementErrors],
-    );
 
     // Ref for scrolling to top of content area
     const mainContentRef = useRef<HTMLDivElement>(null);
@@ -2038,7 +2006,21 @@ export function EventWizard({
         } finally {
             setIsPublishing(false);
         }
-    }, [activeOrganizerId, formData.visibility, goToStepForErrors, markSnapshotAsSaved, router, saveDraft]);
+    }, [
+        activeOrganizerId,
+        draftEmbedSlug,
+        formData.city,
+        formData.date,
+        formData.startTime,
+        formData.title,
+        formData.venue,
+        formData.visibility,
+        goToStepForErrors,
+        markSnapshotAsSaved,
+        router,
+        saveDraft,
+        setCurrentStep,
+    ]);
 
     const handlePublishClick = useCallback(async () => {
         if (isPublishing) {
@@ -2141,7 +2123,6 @@ export function EventWizard({
     const embedIsPublic = embedCheckout?.isPublic ?? true;
     const embedCanCopy = Boolean(embedSlug);
     const embedIsLive = embedStatus === 'published' && embedIsPublic;
-    const showEmbedSnippet = mode === 'edit' || Boolean(eventId) || Boolean(embedSlug);
     const publishButtonLabel =
         isPublishing
             ? (isAlreadyPublished ? 'Updating...' : 'Publishing...')
@@ -2150,13 +2131,6 @@ export function EventWizard({
                 : mode === 'edit'
                     ? 'Publish Changes'
                     : 'Publish Event';
-    const saveButtonLabel = isSaving
-        ? mode === 'edit'
-            ? 'Saving changes...'
-            : 'Saving draft...'
-        : mode === 'edit'
-            ? 'Update Draft'
-            : 'Save Draft';
     const isGateLoading = authLoading || organizersLoading;
 
     if (isGateLoading) {

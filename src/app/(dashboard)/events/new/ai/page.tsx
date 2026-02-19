@@ -17,38 +17,6 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/lib/notifications';
 import { savePendingDraft } from '@/utils/pending-draft-storage';
 import { generateEventDraft } from '@/lib/ai/event-draft';
-import type { DraftEventInitial } from '@/hooks/useEventDraft';
-import { useOrganizers } from '@/context/organizer-context';
-import { buildDashboardPath } from '@/lib/organizer-path';
-
-const buildFallbackDraft = (titleHint?: string): DraftEventInitial => {
-    const cleanedTitle = titleHint
-        ? titleHint.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim()
-        : 'Community Meetup';
-
-    return {
-        formData: {
-            title: cleanedTitle || 'Community Meetup',
-            description:
-                'Curated by the AI assistant. Review the details, edit anything you like and publish when ready.',
-            categories: ['Community'],
-            date: '',
-            endDate: '',
-            isMultiDay: false,
-            startTime: '',
-            endTime: '',
-            timezone: 'Europe/London',
-            locationType: 'physical',
-            venue: 'To be confirmed',
-            address: '',
-            city: '',
-            onlineUrl: '',
-        },
-        tickets: [],
-        promoCodes: [],
-        currentStep: 1,
-    };
-};
 
 export default function AIEventCreatorPage() {
     const router = useRouter();
@@ -102,8 +70,6 @@ export default function AIEventCreatorPage() {
             fileInputRef.current.value = '';
         }
     };
-
-    const { activeOrganizerId } = useOrganizers();
 
     const redirectToWizard = () => {
         // Event creation wizard is at /events/create (not under organizer dashboard)

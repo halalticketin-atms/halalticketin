@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getSupabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { getPasswordValidationError, PASSWORD_REQUIREMENTS_TEXT } from '@/lib/password';
+import { getPasswordValidationError } from '@/lib/password';
 
 const staggerContainer = {
     hidden: { opacity: 0 },

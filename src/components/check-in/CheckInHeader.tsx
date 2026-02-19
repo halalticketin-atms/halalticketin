@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Calendar, Users, CheckCircle, Search, ScanLine } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Calendar, Search, ScanLine } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     Select,
     SelectContent,
@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { CheckInStats } from '@/types';
 
 interface EventOption {
@@ -41,8 +40,6 @@ export function CheckInHeader({
     mode = 'scan',
     onModeChange,
     showModeToggle = true,
-    error,
-    subtitle,
     isEventLoading,
 }: CheckInHeaderProps) {
     const percentage = useMemo(() => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,6 @@ import {
     Loader2,
     AlertCircle,
     Check,
-    CheckCircle,
     User,
     Coins,
     CreditCard,
@@ -31,7 +31,6 @@ import {
     Mail,
     Instagram,
     Linkedin,
-    X,
     Youtube,
     Upload,
     Lock,
@@ -751,9 +750,11 @@ export default function SettingsPage() {
                                                             <SelectItem key={org.id} value={org.id} className="p-2">
                                                                 <div className="flex items-center gap-2">
                                                                     {org.avatarUrl ? (
-                                                                        <img
+                                                                        <Image
                                                                             src={org.avatarUrl}
                                                                             alt={org.name}
+                                                                            width={24}
+                                                                            height={24}
                                                                             className="h-6 w-6 rounded-full object-cover"
                                                                         />
                                                                     ) : (
@@ -797,9 +798,11 @@ export default function SettingsPage() {
                                                     <div className="flex items-center gap-4">
                                                         <div className="relative">
                                                             {currentOrganizer?.avatarUrl ? (
-                                                                <img
+                                                                <Image
                                                                     src={currentOrganizer.avatarUrl}
                                                                     alt={currentOrganizer.name}
+                                                                    width={64}
+                                                                    height={64}
                                                                     className="h-16 w-16 rounded-full object-cover ring-2 ring-border"
                                                                 />
                                                             ) : (
@@ -1031,9 +1034,11 @@ export default function SettingsPage() {
                                                             <SelectItem key={org.id} value={org.id} className="p-2">
                                                                 <div className="flex items-center gap-2">
                                                                     {org.avatarUrl ? (
-                                                                        <img
+                                                                        <Image
                                                                             src={org.avatarUrl}
                                                                             alt={org.name}
+                                                                            width={24}
+                                                                            height={24}
                                                                             className="h-6 w-6 rounded-full object-cover"
                                                                         />
                                                                     ) : (
@@ -1147,9 +1152,11 @@ export default function SettingsPage() {
                                                             <SelectItem key={org.id} value={org.id} className="p-2">
                                                                 <div className="flex items-center gap-2">
                                                                     {org.avatarUrl ? (
-                                                                        <img
+                                                                        <Image
                                                                             src={org.avatarUrl}
                                                                             alt={org.name}
+                                                                            width={24}
+                                                                            height={24}
                                                                             className="h-6 w-6 rounded-full object-cover"
                                                                         />
                                                                     ) : (
@@ -1339,9 +1346,11 @@ export default function SettingsPage() {
                                                             <SelectItem key={org.id} value={org.id} className="p-2">
                                                                 <div className="flex items-center gap-2">
                                                                     {org.avatarUrl ? (
-                                                                        <img
+                                                                        <Image
                                                                             src={org.avatarUrl}
                                                                             alt={org.name}
+                                                                            width={24}
+                                                                            height={24}
                                                                             className="h-6 w-6 rounded-full object-cover"
                                                                         />
                                                                     ) : (

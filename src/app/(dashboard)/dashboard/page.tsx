@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -31,14 +31,13 @@ export default function DashboardLandingPage() {
         error: organizerError,
     } = useOrganizers();
 
-    const [redirecting, setRedirecting] = useState(false);
+    const redirecting = !organizersLoading && Boolean(activeOrganizerId);
 
     useEffect(() => {
-        if (!organizersLoading && activeOrganizerId) {
-            setRedirecting(true);
+        if (redirecting && activeOrganizerId) {
             router.replace(buildDashboardPath(activeOrganizerId));
         }
-    }, [activeOrganizerId, organizersLoading, router]);
+    }, [activeOrganizerId, redirecting, router]);
 
     const handleStartOrganizerOnboarding = () => {
         router.push('/register?role=organizer&forceOnboarding=1&next=%2Fdashboard');

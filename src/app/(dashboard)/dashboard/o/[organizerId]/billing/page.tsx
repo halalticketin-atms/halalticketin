@@ -4,14 +4,12 @@ import { useEffect, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Plus, ArrowDownLeft, ArrowUpRight, Clock } from 'lucide-react';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
-import { useAuth } from '@/context/auth-context';
 import { getCreditBalance, CreditBalanceResponse } from '@/lib/credits-api';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export default function BillingPage() {
     const organizerId = useOrganizerFromParams();
-    const { user } = useAuth();
     const [data, setData] = useState<CreditBalanceResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 

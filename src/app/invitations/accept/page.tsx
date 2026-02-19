@@ -18,19 +18,15 @@ function AcceptInvitationContent() {
     const router = useRouter();
     const { user, isLoading, refresh } = useAuth();
     const { refresh: refreshOrganizers, setActiveOrganizerId } = useOrganizers();
-    const [token, setToken] = useState<string | null>(queryToken);
+    const token = useMemo(() => {
+        if (queryToken) {
+            return queryToken;
+        }
+        return getPendingInviteContext()?.token ?? null;
+    }, [queryToken]);
     const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState<string | null>(null);
     const [isTerminalError, setIsTerminalError] = useState(false);
-
-    useEffect(() => {
-        if (queryToken) {
-            setToken(queryToken);
-            return;
-        }
-        const pendingInvite = getPendingInviteContext();
-        setToken(pendingInvite?.token ?? null);
-    }, [queryToken]);
 
     useEffect(() => {
         if (!token) {

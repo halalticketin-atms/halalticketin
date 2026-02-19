@@ -3,17 +3,15 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy, Moon, Sun, LayoutPanelLeft, Maximize, Code2, LayoutTemplate } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/notifications';
 import { buildEmbedCheckoutSnippet, type EmbedTheme } from '@/lib/embed';
-import { motion, AnimatePresence } from 'motion/react';
 
 export function EmbedCheckoutSnippet({
     slug,
     canCopy,
     isLive,
-    isPublic,
     siteUrl,
 }: {
     slug: string | null;

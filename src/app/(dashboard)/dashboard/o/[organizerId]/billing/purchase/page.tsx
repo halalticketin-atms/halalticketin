@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, CreditCard, CheckCircle2 } from 'lucide-react';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
@@ -13,7 +13,7 @@ import { Slider } from '@/components/ui/slider';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-export default function PurchaseCreditsPage() {
+function PurchaseCreditsContent() {
     const organizerId = useOrganizerFromParams();
     const searchParams = useSearchParams();
     const { organizers } = useOrganizers();
@@ -75,7 +75,7 @@ export default function PurchaseCreditsPage() {
                 setError(result.message || 'Failed to start purchase');
                 setIsSubmitting(false);
             }
-        } catch (err) {
+        } catch {
             setError('An unexpected error occurred. Please try again.');
             setIsSubmitting(false);
         }
@@ -203,5 +203,21 @@ export default function PurchaseCreditsPage() {
                 </motion.div>
             </div>
         </div>
+    );
+}
+
+function PurchaseCreditsFallback() {
+    return (
+        <div className="flex items-center justify-center min-h-[400px]">
+            <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+        </div>
+    );
+}
+
+export default function PurchaseCreditsPage() {
+    return (
+        <Suspense fallback={<PurchaseCreditsFallback />}>
+            <PurchaseCreditsContent />
+        </Suspense>
     );
 }

@@ -82,7 +82,6 @@ interface PublicEventPageContentProps {
     error: string | null;
     isPreview?: boolean;
     organizerNameOverride?: string | null;
-    charityDiscountRate?: number;
     embedMode?: 'checkout' | 'full';
     accessStatus?: 'required' | 'denied' | null;
     accessMessage?: string | null;
@@ -262,7 +261,6 @@ export function PublicEventPageContent({
     error,
     isPreview = false,
     organizerNameOverride = null,
-    charityDiscountRate = 0,
     embedMode = 'full',
     accessStatus = null,
     accessMessage = null,
@@ -283,7 +281,7 @@ export function PublicEventPageContent({
         }
         onAccessSubmit(trimmed);
     }, [accessCodeInput, onAccessSubmit]);
-    const safeTickets = Array.isArray(tickets) ? tickets : [];
+    const safeTickets = useMemo(() => (Array.isArray(tickets) ? tickets : []), [tickets]);
     const visibleTickets = useMemo(
         () => safeTickets.filter((ticket) => ('visibility' in ticket ? ticket.visibility !== 'hidden' : true)),
         [safeTickets],
@@ -425,7 +423,7 @@ export function PublicEventPageContent({
         }
         const parsed = parseFloat(donationTicket.price ?? '0');
         return Number.isFinite(parsed) ? parsed : 0;
-    }, [donationTicket?.id, donationTicket?.price]);
+    }, [donationTicket]);
 
     useEffect(() => {
         if (!donationTicket) {
@@ -451,7 +449,7 @@ export function PublicEventPageContent({
             }
             return donationDefaultAmount;
         });
-    }, [donationTicket?.id, donationDefaultAmount]);
+    }, [donationTicket, donationDefaultAmount]);
 
     useEffect(() => {
         if (donationAmount === donationQuoteAmount) {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // Fee calculation tests for frontend
 // Tests the fee calculation logic used in checkout

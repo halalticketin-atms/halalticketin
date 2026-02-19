@@ -1,10 +1,11 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { usePublicEvent } from '@/hooks/usePublicEvents';
 import { EmbedCheckoutWidget } from '@/components/embed/EmbedCheckoutWidget';
 
-export default function EmbedCheckoutPage() {
+function EmbedCheckoutContent() {
     const params = useParams();
     const searchParams = useSearchParams();
     const slug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug;
@@ -31,5 +32,21 @@ export default function EmbedCheckoutPage() {
             accessCode={accessCode}
             onAccessSubmit={setAccessCode}
         />
+    );
+}
+
+function EmbedCheckoutFallback() {
+    return (
+        <div className="min-h-[320px] flex items-center justify-center">
+            <div className="h-10 w-10 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+        </div>
+    );
+}
+
+export default function EmbedCheckoutPage() {
+    return (
+        <Suspense fallback={<EmbedCheckoutFallback />}>
+            <EmbedCheckoutContent />
+        </Suspense>
     );
 }

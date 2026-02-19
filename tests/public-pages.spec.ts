@@ -1,4 +1,4 @@
-import { test, expect, Page, BrowserContext } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 // Test configuration for multi-browser and viewport testing
 const viewports = {
@@ -39,7 +39,9 @@ test.describe('Public Pages - Home Page', () => {
         await page.waitForLoadState('networkidle');
 
         // Mobile menu button should be visible
-        const mobileNav = page.locator('[data-testid="mobile-nav"], button[aria-label*="menu"], .mobile-menu-button').first();
+        await expect(
+            page.locator('[data-testid="mobile-nav"], button[aria-label*="menu"], .mobile-menu-button').first()
+        ).toBeVisible();
         // Navigation should adapt to mobile
         await expect(page.locator('body')).toBeVisible();
     });

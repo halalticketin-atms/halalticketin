@@ -4,7 +4,6 @@ import { motion } from 'motion/react';
 import { CheckCircle2, ArrowRight, Wallet, PartyPopper } from 'lucide-react';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import Link from 'next/link';
 
 export default function CreditPurchaseSuccessPage() {

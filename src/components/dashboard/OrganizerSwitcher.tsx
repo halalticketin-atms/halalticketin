@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { Plus, ChevronDown, Check, Building2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 
 import { useOrganizers } from '@/context/organizer-context';
 import { buildDashboardPath } from '@/lib/organizer-path';
@@ -60,6 +61,11 @@ export function OrgBadge({ name, avatarUrl, isActive = false, showChevron = fals
         md: 'h-8 w-8 text-sm',
         lg: 'h-10 w-10 text-base',
     };
+    const avatarPixels = {
+        sm: 24,
+        md: 32,
+        lg: 40,
+    };
 
     const paddingSizes = {
         sm: 'pl-1.5 pr-2 py-1',
@@ -86,9 +92,11 @@ export function OrgBadge({ name, avatarUrl, isActive = false, showChevron = fals
         >
             {/* Avatar or Gradient Initial */}
             {avatarUrl ? (
-                <img
+                <Image
                     src={avatarUrl}
                     alt={name}
+                    width={avatarPixels[size]}
+                    height={avatarPixels[size]}
                     className={cn('rounded-full object-cover border-0', sizes[size])}
                 />
             ) : (
@@ -202,9 +210,11 @@ export function OrganizerSwitcher({ variant = 'sidebar', size = 'md', showLabel 
                                     <div className="flex items-center gap-3 w-full">
                                         {/* Avatar or Gradient Initial */}
                                         {org.avatarUrl ? (
-                                            <img
+                                            <Image
                                                 src={org.avatarUrl}
                                                 alt={org.name}
+                                                width={32}
+                                                height={32}
                                                 className="h-8 w-8 rounded-full object-cover shrink-0"
                                             />
                                         ) : (

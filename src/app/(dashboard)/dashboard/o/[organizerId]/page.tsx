@@ -246,7 +246,7 @@ export default function DashboardPage() {
         const available = creditData.balance;
         const usedPercentage = total > 0 ? (used / total) * 100 : 0;
         return { total, used, available, usedPercentage };
-    }, [creditData, activeOrganizer?.feeTier]);
+    }, [creditData]);
 
     return (
         <div className="min-h-screen bg-muted/30">

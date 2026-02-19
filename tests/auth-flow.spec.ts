@@ -251,7 +251,7 @@ test.describe('Authentication Flow - Login', () => {
                 await toggleButton.click();
 
                 // Password should now be visible (type="text")
-                const inputType = await passwordInput.getAttribute('type');
+                await passwordInput.getAttribute('type');
                 // Could be password or text depending on toggle state
             }
         }
@@ -458,7 +458,7 @@ test.describe('Authentication Flow - Google OAuth', () => {
             await page.waitForTimeout(300);
 
             // Look for Google sign-in option
-            const googleButton = page.getByRole('button', { name: /google|continue with google/i }).first();
+            page.getByRole('button', { name: /google|continue with google/i }).first();
             // Google auth may or may not be configured
         }
     });

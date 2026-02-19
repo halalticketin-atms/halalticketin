@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { Camera, CameraOff, RotateCcw, Loader2 } from 'lucide-react';
+import { CameraOff, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 interface QRScannerProps {
     onScan: (data: string) => void;
@@ -50,12 +49,12 @@ export function QRScanner({ onScan, isActive = true }: QRScannerProps) {
             if (!html5ScannerRef.current) return;
             try {
                 await html5ScannerRef.current.stop();
-            } catch (err) {
+            } catch {
                 // Ignore stop errors on teardown.
             }
             try {
                 html5ScannerRef.current.clear();
-            } catch (err) {
+            } catch {
                 // Ignore clear errors on teardown.
             }
             html5ScannerRef.current = null;
@@ -94,7 +93,7 @@ export function QRScanner({ onScan, isActive = true }: QRScannerProps) {
         };
 
         const scanFrame = async () => {
-            if (!videoRef.current || !canvasRef.current || !isScanning) return;
+            if (!videoRef.current || !canvasRef.current) return;
 
             const video = videoRef.current;
             const canvas = canvasRef.current;
@@ -120,7 +119,7 @@ export function QRScanner({ onScan, isActive = true }: QRScannerProps) {
                         const data = barcodes[0].rawValue;
                         if (data) handleDecoded(data);
                     }
-                } catch (err) {
+                } catch {
                     // Continue scanning if detection fails
                 }
             }

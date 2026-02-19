@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -9,7 +9,6 @@ import {
     ArrowLeft,
     Users,
     Mail,
-    CheckCircle2,
     AlertTriangle,
     Loader2,
     Trash2,
@@ -47,7 +46,7 @@ import {
     type HostedCollaboration,
     type PartnerCollaboration,
 } from '@/lib/organizers-api';
-import type { EventScope, TeamInvitation, TeamMember } from '@/types';
+import type { TeamInvitation, TeamMember } from '@/types';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import { useOrganizers } from '@/context/organizer-context';
@@ -211,11 +210,9 @@ function getRoleLabel(role: string) {
 // Compact member card component
 function MemberCard({
     member,
-    eventsMap,
     onManage,
 }: {
     member: TeamMember;
-    eventsMap: Map<string, OrganizerEventOption>;
     onManage: () => void;
 }) {
     const isOwner = member.role === 'owner';
@@ -274,17 +271,11 @@ function MemberCard({
 // Compact pending invite card
 function InviteCard({
     invite,
-    eventsMap,
     onRevoke,
 }: {
     invite: TeamInvitation;
-    eventsMap: Map<string, OrganizerEventOption>;
     onRevoke: () => void;
 }) {
-    const scopeLabel = invite.eventScope.mode === 'all'
-        ? 'All events'
-        : `${invite.eventScope.eventIds.length} event${invite.eventScope.eventIds.length !== 1 ? 's' : ''}`;
-
     return (
         <div className="flex items-center gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-900/10">
             <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
@@ -362,8 +353,6 @@ export default function OrganizerTeamPage() {
     const canRespondToCollaborations = activeRole
         ? ['owner', 'co_owner', 'admin'].includes(activeRole)
         : false;
-
-    const eventsMap = useMemo(() => new Map(events.map((evt) => [evt.id, evt])), [events]);
 
     const clearInviteCloseTimeout = useCallback(() => {
         if (inviteCloseTimeoutRef.current !== null) {
@@ -703,7 +692,6 @@ export default function OrganizerTeamPage() {
                                 >
                                     <MemberCard
                                         member={member}
-                                        eventsMap={eventsMap}
                                         onManage={() => openEditDialog(member)}
                                     />
                                 </motion.div>
@@ -735,7 +723,6 @@ export default function OrganizerTeamPage() {
                                     >
                                         <InviteCard
                                             invite={invite}
-                                            eventsMap={eventsMap}
                                             onRevoke={() => handleRevokeInvitation(invite.id)}
                                         />
                                     </motion.div>

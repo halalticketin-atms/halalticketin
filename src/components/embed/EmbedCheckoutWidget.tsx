@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import Image from 'next/image';
 import type { PublicEventRecord, PublicTicketRecord } from '@/lib/events-api';
 import { normalizeEmbedTheme } from '@/lib/embed';
 import { PublicEventPageContent } from '@/components/events/PublicEventPageContent';
@@ -137,7 +138,7 @@ export function EmbedCheckoutWidget({
                 onAccessSubmit={onAccessSubmit}
             />
             <div className={cn('container pb-6 pt-2 flex items-center gap-3 text-sm', isDark ? 'text-slate-300' : 'text-muted-foreground')}>
-                <img
+                <Image
                     src="/images/HTlogocr.png"
                     alt="HalalTicketin' logo"
                     width={32}

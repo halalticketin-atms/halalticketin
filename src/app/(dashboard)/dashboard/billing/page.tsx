@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
@@ -10,7 +10,7 @@ import { useOrganizers } from '@/context/organizer-context';
  * Resolves the active organizer and redirects to the correct billing/purchase page.
  * Used when coming from public pages (like /pricing) that don't have access to OrganizerProvider.
  */
-export default function BillingRedirectPage() {
+function BillingRedirectContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, isLoading: isAuthLoading } = useAuth();
@@ -53,5 +53,21 @@ export default function BillingRedirectPage() {
         <div className="flex items-center justify-center min-h-[400px]">
             <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
         </div>
+    );
+}
+
+function BillingRedirectFallback() {
+    return (
+        <div className="flex items-center justify-center min-h-[400px]">
+            <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+        </div>
+    );
+}
+
+export default function BillingRedirectPage() {
+    return (
+        <Suspense fallback={<BillingRedirectFallback />}>
+            <BillingRedirectContent />
+        </Suspense>
     );
 }
