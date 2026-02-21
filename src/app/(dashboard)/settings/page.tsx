@@ -319,10 +319,18 @@ export default function SettingsPage() {
         setIsSavingProfile(true);
         setProfileSaveStatus(null);
         setProfileError(null);
+        const trimmedName = profileForm.name.trim();
+
+        if (!trimmedName) {
+            setProfileSaveStatus('error');
+            setProfileError('Display name is required.');
+            setIsSavingProfile(false);
+            return;
+        }
 
         try {
             await api.patch('/api/v1/auth/me', {
-                name: profileForm.name || null,
+                name: trimmedName,
                 gender: profileForm.gender || null,
                 dateOfBirth: profileForm.dateOfBirth || null,
                 homeCountry: profileForm.homeCountry || null,
