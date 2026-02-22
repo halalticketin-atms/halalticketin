@@ -108,7 +108,7 @@ function BrowseEventsContent() {
     }, [events, searchQuery, locationFilter, selectedCategory]);
 
     return (
-        <div className="min-h-screen bg-muted/30">
+        <div className="min-h-screen bg-muted/30 overflow-x-hidden">
             {/* Header Section */}
             <div className="bg-background border-b relative overflow-hidden -mt-[var(--nav-safe-offset)] pt-[calc(var(--nav-safe-offset)+3rem)] pb-12">
                 {/* Background Glow - matches Home page vibe */}
@@ -237,6 +237,7 @@ function BrowseEventsContent() {
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.4, delay: index * 0.03 }}
+                                        className="min-w-0"
                                     >
                                         <Link href={`/events/${event.slug || event.id}`} className="block h-full">
                                             <Card className="group h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-xl hover:shadow-[var(--brand-cyan)]/10 hover:border-[var(--brand-cyan)]/40 bg-card p-0">
@@ -266,12 +267,12 @@ function BrowseEventsContent() {
                                                 </div>
 
                                                 {/* Info Section */}
-                                                <div className="p-3">
-                                                    <h3 className="font-display font-bold text-sm leading-snug line-clamp-2 group-hover:text-[var(--brand-teal)] transition-colors">
+                                                <div className="min-w-0 p-3">
+                                                    <h3 className="font-display font-bold text-sm leading-snug line-clamp-2 break-words group-hover:text-[var(--brand-teal)] transition-colors">
                                                         {event.title}
                                                     </h3>
                                                     {event.organizerName && (
-                                                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                                        <div className="mt-2 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                                                             <div
                                                                 className={`relative h-5 w-5 overflow-hidden rounded-full flex items-center justify-center text-[10px] font-semibold text-foreground/70 ${event.organizerAvatarUrl ? 'bg-transparent' : 'bg-muted'}`}
                                                             >
@@ -286,7 +287,7 @@ function BrowseEventsContent() {
                                                                     <span>{event.organizerName.charAt(0).toUpperCase()}</span>
                                                                 )}
                                                             </div>
-                                                            <span className="truncate">{event.organizerName}</span>
+                                                            <span className="min-w-0 truncate">{event.organizerName}</span>
                                                         </div>
                                                     )}
                                                     <p className="mt-1 text-xs text-muted-foreground">

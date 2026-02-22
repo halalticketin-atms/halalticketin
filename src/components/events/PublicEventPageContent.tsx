@@ -142,11 +142,11 @@ function TicketCard({
     const displayPrice = isEarlyBirdActive ? formatPrice(earlyBirdPrice, ticket.currency) : regularPrice;
 
     return (
-        <div className="flex items-center justify-between p-4 border rounded-lg hover:border-primary/50 transition-colors">
-            <div className="flex-1">
-                <h4 className="font-medium">{ticket.name}</h4>
+        <div className="flex items-center justify-between gap-3 p-4 border rounded-lg hover:border-primary/50 transition-colors">
+            <div className="flex-1 min-w-0">
+                <h4 className="font-medium break-words">{ticket.name}</h4>
                 {ticket.description && (
-                    <p className="text-sm text-muted-foreground mt-1">{ticket.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1 break-words">{ticket.description}</p>
                 )}
                 <div className="flex items-center gap-2 mt-1">
                     <p className={`font-semibold ${isFree ? 'text-green-600' : 'text-primary'}`}>
@@ -163,7 +163,7 @@ function TicketCard({
                     <p className="text-xs text-muted-foreground mt-1">{organizerFeeNote}</p>
                 ) : null}
             </div>
-            <div className="flex items-center gap-2 ml-4">
+            <div className="flex items-center gap-2 shrink-0">
                 <Button
                     variant="outline"
                     size="icon"
@@ -217,10 +217,10 @@ function DonationCard({
     return (
         <div className="p-4 border rounded-lg hover:border-primary/50 transition-colors space-y-2">
             <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                    <h4 className="font-medium">{ticket.name}</h4>
+                <div className="flex-1 min-w-0">
+                    <h4 className="font-medium break-words">{ticket.name}</h4>
                     {ticket.description && (
-                        <p className="text-sm text-muted-foreground mt-1">{ticket.description}</p>
+                        <p className="text-sm text-muted-foreground mt-1 break-words">{ticket.description}</p>
                     )}
                 </div>
                 <Button
@@ -1608,7 +1608,7 @@ export function PublicEventPageContent({
     }
 
     return (
-        <div className={cn(isEmbedCheckout ? 'bg-transparent' : 'min-h-screen bg-muted/30')}>
+        <div className={cn(isEmbedCheckout ? 'bg-transparent' : 'min-h-screen bg-muted/30', 'overflow-x-hidden')}>
             {!isEmbedCheckout && (
                 <>
                     <ShareDialog
@@ -1698,14 +1698,14 @@ export function PublicEventPageContent({
                 <div className={cn('grid gap-8', isEmbedCheckout ? 'grid-cols-1' : 'lg:grid-cols-3')}>
                     {/* Main Content */}
                     {!isEmbedCheckout && (
-                        <div className="lg:col-span-2 space-y-8">
+                        <div className="lg:col-span-2 min-w-0 space-y-8">
                             {/* Title */}
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.4 }}
                             >
-                                <h1 className="font-display text-3xl sm:text-4xl font-bold">
+                                <h1 className="font-display text-3xl sm:text-4xl font-bold break-words">
                                     {event.title || 'Untitled Event'}
                                 </h1>
                             </motion.div>
@@ -1765,29 +1765,29 @@ export function PublicEventPageContent({
                                 transition={{ duration: 0.4, delay: 0.1 }}
                                 className="flex flex-wrap gap-4"
                             >
-                                <div className="flex items-center gap-2 text-muted-foreground">
+                                <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
                                     <Calendar className="h-5 w-5 text-primary" />
-                                    <span>{eventDateTime.date}</span>
+                                    <span className="break-words">{eventDateTime.date}</span>
                                 </div>
                                 {eventDateTime.time && (
-                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                    <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
                                         <Clock className="h-5 w-5 text-primary" />
-                                        <span>
+                                        <span className="break-words">
                                             {eventDateTime.time}
                                             {eventDateTime.endTime && ` - ${eventDateTime.endTime}`}
                                         </span>
                                     </div>
                                 )}
-                                <div className="flex items-center gap-2 text-muted-foreground">
+                                <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
                                     {event.locationType === 'online' ? (
                                         <>
                                             <Globe className="h-5 w-5 text-primary" />
-                                            <span>Online Event</span>
+                                            <span className="break-words">Online Event</span>
                                         </>
                                     ) : (
                                         <>
                                             <MapPin className="h-5 w-5 text-primary" />
-                                            <span>
+                                            <span className="break-words">
                                                 {event.venue && `${event.venue}, `}
                                                 {event.city || 'Location TBD'}
                                             </span>
@@ -1832,15 +1832,15 @@ export function PublicEventPageContent({
                                         <CardContent className="pt-6 space-y-4">
                                             <div className="flex items-start gap-4">
                                                 <MapPin className="h-6 w-6 text-primary shrink-0 mt-1" />
-                                                <div className="flex-1">
+                                                <div className="flex-1 min-w-0">
                                                     {event.venue && (
-                                                        <p className="font-medium">{event.venue}</p>
+                                                        <p className="font-medium break-words">{event.venue}</p>
                                                     )}
                                                     {event.address && (
-                                                        <p className="text-muted-foreground">{event.address}</p>
+                                                        <p className="text-muted-foreground break-words">{event.address}</p>
                                                     )}
                                                     {event.city && (
-                                                        <p className="text-muted-foreground">
+                                                        <p className="text-muted-foreground break-words">
                                                             {event.city}{event.country && `, ${event.country}`}
                                                         </p>
                                                     )}
@@ -1901,7 +1901,7 @@ export function PublicEventPageContent({
                     )}
 
                     {/* Sidebar - Tickets */}
-                    <div className={cn(isEmbedCheckout ? 'w-full' : 'lg:col-span-1')}>
+                    <div className={cn(isEmbedCheckout ? 'w-full' : 'lg:col-span-1', 'min-w-0')}>
                         {isEmbedCheckout && (
                             <div className="mb-4 space-y-2">
                                 <p className="text-xs uppercase tracking-wide text-muted-foreground">Tickets for</p>
