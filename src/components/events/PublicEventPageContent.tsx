@@ -24,6 +24,7 @@ import {
     Check,
     Navigation,
     Lock,
+    X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1624,9 +1625,20 @@ export function PublicEventPageContent({
                             onOpenChange={setIsPosterViewerOpen}
                         >
                             <DialogContent
+                                showCloseButton={false}
                                 className="!top-0 !left-0 !translate-x-0 !translate-y-0 h-[100dvh] max-h-[100dvh] w-screen max-w-screen rounded-none border-0 bg-black/95 p-0 gap-0 overflow-auto"
                             >
                                 <DialogTitle className="sr-only">Event poster</DialogTitle>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setIsPosterViewerOpen(false)}
+                                    className="absolute right-3 top-[max(env(safe-area-inset-top),0.75rem)] z-30 h-10 w-10 rounded-full border border-[var(--brand-cyan)]/60 bg-black/70 text-[var(--brand-cyan)] hover:bg-black/85 hover:text-[var(--brand-cyan)]"
+                                    aria-label="Close poster viewer"
+                                >
+                                    <X className="h-5 w-5" />
+                                </Button>
                                 <div className="flex min-h-full min-w-full items-center justify-center p-4 sm:p-6">
                                     <div className="relative h-[calc(100dvh-2rem)] w-[min(100vw-2rem,900px)]">
                                         <Image
