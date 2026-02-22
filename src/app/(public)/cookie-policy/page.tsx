@@ -14,6 +14,7 @@ type Section = {
 const essentialCategory = getConsentCategory('essential');
 const marketingCategory = getConsentCategory('marketing');
 const essentialBrowserStorage = BROWSER_STORAGE_ITEMS.filter((item) => item.categoryId === 'essential');
+const effectiveDate = '22 February 2026';
 
 const sections: Section[] = [
     {
@@ -87,18 +88,36 @@ const sections: Section[] = [
         content: (
             <div className="space-y-3 text-muted-foreground">
                 <p>
-                    You can opt into or out of marketing storage anytime via the “Manage cookies” link in our site
-                    footer. Choosing “Essential only” keeps Halal Ticketin running but blocks Meta Pixels.
+                    You can change marketing storage at any time using the “Manage cookies” control in our site footer.
+                    In embedded event/checkout views, the same controls are available in the cookie banner.
                 </p>
                 <p>
-                    You can also clear cookies or browser storage inside your browser settings. Doing so will sign you
-                    out and reset cached data described above.
+                    Choosing “Reject optional” (or turning marketing storage off in settings) keeps Halal Ticketin
+                    running but stops Meta Pixel tracking. Clearing cookies or browser storage in your browser settings
+                    will also sign you out and reset cached data described above.
                 </p>
             </div>
         )
     },
     {
-        title: '6. Updates & contact',
+        title: '6. Legal basis',
+        content: (
+            <div className="space-y-3 text-muted-foreground">
+                <p>
+                    For EEA users, optional cookies and similar technologies are managed under the ePrivacy rules and
+                    GDPR consent standards. Essential storage is always on because it is necessary to provide requested
+                    services and secure key account flows.
+                </p>
+                <p>
+                    If you are in regions such as California where ad-related identifiers can be treated as
+                    data-sharing for advertising, you can keep optional marketing storage disabled at any time through
+                    our cookie controls.
+                </p>
+            </div>
+        )
+    },
+    {
+        title: '7. Updates & contact',
         content: (
             <div className="space-y-3 text-muted-foreground">
                 <p>We update this policy whenever our storage inventory changes and will note the new effective date.</p>
@@ -122,7 +141,7 @@ export default function CookiePolicyPage() {
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                         <p className="text-sm uppercase tracking-wide text-muted-foreground">Halal Ticketin’</p>
                         <h1 className="font-display text-4xl font-bold mt-3">Cookie Policy</h1>
-                        <p className="mt-3 text-muted-foreground">Effective Date: 18 December 2025</p>
+                        <p className="mt-3 text-muted-foreground">Effective Date: {effectiveDate}</p>
                         <p className="mt-2 text-sm text-muted-foreground">
                             Need more details?{' '}
                             <Link href="/contact" className="text-primary underline">

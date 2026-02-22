@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -76,26 +77,26 @@ export function CookieBanner() {
                     <div className="space-y-2">
                         <p className="text-sm font-semibold">We use cookies</p>
                         <p className="text-xs text-muted-foreground">
-                            Essential cookies keep the site running. With your permission, we use marketing cookies to help organisers
-                            understand how people find their events.
+                            Essential storage keeps the site running. Optional marketing cookies help organisers
+                            understand how people find their events and only run after you opt in.
                         </p>
                     </div>
                     <div className="mt-3 flex items-center gap-2">
-                        <Button onClick={acceptAll} size="sm" className="flex-1 rounded-full">
+                        <Button variant="outline" onClick={acceptAll} size="sm" className="flex-1 rounded-full">
                             Accept all
                         </Button>
-                        <Button variant="ghost" onClick={rejectMarketing} size="sm" className="flex-1 rounded-full">
-                            Necessary only
+                        <Button variant="outline" onClick={rejectMarketing} size="sm" className="flex-1 rounded-full">
+                            Reject optional
                         </Button>
                     </div>
-                    <a
-                        href="/privacy"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-3 inline-flex text-[11px] text-muted-foreground underline underline-offset-2"
-                    >
-                        Privacy &amp; cookie policy
-                    </a>
+                    <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
+                        <Link href="/cookie-policy" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                            Cookie policy
+                        </Link>
+                        <Link href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                            Privacy policy
+                        </Link>
+                    </div>
                 </div>
             </div>
         );
@@ -109,16 +110,16 @@ export function CookieBanner() {
                         <div>
                             <h3 className="text-base font-semibold">We use cookies</h3>
                             <p className="text-sm text-muted-foreground">
-                                Essential cookies keep the site running. With your permission, we use marketing cookies to help organisers
-                                understand how people find their events.
+                                Essential storage keeps the site running. Optional marketing cookies help organisers
+                                understand how people find their events and only run after you opt in.
                             </p>
                         </div>
                         <div className="flex items-center gap-3">
-                            <Button onClick={acceptAll} size="sm" className="flex-1">
+                            <Button variant="outline" onClick={acceptAll} size="sm" className="flex-1">
                                 Accept all
                             </Button>
                             <Button variant="outline" onClick={rejectMarketing} size="sm" className="flex-1">
-                                Necessary only
+                                Reject optional
                             </Button>
                         </div>
                         <button
@@ -127,6 +128,14 @@ export function CookieBanner() {
                         >
                             Manage settings
                         </button>
+                        <div className="flex items-center gap-3 px-2 text-xs text-muted-foreground">
+                            <Link href="/cookie-policy" className="underline underline-offset-2 hover:text-foreground">
+                                Cookie policy
+                            </Link>
+                            <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+                                Privacy policy
+                            </Link>
+                        </div>
                     </div>
                 </div>
             )}
@@ -135,8 +144,8 @@ export function CookieBanner() {
                     <DialogHeader>
                         <DialogTitle>Cookie preferences</DialogTitle>
                         <DialogDescription>
-                            Essential storage is always on. You can choose whether to enable marketing cookies that help organisers
-                            understand how people find their events.
+                            Essential storage is always on. You can enable or disable optional marketing cookies at any
+                            time.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-2">

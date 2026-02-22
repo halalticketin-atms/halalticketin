@@ -66,9 +66,7 @@ const writeEmbedConsentPreferences = (preferences: ConsentPreferences) => {
     }
     try {
         if (!readConsentPreferences()) {
-            const value = encodeURIComponent(JSON.stringify(preferences));
-            const secureAttribute = window.location.protocol === 'https:' ? '; Secure' : '';
-            document.cookie = `ht_consent=${value}; Path=/; SameSite=Lax${secureAttribute}`;
+            writeConsentPreferences(preferences);
         }
     } catch {
         // Ignore cookie write errors.

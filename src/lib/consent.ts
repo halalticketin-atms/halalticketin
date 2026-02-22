@@ -4,9 +4,12 @@ import { CONSENT_COOKIE_MAX_AGE_DAYS, CONSENT_COOKIE_NAME } from '@/lib/consent-
 
 export interface ConsentPreferences {
     marketing: boolean;
+    updatedAt?: string;
+    version?: number;
 }
 
 const CONSENT_MAX_AGE_SECONDS = CONSENT_COOKIE_MAX_AGE_DAYS * 24 * 60 * 60;
+const CONSENT_SCHEMA_VERSION = 1;
 
 const shouldUseSecureAttribute = () => typeof window !== 'undefined' && window.location.protocol === 'https:';
 
@@ -15,7 +18,11 @@ const parseCookieValue = (cookie: string): ConsentPreferences | null => {
         const decoded = decodeURIComponent(cookie);
         const parsed = JSON.parse(decoded) as ConsentPreferences;
         if (typeof parsed.marketing === 'boolean') {
-            return parsed;
+            return {
+                marketing: parsed.marketing,
+                updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : undefined,
+                version: typeof parsed.version === 'number' ? parsed.version : undefined
+            };
         }
     } catch {
         // ignore malformed cookie
@@ -44,7 +51,13 @@ export const writeConsentPreferences = (preferences: ConsentPreferences) => {
         return;
     }
 
-    const value = encodeURIComponent(JSON.stringify(preferences));
+    const normalizedPreferences: ConsentPreferences = {
+        marketing: preferences.marketing,
+        updatedAt: preferences.updatedAt ?? new Date().toISOString(),
+        version: preferences.version ?? CONSENT_SCHEMA_VERSION
+    };
+
+    const value = encodeURIComponent(JSON.stringify(normalizedPreferences));
     const secureAttribute = shouldUseSecureAttribute() ? '; Secure' : '';
     document.cookie = `${CONSENT_COOKIE_NAME}=${value}; Max-Age=${CONSENT_MAX_AGE_SECONDS}; Path=/; SameSite=Lax${secureAttribute}`;
 };

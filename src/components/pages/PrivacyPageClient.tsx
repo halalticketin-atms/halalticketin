@@ -14,9 +14,10 @@ type Section = {
 const consentCookie = FIRST_PARTY_COOKIES[0];
 const consentCookieName = consentCookie?.name ?? 'ht_consent';
 const consentCookieRetention = consentCookie?.retention ?? '180 days';
+const effectiveDate = '22 February 2026';
 const browserStorageSummary =
   BROWSER_STORAGE_ITEMS.length > 0
-    ? BROWSER_STORAGE_ITEMS.map((item) => `${item.key} (${item.storage})`).join(', ')
+    ? `${BROWSER_STORAGE_ITEMS.length} essential browser-storage keys`
     : 'our essential browser storage keys';
 const marketingToolsSummary =
   MARKETING_TECHNOLOGIES.length > 0 ? MARKETING_TECHNOLOGIES.map((tech) => tech.name).join(', ') : 'any marketing tooling we enable';
@@ -31,7 +32,7 @@ const sections: Section[] = [
   {
     title: '2. Who We Are',
     body:
-      'Halal Ticketin’ is operated by [Halal Ticketin’ Legal Name], incorporated in Ireland. We act as the data controller for data processed through our platform. Event organisers and certain third parties (e.g., Stripe or PayPal) may also process data under their own privacy terms and are independently responsible for that processing.',
+      'Halal Ticketin is a trading name of ATMS Limited, incorporated in Ireland. In this policy, “Halal Ticketin”, “we”, “us”, and “our” refer to ATMS Limited acting as the data controller. Event organisers and certain third parties (e.g., Stripe or PayPal) may also process data under their own privacy terms and are independently responsible for that processing.',
   },
   {
     title: '3. Information We Collect',
@@ -92,9 +93,9 @@ const sections: Section[] = [
   {
     title: '9. Cookies',
     body: [
-      `We set a single first-party cookie (${consentCookieName}) to remember whether you opted into marketing storage. It expires after ${consentCookieRetention}.`,
-      `Essential browser storage keys (${browserStorageSummary}) power secure login tokens, organiser selection, exchange-rate caching, draft recovery, and purchase deduplication. We do not store auth cookies.`,
-      `${marketingToolsSummary} only loads on public and checkout pages ${marketingRunsWhen}. You can switch back to “Essential only” at any time via the “Manage cookies” link in our footer. See our Cookie Policy for the full inventory.`
+      `We directly set a single first-party cookie (${consentCookieName}) to remember whether you opted into marketing storage. It expires after ${consentCookieRetention}.`,
+      `We also use ${browserStorageSummary} in localStorage/sessionStorage for secure login, invitation handling, draft recovery, organiser setup, and purchase deduplication. We do not store auth cookies.`,
+      `${marketingToolsSummary}: ${marketingRunsWhen} You can change this any time via “Manage cookies” in the site footer (or via cookie controls in embedded event/checkout views). See our Cookie Policy for the full inventory.`
     ],
   },
   {
@@ -138,7 +139,7 @@ export default function PrivacyPolicyPage() {
           >
             <p className="text-sm uppercase tracking-wide text-muted-foreground">Halal Ticketin’</p>
             <h1 className="font-display text-4xl font-bold mt-3">Privacy Policy</h1>
-            <p className="mt-3 text-muted-foreground">Effective Date: 18 December 2025</p>
+            <p className="mt-3 text-muted-foreground">Effective Date: {effectiveDate}</p>
             <p className="mt-2 text-sm text-muted-foreground">
               Need assistance?{' '}
               <Link href="/contact" className="text-primary underline">
