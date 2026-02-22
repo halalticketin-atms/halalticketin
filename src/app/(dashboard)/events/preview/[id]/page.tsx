@@ -102,7 +102,7 @@ export default function EventPreviewPublicPage() {
 
     return (
         <>
-            <div className="fixed top-0 left-0 right-0 z-40 overflow-x-hidden px-4 md:px-6 pt-[max(env(safe-area-inset-top),1rem)]">
+            <div className="fixed top-0 left-0 right-0 z-40 px-4 md:px-6 pt-[max(env(safe-area-inset-top),1rem)]">
                 <div className="max-w-7xl mx-auto rounded-[2rem] bg-white/95 border border-white/70 shadow-lg ring-1 ring-white/60 backdrop-blur flex items-center justify-between px-4 py-2">
                     <Link href="/" className="flex items-center gap-2">
                         <Image

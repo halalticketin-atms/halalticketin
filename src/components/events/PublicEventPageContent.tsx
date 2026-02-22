@@ -1744,7 +1744,7 @@ export function PublicEventPageContent({
                                                         <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
                                                             Event Organiser
                                                         </p>
-                                                        <p className="font-semibold text-lg group-hover:text-primary transition-colors truncate">
+                                                        <p className="font-semibold text-lg leading-snug break-words group-hover:text-primary transition-colors">
                                                             {organizerName}
                                                         </p>
                                                         <p className="text-xs text-muted-foreground group-hover:underline">

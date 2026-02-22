@@ -122,7 +122,7 @@ export function Header() {
     return (
         <nav
             className={cn(
-                'fixed top-0 left-0 right-0 z-50 overflow-x-hidden px-4 md:px-6',
+                'fixed top-0 left-0 right-0 z-50 px-4 md:px-6',
                 'pt-[max(env(safe-area-inset-top),1rem)]',
                 isScrolled ? 'pb-4' : 'pb-6',
                 // Smooth transform transition for hide/show
