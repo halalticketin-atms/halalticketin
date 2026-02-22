@@ -24,6 +24,7 @@ import {
     Check,
     Navigation,
     Lock,
+    ZoomIn,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -347,6 +348,8 @@ export function PublicEventPageContent({
     // Checkout state
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
+    const [isPosterViewerOpen, setIsPosterViewerOpen] = useState(false);
+    const [posterZoom, setPosterZoom] = useState(1);
     const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
     const [donationAmount, setDonationAmount] = useState<number | null>(null);
     const [donationQuoteAmount, setDonationQuoteAmount] = useState<number | null>(null);
@@ -1617,6 +1620,76 @@ export function PublicEventPageContent({
                         title={event.title || 'Event'}
                         text={organizerName ? `Hosted by ${organizerName}` : undefined}
                     />
+                    {event.bannerImageUrl && (
+                        <Dialog
+                            open={isPosterViewerOpen}
+                            onOpenChange={(open) => {
+                                setIsPosterViewerOpen(open);
+                                if (!open) {
+                                    setPosterZoom(1);
+                                }
+                            }}
+                        >
+                            <DialogContent
+                                showCloseButton={false}
+                                className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] h-[calc(100dvh-1rem)] p-0 gap-0 bg-black/95 border-white/10 overflow-hidden"
+                            >
+                                <DialogTitle className="sr-only">Event poster</DialogTitle>
+                                <div className="absolute top-3 right-3 z-20 flex items-center gap-2 rounded-full bg-black/60 px-2 py-1.5">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-white hover:bg-white/15 hover:text-white"
+                                        onClick={() => setPosterZoom((value) => Math.max(1, Number((value - 0.25).toFixed(2))))}
+                                        disabled={posterZoom <= 1}
+                                        aria-label="Zoom out poster"
+                                    >
+                                        <Minus className="h-4 w-4" />
+                                    </Button>
+                                    <span className="min-w-[44px] text-center text-xs font-semibold text-white">
+                                        {posterZoom.toFixed(2).replace(/\.00$/, '')}x
+                                    </span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-white hover:bg-white/15 hover:text-white"
+                                        onClick={() => setPosterZoom((value) => Math.min(3, Number((value + 0.25).toFixed(2))))}
+                                        disabled={posterZoom >= 3}
+                                        aria-label="Zoom in poster"
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 text-xs text-white hover:bg-white/15 hover:text-white"
+                                        onClick={() => setIsPosterViewerOpen(false)}
+                                    >
+                                        Close
+                                    </Button>
+                                </div>
+                                <div className="h-full w-full overflow-auto p-6 touch-pan-x touch-pan-y">
+                                    <div className="mx-auto flex min-h-full min-w-full items-center justify-center">
+                                        <div
+                                            className="relative aspect-[4/5] transition-[width] duration-200 ease-out"
+                                            style={{ width: `clamp(260px, ${78 * posterZoom}vw, ${520 * posterZoom}px)` }}
+                                        >
+                                            <Image
+                                                src={event.bannerImageUrl}
+                                                alt={event.title || 'Event poster'}
+                                                fill
+                                                className="object-contain"
+                                                sizes="100vw"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    )}
                     {/* Hero Section - Poster with Blurred Background */}
                     <div className="relative">
                         {/* Blurred Background Layer */}
@@ -1642,7 +1715,7 @@ export function PublicEventPageContent({
                             )}
 
                             {/* Centered Sharp Poster */}
-                            <div className="absolute inset-0 flex items-center justify-center px-4">
+                            <div className="absolute inset-0 flex items-center justify-center px-4 pt-12 sm:pt-6 md:pt-0">
                                 <motion.div
                                     initial={{ opacity: 0, y: 20, scale: 0.95 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1650,13 +1723,24 @@ export function PublicEventPageContent({
                                     className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[360px] aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10"
                                 >
                                     {event.bannerImageUrl ? (
-                                        <Image
-                                            src={event.bannerImageUrl}
-                                            alt={event.title || 'Event'}
-                                            fill
-                                            className="object-cover"
-                                            priority
-                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsPosterViewerOpen(true)}
+                                            className="group relative block h-full w-full"
+                                            aria-label="Open event poster in fullscreen"
+                                        >
+                                            <Image
+                                                src={event.bannerImageUrl}
+                                                alt={event.title || 'Event'}
+                                                fill
+                                                className="object-cover"
+                                                priority
+                                            />
+                                            <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white opacity-90 transition group-hover:opacity-100">
+                                                <ZoomIn className="h-3 w-3" />
+                                                Fullscreen
+                                            </span>
+                                        </button>
                                     ) : (
                                         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
                                             <Calendar className="h-16 w-16 text-white/40" />
