@@ -56,6 +56,7 @@ export interface AdminOrganizer {
     eventsCount: number;
     ordersCount: number;
     ticketsSold: number;
+    creditBalance: number;
 }
 
 export interface OrganizersListResponse {
@@ -107,6 +108,25 @@ export interface EventsListResponse {
         limit: number;
         offset: number;
         total: number;
+    };
+}
+
+export interface GrantOrganizerCreditsResponse {
+    success: true;
+    organizerId: string;
+    grantedCredits: number;
+    reason: string;
+    balance: {
+        creditBalance: number;
+        totalCreditsPurchased: number;
+        lastPurchaseAt: string | null;
+        updatedAt: string;
+    };
+    adjustment: {
+        id: string;
+        type: 'manual_grant';
+        createdAt: string;
+        createdByUserId: string;
     };
 }
 
@@ -166,4 +186,14 @@ export async function getEventsList(params: {
             ...(params.status && { status: params.status }),
         },
     });
+}
+
+export async function grantOrganizerCredits(
+    organizerId: string,
+    payload: { credits: number; reason: string }
+): Promise<GrantOrganizerCreditsResponse> {
+    return api.post<GrantOrganizerCreditsResponse>(
+        `/api/v1/admin/organizers/${organizerId}/credits/grant`,
+        payload
+    );
 }

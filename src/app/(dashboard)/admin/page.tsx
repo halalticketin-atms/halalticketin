@@ -17,6 +17,7 @@ import {
     ChevronUp,
     ChevronLeft,
     ChevronRight,
+    CirclePlus,
 } from 'lucide-react';
 import {
     AreaChart,
@@ -32,14 +33,24 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import api, { ApiError } from '@/lib/api';
 import {
     getTimeSeries,
     getUsersList,
     getOrganizersList,
     getEventsList,
+    grantOrganizerCredits,
     type TimeSeriesPeriod,
     type TimeSeriesResponse,
     type AdminUser,
@@ -484,6 +495,13 @@ function OrganizersTable() {
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState<'all' | 'individual' | 'organization' | 'charity'>('all');
+    const [isGrantDialogOpen, setIsGrantDialogOpen] = useState(false);
+    const [selectedOrganizer, setSelectedOrganizer] = useState<AdminOrganizer | null>(null);
+    const [grantCredits, setGrantCredits] = useState('100');
+    const [grantReason, setGrantReason] = useState('');
+    const [grantError, setGrantError] = useState<string | null>(null);
+    const [grantSuccess, setGrantSuccess] = useState<string | null>(null);
+    const [isGrantSubmitting, setIsGrantSubmitting] = useState(false);
     const hasLoadedInitialOrganizersRef = useRef(false);
 
     const fetchOrganizers = useCallback(async (params: { offset?: number; search?: string; type?: typeof filter }) => {
@@ -515,6 +533,58 @@ function OrganizersTable() {
     const handleSearch = (value: string) => {
         setSearch(value);
         fetchOrganizers({ offset: 0, search: value });
+    };
+
+    const openGrantDialog = (organizer: AdminOrganizer) => {
+        setSelectedOrganizer(organizer);
+        setGrantCredits('100');
+        setGrantReason('');
+        setGrantError(null);
+        setIsGrantDialogOpen(true);
+    };
+
+    const submitGrant = async () => {
+        if (!selectedOrganizer) return;
+
+        const creditsInput = grantCredits.trim();
+        const reason = grantReason.trim();
+
+        if (!/^\d+$/.test(creditsInput)) {
+            setGrantError('Credits must be an integer between 1 and 100,000.');
+            return;
+        }
+
+        const credits = Number(creditsInput);
+        if (!Number.isSafeInteger(credits) || credits < 1 || credits > 100000) {
+            setGrantError('Credits must be an integer between 1 and 100,000.');
+            return;
+        }
+        if (reason.length < 3) {
+            setGrantError('Reason must be at least 3 characters.');
+            return;
+        }
+
+        setIsGrantSubmitting(true);
+        setGrantError(null);
+
+        try {
+            await grantOrganizerCredits(selectedOrganizer.id, { credits, reason });
+            setGrantSuccess(`Added ${credits.toLocaleString()} credits to ${selectedOrganizer.name}.`);
+            setIsGrantDialogOpen(false);
+            await fetchOrganizers({
+                offset: pagination.offset,
+                search,
+                type: filter,
+            });
+        } catch (error) {
+            if (error instanceof ApiError) {
+                setGrantError(error.message || 'Unable to grant credits.');
+            } else {
+                setGrantError('Unable to grant credits.');
+            }
+        } finally {
+            setIsGrantSubmitting(false);
+        }
     };
 
     return (
@@ -552,6 +622,9 @@ function OrganizersTable() {
                         </select>
                     </div>
                 </div>
+                {grantSuccess && (
+                    <p className="text-sm text-emerald-600 mt-3">{grantSuccess}</p>
+                )}
             </CardHeader>
             <CardContent className="px-0">
                 {isLoading ? (
@@ -569,7 +642,9 @@ function OrganizersTable() {
                                         <th className="px-4 py-3 text-center font-medium text-muted-foreground hidden sm:table-cell">Events</th>
                                         <th className="px-4 py-3 text-center font-medium text-muted-foreground hidden sm:table-cell">Orders</th>
                                         <th className="px-4 py-3 text-center font-medium text-muted-foreground hidden md:table-cell">Tickets Sold</th>
+                                        <th className="px-4 py-3 text-center font-medium text-muted-foreground hidden md:table-cell">Credits</th>
                                         <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">Location</th>
+                                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -601,8 +676,22 @@ function OrganizersTable() {
                                             <td className="px-4 py-3 text-center hidden md:table-cell">
                                                 <span className="font-medium">{org.ticketsSold}</span>
                                             </td>
+                                            <td className="px-4 py-3 text-center hidden md:table-cell">
+                                                <span className="font-medium">{org.creditBalance.toLocaleString()}</span>
+                                            </td>
                                             <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground text-xs">
                                                 {[org.city, org.country].filter(Boolean).join(', ') || '-'}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8"
+                                                    onClick={() => openGrantDialog(org)}
+                                                >
+                                                    <CirclePlus className="h-3.5 w-3.5 mr-1.5" />
+                                                    Add Credits
+                                                </Button>
                                             </td>
                                         </tr>
                                     ))}
@@ -618,6 +707,55 @@ function OrganizersTable() {
                     </>
                 )}
             </CardContent>
+            <Dialog open={isGrantDialogOpen} onOpenChange={setIsGrantDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add Credits</DialogTitle>
+                        <DialogDescription>
+                            Grant platform credits to {selectedOrganizer?.name ?? 'this organizer'}.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium">Credits</p>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={100000}
+                                step={1}
+                                value={grantCredits}
+                                onChange={(event) => setGrantCredits(event.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium">Reason</p>
+                            <Textarea
+                                value={grantReason}
+                                onChange={(event) => setGrantReason(event.target.value)}
+                                placeholder="Example: goodwill top-up after support issue"
+                                rows={3}
+                            />
+                        </div>
+                        {grantError && (
+                            <p className="text-sm text-destructive">{grantError}</p>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsGrantDialogOpen(false)}
+                            disabled={isGrantSubmitting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button onClick={submitGrant} disabled={isGrantSubmitting}>
+                            {isGrantSubmitting ? 'Granting...' : 'Grant Credits'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }
