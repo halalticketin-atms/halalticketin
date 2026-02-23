@@ -51,8 +51,12 @@ export const metadata: Metadata = {
     'Discover and create halal events with ease. The trusted ticketing platform for the Muslim community.',
   keywords: ['halal events', 'ticketing', 'muslim events', 'event platform'],
   icons: {
-    icon: '/images/ht-icon-180.png',
-    apple: '/images/ht-icon-180.png',
+    icon: [
+      { url: '/images/ht-icon-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/images/ht-icon-180.png', sizes: '180x180', type: 'image/png' },
+    ],
+    apple: [{ url: '/images/ht-icon-180.png', sizes: '180x180', type: 'image/png' }],
+    shortcut: '/images/ht-icon-512.png',
   },
 };
 
