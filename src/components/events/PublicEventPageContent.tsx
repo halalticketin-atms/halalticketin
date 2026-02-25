@@ -2222,18 +2222,18 @@ export function PublicEventPageContent({
 
             {/* Checkout Dialog - Multi-step wizard with softer styling */}
             <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-                <DialogContent className="sm:max-w-[850px] w-[95vw] p-0 overflow-hidden border-0 bg-transparent shadow-2xl gap-0" onOpenAutoFocus={(e) => e.preventDefault()}>
-                    <div className="bg-card flex flex-col md:flex-row md:min-h-[540px] md:max-h-[85vh] rounded-3xl overflow-hidden max-h-[calc(100dvh-2rem)] shadow-2xl border border-primary/10">
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-[850px] p-0 overflow-hidden border-0 bg-transparent shadow-none gap-0 max-h-[calc(100dvh-2rem)]" onOpenAutoFocus={(e) => e.preventDefault()}>
+                    <div className="bg-card flex min-h-0 max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-primary/10 shadow-2xl md:min-h-[540px] md:max-h-[85vh] md:flex-row md:rounded-3xl">
 
                         {/* LEFT PANEL: Brand & Order Summary */}
-                        <div className="w-full md:w-[340px] bg-primary/5 border-b md:border-b-0 md:border-r border-border/50 p-4 md:p-6 flex flex-col relative overflow-hidden group shrink-0 md:shrink">
+                        <div className="w-full max-h-[38dvh] md:max-h-none md:w-[340px] bg-primary/5 border-b md:border-b-0 md:border-r border-border/50 p-3.5 md:p-6 flex flex-col relative overflow-hidden group shrink-0 md:shrink">
                             {/* Decorative background accent */}
                             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none transition-opacity duration-700 group-hover:opacity-70" />
                             <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -ml-24 -mb-24 pointer-events-none" />
 
                             {/* Header */}
-                            <div className="mb-6 relative z-10">
-                                <Link href="/" className="inline-block relative h-8 w-24 mb-4 opacity-90 hover:opacity-100 transition-opacity">
+                            <div className="mb-4 md:mb-6 relative z-10">
+                                <Link href="/" className="inline-block relative h-7 w-24 md:h-8 mb-3 md:mb-4 opacity-90 hover:opacity-100 transition-opacity">
                                     <Image
                                         src="/images/HTlogocr.png"
                                         alt="Halal Ticketin"
@@ -2241,16 +2241,16 @@ export function PublicEventPageContent({
                                         className="object-contain object-left"
                                     />
                                 </Link>
-                                <h3 className="text-xl font-display font-bold text-foreground leading-tight">
+                                <h3 className="text-lg md:text-xl font-display font-bold text-foreground leading-tight">
                                     Order Summary
                                 </h3>
                                 {(event?.title) && (
-                                    <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{event.title}</p>
+                                    <p className="text-xs md:text-sm text-muted-foreground mt-1 line-clamp-1">{event.title}</p>
                                 )}
                             </div>
 
                             {/* Items List */}
-                            <div className="flex-1 overflow-y-auto pr-2 space-y-3 relative z-10 custom-scrollbar">
+                            <div className="flex-1 overflow-y-auto pr-1 md:pr-2 space-y-2.5 md:space-y-3 relative z-10 custom-scrollbar">
                                 {cartItems.filter(item => item.ticket.type !== 'donation').map(item => {
                                     const isDonation = item.ticket.type === 'donation';
                                     const feeDetail = !isDonation ? organizerFeeDetails.get(item.ticket.id) : undefined;
@@ -2366,12 +2366,12 @@ export function PublicEventPageContent({
                             </div>
 
                             {/* Total Footer */}
-                            <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-primary/10 relative z-10">
+                            <div className="mt-3 md:mt-6 pt-2.5 md:pt-4 border-t border-primary/10 relative z-10">
                                 <div className="flex justify-between items-center md:items-end">
-                                    <span className="text-xs md:text-sm font-medium text-muted-foreground uppercase tracking-wider">Total</span>
+                                    <span className="text-[11px] md:text-sm font-medium text-muted-foreground uppercase tracking-wider">Total</span>
                                     <span
                                         className={cn(
-                                            'text-2xl md:text-3xl font-bold text-primary',
+                                            'text-xl md:text-3xl font-bold text-primary',
                                             !hasQuote && 'text-sm md:text-base text-muted-foreground font-medium'
                                         )}
                                     >
@@ -2389,9 +2389,9 @@ export function PublicEventPageContent({
                         {/* RIGHT PANEL: Wizard Form */}
                         <div className="flex-1 flex flex-col bg-card relative min-h-0 overflow-hidden">
                             {/* Wizard Header */}
-                            <div className="px-8 pt-6 pb-2">
+                            <div className="px-4 pt-4 pb-1.5 md:px-8 md:pt-6 md:pb-2">
                                 {/* Step Indicators */}
-                                <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center justify-between mb-4 md:mb-6">
                                     {['Information', 'Payment', 'Complete'].map((label, idx) => {
                                         // Logic to map current detailed step to these 3 high level buckets
                                         // Information: Buyer & Ticket steps
@@ -2408,9 +2408,9 @@ export function PublicEventPageContent({
                                                 : false;
 
                                         return (
-                                            <div key={label} className="flex flex-col items-center gap-2 relative z-10 flex-1">
+                                            <div key={label} className="flex flex-col items-center gap-1.5 md:gap-2 relative z-10 flex-1">
                                                 <div className={cn(
-                                                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 border-2",
+                                                    "w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[11px] md:text-xs font-bold transition-all duration-300 border-2",
                                                     (isActive || isCompleted)
                                                         ? "bg-primary border-primary text-primary-foreground"
                                                         : "bg-transparent border-muted-foreground/30 text-muted-foreground"
@@ -2418,7 +2418,7 @@ export function PublicEventPageContent({
                                                     {isCompleted ? <Check className="w-4 h-4" /> : idx + 1}
                                                 </div>
                                                 <span className={cn(
-                                                    "text-xs font-medium transition-colors duration-300",
+                                                    "text-[11px] md:text-xs font-medium transition-colors duration-300",
                                                     (isActive || isCompleted) ? "text-primary" : "text-muted-foreground"
                                                 )}>{label}</span>
                                             </div>
@@ -2430,7 +2430,7 @@ export function PublicEventPageContent({
                             </div>
 
                             {/* Scrollable Form Area */}
-                            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-2 custom-scrollbar min-h-0">
+                            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-2 md:py-2.5 custom-scrollbar min-h-0">
                                 <AnimatePresence mode="wait">
                                     <motion.div
                                         key={checkoutStep}
@@ -2442,7 +2442,7 @@ export function PublicEventPageContent({
                                     >
                                         {/* Step Title */}
                                         <div className="mb-4">
-                                            <h4 className="text-lg font-bold text-foreground">
+                                            <h4 className="text-base md:text-lg font-bold text-foreground">
                                                 {stepType === 'buyer' && 'Contact Information'}
                                                 {stepType === 'ticket' && `Ticket ${currentTicketIndex + 1} Details`}
                                                 {stepType === 'confirm' && 'Payment Details'}
@@ -2803,10 +2803,10 @@ export function PublicEventPageContent({
                             </div>
 
                             {/* Footer Navigation */}
-                            <div className="p-4 md:p-8 pt-3 md:pt-4 pb-4 md:pb-6 mt-auto shrink-0 border-t md:border-t-0 border-border/30">
+                            <div className="px-3.5 md:px-8 pb-3.5 md:pb-6 pt-2.5 md:pt-4 mt-auto shrink-0 border-t md:border-t-0 border-border/30">
                                 {stepType !== 'confirm' ? (
                                     <Button
-                                        className="w-full h-11 text-base shadow-lg shadow-primary/20"
+                                        className="w-full h-10 md:h-11 text-sm md:text-base shadow-lg shadow-primary/20"
                                         onClick={handleNextStep}
                                         disabled={isProcessing}
                                     >
@@ -2815,7 +2815,7 @@ export function PublicEventPageContent({
                                     </Button>
                                 ) : (
                                     <Button
-                                        className="w-full h-11 text-base font-bold shadow-lg shadow-primary/20"
+                                        className="w-full h-10 md:h-11 text-sm md:text-base font-bold shadow-lg shadow-primary/20"
                                         onClick={handleProceedToCheckout}
                                         disabled={isProcessing || isQuoteBlocked}
                                     >
@@ -2843,7 +2843,7 @@ export function PublicEventPageContent({
                                     <button
                                         onClick={handlePrevStep}
                                         disabled={isProcessing}
-                                        className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-4 transition-colors"
+                                        className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-3 md:mt-4 transition-colors"
                                     >
                                         Go Back
                                     </button>
