@@ -873,7 +873,7 @@ export default function OrganizerTeamPage() {
                     closeInviteDialog();
                 }}
             >
-                <DialogContent className="w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-full sm:max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-y-auto p-0">
+                <DialogContent className="w-[calc(100vw-2.5rem)] max-w-[calc(100vw-2.5rem)] sm:w-full sm:max-w-lg max-h-[calc(100dvh-3rem)] sm:max-h-[90vh] translate-y-[-50%] sm:translate-y-[-53%] overflow-y-auto p-0">
                     {/* Header with gradient accent */}
                     <div className="relative px-4 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
