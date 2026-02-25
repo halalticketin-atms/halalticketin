@@ -46,6 +46,48 @@ test.describe('Public Pages - Home Page', () => {
         await expect(page.locator('body')).toBeVisible();
     });
 
+    test('mobile menu freezes background scroll and closes on outside tap', async ({ page, browserName }) => {
+        await page.setViewportSize(viewports.mobile);
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+
+        const menuButton = page.getByRole('button', { name: /open menu|close menu/i }).first();
+        await menuButton.click();
+
+        const backdrop = page.getByRole('button', { name: /close mobile menu/i });
+        await expect(backdrop).toBeVisible();
+
+        const lockStyles = await page.evaluate(() => ({
+            bodyPosition: document.body.style.position,
+            bodyOverflow: document.body.style.overflow,
+            htmlOverflow: document.documentElement.style.overflow,
+        }));
+        expect(lockStyles.bodyPosition).toBe('fixed');
+        expect(lockStyles.bodyOverflow).toBe('hidden');
+        expect(lockStyles.htmlOverflow).toBe('hidden');
+
+        if (browserName !== 'webkit') {
+            const scrollBeforeAttempt = await page.evaluate(() => window.scrollY);
+            await page.mouse.wheel(0, 1200);
+            await page.waitForTimeout(100);
+            const scrollWhileMenuOpen = await page.evaluate(() => window.scrollY);
+            expect(Math.abs(scrollWhileMenuOpen - scrollBeforeAttempt)).toBeLessThanOrEqual(2);
+        }
+
+        await backdrop.click({ position: { x: 10, y: viewports.mobile.height - 10 } });
+        await expect(backdrop).not.toBeVisible();
+        await expect(page.getByRole('button', { name: /open menu/i }).first()).toBeVisible();
+
+        const restoredStyles = await page.evaluate(() => ({
+            bodyPosition: document.body.style.position,
+            bodyOverflow: document.body.style.overflow,
+            htmlOverflow: document.documentElement.style.overflow,
+        }));
+        expect(restoredStyles.bodyPosition).toBe('');
+        expect(restoredStyles.bodyOverflow).toBe('');
+        expect(restoredStyles.htmlOverflow).toBe('');
+    });
+
     test('homepage displays correctly on tablet viewport', async ({ page }) => {
         await page.setViewportSize(viewports.tablet);
         await page.goto('/');

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,21 @@ export function Header() {
         // Mark as mounted after a frame to enable transitions
         requestAnimationFrame(() => setHasMounted(true));
     }, []);
+
+    useEffect(() => {
+        if (!mobileMenuOpen) return;
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setMobileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [mobileMenuOpen]);
 
     const pathname = usePathname();
     const router = useRouter();
@@ -118,172 +134,19 @@ export function Header() {
 
     // Keep header visible when mobile menu is open
     const shouldBeVisible = isVisible || mobileMenuOpen;
-
-    return (
-        <nav
-            className={cn(
-                'fixed top-0 left-0 right-0 z-50 px-4 md:px-6',
-                'pt-[max(env(safe-area-inset-top),1rem)]',
-                isScrolled ? 'pb-4' : 'pb-6',
-                // Smooth transform transition for hide/show
-                'transition-[transform,padding] duration-400 ease-[cubic-bezier(0.4,0,0.2,1)]',
-                // Slide up when hidden, down when visible
-                shouldBeVisible ? 'translate-y-0' : '-translate-y-full',
-                // Only enable transitions after mount to prevent initial stutter
-                !hasMounted && 'motion-reduce:transition-none',
-                // CSS entrance animation using tw-animate-css
-                hasMounted && 'animate-in fade-in duration-300 fill-mode-forwards'
-            )}
-            onMouseEnter={() => setIsInteracting(true)}
-            onMouseLeave={() => setIsInteracting(false)}
-        >
-            <div
-                className={cn(
-                    'max-w-7xl mx-auto rounded-4xl flex items-center justify-between px-4 py-2',
-                    'bg-white border border-white/70 shadow-lg ring-1 ring-white/60 relative overflow-hidden',
-                    isScrolled && 'shadow-xl',
-                    // Only enable shadow transition after mount
-                    hasMounted && 'transition-shadow duration-200'
-                )}
-            >
-
-                {/* Logo */}
-                <Link href="/" className="flex items-center gap-2 relative z-50 pl-2">
-                    <Image
-                        src="/images/HTlogocr.png"
-                        alt="HalalTicketin' Logo"
-                        width={120}
-                        height={35}
-                        className="h-8 w-auto"
-                        priority
-                    />
-                </Link>
-
-                {/* Centered Desktop Menu - Simplified for Performance */}
-                <div className="hidden md:flex items-center gap-1 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                    <ul className="flex items-center gap-1">
-                        {navLinks.map((link) => {
-                            const isActive = pathname === link.href;
-                            return (
-                                <li key={link.id}>
-                                    <Link
-                                        href={link.href}
-                                        className={cn(
-                                            'block px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150',
-                                            'hover:bg-[var(--brand-cyan)]/10 hover:text-[var(--brand-teal)] active:scale-95',
-                                            isActive
-                                                ? 'text-[var(--brand-teal)] bg-[var(--brand-cyan)]/5 font-semibold'
-                                                : 'text-slate-600'
-                                        )}
-                                    >
-                                        {link.label}
-                                    </Link>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
-
-                {/* Right Side Actions */}
-                <div className="hidden md:flex items-center gap-3 ml-auto relative z-50">
-                    {isAuthenticated ? (
-                        <>
-                            <Button
-                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 rounded-full px-6 font-semibold shadow-md"
-                                asChild
-                            >
-                                <Link href="/events/new">Create Event</Link>
-                            </Button>
-
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        className="relative h-9 w-9 rounded-full ring-2 ring-white hover:ring-[var(--brand-cyan)] transition-all p-0"
-                                        aria-label="Account menu"
-                                    >
-                                        <Avatar className="h-9 w-9">
-                                            <AvatarImage src={user?.avatarUrl ?? undefined} alt={displayName} className="object-cover" />
-                                            <AvatarFallback className="bg-[var(--brand-mint)] text-[var(--brand-teal)] font-bold">
-                                                {avatarInitial}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    className="w-56 bg-white shadow-xl"
-                                    align="end"
-                                    forceMount
-                                >
-                                    <DropdownMenuLabel className="font-normal">
-                                        <div className="flex flex-col space-y-1">
-                                            <p className="text-sm font-medium truncate">{displayName}</p>
-                                            <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>
-                                        </div>
-                                    </DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/profile">Profile</Link>
-                                    </DropdownMenuItem>
-                                    {isOrganizer && (
-                                        <DropdownMenuItem asChild>
-                                            <Link href="/dashboard">Dashboard</Link>
-                                        </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/settings">Settings</Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            handleSignOut();
-                                        }}
-                                    >
-                                        Sign Out
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </>
-                    ) : (
-                        <>
-                            <Link
-                                href="/login"
-                                className="text-sm font-semibold text-slate-800 hover:text-[var(--brand-teal)]"
-                            >
-                                Log in
-                            </Link>
-                            <Button
-                                className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 rounded-full px-6 font-semibold shadow-md"
-                                asChild
-                            >
-                                <Link href="/events/new">Create Event</Link>
-                            </Button>
-                        </>
-                    )}
-                </div>
-
-                {/* Mobile Menu Toggle */}
-                <button
-                    className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/70 transition-colors bg-white/90 border border-white/80 shadow-sm"
-                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-                >
-                    {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-                </button>
-
-                {/* Mobile Menu Dropdown */}
-
-            </div>
+    const mobileMenuOverlay = hasMounted
+        ? createPortal(
             <AnimatePresence>
                 {mobileMenuOpen && (
                     <>
                         {/* Backdrop to close on click outside */}
-                        <motion.div
+                        <motion.button
+                            type="button"
+                            aria-label="Close mobile menu"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-40 bg-black/5 overscroll-contain touch-none" // Subtle dim
+                            className="fixed inset-0 z-[59] bg-black/5 overscroll-contain touch-none md:hidden"
                             onClick={() => setMobileMenuOpen(false)}
                         />
 
@@ -292,7 +155,7 @@ export function Header() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -12 }}
                             transition={sharedTransition}
-                            className="absolute top-[calc(100%-0.5rem)] left-0 right-0 mx-4 p-6 md:hidden z-50 rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col gap-6 transform-gpu"
+                            className="fixed top-[calc(var(--nav-safe-offset)+0.5rem)] left-4 right-4 p-6 md:hidden z-[60] rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col gap-6 transform-gpu"
                         >
                             <div className="flex flex-col gap-2">
                                 {navLinks.map((link) => {
@@ -385,7 +248,167 @@ export function Header() {
                         </motion.div>
                     </>
                 )}
-            </AnimatePresence>
-        </nav>
+            </AnimatePresence>,
+            document.body
+        )
+        : null;
+
+    return (
+        <>
+            <nav
+                className={cn(
+                    'fixed top-0 left-0 right-0 z-50 px-4 md:px-6',
+                    'pt-[max(env(safe-area-inset-top),1rem)]',
+                    isScrolled ? 'pb-4' : 'pb-6',
+                    // Smooth transform transition for hide/show
+                    'transition-[transform,padding] duration-400 ease-[cubic-bezier(0.4,0,0.2,1)]',
+                    // Slide up when hidden, down when visible
+                    shouldBeVisible ? 'translate-y-0' : '-translate-y-full',
+                    // Only enable transitions after mount to prevent initial stutter
+                    !hasMounted && 'motion-reduce:transition-none',
+                    // CSS entrance animation using tw-animate-css
+                    hasMounted && 'animate-in fade-in duration-300 fill-mode-forwards'
+                )}
+                onMouseEnter={() => setIsInteracting(true)}
+                onMouseLeave={() => setIsInteracting(false)}
+            >
+                <div
+                    className={cn(
+                        'max-w-7xl mx-auto rounded-4xl flex items-center justify-between px-4 py-2',
+                        'bg-white border border-white/70 shadow-lg ring-1 ring-white/60 relative overflow-hidden',
+                        isScrolled && 'shadow-xl',
+                        // Only enable shadow transition after mount
+                        hasMounted && 'transition-shadow duration-200'
+                    )}
+                >
+
+                    {/* Logo */}
+                    <Link href="/" className="flex items-center gap-2 relative z-50 pl-2">
+                        <Image
+                            src="/images/HTlogocr.png"
+                            alt="HalalTicketin' Logo"
+                            width={120}
+                            height={35}
+                            className="h-8 w-auto"
+                            priority
+                        />
+                    </Link>
+
+                    {/* Centered Desktop Menu - Simplified for Performance */}
+                    <div className="hidden md:flex items-center gap-1 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                        <ul className="flex items-center gap-1">
+                            {navLinks.map((link) => {
+                                const isActive = pathname === link.href;
+                                return (
+                                    <li key={link.id}>
+                                        <Link
+                                            href={link.href}
+                                            className={cn(
+                                                'block px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150',
+                                                'hover:bg-[var(--brand-cyan)]/10 hover:text-[var(--brand-teal)] active:scale-95',
+                                                isActive
+                                                    ? 'text-[var(--brand-teal)] bg-[var(--brand-cyan)]/5 font-semibold'
+                                                    : 'text-slate-600'
+                                            )}
+                                        >
+                                            {link.label}
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+
+                    {/* Right Side Actions */}
+                    <div className="hidden md:flex items-center gap-3 ml-auto relative z-50">
+                        {isAuthenticated ? (
+                            <>
+                                <Button
+                                    className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 rounded-full px-6 font-semibold shadow-md"
+                                    asChild
+                                >
+                                    <Link href="/events/new">Create Event</Link>
+                                </Button>
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            className="relative h-9 w-9 rounded-full ring-2 ring-white hover:ring-[var(--brand-cyan)] transition-all p-0"
+                                            aria-label="Account menu"
+                                        >
+                                            <Avatar className="h-9 w-9">
+                                                <AvatarImage src={user?.avatarUrl ?? undefined} alt={displayName} className="object-cover" />
+                                                <AvatarFallback className="bg-[var(--brand-mint)] text-[var(--brand-teal)] font-bold">
+                                                    {avatarInitial}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                        className="w-56 bg-white shadow-xl"
+                                        align="end"
+                                        forceMount
+                                    >
+                                        <DropdownMenuLabel className="font-normal">
+                                            <div className="flex flex-col space-y-1">
+                                                <p className="text-sm font-medium truncate">{displayName}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>
+                                            </div>
+                                        </DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem asChild>
+                                            <Link href="/profile">Profile</Link>
+                                        </DropdownMenuItem>
+                                        {isOrganizer && (
+                                            <DropdownMenuItem asChild>
+                                                <Link href="/dashboard">Dashboard</Link>
+                                            </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuItem asChild>
+                                            <Link href="/settings">Settings</Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                handleSignOut();
+                                            }}
+                                        >
+                                            Sign Out
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    href="/login"
+                                    className="text-sm font-semibold text-slate-800 hover:text-[var(--brand-teal)]"
+                                >
+                                    Log in
+                                </Link>
+                                <Button
+                                    className="bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white hover:opacity-90 rounded-full px-6 font-semibold shadow-md"
+                                    asChild
+                                >
+                                    <Link href="/events/new">Create Event</Link>
+                                </Button>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Mobile Menu Toggle */}
+                    <button
+                        className="md:hidden relative z-50 text-slate-800 p-2 rounded-full hover:bg-white/70 transition-colors bg-white/90 border border-white/80 shadow-sm"
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                    >
+                        {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                    </button>
+                </div>
+            </nav>
+            {mobileMenuOverlay}
+        </>
     );
 }
