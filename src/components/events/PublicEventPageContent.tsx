@@ -2223,8 +2223,20 @@ export function PublicEventPageContent({
 
             {/* Checkout Dialog - Multi-step wizard with softer styling */}
             <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-                <DialogContent className="w-[calc(100vw-2rem)] sm:w-[95vw] sm:max-w-[850px] p-0 overflow-hidden border-0 bg-transparent shadow-none gap-0 max-h-[calc(100dvh-2rem)]" onOpenAutoFocus={(e) => e.preventDefault()}>
-                    <div className="bg-card flex min-h-0 max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-primary/10 shadow-2xl md:min-h-[540px] md:max-h-[85vh] md:flex-row md:rounded-3xl">
+                <DialogContent
+                    showCloseButton={false}
+                    className="w-[calc(100vw-2rem)] sm:w-[95vw] sm:max-w-[850px] p-0 overflow-hidden border-0 bg-transparent shadow-none gap-0 max-h-[calc(100dvh-2rem)] !top-1/2 !translate-y-[-50%]"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                    <div className="relative bg-card flex min-h-0 max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-primary/10 shadow-2xl md:min-h-[540px] md:max-h-[85vh] md:flex-row md:rounded-3xl">
+                        <button
+                            type="button"
+                            aria-label="Close checkout"
+                            onClick={() => setIsCheckoutOpen(false)}
+                            className="absolute top-2 right-2 z-30 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-muted-foreground shadow-sm ring-1 ring-black/5 transition-colors hover:text-foreground active:scale-[0.98] md:top-3 md:right-3"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
 
                         {/* LEFT PANEL: Brand & Order Summary */}
                         <div className="w-full max-h-[38dvh] md:max-h-none md:w-[340px] bg-primary/5 border-b md:border-b-0 md:border-r border-border/50 p-3.5 md:p-6 flex flex-col relative overflow-hidden group shrink-0 md:shrink">

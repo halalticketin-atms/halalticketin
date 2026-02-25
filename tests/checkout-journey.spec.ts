@@ -284,6 +284,139 @@ test.describe('Checkout Journey - Responsive Design', () => {
             }
         }
     });
+
+    test('checkout modal keeps top padding across steps and closes in one tap on mobile', async ({ page }) => {
+        const mockEventId = '11111111-1111-4111-8111-111111111111';
+
+        await page.route(`**/api/v1/public/events/${REAL_EVENTS.paidEvent}`, (route) => {
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    event: {
+                        id: mockEventId,
+                        organizerId: 'org_mobile_modal_001',
+                        slug: REAL_EVENTS.paidEvent,
+                        title: 'Mobile Checkout Test Event',
+                        description: 'Mocked event for mobile checkout modal layout verification.',
+                        bannerImageUrl: null,
+                        startDatetime: '2030-03-15T19:30:00.000Z',
+                        endDatetime: '2030-03-15T22:00:00.000Z',
+                        timezone: 'Europe/London',
+                        isMultiDay: false,
+                        locationType: 'in_person',
+                        venue: 'Mock Community Hall',
+                        address: '123 Test Street',
+                        city: 'London',
+                        country: 'UK',
+                        onlineUrl: null,
+                        latitude: null,
+                        longitude: null,
+                        currency: 'GBP',
+                        organizerName: 'Test Organizer',
+                        organizerAvatarUrl: null,
+                        category: null,
+                        absorbFee: false,
+                        feeTier: 'payg',
+                        customBookingFee: null,
+                        metaPixelId: null,
+                        attendeeInfoMode: 'buyer_choice',
+                        customQuestions: [],
+                        status: 'published',
+                    },
+                    tickets: [
+                        {
+                            id: 'ticket_mobile_modal_001',
+                            name: 'General Admission',
+                            description: null,
+                            price: '5.00',
+                            currency: 'GBP',
+                            maxQuantity: 100,
+                            minPerOrder: 1,
+                            maxPerOrder: 10,
+                            type: 'paid',
+                            visibility: 'public',
+                            salesStart: null,
+                            salesEnd: null,
+                            customFee: null,
+                            absorbFee: false,
+                            earlyBirdPrice: null,
+                            earlyBirdEndDate: null,
+                        },
+                    ],
+                }),
+            });
+        });
+
+        await page.route(`**/api/v1/events/${mockEventId}/checkout/quote`, (route) => {
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    success: true,
+                    currency: 'GBP',
+                    subtotal: 5.0,
+                    discount: 0,
+                    organizerFee: 0,
+                    platformFee: 0.63,
+                    processingFee: 0.34,
+                    total: 5.97,
+                    useCreditsApplied: false,
+                    creditsApplied: 0,
+                    paidTicketCount: 1,
+                    promoCodeApplied: false,
+                }),
+            });
+        });
+
+        await page.setViewportSize(viewports.mobile);
+        await page.goto(`/events/${REAL_EVENTS.paidEvent}`);
+        await page.waitForLoadState('networkidle');
+
+        const plusButton = page.locator('button:has(svg.lucide-plus)').first();
+        await expect(plusButton).toBeVisible();
+        await plusButton.click();
+
+        const openCheckoutButton = page.getByRole('button', { name: /proceed to checkout/i }).first();
+        await expect(openCheckoutButton).toBeVisible();
+        await openCheckoutButton.click();
+
+        const checkoutDialog = page.locator('[data-slot="dialog-content"]').last();
+        await expect(checkoutDialog).toBeVisible();
+
+        const boxStepOne = await checkoutDialog.boundingBox();
+        expect(boxStepOne).not.toBeNull();
+        if (boxStepOne) {
+            expect(boxStepOne.y).toBeGreaterThanOrEqual(8);
+            expect(boxStepOne.x).toBeGreaterThanOrEqual(8);
+            expect(viewports.mobile.width - (boxStepOne.x + boxStepOne.width)).toBeGreaterThanOrEqual(8);
+        }
+
+        await page.locator('#buyerName').fill('Test User');
+        await page.locator('#buyerEmail').fill('test@example.com');
+        await page.locator('#buyerAge').fill('29');
+
+        const genderSelectTrigger = page.getByRole('combobox').first();
+        await genderSelectTrigger.click();
+        await page.getByRole('option', { name: /male/i }).first().click();
+
+        await page.getByRole('button', { name: /continue/i }).click();
+        await page.waitForTimeout(200);
+
+        const boxStepTwo = await checkoutDialog.boundingBox();
+        expect(boxStepTwo).not.toBeNull();
+        if (boxStepTwo) {
+            expect(boxStepTwo.y).toBeGreaterThanOrEqual(8);
+            expect(boxStepTwo.x).toBeGreaterThanOrEqual(8);
+            expect(viewports.mobile.width - (boxStepTwo.x + boxStepTwo.width)).toBeGreaterThanOrEqual(8);
+        }
+
+        const closeCheckoutButton = page.getByRole('button', { name: /close checkout/i });
+        await expect(closeCheckoutButton).toBeVisible();
+        await closeCheckoutButton.click();
+
+        await expect(checkoutDialog).not.toBeVisible();
+    });
 });
 
 // =============================================================================
