@@ -873,16 +873,16 @@ export default function OrganizerTeamPage() {
                     closeInviteDialog();
                 }}
             >
-                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-full sm:max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-y-auto p-0">
                     {/* Header with gradient accent */}
-                    <div className="relative px-6 pt-6 pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
+                    <div className="relative px-4 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
                         <DialogHeader className="relative">
                             <div className="flex items-center gap-3 mb-1">
                                 <div className="p-2 rounded-xl bg-primary/10">
                                     <UserPlus className="h-5 w-5 text-primary" />
                                 </div>
-                                <DialogTitle className="text-xl">Invite team member</DialogTitle>
+                                <DialogTitle className="text-lg sm:text-xl">Invite team member</DialogTitle>
                             </div>
                             <DialogDescription className="text-muted-foreground">
                                 Send an invitation to collaborate on your events
@@ -890,7 +890,7 @@ export default function OrganizerTeamPage() {
                         </DialogHeader>
                     </div>
 
-                    <form onSubmit={handleInviteSubmit} className="p-6 space-y-6">
+                    <form onSubmit={handleInviteSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                         {/* Email Input */}
                         <div className="space-y-2">
                             <Label htmlFor="invite-email" className="text-sm font-medium flex items-center gap-2">
@@ -915,7 +915,7 @@ export default function OrganizerTeamPage() {
                                 <Shield className="h-4 w-4 text-muted-foreground" />
                                 Select role
                             </Label>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                                 {ROLE_OPTIONS.map((option) => {
                                     const isSelected = inviteForm.role === option.value;
                                     const RoleIcon = option.value === 'co_owner' ? Crown :
@@ -929,7 +929,7 @@ export default function OrganizerTeamPage() {
                                             type="button"
                                             onClick={() => setInviteForm((prev) => ({ ...prev, role: option.value as CreateInvitationPayload['role'] }))}
                                             className={cn(
-                                                'relative p-4 rounded-xl border-2 text-left transition-all duration-200',
+                                                'relative p-3 sm:p-4 rounded-xl border-2 text-left transition-all duration-200',
                                                 'hover:shadow-md hover:scale-[1.02]',
                                                 isSelected
                                                     ? 'border-primary bg-primary/5 shadow-sm'
@@ -947,15 +947,15 @@ export default function OrganizerTeamPage() {
 
                                             {/* Icon */}
                                             <div className={cn(
-                                                'w-10 h-10 rounded-xl flex items-center justify-center mb-3',
+                                                'w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-2.5 sm:mb-3',
                                                 option.color
                                             )}>
-                                                <RoleIcon className="h-5 w-5" />
+                                                <RoleIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                                             </div>
 
                                             {/* Content */}
-                                            <p className="font-semibold text-sm mb-1">{option.label}</p>
-                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                            <p className="font-semibold text-sm leading-tight mb-1">{option.label}</p>
+                                            <p className="text-[11px] sm:text-xs text-muted-foreground leading-relaxed">
                                                 {option.shortDesc}
                                             </p>
                                         </button>
@@ -996,19 +996,19 @@ export default function OrganizerTeamPage() {
                         )}
 
                         {/* Footer */}
-                        <div className="flex items-center justify-end gap-3 pt-2">
+                        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-1 sm:pt-2">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={closeInviteDialog}
-                                className="rounded-xl"
+                                className="rounded-xl w-full sm:w-auto"
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={isInviting}
-                                className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 gap-2 px-6"
+                                className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 gap-2 px-6 w-full sm:w-auto"
                             >
                                 {isInviting ? (
                                     <>
