@@ -50,6 +50,9 @@
   --nav-height: 80px;
   /* Height of fixed navbar for consistent spacing */
   --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-chrome-bg: var(--background);
+  /* Keep notch paint beneath interactive fixed layers to avoid overlay regressions */
+  --safe-area-chrome-z: 0;
   /* Dynamic padding for devices with display cutouts */
   --nav-safe-offset: calc(var(--nav-height) + var(--safe-area-top));
   /* Navbar height including safe area */
@@ -163,6 +166,17 @@
     min-height: 100vh;
     min-height: -webkit-fill-available;
     overflow-x: hidden;
+  }
+
+  /* Paint the iOS notch/safe-area strip with app chrome color, not browser white */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: var(--safe-area-top);
+    background: var(--safe-area-chrome-bg);
+    pointer-events: none;
+    z-index: var(--safe-area-chrome-z);
   }
 
   h1,

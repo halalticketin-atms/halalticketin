@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { DM_Sans, Geist, Geist_Mono, Sora } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
@@ -35,8 +35,11 @@ const sora = Sora({
 
 const metadataBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://halalticketin.com';
 
-export const viewport = {
-  themeColor: '#ffffff',
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f8fdfb' },
+    { media: '(prefers-color-scheme: dark)', color: '#0e2424' },
+  ],
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
