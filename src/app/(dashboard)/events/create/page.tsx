@@ -97,6 +97,7 @@ import { getBackendErrorDetails } from '@/lib/api-errors';
 import { getUserFriendlyMessage, toast } from '@/lib/notifications';
 import { getCurrencySymbol } from '@/lib/fees';
 import { LIMITS_GBP, MAX_PER_ORDER, MAX_PROMO_CODES_PER_EVENT, MAX_TICKET_QUANTITY, PROMO_CODE_MAX_LENGTH, PROMO_CODE_MIN_LENGTH, roundCurrencyLimit } from '@/lib/input-limits';
+import { shouldIncludeTicketIdsForSave } from '@/lib/ticket-save';
 import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/lib/timezone';
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
@@ -1553,7 +1554,7 @@ export function EventWizard({
                 setHasExistingAccessCode(accessCodeShouldPersist);
 
                 const ticketPayloads = buildTicketPayloads(tickets, formData.currency, formData.timezone, {
-                    includeIds: Boolean(eventId),
+                    includeIds: shouldIncludeTicketIdsForSave(eventId),
                 });
                 console.log('[DEBUG] Saving tickets for event:', nextEventId, 'payload:', ticketPayloads);
                 const ticketResponse = await saveEventTickets(nextEventId, ticketPayloads);
