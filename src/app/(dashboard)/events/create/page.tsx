@@ -1553,7 +1553,7 @@ export function EventWizard({
                 setHasExistingAccessCode(accessCodeShouldPersist);
 
                 const ticketPayloads = buildTicketPayloads(tickets, formData.currency, formData.timezone, {
-                    includeIds: Boolean(nextEventId),
+                    includeIds: Boolean(eventId),
                 });
                 console.log('[DEBUG] Saving tickets for event:', nextEventId, 'payload:', ticketPayloads);
                 const ticketResponse = await saveEventTickets(nextEventId, ticketPayloads);
