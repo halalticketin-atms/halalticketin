@@ -259,6 +259,22 @@ test.describe('Public Pages - Event Detail', () => {
         const viewportWidth = viewports.mobile.width;
         expect(bodyWidth).toBeLessThanOrEqual(viewportWidth + 10); // Small tolerance
     });
+
+    test('mobile single tap opens checkout dialog after selecting a ticket', async ({ page }) => {
+        await page.setViewportSize(viewports.mobile);
+        await page.goto('/events/test-event');
+        await page.waitForLoadState('networkidle');
+
+        const incrementButton = page.locator('button:has(svg.lucide-plus)').first();
+        await expect(incrementButton).toBeVisible();
+        await incrementButton.click();
+
+        const checkoutButton = page.getByRole('button', { name: /proceed to checkout/i });
+        await expect(checkoutButton).toBeEnabled();
+        await checkoutButton.click();
+
+        await expect(page.getByText('Order Summary')).toBeVisible();
+    });
 });
 
 test.describe('Public Pages - Pricing', () => {

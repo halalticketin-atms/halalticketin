@@ -1980,7 +1980,7 @@ export function PublicEventPageContent({
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: 0.2 }}
-                            className={cn(isEmbedCheckout ? '' : 'sticky top-8')}
+                            className={cn(isEmbedCheckout ? '' : 'lg:sticky lg:top-8')}
                         >
                             <Card className="overflow-hidden">
                                 <CardHeader>
@@ -2194,6 +2194,7 @@ export function PublicEventPageContent({
                                     )}
 
                                     <Button
+                                        type="button"
                                         className="w-full"
                                         size="lg"
                                         disabled={(!hasRegularTickets && !hasDonationOption) || !hasSelections}
@@ -2806,6 +2807,7 @@ export function PublicEventPageContent({
                             <div className="px-3.5 md:px-8 pb-3.5 md:pb-6 pt-2.5 md:pt-4 mt-auto shrink-0 border-t md:border-t-0 border-border/30">
                                 {stepType !== 'confirm' ? (
                                     <Button
+                                        type="button"
                                         className="w-full h-10 md:h-11 text-sm md:text-base shadow-lg shadow-primary/20"
                                         onClick={handleNextStep}
                                         disabled={isProcessing}
@@ -2815,6 +2817,7 @@ export function PublicEventPageContent({
                                     </Button>
                                 ) : (
                                     <Button
+                                        type="button"
                                         className="w-full h-10 md:h-11 text-sm md:text-base font-bold shadow-lg shadow-primary/20"
                                         onClick={handleProceedToCheckout}
                                         disabled={isProcessing || isQuoteBlocked}
