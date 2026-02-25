@@ -2222,7 +2222,7 @@ export function PublicEventPageContent({
 
             {/* Checkout Dialog - Multi-step wizard with softer styling */}
             <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-                <DialogContent className="w-[calc(100vw-2rem)] max-w-[850px] p-0 overflow-hidden border-0 bg-transparent shadow-none gap-0 max-h-[calc(100dvh-2rem)]" onOpenAutoFocus={(e) => e.preventDefault()}>
+                <DialogContent className="w-[calc(100vw-2rem)] sm:w-[95vw] sm:max-w-[850px] p-0 overflow-hidden border-0 bg-transparent shadow-none gap-0 max-h-[calc(100dvh-2rem)]" onOpenAutoFocus={(e) => e.preventDefault()}>
                     <div className="bg-card flex min-h-0 max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-primary/10 shadow-2xl md:min-h-[540px] md:max-h-[85vh] md:flex-row md:rounded-3xl">
 
                         {/* LEFT PANEL: Brand & Order Summary */}
