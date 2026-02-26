@@ -989,9 +989,6 @@ export function PublicEventPageContent({
         track
     ]);
 
-    const platformFeeAmount = checkoutQuote?.platformFee ?? 0;
-    const organizerFeeAmount = checkoutQuote?.organizerFee ?? 0;
-
     const hasOrganizerFeeOverride = useMemo(() => {
         if (!event || cartItems.length === 0) {
             return false;
@@ -1012,20 +1009,25 @@ export function PublicEventPageContent({
         });
     }, [event, cartItems, getCartItemUnitPrice]);
 
-    const processingFeeAmount = checkoutQuote?.processingFee ?? 0;
-    const grandTotal = checkoutQuote?.total ?? 0;
-    const creditsApplied = checkoutQuote?.creditsApplied ?? 0;
-    const quotePaidTicketCount = checkoutQuote?.paidTicketCount ?? paidTicketCount;
-    const creditSplitNote = checkoutQuote
-        ? formatCreditSplitNote(creditsApplied, quotePaidTicketCount)
-        : null;
-    const hasQuote = Boolean(checkoutQuote);
+    const hasQuoteSnapshot = Boolean(checkoutQuote);
     const quoteAgeMs = lastQuoteAtRef.current ? Date.now() - lastQuoteAtRef.current : null;
-    const quoteTooOld = hasQuote && quoteAgeMs !== null && quoteAgeMs > QUOTE_MAX_AGE_MS;
-    const quoteFresh = hasQuote
+    const quoteTooOld = hasQuoteSnapshot && quoteAgeMs !== null && quoteAgeMs > QUOTE_MAX_AGE_MS;
+    const quoteFresh = hasQuoteSnapshot
         && quoteSignature === lastQuoteSignatureRef.current
         && !quoteTooOld
         && !isDonationQuotePending;
+    const activeQuote = quoteFresh ? checkoutQuote : null;
+    const hasQuote = Boolean(activeQuote);
+    const quoteSubtotal = activeQuote?.subtotal ?? totalAmount;
+    const platformFeeAmount = activeQuote?.platformFee ?? 0;
+    const organizerFeeAmount = activeQuote?.organizerFee ?? 0;
+    const processingFeeAmount = activeQuote?.processingFee ?? 0;
+    const grandTotal = activeQuote?.total ?? 0;
+    const creditsApplied = activeQuote?.creditsApplied ?? 0;
+    const quotePaidTicketCount = activeQuote?.paidTicketCount ?? paidTicketCount;
+    const creditSplitNote = activeQuote
+        ? formatCreditSplitNote(creditsApplied, quotePaidTicketCount)
+        : null;
     const isQuoteBlocked = hasSelections && !quoteFresh;
     const isQuoteUpdating = (isQuoteLoading || isDonationQuotePending || quoteTooOld) && !isRateLimited;
     const quoteStatusLabel = isRateLimited
@@ -1233,6 +1235,7 @@ export function PublicEventPageContent({
             }
 
             setHasQuoteError(true);
+            setCheckoutQuote(null);
             const backendIssues = result.error?.issues?.join(' ');
             setQuoteErrorMessage(backendIssues || result.error?.message || 'Unable to calculate totals. Please wait or adjust your selection.');
         }, 350);
@@ -2167,7 +2170,7 @@ export function PublicEventPageContent({
                                         <div className="space-y-2 bg-primary/5 p-3 rounded-lg">
                                             <div className="flex justify-between text-sm">
                                                 <span>{totalTickets} ticket{totalTickets > 1 ? 's' : ''}</span>
-                                                <span>{currencySymbol}{totalAmount.toFixed(2)}</span>
+                                                <span>{currencySymbol}{quoteSubtotal.toFixed(2)}</span>
                                             </div>
                                             {appliedPromo && discountAmount > 0 && (
                                                 <div className="flex justify-between text-sm text-green-600">
