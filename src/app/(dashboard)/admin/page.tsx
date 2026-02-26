@@ -3,7 +3,10 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
+    AlertTriangle,
     CalendarPlus,
+    CheckCircle2,
+    Clock3,
     Ticket,
     UserPlus,
     TrendingUp,
@@ -50,12 +53,14 @@ import {
     getUsersList,
     getOrganizersList,
     getEventsList,
+    getCheckoutSweeperAudit,
     grantOrganizerCredits,
     type TimeSeriesPeriod,
     type TimeSeriesResponse,
     type AdminUser,
     type AdminOrganizer,
     type AdminEvent,
+    type CheckoutSweeperAuditResponse,
 } from '@/lib/admin-api';
 
 // =====================
@@ -152,6 +157,8 @@ const formatPrice = (amount: number, currency: string) => {
         maximumFractionDigits: 2,
     }).format(amount);
 };
+
+const shortId = (value: string) => value.slice(0, 8);
 
 // =====================
 // Chart Component
@@ -961,6 +968,9 @@ export default function AdminDashboardPage() {
     const [isCharityLoading, setIsCharityLoading] = useState(true);
     const [updatingCharityId, setUpdatingCharityId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('overview');
+    const [sweeperAudit, setSweeperAudit] = useState<CheckoutSweeperAuditResponse | null>(null);
+    const [isSweeperLoading, setIsSweeperLoading] = useState(true);
+    const [sweeperError, setSweeperError] = useState<string | null>(null);
 
     // Time series state
     const [timeSeries, setTimeSeries] = useState<TimeSeriesResponse | null>(null);
@@ -1030,8 +1040,30 @@ export default function AdminDashboardPage() {
             }
         };
 
+        const fetchSweeperAudit = async () => {
+            setIsSweeperLoading(true);
+            try {
+                const response = await getCheckoutSweeperAudit({ hours: 24, limit: 6 });
+                if (!cancelled) {
+                    setSweeperAudit(response);
+                    setSweeperError(null);
+                }
+            } catch (err) {
+                if (cancelled) return;
+                if (err instanceof ApiError) {
+                    setSweeperError(err.message || 'Unable to load checkout sweeper audit.');
+                } else {
+                    setSweeperError('Unable to load checkout sweeper audit.');
+                }
+                setSweeperAudit(null);
+            } finally {
+                if (!cancelled) setIsSweeperLoading(false);
+            }
+        };
+
         void fetchOverview();
         void fetchCharities();
+        void fetchSweeperAudit();
 
         return () => {
             cancelled = true;
@@ -1246,6 +1278,103 @@ export default function AdminDashboardPage() {
                             onPeriodChange={setTimeSeriesPeriod}
                             isLoading={isTimeSeriesLoading}
                         />
+
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4, delay: 0.2 }}
+                        >
+                            <Card className="border-border/60">
+                                <CardHeader className="flex flex-row items-center justify-between pb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-amber-500 to-rose-500 flex items-center justify-center shadow-md">
+                                            <Clock3 className="h-4 w-4 text-white" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg">Checkout Sweeper</CardTitle>
+                                            <p className="text-xs text-muted-foreground">24h audit: failures and released holds</p>
+                                        </div>
+                                    </div>
+                                    <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 border-amber-500/20">
+                                        {sweeperAudit?.lastRun
+                                            ? `Last run ${formatRelativeTime(sweeperAudit.lastRun.runFinishedAt)}`
+                                            : 'No runs logged'}
+                                    </Badge>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {isSweeperLoading ? (
+                                        <p className="text-sm text-muted-foreground">Loading sweeper audit...</p>
+                                    ) : sweeperError ? (
+                                        <p className="text-sm text-muted-foreground">{sweeperError}</p>
+                                    ) : (
+                                        <>
+                                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                                <div className="rounded-lg border border-border/60 bg-background p-3">
+                                                    <p className="text-xs text-muted-foreground">Finalized paid</p>
+                                                    <p className="text-xl font-semibold">{sweeperAudit?.totals.finalized ?? 0}</p>
+                                                </div>
+                                                <div className="rounded-lg border border-border/60 bg-background p-3">
+                                                    <p className="text-xs text-muted-foreground">Expired holds</p>
+                                                    <p className="text-xl font-semibold">{sweeperAudit?.totals.expired ?? 0}</p>
+                                                </div>
+                                                <div className="rounded-lg border border-border/60 bg-background p-3">
+                                                    <p className="text-xs text-muted-foreground">Failures</p>
+                                                    <p className="text-xl font-semibold text-rose-600">{sweeperAudit?.totals.failed ?? 0}</p>
+                                                </div>
+                                                <div className="rounded-lg border border-border/60 bg-background p-3">
+                                                    <p className="text-xs text-muted-foreground">Rows scanned</p>
+                                                    <p className="text-xl font-semibold">{sweeperAudit?.totals.scanned ?? 0}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid gap-4 lg:grid-cols-2">
+                                                <div className="space-y-2">
+                                                    <p className="text-sm font-medium flex items-center gap-2">
+                                                        <AlertTriangle className="h-4 w-4 text-rose-500" />
+                                                        Recent Failures
+                                                    </p>
+                                                    {sweeperAudit?.recentFailures.length ? (
+                                                        sweeperAudit.recentFailures.map((item) => (
+                                                            <div
+                                                                key={`${item.runId}-${item.orderId}-${item.error}`}
+                                                                className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3"
+                                                            >
+                                                                <p className="text-xs font-mono text-rose-700">order {shortId(item.orderId)}</p>
+                                                                <p className="text-sm text-rose-700">{item.error}</p>
+                                                                <p className="text-xs text-muted-foreground">{formatRelativeTime(item.runFinishedAt)}</p>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-sm text-muted-foreground">No failures in the last 24 hours.</p>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <p className="text-sm font-medium flex items-center gap-2">
+                                                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                                        Recent Changes
+                                                    </p>
+                                                    {sweeperAudit?.recentChanges.length ? (
+                                                        sweeperAudit.recentChanges.map((item) => (
+                                                            <div
+                                                                key={`${item.runId}-${item.orderId}-${item.action}`}
+                                                                className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3"
+                                                            >
+                                                                <p className="text-sm text-emerald-700 capitalize">{item.action}</p>
+                                                                <p className="text-xs font-mono text-emerald-700">order {shortId(item.orderId)}</p>
+                                                                <p className="text-xs text-muted-foreground">{formatRelativeTime(item.runFinishedAt)}</p>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-sm text-muted-foreground">No releases or finalizations in the last 24 hours.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </motion.div>
 
                         {/* Activity Sections */}
                         <div className="grid gap-6 lg:grid-cols-2">

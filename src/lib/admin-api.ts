@@ -130,6 +130,49 @@ export interface GrantOrganizerCreditsResponse {
     };
 }
 
+export interface CheckoutSweeperAuditRun {
+    id: string;
+    source: string;
+    scanned: number;
+    expired: number;
+    finalized: number;
+    skipped: number;
+    failed: number;
+    runStartedAt: string;
+    runFinishedAt: string;
+    createdAt: string;
+}
+
+export interface CheckoutSweeperAuditFailure {
+    runId: string;
+    runFinishedAt: string;
+    orderId: string;
+    sessionId: string | null;
+    error: string;
+}
+
+export interface CheckoutSweeperAuditChange {
+    runId: string;
+    runFinishedAt: string;
+    orderId: string;
+    sessionId: string | null;
+    action: 'expired' | 'finalized';
+}
+
+export interface CheckoutSweeperAuditResponse {
+    windowHours: number;
+    lastRun: CheckoutSweeperAuditRun | null;
+    totals: {
+        scanned: number;
+        expired: number;
+        finalized: number;
+        skipped: number;
+        failed: number;
+    };
+    recentFailures: CheckoutSweeperAuditFailure[];
+    recentChanges: CheckoutSweeperAuditChange[];
+}
+
 // =====================
 // API Functions
 // =====================
@@ -196,4 +239,16 @@ export async function grantOrganizerCredits(
         `/api/v1/admin/organizers/${organizerId}/credits/grant`,
         payload
     );
+}
+
+export async function getCheckoutSweeperAudit(params: {
+    hours?: number;
+    limit?: number;
+} = {}): Promise<CheckoutSweeperAuditResponse> {
+    return api.get<CheckoutSweeperAuditResponse>('/api/v1/admin/checkout-sweeper/audit', {
+        params: {
+            hours: String(params.hours ?? 24),
+            limit: String(params.limit ?? 10),
+        },
+    });
 }
