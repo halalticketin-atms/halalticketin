@@ -364,6 +364,7 @@ export function PublicEventPageContent({
     const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuoteResponse | null>(null);
     const [isQuoteLoading, setIsQuoteLoading] = useState(false);
     const [hasQuoteError, setHasQuoteError] = useState(false);
+    const [quoteErrorMessage, setQuoteErrorMessage] = useState<string | null>(null);
     const [quoteCooldownUntil, setQuoteCooldownUntil] = useState<number | null>(null);
     const [, setCooldownTick] = useState(0);
     const [quoteAgeTick, setQuoteAgeTick] = useState(0);
@@ -1040,7 +1041,7 @@ export function PublicEventPageContent({
         : isQuoteUpdating
             ? 'Updating totals...'
             : hasQuoteError
-                ? 'Unable to calculate totals. Please wait or adjust your selection.'
+                ? (quoteErrorMessage || 'Unable to calculate totals. Please wait or adjust your selection.')
                 : null;
 
     const organizerFeeDetails = useMemo(() => {
@@ -1112,6 +1113,7 @@ export function PublicEventPageContent({
             setCheckoutQuote(null);
             setIsQuoteLoading(false);
             setHasQuoteError(false);
+            setQuoteErrorMessage(null);
             lastQuoteSignatureRef.current = null;
             lastQuoteAtRef.current = null;
             return;
@@ -1119,6 +1121,7 @@ export function PublicEventPageContent({
         if (!quoteSignature || quoteItems.length === 0) {
             setIsQuoteLoading(isDonationQuotePending);
             setHasQuoteError(false);
+            setQuoteErrorMessage(null);
             return;
         }
 
@@ -1127,6 +1130,7 @@ export function PublicEventPageContent({
             setCheckoutQuote(null);
             setIsQuoteLoading(false);
             setHasQuoteError(false);
+            setQuoteErrorMessage(null);
             return;
         }
 
@@ -1136,6 +1140,7 @@ export function PublicEventPageContent({
         const isQuoteStale = isSameSignature && quoteAgeMs > QUOTE_MAX_AGE_MS;
         if (isSameSignature && !isQuoteStale) {
             setHasQuoteError(false);
+            setQuoteErrorMessage(null);
             return;
         }
 
@@ -1144,6 +1149,7 @@ export function PublicEventPageContent({
             setCheckoutQuote(cached.quote);
             setIsQuoteLoading(false);
             setHasQuoteError(false);
+            setQuoteErrorMessage(null);
             lastQuoteSignatureRef.current = quoteSignature;
             lastQuoteAtRef.current = cached.cachedAt;
             return;
@@ -1152,11 +1158,13 @@ export function PublicEventPageContent({
         if (quoteCooldownUntil && Date.now() < quoteCooldownUntil) {
             setIsQuoteLoading(false);
             setHasQuoteError(false);
+            setQuoteErrorMessage(null);
             return;
         }
 
         setIsQuoteLoading(true);
         setHasQuoteError(false);
+        setQuoteErrorMessage(null);
 
         const requestId = ++quoteRequestIdRef.current;
         let cancelled = false;
@@ -1181,16 +1189,52 @@ export function PublicEventPageContent({
                 lastQuoteAtRef.current = cachedAt;
                 setCheckoutQuote(result.quote);
                 setHasQuoteError(false);
+                setQuoteErrorMessage(null);
                 return;
             }
 
             if (result.error?.code === 'RATE_LIMIT_EXCEEDED' && result.error.retryAfter) {
                 setQuoteCooldownUntil(Date.now() + result.error.retryAfter * 1000);
                 setHasQuoteError(false);
+                setQuoteErrorMessage(null);
                 return;
             }
 
+            if ((result.error?.adjustedItems && result.error.adjustedItems.length > 0) || (result.error?.unavailableTypes && result.error.unavailableTypes.length > 0)) {
+                const nextQuantities: Record<string, number> = { ...ticketQuantities };
+                let changed = false;
+
+                for (const item of result.error.adjustedItems ?? []) {
+                    const current = nextQuantities[item.ticketTypeId] ?? 0;
+                    if (current !== item.quantity) {
+                        nextQuantities[item.ticketTypeId] = item.quantity;
+                        changed = true;
+                    }
+                }
+
+                for (const ticketTypeId of result.error.unavailableTypes ?? []) {
+                    const current = nextQuantities[ticketTypeId] ?? 0;
+                    if (current !== 0) {
+                        nextQuantities[ticketTypeId] = 0;
+                        changed = true;
+                    }
+                }
+
+                if (changed) {
+                    setTicketQuantities(nextQuantities);
+                    setAppliedPromo(null);
+                    setPromoError(null);
+                    setHasQuoteError(false);
+                    setQuoteErrorMessage(null);
+                    const adjustmentMessage = result.error.message || 'Ticket quantities were adjusted to match availability.';
+                    toast.error(adjustmentMessage);
+                    return;
+                }
+            }
+
             setHasQuoteError(true);
+            const backendIssues = result.error?.issues?.join(' ');
+            setQuoteErrorMessage(backendIssues || result.error?.message || 'Unable to calculate totals. Please wait or adjust your selection.');
         }, 350);
 
         return () => {
@@ -1209,7 +1253,8 @@ export function PublicEventPageContent({
         previewToken,
         checkoutQuote,
         quoteCooldownUntil,
-        quoteAgeTick
+        quoteAgeTick,
+        ticketQuantities
     ]);
 
     // Step-based checkout: Step 0 = Buyer, Step 1..N = Tickets (if per-ticket), Final = Confirm

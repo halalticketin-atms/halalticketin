@@ -88,6 +88,9 @@ export type CheckoutQuoteResult = {
         code?: string;
         message?: string;
         retryAfter?: number;
+        issues?: string[];
+        adjustedItems?: Array<{ ticketTypeId: string; quantity: number }>;
+        unavailableTypes?: string[];
     };
 };
 
@@ -113,6 +116,7 @@ export async function getCheckoutQuote(
         const data = await response.json().catch(() => null);
         if (!response.ok) {
             const parsed = parseBackendError(data);
+            const details = getBackendErrorDetails<Record<string, unknown>>(data) ?? {};
             const retryAfterHeader = response.headers.get('retry-after');
             const retryAfterFromHeader = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : NaN;
             const retryAfterFromBody =
@@ -128,12 +132,27 @@ export async function getCheckoutQuote(
             const fallbackMessage = typeof (data as { message?: unknown } | null)?.message === 'string'
                 ? (data as { message: string }).message
                 : undefined;
+            const detailCode = typeof details.code === 'string'
+                ? details.code
+                : undefined;
+            const adjustedItems = Array.isArray(details.adjustedItems)
+                ? details.adjustedItems.filter((item): item is { ticketTypeId: string; quantity: number } =>
+                    Boolean(item)
+                    && typeof (item as { ticketTypeId?: unknown }).ticketTypeId === 'string'
+                    && typeof (item as { quantity?: unknown }).quantity === 'number'
+                )
+                : undefined;
             return {
                 quote: null,
                 error: {
-                    code: parsed?.code ?? fallbackCode,
+                    code: detailCode ?? parsed?.code ?? fallbackCode,
                     message: parsed?.message ?? fallbackMessage,
-                    retryAfter
+                    retryAfter,
+                    issues: Array.isArray(details.issues) ? details.issues.filter((issue): issue is string => typeof issue === 'string') : undefined,
+                    adjustedItems: adjustedItems && adjustedItems.length > 0 ? adjustedItems : undefined,
+                    unavailableTypes: Array.isArray(details.unavailableTypes)
+                        ? details.unavailableTypes.filter((item): item is string => typeof item === 'string')
+                        : undefined
                 }
             };
         }
