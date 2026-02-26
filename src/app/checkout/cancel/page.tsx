@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { XCircle, RefreshCw, ArrowLeft } from 'lucide-react';
@@ -9,7 +9,64 @@ import { Button } from '@/components/ui/button';
 function CheckoutCancelContent() {
     const searchParams = useSearchParams();
     const orderId = searchParams.get('order_id');
-    const eventId = searchParams.get('event_id');
+    const eventSlug = searchParams.get('event_slug');
+    const [releaseState, setReleaseState] = useState<'idle' | 'releasing' | 'released' | 'failed'>('idle');
+
+    useEffect(() => {
+        if (!orderId) return;
+
+        const controller = new AbortController();
+        let isMounted = true;
+
+        const releasePendingOrder = async () => {
+            setReleaseState('releasing');
+            const storedEmail =
+                typeof sessionStorage !== 'undefined'
+                    ? sessionStorage.getItem(`checkout_email_${orderId}`)?.trim()
+                    : '';
+            if (!storedEmail) {
+                setReleaseState('failed');
+                return;
+            }
+            try {
+                const response = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/orders/${orderId}/cancel-checkout`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ attendeeEmail: storedEmail }),
+                        signal: controller.signal,
+                        keepalive: true
+                    }
+                );
+
+                if (!isMounted) return;
+                const payload = await response.json().catch(() => null) as { success?: boolean } | null;
+                const isReleaseConfirmed = response.ok && payload?.success === true;
+
+                if (isReleaseConfirmed && typeof sessionStorage !== 'undefined') {
+                    try {
+                        sessionStorage.removeItem(`checkout_email_${orderId}`);
+                    } catch {
+                        // Ignore storage errors
+                    }
+                }
+                setReleaseState(isReleaseConfirmed ? 'released' : 'failed');
+            } catch {
+                if (!isMounted) return;
+                setReleaseState('failed');
+            }
+        };
+
+        releasePendingOrder();
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
+    }, [orderId]);
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-red-50 to-white">
@@ -41,6 +98,11 @@ function CheckoutCancelContent() {
                             If you still want to attend, we recommend completing your purchase soon.
                         </p>
                     </div>
+                    {releaseState === 'failed' && (
+                        <p className="mt-3 text-xs text-amber-700">
+                            We could not clear your checkout hold immediately. It will auto-expire shortly.
+                        </p>
+                    )}
                 </div>
 
                 {/* Actions */}
@@ -51,9 +113,9 @@ function CheckoutCancelContent() {
                             Browse Events
                         </Link>
                     </Button>
-                    {eventId ? (
+                    {eventSlug ? (
                         <Button asChild size="lg">
-                            <Link href={`/events/${eventId}`}>
+                            <Link href={`/events/${eventSlug}`}>
                                 <RefreshCw className="w-5 h-5 mr-2" />
                                 Try Again
                             </Link>

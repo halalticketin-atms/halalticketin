@@ -141,6 +141,9 @@ function CheckoutSuccessContent() {
         if (orderStatus.eventId && typeof sessionStorage !== 'undefined') {
             try {
                 sessionStorage.removeItem(`checkout_draft_${orderStatus.eventId}`);
+                if (orderStatus.orderId) {
+                    sessionStorage.removeItem(`checkout_email_${orderStatus.orderId}`);
+                }
             } catch {
                 // Ignore storage errors
             }

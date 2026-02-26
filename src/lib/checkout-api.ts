@@ -290,6 +290,13 @@ export async function handleCheckout(
 
     // Paid order - redirect to Stripe
     if (result.checkoutUrl) {
+        if (result.orderId && typeof sessionStorage !== 'undefined') {
+            try {
+                sessionStorage.setItem(`checkout_email_${result.orderId}`, request.attendeeEmail);
+            } catch {
+                // Ignore storage errors and continue to checkout
+            }
+        }
         if (options?.redirectTarget === 'top' && window.top) {
             window.top.location.href = result.checkoutUrl;
         } else {
