@@ -16,6 +16,7 @@ import {
     Ticket,
     BarChart3,
     Users,
+    Mail,
 } from 'lucide-react';
 import {
     Dialog,
@@ -42,6 +43,11 @@ import { useOrganizers } from '@/context/organizer-context';
 import { cn } from '@/lib/utils';
 import { uploadOrganizerAvatar } from '@/lib/upload-api';
 import { COUNTRIES, CURRENCIES, TIMEZONES } from '@/lib/organizer-options';
+import {
+    getOrganizerContactEmailError,
+    isValidOrganizerContactEmail,
+    normalizeOrganizerContactEmail,
+} from '@/lib/organizer-contact-email';
 
 const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
@@ -115,6 +121,7 @@ export function CreateOrganizerDialog({
     const [name, setName] = useState('');
     const [organizerType, setOrganizerType] = useState<'individual' | 'organization' | 'charity'>('individual');
     const [charityNumber, setCharityNumber] = useState('');
+    const [organizerContactEmail, setOrganizerContactEmail] = useState('');
     const [country, setCountry] = useState('');
     const [city, setCity] = useState('');
     const [currency, setCurrency] = useState('GBP');
@@ -172,6 +179,15 @@ export function CreateOrganizerDialog({
             setErrorMessage('Please enter an organiser name');
             return;
         }
+        const trimmedOrganizerContactEmail = normalizeOrganizerContactEmail(organizerContactEmail);
+        const organizerContactEmailError = getOrganizerContactEmailError(trimmedOrganizerContactEmail, {
+            requiredMessage: 'Please enter an organizer contact email',
+            invalidMessage: 'Please enter a valid organizer contact email',
+        });
+        if (organizerContactEmailError) {
+            setErrorMessage(organizerContactEmailError);
+            return;
+        }
         if (organizerType === 'charity' && !charityNumber.trim()) {
             setErrorMessage('Please enter your charity number');
             return;
@@ -185,6 +201,7 @@ export function CreateOrganizerDialog({
                 organizer: { id: string; name: string };
             }>('/api/v1/organizers', {
                 name: name.trim(),
+                replyToEmail: trimmedOrganizerContactEmail,
                 organizerType,
                 charityNumber: organizerType === 'charity' ? charityNumber.trim() : undefined,
                 country: country || undefined,
@@ -259,6 +276,7 @@ export function CreateOrganizerDialog({
                 setStep('intro');
                 setName('');
                 setOrganizerType('individual');
+                setOrganizerContactEmail('');
                 setCountry('');
                 setCity('');
                 setCurrency('GBP');
@@ -598,6 +616,23 @@ export function CreateOrganizerDialog({
                                                 </motion.div>
                                             )}
 
+                                            <motion.div variants={staggerItem} className="space-y-2 mt-4">
+                                                <Label className="flex items-center gap-2">
+                                                    <Mail className="h-4 w-4 text-slate-400" />
+                                                    Organizer Contact Email <span className="text-rose-500">*</span>
+                                                </Label>
+                                                <Input
+                                                    type="email"
+                                                    placeholder="contact@your-organisation.com"
+                                                    value={organizerContactEmail}
+                                                    onChange={(e) => setOrganizerContactEmail(e.target.value)}
+                                                    className="h-12 bg-white/70 dark:bg-slate-800/70"
+                                                />
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                    This is the email attendees will use to contact your organisation.
+                                                </p>
+                                            </motion.div>
+
                                             {/* Country & City */}
                                             <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                                                 <div className="space-y-2">
@@ -675,7 +710,11 @@ export function CreateOrganizerDialog({
                                             <motion.div variants={staggerItem} className="pt-6">
                                                 <Button
                                                     onClick={handleCreateOrganizer}
-                                                    disabled={isLoading || !name.trim()}
+                                                    disabled={
+                                                        isLoading ||
+                                                        !name.trim() ||
+                                                        !isValidOrganizerContactEmail(organizerContactEmail)
+                                                    }
                                                     className="w-full h-12 font-semibold bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] hover:from-[var(--brand-teal)] hover:to-emerald-500 shadow-lg shadow-cyan-500/20"
                                                 >
                                                     {isLoading ? (

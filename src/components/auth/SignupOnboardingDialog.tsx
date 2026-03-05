@@ -61,6 +61,10 @@ import { COUNTRIES, TIMEZONES } from '@/lib/organizer-options';
 import { getPasswordValidationError } from '@/lib/password';
 import { getLastAuthMethod, setLastAuthMethod, type LastAuthMethod } from '@/lib/last-auth-method';
 import { getDefaultInviteNextPath } from '@/lib/pending-invite';
+import {
+    getOrganizerContactEmailError,
+    normalizeOrganizerContactEmail,
+} from '@/lib/organizer-contact-email';
 
 const TERMS_VERSION = '2024-12-20';
 const SUPPORT_URL = '/contact';
@@ -148,6 +152,7 @@ interface FormData {
     organizerName: string;
     organizerType: 'individual' | 'organization' | 'charity';
     organizerCharityNumber: string;
+    organizerContactEmail: string;
     organizerCountry: string;
     organizerCity: string;
     organizerCurrency: string;
@@ -166,6 +171,7 @@ const initialFormData: FormData = {
     organizerName: '',
     organizerType: 'individual',
     organizerCharityNumber: '',
+    organizerContactEmail: '',
     organizerCountry: '',
     organizerCity: '',
     organizerCurrency: 'GBP',
@@ -533,12 +539,21 @@ export function SignupOnboardingDialog({
             case 'organization': {
                 const trimmedOrganizerName = formData.organizerName.trim();
                 const trimmedOrganizerCharityNumber = formData.organizerCharityNumber.trim();
+                const trimmedOrganizerContactEmail = normalizeOrganizerContactEmail(formData.organizerContactEmail);
                 if (formData.organizerType === 'charity' && !trimmedOrganizerCharityNumber) {
                     setErrorMessage('Charity number is required');
                     return;
                 }
                 if (!trimmedOrganizerName) {
                     setErrorMessage('Organization name is required');
+                    return;
+                }
+                const organizerContactEmailError = getOrganizerContactEmailError(trimmedOrganizerContactEmail, {
+                    requiredMessage: 'Organizer contact email is required',
+                    invalidMessage: 'Please enter a valid organizer contact email',
+                });
+                if (organizerContactEmailError) {
+                    setErrorMessage(organizerContactEmailError);
                     return;
                 }
                 if (!formData.organizerType) {
@@ -550,6 +565,9 @@ export function SignupOnboardingDialog({
                 }
                 if (trimmedOrganizerCharityNumber !== formData.organizerCharityNumber) {
                     updateField('organizerCharityNumber', trimmedOrganizerCharityNumber);
+                }
+                if (trimmedOrganizerContactEmail !== formData.organizerContactEmail) {
+                    updateField('organizerContactEmail', trimmedOrganizerContactEmail);
                 }
 
                 // Step-wise validation: check organization name availability before proceeding
@@ -675,6 +693,7 @@ export function SignupOnboardingDialog({
         try {
             const isOrganizer = formData.role === 'organizer';
             const organizerName = formData.organizerName.trim();
+            const organizerContactEmail = normalizeOrganizerContactEmail(formData.organizerContactEmail);
             const resolvedHomeCountry = formData.homeCountry || (isOrganizer ? formData.organizerCountry : '');
             const resolvedHomeCity = formData.homeCity || (isOrganizer ? formData.organizerCity : '');
 
@@ -702,6 +721,7 @@ export function SignupOnboardingDialog({
                     charityNumber: formData.organizerType === 'charity'
                         ? (formData.organizerCharityNumber.trim() || undefined)
                         : undefined,
+                    replyToEmail: organizerContactEmail,
                     country: formData.organizerCountry || undefined,
                     city: formData.organizerCity || undefined,
                     currency: formData.organizerCurrency || undefined,
@@ -1759,6 +1779,25 @@ export function SignupOnboardingDialog({
                                                 />
                                             </motion.div>
                                         )}
+
+                                        <div className="space-y-2">
+                                            <Label className="flex items-center gap-2">
+                                                <Mail className="h-4 w-4 text-slate-400" />
+                                                Organizer Contact Email
+                                                <span className="text-rose-500">*</span>
+                                            </Label>
+                                            <Input
+                                                type="email"
+                                                placeholder="contact@your-organisation.com"
+                                                value={formData.organizerContactEmail}
+                                                onChange={(e) => updateField('organizerContactEmail', e.target.value)}
+                                                className="h-11 bg-white dark:bg-slate-800"
+                                                maxLength={320}
+                                            />
+                                            <p className="text-xs text-slate-500">
+                                                This is the email attendees will use to contact your organisation.
+                                            </p>
+                                        </div>
                                     </motion.div>
 
                                     {error && (

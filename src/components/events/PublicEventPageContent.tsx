@@ -23,6 +23,7 @@ import {
     ArrowRight,
     Check,
     Navigation,
+    Mail,
     Lock,
     X,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ import { Separator } from '@/components/ui/separator';
 import { FavoriteButton } from '@/components/ui/FavoriteButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
     Dialog,
     DialogContent,
@@ -49,6 +51,7 @@ import { useMarketingConsentRequirement } from '@/hooks/useMarketingConsentRequi
 import { useCookieConsent } from '@/context/cookie-consent-context';
 import { getMetaTrackingContext } from '@/lib/meta-tracking';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
+import { contactOrganizerByEventSlug } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote, type CheckoutQuoteResponse, type TicketAttendeePayload } from '@/lib/checkout-api';
 import { formatCurrency, getCurrencySymbol } from '@/lib/fees';
 import { formatCreditSplitNote } from '@/lib/credit-notes';
@@ -61,6 +64,11 @@ import { ShareDialog } from '@/components/share/ShareDialog';
 import { toast } from '@/lib/notifications';
 import { getSupabase } from '@/lib/supabase';
 import { getAuthToken } from '@/lib/api';
+import {
+    getPublicOrganizerContactFormError,
+    isPublicOrganizerContactFormValid,
+    normalizePublicOrganizerContactForm,
+} from '@/lib/public-organizer-contact';
 
 // Dynamic import to avoid SSR issues with Leaflet
 const EventLocationMap = dynamic(
@@ -298,6 +306,8 @@ export function PublicEventPageContent({
         !isPreview && event && 'metaPixelId' in event ? event.metaPixelId : null;
     const organizerName =
         organizerNameOverride ?? (event && 'organizerName' in event ? event.organizerName : null);
+    const canContactOrganizer =
+        !isPreview && event && 'canContactOrganizer' in event ? Boolean(event.canContactOrganizer) : false;
 
     useMarketingConsentRequirement(Boolean(eventPixelId));
 
@@ -349,6 +359,14 @@ export function PublicEventPageContent({
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [isPosterViewerOpen, setIsPosterViewerOpen] = useState(false);
+    const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+    const [contactName, setContactName] = useState('');
+    const [contactEmail, setContactEmail] = useState('');
+    const [contactMessage, setContactMessage] = useState('');
+    const [contactTrap, setContactTrap] = useState('');
+    const [contactFormStartedAt, setContactFormStartedAt] = useState<number | null>(null);
+    const [isContactSubmitting, setIsContactSubmitting] = useState(false);
+    const [contactError, setContactError] = useState<string | null>(null);
     const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
     const [donationAmount, setDonationAmount] = useState<number | null>(null);
     const [donationQuoteAmount, setDonationQuoteAmount] = useState<number | null>(null);
@@ -394,6 +412,92 @@ export function PublicEventPageContent({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]); // Only re-run if user changes (login/logout)
+
+    useEffect(() => {
+        if (!isContactDialogOpen) {
+            return;
+        }
+
+        setContactError(null);
+        setContactFormStartedAt(Date.now());
+        const defaultName = typeof user?.name === 'string' ? user.name : '';
+        if (defaultName.trim()) {
+            setContactName((current) => (current.trim() ? current : defaultName));
+        }
+        const defaultEmail = typeof user?.email === 'string' ? user.email : '';
+        if (defaultEmail.trim()) {
+            setContactEmail((current) => (current.trim() ? current : defaultEmail));
+        }
+    }, [isContactDialogOpen, user?.email, user?.name]);
+
+    const resetContactForm = useCallback(() => {
+        setContactName('');
+        setContactEmail('');
+        setContactMessage('');
+        setContactTrap('');
+        setContactFormStartedAt(null);
+        setContactError(null);
+    }, []);
+
+    const canSubmitContactForm = isPublicOrganizerContactFormValid({
+        name: contactName,
+        email: contactEmail,
+        message: contactMessage,
+    });
+
+    const handleContactOrganizerSubmit = useCallback(async (submitEvent: FormEvent<HTMLFormElement>) => {
+        submitEvent.preventDefault();
+        if (!event?.slug) {
+            return;
+        }
+
+        const normalizedForm = normalizePublicOrganizerContactForm({
+            name: contactName,
+            email: contactEmail,
+            message: contactMessage,
+        });
+        const validationError = getPublicOrganizerContactFormError(normalizedForm);
+        if (validationError) {
+            setContactError(validationError);
+            return;
+        }
+
+        setContactError(null);
+        setIsContactSubmitting(true);
+        try {
+            await contactOrganizerByEventSlug(
+                event.slug,
+                {
+                    name: normalizedForm.name,
+                    email: normalizedForm.email,
+                    message: normalizedForm.message,
+                    preferredContactMethod: contactTrap,
+                    formStartedAt: contactFormStartedAt ?? Date.now(),
+                },
+                accessCode ? { accessCode } : undefined,
+            );
+            setIsContactDialogOpen(false);
+            resetContactForm();
+            toast.success(
+                "Your message has been sent. If you don't hear back, check your spam folder for the organiser's reply."
+            );
+        } catch (submitError) {
+            const fallbackMessage = 'We could not send your message right now. Please try again.';
+            const apiMessage = submitError instanceof Error ? submitError.message : fallbackMessage;
+            setContactError(apiMessage || fallbackMessage);
+        } finally {
+            setIsContactSubmitting(false);
+        }
+    }, [
+        accessCode,
+        contactEmail,
+        contactFormStartedAt,
+        contactMessage,
+        contactName,
+        contactTrap,
+        event?.slug,
+        resetContactForm,
+    ]);
 
     // Attendee info mode states
     const [useSharedInfo, setUseSharedInfo] = useState(true);
@@ -1667,6 +1771,101 @@ export function PublicEventPageContent({
                         title={event.title || 'Event'}
                         text={organizerName ? `Hosted by ${organizerName}` : undefined}
                     />
+                    <Dialog
+                        open={isContactDialogOpen}
+                        onOpenChange={(open) => {
+                            setIsContactDialogOpen(open);
+                            if (!open && !isContactSubmitting) {
+                                resetContactForm();
+                            }
+                        }}
+                    >
+                        <DialogContent className="sm:max-w-lg">
+                            <DialogTitle>Contact organiser</DialogTitle>
+                            <form className="space-y-4" onSubmit={handleContactOrganizerSubmit}>
+                                <div className="space-y-2">
+                                    <Label htmlFor="contact-organizer-name">Your name</Label>
+                                    <Input
+                                        id="contact-organizer-name"
+                                        value={contactName}
+                                        onChange={(inputEvent) => setContactName(inputEvent.target.value)}
+                                        placeholder="Enter your name"
+                                        maxLength={80}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="contact-organizer-email">Your email</Label>
+                                    <Input
+                                        id="contact-organizer-email"
+                                        type="email"
+                                        value={contactEmail}
+                                        onChange={(inputEvent) => setContactEmail(inputEvent.target.value)}
+                                        placeholder="you@example.com"
+                                        maxLength={254}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="contact-organizer-message">Message</Label>
+                                    <Textarea
+                                        id="contact-organizer-message"
+                                        value={contactMessage}
+                                        onChange={(inputEvent) => setContactMessage(inputEvent.target.value)}
+                                        placeholder="Write your message to the organiser"
+                                        minLength={20}
+                                        maxLength={2000}
+                                        rows={6}
+                                        required
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Replies will come from the organiser directly.
+                                    </p>
+                                </div>
+                                <div className="hidden" aria-hidden="true">
+                                    <Label htmlFor="contact-organizer-preferred-method">
+                                        Preferred contact method
+                                    </Label>
+                                    <Input
+                                        id="contact-organizer-preferred-method"
+                                        value={contactTrap}
+                                        onChange={(inputEvent) => setContactTrap(inputEvent.target.value)}
+                                        tabIndex={-1}
+                                        autoComplete="off"
+                                    />
+                                </div>
+                                {contactError ? (
+                                    <p className="text-sm text-destructive">{contactError}</p>
+                                ) : null}
+                                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setIsContactDialogOpen(false);
+                                            resetContactForm();
+                                        }}
+                                        disabled={isContactSubmitting}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        disabled={isContactSubmitting || !canSubmitContactForm}
+                                    >
+                                        {isContactSubmitting ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Sending...
+                                            </>
+                                        ) : (
+                                            'Send message'
+                                        )}
+                                    </Button>
+                                </div>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
                     {event.bannerImageUrl && (
                         <Dialog
                             open={isPosterViewerOpen}
@@ -1807,6 +2006,7 @@ export function PublicEventPageContent({
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.4, delay: 0.05 }}
+                                    className="space-y-3"
                                 >
                                     <Link href={`/organizers/${event.organizerId}`}>
                                         <Card className="group hover:border-primary/50 transition-all duration-300 hover:shadow-lg cursor-pointer bg-gradient-to-br from-primary/5 to-transparent">
@@ -1846,6 +2046,26 @@ export function PublicEventPageContent({
                                             </CardContent>
                                         </Card>
                                     </Link>
+
+                                    {canContactOrganizer ? (
+                                        <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4">
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Contact organiser</p>
+                                                    <p className="mt-1 text-sm text-muted-foreground">
+                                                        Questions about this event? Send a message to the organiser.
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    className="shrink-0"
+                                                    onClick={() => setIsContactDialogOpen(true)}
+                                                >
+                                                    <Mail className="mr-2 h-4 w-4" />
+                                                    Contact organiser
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : null}
                                 </motion.div>
                             )}
 

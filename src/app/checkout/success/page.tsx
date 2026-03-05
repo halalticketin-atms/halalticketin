@@ -28,6 +28,8 @@ interface OrderStatus {
     currency: string;
     organizerId: string;
     eventId: string;
+    organizerName: string | null;
+    organizerContactEmail: string | null;
     metaPixelId: string | null;
     metaEventId?: string | null;
     tickets?: TicketInfo[];
@@ -416,12 +418,28 @@ function CheckoutSuccessContent() {
                         </div>
 
                         {/* Help text */}
-                        <p className="text-center text-xs text-muted-foreground mt-4">
-                            Need help?{' '}
-                            <Link href="/contact" className="text-primary hover:underline">
-                                Contact us
-                            </Link>
-                        </p>
+                        <div className="mt-4 space-y-3 text-center">
+                            {orderStatus?.organizerContactEmail ? (
+                                <div className="rounded-xl border border-primary/10 bg-primary/5 px-4 py-3 text-sm">
+                                    <p className="font-medium text-foreground">Questions about this event?</p>
+                                    <p className="mt-1 text-muted-foreground">
+                                        Contact {orderStatus.organizerName || 'the organiser'}
+                                    </p>
+                                    <a
+                                        href={`mailto:${orderStatus.organizerContactEmail}`}
+                                        className="mt-2 inline-block text-primary hover:underline"
+                                    >
+                                        {orderStatus.organizerContactEmail}
+                                    </a>
+                                </div>
+                            ) : null}
+                            <p className="text-center text-xs text-muted-foreground">
+                                Need help?{' '}
+                                <Link href="/contact" className="text-primary hover:underline">
+                                    Contact us
+                                </Link>
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>

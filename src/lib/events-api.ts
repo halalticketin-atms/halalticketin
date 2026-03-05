@@ -285,6 +285,7 @@ export interface PublicEventRecord {
     refundPolicy?: string | null;
     organizerName: string | null;
     organizerAvatarUrl: string | null;
+    canContactOrganizer?: boolean;
     category: string | null;
     absorbFee: boolean;
     feeTier: BackendFeeTier | null;
@@ -314,6 +315,14 @@ export interface PublicTicketRecord {
     absorbFee?: boolean | null;
     earlyBirdPrice: string | null;
     earlyBirdEndDate: string | null;
+}
+
+export interface PublicOrganizerContactInput {
+    name: string;
+    email: string;
+    message: string;
+    preferredContactMethod?: string;
+    formStartedAt?: number;
 }
 
 export const fetchPublicEvents = async (options?: { limit?: number; offset?: number; organizerId?: string }) => {
@@ -346,5 +355,22 @@ export const fetchPublicEventBySlug = async (
         Object.keys(headers).length > 0 || Object.keys(params).length > 0
             ? { headers: Object.keys(headers).length > 0 ? headers : undefined, params: Object.keys(params).length > 0 ? params : undefined }
             : undefined,
+    );
+};
+
+export const contactOrganizerByEventSlug = async (
+    slug: string,
+    data: PublicOrganizerContactInput,
+    options?: { accessCode?: string }
+) => {
+    const headers: Record<string, string> = {};
+    if (options?.accessCode) {
+        headers['x-event-access-code'] = options.accessCode;
+    }
+
+    return api.post<{ success: boolean; message: string }>(
+        `/api/v1/public/events/${slug}/contact-organizer`,
+        data,
+        Object.keys(headers).length > 0 ? { headers } : undefined,
     );
 };

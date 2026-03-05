@@ -15,9 +15,14 @@ export interface CreateOrganizerPayload {
     bio?: string;
     avatarUrl?: string;
     website?: string;
-    replyToEmail?: string;
+    replyToEmail: string;
     socialLinks?: Record<string, string>;
+    organizerType?: 'individual' | 'organization' | 'charity';
+    charityNumber?: string;
+    country?: string;
+    city?: string;
     defaultTimezone?: string;
+    defaultCurrency?: string;
 }
 
 export interface TeamMembershipResponse {

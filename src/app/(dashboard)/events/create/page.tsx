@@ -880,6 +880,7 @@ export function EventWizard({
     const [bannerWasRemoved, setBannerWasRemoved] = useState(false);
     const bannerInputRef = useRef<HTMLInputElement>(null);
     const hasCurrencyUserOverrideRef = useRef(false);
+    const saveDraftPromiseRef = useRef<Promise<string | null> | null>(null);
 
     useEffect(() => {
         appliedBannerRef.current = null;
@@ -1028,11 +1029,19 @@ export function EventWizard({
     const [hasExistingAccessCode, setHasExistingAccessCode] = useState<boolean>(
         initialDraft?.formData?.accessCodeEnabled ?? false,
     );
+
+    useEffect(() => {
+        if (initialDraft?.eventId && eventId !== initialDraft.eventId) {
+            setEventId(initialDraft.eventId);
+        }
+    }, [eventId, initialDraft?.eventId]);
     const [isSaving, setIsSaving] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [, setActionMessage] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
     const [, setPublishErrors] = useState<string[]>([]);
+    const [isNavigatingToOrganizerSettings, setIsNavigatingToOrganizerSettings] = useState(false);
+    const [hasOrganizerContactPublishBlocker, setHasOrganizerContactPublishBlocker] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [ticketErrors, setTicketErrors] = useState<Record<string, TicketFieldErrors>>({});
     const [promoErrors, setPromoErrors] = useState<Record<string, PromoFieldErrors>>({});
@@ -1489,6 +1498,11 @@ export function EventWizard({
 
     const saveDraft = useCallback(
         async (options?: { silent?: boolean; blockOnPromoErrors?: boolean }) => {
+            if (saveDraftPromiseRef.current) {
+                return saveDraftPromiseRef.current;
+            }
+
+            const runSave = async (): Promise<string | null> => {
             if (isSaving) {
                 return eventId;
             }
@@ -1514,6 +1528,7 @@ export function EventWizard({
 
             setIsSaving(true);
             setActionError(null);
+            setHasOrganizerContactPublishBlocker(false);
             if (!options?.silent) {
                 setActionMessage(null);
             }
@@ -1535,6 +1550,10 @@ export function EventWizard({
                 let nextEventId = eventId;
 
                 if (!nextEventId) {
+                    if (mode === 'edit') {
+                        setActionError('Unable to determine which event to update. Please refresh and try again.');
+                        return null;
+                    }
                     const response = await createEventDraft(activeOrganizerId, payload);
                     nextEventId = response.event.id;
                     setEventId(nextEventId);
@@ -1887,19 +1906,82 @@ export function EventWizard({
             } finally {
                 setIsSaving(false);
             }
+            };
+
+            const savePromise = runSave();
+            saveDraftPromiseRef.current = savePromise;
+            try {
+                return await savePromise;
+            } finally {
+                if (saveDraftPromiseRef.current === savePromise) {
+                    saveDraftPromiseRef.current = null;
+                }
+            }
         },
-        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, goToStepForErrors, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
+        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, goToStepForErrors, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, mode, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
         await saveDraft();
     }, [saveDraft]);
 
+    const needsOrganizerContactEmailFix = useMemo(
+        () => hasOrganizerContactPublishBlocker || Boolean(actionError?.toLowerCase().includes('organizer contact email')),
+        [actionError, hasOrganizerContactPublishBlocker],
+    );
+
+    const handleSaveDraftAndOpenOrganizerSettings = useCallback(async () => {
+        if (isNavigatingToOrganizerSettings || isSaving || isPublishing) {
+            return;
+        }
+
+        setIsNavigatingToOrganizerSettings(true);
+        try {
+            const savedEventId = await saveDraft({ silent: true, blockOnPromoErrors: true });
+            if (!savedEventId) {
+                return;
+            }
+
+            const settingsParams = new URLSearchParams({
+                tab: 'organizer-profile',
+                focus: 'org-reply-to',
+                returnTo: `/events/${savedEventId}/edit`,
+            });
+            const settingsHref = `/settings?${settingsParams.toString()}`;
+
+            toast.info('Draft saved. Add your organizer contact email in Settings, then publish again.', {
+                duration: 6000,
+            });
+
+            router.push(settingsHref);
+            window.setTimeout(() => {
+                if (!window.location.pathname.startsWith('/settings')) {
+                    window.location.assign(settingsHref);
+                }
+            }, 500);
+        } finally {
+            setIsNavigatingToOrganizerSettings(false);
+        }
+    }, [isNavigatingToOrganizerSettings, isPublishing, isSaving, router, saveDraft]);
+
     const executePublish = useCallback(async () => {
         setActionError(null);
         setActionMessage(null);
-        setIsPublishing(true);
         setIsWarningOpen(false); // Close warning if open
+
+        const organizerContactEmail = currentOrganizer?.replyToEmail?.trim() ?? '';
+        if (!organizerContactEmail) {
+            const missingContactMessage =
+                'Add an organizer contact email in Organizer Settings before publishing so attendees can reach you.';
+            setHasOrganizerContactPublishBlocker(true);
+            setFieldErrors({});
+            setPublishErrors([missingContactMessage]);
+            setActionError(missingContactMessage);
+            return;
+        }
+
+        setIsPublishing(true);
+        setHasOrganizerContactPublishBlocker(false);
 
         try {
             const savedEventId = await saveDraft({ silent: true, blockOnPromoErrors: true });
@@ -1935,6 +2017,19 @@ export function EventWizard({
                 } | string[]>(error.payload);
                 const errorMessage = getUserFriendlyMessage(error) || 'Unable to publish event.';
                 const normalizedMessage = errorMessage.toLowerCase();
+                const hasOrganizerContactMessage = (message?: string | null) =>
+                    Boolean(message?.toLowerCase().includes('organizer contact email'));
+                const hasOrganizerContactIssueFromDetails = Array.isArray(details)
+                    ? details.some((item) => hasOrganizerContactMessage(item))
+                    : Boolean(
+                        details?.formErrors?.some((item) => hasOrganizerContactMessage(item)) ||
+                        Object.values(details?.fieldErrors ?? {}).some((messages) =>
+                            messages?.some((item) => hasOrganizerContactMessage(item)),
+                        ),
+                    );
+                if (hasOrganizerContactIssueFromDetails || hasOrganizerContactMessage(errorMessage)) {
+                    setHasOrganizerContactPublishBlocker(true);
+                }
 
                 if (Array.isArray(details) && details.length > 0) {
                     const { fieldErrors: mapped, unmatched } = deriveFieldErrorsFromMessages(details);
@@ -1987,6 +2082,20 @@ export function EventWizard({
                     setActionError(firstMessage ?? details.formErrors?.[0] ?? errorMessage);
                     // Show toast for visibility (especially on mobile)
                     toast.error(firstMessage ?? details.formErrors?.[0] ?? errorMessage);
+                } else if (
+                    details &&
+                    !Array.isArray(details) &&
+                    Array.isArray(details.formErrors) &&
+                    details.formErrors.length > 0
+                ) {
+                    const firstFormError = details.formErrors[0];
+                    setFieldErrors({});
+                    setPublishErrors(details.formErrors);
+                    if (normalizedMessage.includes('stripe') && normalizedMessage.includes('payment')) {
+                        setCurrentStep(4);
+                    }
+                    setActionError(firstFormError);
+                    toast.error(firstFormError);
                 } else {
                     setFieldErrors({});
                     // Don't duplicate - only use actionError for single messages
@@ -2016,6 +2125,7 @@ export function EventWizard({
         formData.title,
         formData.venue,
         formData.visibility,
+        currentOrganizer?.replyToEmail,
         goToStepForErrors,
         markSnapshotAsSaved,
         router,
@@ -2105,7 +2215,7 @@ export function EventWizard({
         }
     }, [eventId, mode, router, saveDraft]);
 
-    const isBusy = isSaving || isPublishing;
+    const isBusy = isSaving || isPublishing || isNavigatingToOrganizerSettings;
     const isPrivate = formData.visibility === 'private';
     const statusLabel = !activeOrganizerId
         ? 'Select or create an organiser to save progress.'
@@ -4302,23 +4412,37 @@ export function EventWizard({
                         {/* Error Display - Left (tap for full message) */}
                         <div className="flex-1 min-w-0">
                             {actionError ? (
-                                <button
-                                    onClick={() => {
-                                        toast.error(actionError, undefined, { duration: 8000 });
-                                    }}
-                                    className="flex items-center gap-2 text-left w-full group"
-                                >
-                                    <p className="text-sm text-destructive font-medium truncate group-hover:underline">{actionError}</p>
+                                <div className="flex items-center gap-2 text-left w-full group">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            toast.error(actionError, undefined, { duration: 8000 });
+                                        }}
+                                        className="min-w-0 flex-1 text-left"
+                                    >
+                                        <p className="text-sm text-destructive font-medium truncate group-hover:underline">{actionError}</p>
+                                    </button>
                                     {actionError.toLowerCase().includes('stripe') && (
                                         <Link
                                             href="/settings?tab=payments"
                                             className="shrink-0 text-xs text-primary hover:underline"
-                                            onClick={(e) => e.stopPropagation()}
                                         >
                                             Fix →
                                         </Link>
                                     )}
-                                </button>
+                                    {needsOrganizerContactEmailFix && (
+                                        <button
+                                            type="button"
+                                            className="shrink-0 text-xs text-primary hover:underline disabled:pointer-events-none disabled:opacity-60"
+                                            onClick={() => {
+                                                void handleSaveDraftAndOpenOrganizerSettings();
+                                            }}
+                                            disabled={isNavigatingToOrganizerSettings || isSaving || isPublishing}
+                                        >
+                                            {isNavigatingToOrganizerSettings ? 'Saving…' : 'Save draft & fix →'}
+                                        </button>
+                                    )}
+                                </div>
                             ) : (
                                 <p className="text-xs text-muted-foreground truncate">{statusLabel}</p>
                             )}

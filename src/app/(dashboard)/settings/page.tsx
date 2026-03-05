@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,10 @@ import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { OrgBadge, getOrgColor } from '@/components/dashboard/OrganizerSwitcher';
 import { ImageCropperDialog } from '@/components/ui/image-cropper-dialog';
+import {
+    getOrganizerContactEmailError,
+    normalizeOrganizerContactEmail,
+} from '@/lib/organizer-contact-email';
 
 type SettingsTab = 'profile' | 'organizer-profile' | 'currency' | 'marketing' | 'payments';
 
@@ -83,6 +88,7 @@ const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'imag
 const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
 
 export default function SettingsPage() {
+    const searchParams = useSearchParams();
     const { user, isLoading: authLoading, refresh: refreshAuth } = useAuth();
     const { activeOrganizerId, setActiveOrganizerId, organizers, activeOrganizers, isLoading: organizersLoading, refresh } = useOrganizers();
 
@@ -154,6 +160,47 @@ export default function SettingsPage() {
 
     // Filter tabs based on active organizer status (not just any organizer)
     const visibleTabs = TABS.filter(tab => !tab.organizerOnly || hasActiveOrganizer);
+
+    useEffect(() => {
+        const requestedTab = searchParams.get('tab');
+        if (!requestedTab) {
+            return;
+        }
+
+        const validTabIds: SettingsTab[] = ['profile', 'organizer-profile', 'currency', 'marketing', 'payments'];
+        if (!validTabIds.includes(requestedTab as SettingsTab)) {
+            return;
+        }
+
+        const nextTab = requestedTab as SettingsTab;
+        const tabConfig = TABS.find(tab => tab.id === nextTab);
+        if (tabConfig?.organizerOnly && !hasActiveOrganizer) {
+            return;
+        }
+
+        setActiveTab(nextTab);
+    }, [hasActiveOrganizer, searchParams]);
+
+    useEffect(() => {
+        const targetId = searchParams.get('focus');
+        if (!targetId || activeTab !== 'organizer-profile') {
+            return;
+        }
+
+        const frame = window.requestAnimationFrame(() => {
+            const target = document.getElementById(targetId);
+            if (!target) {
+                return;
+            }
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+                target.focus();
+                target.select?.();
+            }
+        });
+
+        return () => window.cancelAnimationFrame(frame);
+    }, [activeTab, currentOrganizer?.id, searchParams]);
 
     // Initialize profile form from user data
     useEffect(() => {
@@ -441,8 +488,17 @@ export default function SettingsPage() {
             const trimmedWebsite = organizerProfileForm.website.trim();
             payload.website = trimmedWebsite === '' ? null : trimmedWebsite;
 
-            const trimmedReplyTo = organizerProfileForm.replyToEmail.trim();
-            payload.replyToEmail = trimmedReplyTo === '' ? null : trimmedReplyTo;
+            const trimmedReplyTo = normalizeOrganizerContactEmail(organizerProfileForm.replyToEmail);
+            const organizerContactEmailError = getOrganizerContactEmailError(trimmedReplyTo, {
+                requiredMessage: 'Organizer contact email is required. Please enter a valid email.',
+                invalidMessage: 'Please enter a valid organizer contact email.',
+            });
+            if (organizerContactEmailError) {
+                setOrganizerProfileSaveStatus('error');
+                setOrganizerProfileError(organizerContactEmailError);
+                return;
+            }
+            payload.replyToEmail = trimmedReplyTo;
 
             // Social links - only include non-empty ones
             const socialLinks: Record<string, string> = {};
@@ -887,6 +943,12 @@ export default function SettingsPage() {
                                                 </div>
                                             </div>
 
+                                            {currentOrganizer && !(currentOrganizer.replyToEmail || '').trim() && (
+                                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                                                    Add an organizer contact email so attendees can reach you directly. This is required before you can publish or restore published events.
+                                                </div>
+                                            )}
+
                                             {/* Contact Card */}
                                             <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
                                                 <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
@@ -908,18 +970,18 @@ export default function SettingsPage() {
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="org-reply-to" className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                                                            <Mail className="h-3 w-3" /> Reply-to Email
+                                                            <Mail className="h-3 w-3" /> Organizer Contact Email
                                                         </Label>
                                                         <Input
                                                             id="org-reply-to"
                                                             type="email"
                                                             className="h-10"
-                                                            placeholder="replies@your-organization.com"
+                                                            placeholder="contact@your-organization.com"
                                                             value={organizerProfileForm.replyToEmail}
                                                             onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, replyToEmail: e.target.value }))}
                                                             maxLength={254}
                                                         />
-                                                        <p className="text-xs text-muted-foreground">Used when attendees reply to broadcast emails.</p>
+                                                        <p className="text-xs text-muted-foreground">Shown to attendees on event pages, checkout confirmations, and ticket emails. Also used as the reply-to address for organizer emails.</p>
                                                     </div>
                                                 </div>
                                             </div>

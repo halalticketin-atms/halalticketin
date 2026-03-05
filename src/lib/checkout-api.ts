@@ -242,6 +242,8 @@ export async function getOrderStatus(orderId: string): Promise<{
     currency: string;
     organizerId: string;
     eventId: string;
+    organizerName: string | null;
+    organizerContactEmail: string | null;
     metaPixelId: string | null;
     metaEventId?: string | null;
     tickets?: Array<{
