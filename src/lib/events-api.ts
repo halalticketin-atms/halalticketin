@@ -211,7 +211,9 @@ export interface PromoCodeRecord {
     usageLimit: number | null;
     usageCount: number;
     validFrom: string | null;
+    validFromHasTime: boolean;
     validUntil: string | null;
+    validUntilHasTime: boolean;
     isActive: boolean;
     revealsHiddenTickets: boolean;
     applicableTicketTypeIds: string[] | null;
@@ -225,7 +227,9 @@ export interface PromoCodeInput {
     discountValue: number;
     usageLimit?: number | null;
     validFrom?: string | null;
+    validFromHasTime?: boolean;
     validUntil?: string | null;
+    validUntilHasTime?: boolean;
     isActive?: boolean;
     revealsHiddenTickets?: boolean;
     applicableTicketTypeIds?: string[] | null;

@@ -72,7 +72,9 @@ export interface DraftPromoCode {
   discountValue: string;
   usageLimit: number;
   validFrom: string;
+  validFromTime: string;
   validUntil: string;
+  validUntilTime: string;
   isActive?: boolean;
   revealsHiddenTickets?: boolean;
   applicableTicketTypeIds?: string[] | null;
@@ -202,6 +204,14 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
     return undefined;
   };
 
+  const normalizePromoCode = (promo: DraftPromoCode): DraftPromoCode => ({
+    ...promo,
+    validFrom: promo.validFrom ?? '',
+    validFromTime: promo.validFromTime ?? '',
+    validUntil: promo.validUntil ?? '',
+    validUntilTime: promo.validUntilTime ?? '',
+  });
+
   const normalizedVisibility = normalizeVisibility(initial?.formData?.visibility);
   const normalizedInitialFormData = initial?.formData
     ? {
@@ -221,7 +231,9 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
       ? initial.tickets.map(normalizeTicketType)
       : [createDefaultTicket()],
   );
-  const [promoCodes, setPromoCodes] = useState<DraftPromoCode[]>(initial?.promoCodes ?? []);
+  const [promoCodes, setPromoCodes] = useState<DraftPromoCode[]>(
+    initial?.promoCodes?.map(normalizePromoCode) ?? [],
+  );
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -273,7 +285,9 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
         discountValue: '',
         usageLimit: 100,
         validFrom: '',
+        validFromTime: '',
         validUntil: '',
+        validUntilTime: '',
       },
     ]);
   };

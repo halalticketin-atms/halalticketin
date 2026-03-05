@@ -230,12 +230,12 @@ function CheckoutSuccessContent() {
     const isCompleted = orderStatus?.status === 'completed' && !isPending;
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:flex md:items-center md:justify-center md:p-8 dark:from-slate-900 dark:to-slate-800">
             <div className="sm:max-w-[850px] w-[95vw] mx-auto">
-                <div className="bg-card flex flex-col md:flex-row h-auto md:h-[540px] rounded-3xl overflow-hidden max-h-[calc(100dvh-2rem)] shadow-2xl border border-primary/10">
+                <div className="bg-card flex flex-col rounded-3xl border border-primary/10 shadow-2xl md:h-[540px] md:max-h-[calc(100dvh-2rem)] md:flex-row md:overflow-hidden">
 
                     {/* LEFT PANEL: Success Message & Actions */}
-                    <div className="w-full md:w-[320px] bg-primary/5 border-r border-border/50 p-6 flex flex-col relative overflow-hidden">
+                    <div className="relative flex w-full flex-col overflow-hidden border-b border-border/50 bg-primary/5 p-5 sm:p-6 md:w-[320px] md:border-b-0 md:border-r">
                         {/* Decorative background */}
                         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
                         <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -ml-24 -mb-24 pointer-events-none" />
@@ -253,7 +253,7 @@ function CheckoutSuccessContent() {
                         </div>
 
                         {/* Status Content */}
-                        <div className="flex-1 flex flex-col items-center justify-center text-center relative z-10">
+                        <div className="relative z-10 flex flex-col items-center justify-center py-3 text-center md:flex-1 md:py-0">
                             {isCompleted && (
                                 <>
                                     <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 mb-4">
@@ -332,7 +332,7 @@ function CheckoutSuccessContent() {
                     </div>
 
                     {/* RIGHT PANEL: Order Summary & Tickets */}
-                    <div className="flex-1 flex flex-col bg-card relative p-6 md:p-8 overflow-hidden">
+                    <div className="relative flex flex-1 flex-col bg-card p-5 sm:p-6 md:overflow-hidden md:p-8">
                         {/* Step Indicators */}
                         <StepIndicator currentStep={3} />
 
@@ -347,13 +347,13 @@ function CheckoutSuccessContent() {
                         </div>
 
                         {/* Tickets with QR Codes - Scrollable */}
-                        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                        <div className="custom-scrollbar md:min-h-0 md:flex-1 md:overflow-y-auto">
                             {isCompleted && orderStatus?.tickets && orderStatus.tickets.length > 0 && (
                                 <div className="space-y-3">
                                     {orderStatus.tickets.map((ticket) => (
                                         <div
                                             key={ticket.id}
-                                            className="p-4 bg-muted/30 rounded-xl flex items-center justify-between group border border-border/50 hover:bg-muted/50 transition-colors"
+                                            className="group flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm transition-colors hover:bg-slate-100 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900/60 dark:hover:bg-slate-900"
                                         >
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-medium text-foreground">{ticket.ticketType}</p>
@@ -379,7 +379,7 @@ function CheckoutSuccessContent() {
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="ml-4 shrink-0"
+                                                className="h-11 w-full shrink-0 border-primary/20 bg-background hover:bg-primary/5 sm:ml-4 sm:h-9 sm:w-auto"
                                                 onClick={() => downloadQRCode(ticket.id, ticket.ticketCode)}
                                             >
                                                 <Download className="w-4 h-4 mr-2" />

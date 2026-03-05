@@ -238,6 +238,8 @@ function normalizePromoCode(
     discountValue: raw.discountValue ?? '',
     usageLimit,
     validFrom: raw.validFrom ?? '',
+    validFromTime: raw.validFromTime ?? '',
     validUntil: raw.validUntil ?? '',
+    validUntilTime: raw.validUntilTime ?? '',
   };
 }

@@ -51,6 +51,9 @@ export interface OrderResponse {
         remainingRefundable?: number;
     };
     status: OrderStatus;
+    lastConfirmationSentAt?: string | null;
+    confirmationEmailStatus?: 'pending' | 'sent' | 'failed' | null;
+    confirmationEmailLastError?: string | null;
     items: OrderItem[];
     paymentMethod?: string | null;
 }

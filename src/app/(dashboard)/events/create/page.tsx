@@ -432,6 +432,62 @@ const getTicketSalesWindowWarning = (
     return null;
 };
 
+const buildPromoValidityErrors = (
+    promoCodes: DraftPromoCode[],
+    timeZone?: string,
+): Record<string, PromoFieldErrors> => {
+    const errors: Record<string, PromoFieldErrors> = {};
+
+    promoCodes.forEach((promo) => {
+        const validFromDate = promo.validFrom.trim();
+        const validFromTime = promo.validFromTime.trim();
+        const validUntilDate = promo.validUntil.trim();
+        const validUntilTime = promo.validUntilTime.trim();
+        const promoErrors: PromoFieldErrors = {};
+
+        if (!validFromDate && validFromTime) {
+            promoErrors.validFrom = 'Choose a valid-from date before setting a time.';
+        }
+
+        if (!validUntilDate && validUntilTime) {
+            promoErrors.validUntil = 'Choose a valid-until date before setting a time.';
+        }
+
+        if (!promoErrors.validFrom && !promoErrors.validUntil && validFromDate && validUntilDate) {
+            const validFromIso = buildPromoValidityIso(validFromDate, validFromTime, false, timeZone);
+            const validUntilIso = buildPromoValidityIso(validUntilDate, validUntilTime, true, timeZone);
+            if (!validFromIso || !validUntilIso || new Date(validUntilIso) <= new Date(validFromIso)) {
+                promoErrors.validUntil = 'Valid until must be after valid from.';
+            }
+        }
+
+        if (Object.keys(promoErrors).length > 0) {
+            errors[promo.id] = promoErrors;
+        }
+    });
+
+    return errors;
+};
+
+const buildPromoValidityIso = (
+    date: string,
+    time: string,
+    isEndBoundary: boolean,
+    timeZone?: string,
+) => {
+    const trimmedDate = date.trim();
+    if (!trimmedDate) {
+        return null;
+    }
+
+    const trimmedTime = time.trim();
+    if (trimmedTime) {
+        return toIsoString(trimmedDate, trimmedTime, timeZone);
+    }
+
+    return toIsoString(trimmedDate, isEndBoundary ? '23:59' : '00:00', timeZone);
+};
+
 const buildDuplicateTicketNameErrors = (tickets: DraftTicketType[]) => {
     const nameToIds = new Map<string, string[]>();
 
@@ -1455,8 +1511,14 @@ export function EventWizard({
     const updatePromoCode = useCallback(
         <K extends keyof DraftPromoCode>(id: string, field: K, value: DraftPromoCode[K]) => {
             updatePromoCodeBase(id, field, value);
-            if (field === 'code' || field === 'discountValue' || field === 'usageLimit' || field === 'validFrom' || field === 'validUntil' || field === 'applicableTicketTypeIds' || field === 'discountType') {
-                clearPromoError(id, field);
+            const errorField =
+                field === 'validFromTime'
+                    ? 'validFrom'
+                    : field === 'validUntilTime'
+                        ? 'validUntil'
+                        : field;
+            if (errorField === 'code' || errorField === 'discountValue' || errorField === 'usageLimit' || errorField === 'validFrom' || errorField === 'validUntil' || errorField === 'applicableTicketTypeIds' || errorField === 'discountType') {
+                clearPromoError(id, errorField);
             }
         },
         [clearPromoError, updatePromoCodeBase],
@@ -1676,7 +1738,7 @@ export function EventWizard({
                         normalizedPromoCodes = mapPromoTicketTypeIds(promoCodes, ticketIdMap);
                         setPromoCodes(normalizedPromoCodes);
                     }
-                    const nextPromoErrors: Record<string, PromoFieldErrors> = {};
+                    const nextPromoErrors = buildPromoValidityErrors(normalizedPromoCodes, formData.timezone);
                     const promoApiErrors: Record<string, PromoFieldErrors> = {};
                     let hasPromoApiErrors = false;
                     let promoErrorMessage: string | null = null;
@@ -1711,7 +1773,10 @@ export function EventWizard({
                         }
 
                         if (errors.code || errors.discountValue) {
-                            nextPromoErrors[promo.id] = errors;
+                            nextPromoErrors[promo.id] = {
+                                ...(nextPromoErrors[promo.id] ?? {}),
+                                ...errors,
+                            };
                         }
                     }
 
@@ -1743,8 +1808,10 @@ export function EventWizard({
                                 discountType: promo.discountType === 'fixed' ? 'amount' : 'percentage',
                                 discountValue,
                                 usageLimit: promo.usageLimit || null,
-                                validFrom: promo.validFrom ? `${promo.validFrom}T00:00:00.000Z` : null,
-                                validUntil: promo.validUntil ? `${promo.validUntil}T23:59:59.000Z` : null,
+                                validFrom: buildPromoValidityIso(promo.validFrom, promo.validFromTime, false, formData.timezone),
+                                validFromHasTime: promo.validFromTime.trim().length > 0,
+                                validUntil: buildPromoValidityIso(promo.validUntil, promo.validUntilTime, true, formData.timezone),
+                                validUntilHasTime: promo.validUntilTime.trim().length > 0,
                                 isActive: promo.isActive !== false,
                                 revealsHiddenTickets: promo.revealsHiddenTickets ?? false,
                                 applicableTicketTypeIds: promo.applicableTicketTypeIds ?? null,
@@ -1822,7 +1889,7 @@ export function EventWizard({
                             } else {
                                 // Refresh promo codes
                                 const refreshed = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
-                                normalizedPromoCodes = mapPromoCodeRecordsToDraft(refreshed.promoCodes);
+                                normalizedPromoCodes = mapPromoCodeRecordsToDraft(refreshed.promoCodes, formData.timezone);
                                 setPromoCodes(normalizedPromoCodes);
                             }
                         }
@@ -4188,8 +4255,19 @@ export function EventWizard({
                                                                                 <Label className="text-sm">Valid From</Label>
                                                                                 <DatePicker
                                                                                     value={promo.validFrom}
-                                                                                    onChange={(value) => updatePromoCode(promo.id, 'validFrom', value)}
+                                                                                    onChange={(value) => {
+                                                                                        updatePromoCode(promo.id, 'validFrom', value);
+                                                                                        if (!value) {
+                                                                                            updatePromoCode(promo.id, 'validFromTime', '');
+                                                                                        }
+                                                                                    }}
                                                                                     placeholder="Select start date"
+                                                                                    hasError={!!promoError?.validFrom}
+                                                                                />
+                                                                                <TimePicker
+                                                                                    value={promo.validFromTime}
+                                                                                    onChange={(value) => updatePromoCode(promo.id, 'validFromTime', value)}
+                                                                                    placeholder="Optional start time"
                                                                                     hasError={!!promoError?.validFrom}
                                                                                 />
                                                                                 {promoError?.validFrom ? (
@@ -4200,10 +4278,21 @@ export function EventWizard({
                                                                                 <Label className="text-sm">Valid Until</Label>
                                                                                 <DatePicker
                                                                                     value={promo.validUntil}
-                                                                                    onChange={(value) => updatePromoCode(promo.id, 'validUntil', value)}
+                                                                                    onChange={(value) => {
+                                                                                        updatePromoCode(promo.id, 'validUntil', value);
+                                                                                        if (!value) {
+                                                                                            updatePromoCode(promo.id, 'validUntilTime', '');
+                                                                                        }
+                                                                                    }}
                                                                                     placeholder="Select end date"
                                                                                     hasError={!!promoError?.validUntil}
                                                                                     minDate={parseLocalDateInput(promo.validFrom)}
+                                                                                />
+                                                                                <TimePicker
+                                                                                    value={promo.validUntilTime}
+                                                                                    onChange={(value) => updatePromoCode(promo.id, 'validUntilTime', value)}
+                                                                                    placeholder="Optional end time"
+                                                                                    hasError={!!promoError?.validUntil}
                                                                                 />
                                                                                 {promoError?.validUntil ? (
                                                                                     <p className="text-xs text-destructive">{promoError.validUntil}</p>

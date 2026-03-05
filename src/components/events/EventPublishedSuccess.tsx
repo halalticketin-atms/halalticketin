@@ -234,7 +234,7 @@ function ShareTile({ label, href, icon: Icon, iconClassName, surfaceClassName }:
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex flex-col items-center gap-2 rounded-xl p-3 text-center transition-all hover:bg-muted/50 active:scale-95"
+            className="group flex min-w-0 flex-col items-center gap-2 rounded-xl p-3 text-center transition-all hover:bg-muted/50 active:scale-95"
         >
             <span
                 className={cn(
@@ -341,7 +341,7 @@ export function EventPublishedSuccess({
     ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-[var(--brand-mint)]/5">
+        <div className="min-h-screen overflow-x-clip bg-gradient-to-br from-background via-background to-[var(--brand-mint)]/5">
             <div className="container py-8 lg:py-16">
                 <div className="mx-auto max-w-5xl">
                     {/* Split View Layout */}
@@ -447,7 +447,7 @@ export function EventPublishedSuccess({
                                 </div>
 
                                 {/* Social Share Grid */}
-                                <div className="mt-6 grid grid-cols-5 gap-1">
+                                <div className="mt-6 grid grid-cols-3 gap-2 sm:grid-cols-5 sm:gap-1">
                                     {shareItems.map((item) => (
                                         <ShareTile key={item.label} {...item} />
                                     ))}

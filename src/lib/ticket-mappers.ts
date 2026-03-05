@@ -8,6 +8,43 @@ const isoToDate = (iso?: string | null, timeZone?: string) =>
 const isoToTime = (iso?: string | null, timeZone?: string) =>
     formatTimeInTimeZone(iso, timeZone);
 
+const isoToUtcCalendarDate = (iso?: string | null) => {
+    if (!iso) {
+        return '';
+    }
+
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    return date.toISOString().slice(0, 10);
+};
+
+const isLegacyDateOnlyBoundary = (
+    iso: string | null | undefined,
+    isEndBoundary: boolean,
+) => {
+    if (!iso) {
+        return false;
+    }
+
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+        return false;
+    }
+
+    const hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes();
+    const seconds = date.getUTCSeconds();
+
+    if (isEndBoundary) {
+        return hours === 23 && minutes === 59 && (seconds === 59 || seconds === 0);
+    }
+
+    return hours === 0 && minutes === 0 && seconds === 0;
+};
+
 export const mapTicketRecordsToDraft = (
     rows: TicketRecord[],
     timeZone?: string,
@@ -41,15 +78,24 @@ export const mapTicketRecordsToDraft = (
         };
     });
 
-export const mapPromoCodeRecordsToDraft = (rows: PromoCodeRecord[]): DraftPromoCode[] =>
+export const mapPromoCodeRecordsToDraft = (
+    rows: PromoCodeRecord[],
+    timeZone?: string,
+): DraftPromoCode[] =>
     rows.map((promo) => ({
         id: promo.id,
         code: promo.code,
         discountType: promo.discountType === 'amount' ? 'fixed' : 'percentage',
         discountValue: promo.discountValue,
         usageLimit: promo.usageLimit ?? 0,
-        validFrom: isoToDate(promo.validFrom),
-        validUntil: isoToDate(promo.validUntil),
+        validFrom: promo.validFromHasTime || !isLegacyDateOnlyBoundary(promo.validFrom, false)
+            ? isoToDate(promo.validFrom, timeZone)
+            : isoToUtcCalendarDate(promo.validFrom),
+        validFromTime: promo.validFromHasTime ? isoToTime(promo.validFrom, timeZone) : '',
+        validUntil: promo.validUntilHasTime || !isLegacyDateOnlyBoundary(promo.validUntil, true)
+            ? isoToDate(promo.validUntil, timeZone)
+            : isoToUtcCalendarDate(promo.validUntil),
+        validUntilTime: promo.validUntilHasTime ? isoToTime(promo.validUntil, timeZone) : '',
         isActive: promo.isActive,
         revealsHiddenTickets: promo.revealsHiddenTickets ?? false,
         applicableTicketTypeIds: promo.applicableTicketTypeIds ?? null,
@@ -99,6 +145,6 @@ export const buildDraftFromEventRecord = (
         customQuestions: event.customQuestions ?? [],
     },
     tickets: tickets.length > 0 ? mapTicketRecordsToDraft(tickets, event.timezone) : undefined,
-    promoCodes: promoCodes.length > 0 ? mapPromoCodeRecordsToDraft(promoCodes) : [],
+    promoCodes: promoCodes.length > 0 ? mapPromoCodeRecordsToDraft(promoCodes, event.timezone) : [],
     currentStep: 1,
 });
