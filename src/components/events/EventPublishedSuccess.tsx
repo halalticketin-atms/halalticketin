@@ -349,7 +349,7 @@ export function EventPublishedSuccess({
 
                         {/* Left Side - Celebration */}
                         <motion.div
-                            className="flex flex-col items-center justify-center text-center lg:items-start lg:text-left lg:py-12"
+                            className="flex flex-col items-center justify-center text-center lg:items-start lg:text-left lg:py-12 overflow-hidden lg:overflow-visible"
                             initial={{ opacity: 0, x: -30 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.6 }}
