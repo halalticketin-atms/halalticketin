@@ -349,7 +349,7 @@ export function EventPublishedSuccess({
 
                         {/* Left Side - Celebration */}
                         <motion.div
-                            className="flex flex-col items-center justify-center text-center lg:items-start lg:text-left lg:py-12 overflow-hidden lg:overflow-visible"
+                            className="min-w-0 flex flex-col items-center justify-center text-center lg:items-start lg:text-left lg:py-12 overflow-hidden lg:overflow-visible"
                             initial={{ opacity: 0, x: -30 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.6 }}
@@ -361,6 +361,7 @@ export function EventPublishedSuccess({
                             </div>
 
                             <motion.div
+                                className="w-full max-w-full"
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.4, duration: 0.5 }}
@@ -376,7 +377,7 @@ export function EventPublishedSuccess({
 
                                 {isPrivate && (
                                     <motion.p
-                                        className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-100/80 dark:bg-amber-900/30 px-4 py-2 text-sm font-medium text-amber-800 dark:text-amber-200"
+                                        className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-100/80 dark:bg-amber-900/30 px-4 py-2 text-sm font-medium text-amber-800 dark:text-amber-200 max-w-full flex-wrap sm:flex-nowrap"
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
                                         transition={{ delay: 0.7 }}
@@ -390,7 +391,7 @@ export function EventPublishedSuccess({
 
                         {/* Right Side - Event Details & Actions */}
                         <motion.div
-                            className="flex flex-col gap-6"
+                            className="min-w-0 flex flex-col gap-6"
                             initial={{ opacity: 0, x: 30 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.6, delay: 0.2 }}
