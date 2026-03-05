@@ -28,6 +28,7 @@ export interface EventPublishedSuccessProps {
     eventSlug: string;
     dashboardHref: string;
     isPrivate?: boolean;
+    isUpdate?: boolean;
     onClose?: () => void;
 }
 
@@ -261,6 +262,7 @@ export function EventPublishedSuccess({
     eventSlug,
     dashboardHref,
     isPrivate = false,
+    isUpdate = false,
 }: EventPublishedSuccessProps) {
     const [copied, setCopied] = useState(false);
 
@@ -364,10 +366,12 @@ export function EventPublishedSuccess({
                                 transition={{ delay: 0.4, duration: 0.5 }}
                             >
                                 <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-                                    Congratulations!
+                                    {isUpdate ? 'Updated!' : 'Congratulations!'}
                                 </h1>
                                 <p className="mt-3 text-lg text-muted-foreground lg:text-xl">
-                                    Your event is now {isPrivate ? 'ready' : 'live'}.
+                                    {isUpdate
+                                        ? 'Your event changes are now live.'
+                                        : `Your event is now ${isPrivate ? 'ready' : 'live'}.`}
                                 </p>
 
                                 {isPrivate && (

@@ -55,7 +55,9 @@ export interface DraftTicketType {
   maxPerOrder: number;
   description: string;
   salesStart: string;
+  salesStartTime: string;
   salesEnd: string;
+  salesEndTime: string;
   hasEarlyBird: boolean;
   earlyBirdPrice: string;
   earlyBirdEndDate: string;
@@ -129,7 +131,9 @@ const createDefaultTicket = (): DraftTicketType => ({
   maxPerOrder: 0,
   description: '',
   salesStart: '',
+  salesStartTime: '',
   salesEnd: '',
+  salesEndTime: '',
   hasEarlyBird: false,
   earlyBirdPrice: '',
   earlyBirdEndDate: '',
@@ -149,7 +153,9 @@ const createDonationTicket = (): DraftTicketType => ({
   maxPerOrder: 1,
   description: '',
   salesStart: '',
+  salesStartTime: '',
   salesEnd: '',
+  salesEndTime: '',
   hasEarlyBird: false,
   earlyBirdPrice: '',
   earlyBirdEndDate: '',
@@ -159,13 +165,15 @@ const createDonationTicket = (): DraftTicketType => ({
 
 export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = stepsCountDefault) {
   const normalizeTicketType = (ticket: DraftTicketType): DraftTicketType => {
-    if (ticket.type) {
-      return ticket;
-    }
-    return {
+    const normalizedTicket: DraftTicketType = {
       ...ticket,
-      type: ticket.isFree ? 'free' : 'paid',
+      salesStart: ticket.salesStart ?? '',
+      salesStartTime: ticket.salesStartTime ?? '',
+      salesEnd: ticket.salesEnd ?? '',
+      salesEndTime: ticket.salesEndTime ?? '',
+      type: ticket.type ?? (ticket.isFree ? 'free' : 'paid'),
     };
+    return normalizedTicket;
   };
 
   const normalizeCustomQuestions = (questions?: DraftCustomQuestion[]) => {

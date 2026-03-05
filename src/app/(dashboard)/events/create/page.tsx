@@ -88,7 +88,6 @@ import {
     updateEventDraft,
     updatePromoCode as updatePromoCodeApi,
     type PromoCodeInput,
-    type TicketInputPayload,
     type UpsertEventPayload,
 } from '@/lib/events-api';
 import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
@@ -97,7 +96,7 @@ import { getBackendErrorDetails } from '@/lib/api-errors';
 import { getUserFriendlyMessage, toast } from '@/lib/notifications';
 import { getCurrencySymbol } from '@/lib/fees';
 import { LIMITS_GBP, MAX_PER_ORDER, MAX_PROMO_CODES_PER_EVENT, MAX_TICKET_QUANTITY, PROMO_CODE_MAX_LENGTH, PROMO_CODE_MIN_LENGTH, roundCurrencyLimit } from '@/lib/input-limits';
-import { shouldIncludeTicketIdsForSave } from '@/lib/ticket-save';
+import { getTicketSavePlan, serializeTicketPayloadsForSave } from '@/lib/ticket-save';
 import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/lib/timezone';
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
@@ -235,6 +234,8 @@ type TicketFieldErrors = {
     price?: string;
     quantity?: string;
     customFee?: string;
+    salesStart?: string;
+    salesEnd?: string;
     earlyBirdPrice?: string;
     earlyBirdEndDate?: string;
 };
@@ -291,6 +292,19 @@ const mapLocationType = (value: DraftLocationType) => locationTypeMap[value] ?? 
 const toIsoString = (date?: string, time?: string | null, timeZone?: string) =>
     toUtcIsoString(date, time, timeZone);
 
+const parseLocalDateInput = (date?: string): Date | undefined => {
+    if (!date) {
+        return undefined;
+    }
+
+    const [year, month, day] = date.split('-').map(Number);
+    if ([year, month, day].some((value) => Number.isNaN(value))) {
+        return undefined;
+    }
+
+    return new Date(year, month - 1, day);
+};
+
 const parseTimeToMinutes = (value: string) => {
     const [hours, minutes] = value.split(':').map(Number);
     if (Number.isNaN(hours) || Number.isNaN(minutes)) {
@@ -346,62 +360,77 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
     };
 };
 
-const buildTicketPayloads = (
+const buildTicketSalesWindowErrors = (
     tickets: DraftTicketType[],
-    currency: string,
     timeZone: string,
-    options?: { includeIds?: boolean },
-): TicketInputPayload[] =>
-    tickets.map((ticket, index) => {
-        const parsedPrice = Number.parseFloat(ticket.price || '0');
-        const priceValue = Number.isFinite(parsedPrice) ? parsedPrice : 0;
-        const isDonation = ticket.type === 'donation';
-        const isFree = !isDonation && (ticket.isFree || priceValue <= 0);
-        const resolvedType = isDonation ? 'donation' : isFree ? 'free' : 'paid';
-        const quantityValue = Number.isFinite(ticket.quantity) ? Math.max(ticket.quantity, 1) : 1;
-        const minPerOrderValue = ticket.minPerOrder && Number.isFinite(ticket.minPerOrder) && ticket.minPerOrder >= 1
-            ? ticket.minPerOrder
-            : undefined;
-        const maxPerOrderValue = ticket.maxPerOrder && Number.isFinite(ticket.maxPerOrder) && ticket.maxPerOrder >= 1
-            ? ticket.maxPerOrder
-            : undefined;
-        const shouldIncludeIds = options?.includeIds ?? true;
-        const backendId = shouldIncludeIds && isUuid(ticket.id) ? ticket.id : undefined;
+): Record<string, TicketFieldErrors> => {
+    const errors: Record<string, TicketFieldErrors> = {};
 
-        // Early bird pricing
-        const parsedEarlyBirdPrice = Number.parseFloat(ticket.earlyBirdPrice || '0');
-        const earlyBirdPriceValue = !isDonation && ticket.hasEarlyBird && Number.isFinite(parsedEarlyBirdPrice) && parsedEarlyBirdPrice > 0
-            ? parsedEarlyBirdPrice
-            : null;
-        const earlyBirdEndDateValue = !isDonation && ticket.hasEarlyBird && ticket.earlyBirdEndDate
-            ? toIsoString(ticket.earlyBirdEndDate, '23:59', timeZone)
-            : null;
-        const trimmedCustomFee = ticket.customFee?.trim() ?? '';
-        const parsedCustomFee = Number.parseFloat(trimmedCustomFee);
-        const customFeeValue = !isDonation && !isFree && priceValue > 0 && trimmedCustomFee && Number.isFinite(parsedCustomFee)
-            ? parsedCustomFee
-            : null;
+    tickets.forEach((ticket) => {
+        if (ticket.type === 'donation') {
+            return;
+        }
 
-        return {
-            id: backendId,
-            name: isDonation ? 'Donation' : ticket.name.trim() || `Ticket ${index + 1}`,
-            description: ticket.description.trim() ? ticket.description.trim() : null,
-            price: resolvedType === 'free' ? 0 : priceValue,
-            isFree: resolvedType === 'free',
-            type: resolvedType,
-            currency: currency,
-            maxQuantity: isDonation ? undefined : quantityValue,
-            minPerOrder: isDonation ? 1 : minPerOrderValue,
-            maxPerOrder: isDonation ? 1 : maxPerOrderValue,
-            visibility: isDonation ? 'public' : ticket.visibility,
-            salesStart: ticket.salesStart ? toIsoString(ticket.salesStart, '00:00', timeZone) : null,
-            salesEnd: ticket.salesEnd ? toIsoString(ticket.salesEnd, '23:59', timeZone) : null,
-            absorbFee: ticket.absorbFee,
-            customFee: customFeeValue,
-            earlyBirdPrice: earlyBirdPriceValue,
-            earlyBirdEndDate: earlyBirdEndDateValue,
-        };
+        const salesStartDate = ticket.salesStart.trim();
+        const salesStartTime = ticket.salesStartTime.trim();
+        const salesEndDate = ticket.salesEnd.trim();
+        const salesEndTime = ticket.salesEndTime.trim();
+        const ticketErrors: TicketFieldErrors = {};
+
+        const hasSalesStartDate = salesStartDate.length > 0;
+        const hasSalesStartTime = salesStartTime.length > 0;
+        const hasSalesEndDate = salesEndDate.length > 0;
+        const hasSalesEndTime = salesEndTime.length > 0;
+
+        if (hasSalesStartDate !== hasSalesStartTime) {
+            ticketErrors.salesStart = 'Set both sales start date and time.';
+        }
+
+        if (hasSalesEndDate !== hasSalesEndTime) {
+            ticketErrors.salesEnd = 'Set both sales end date and time.';
+        }
+
+        if (!ticketErrors.salesStart && !ticketErrors.salesEnd && hasSalesStartDate && hasSalesEndDate) {
+            const salesStartIso = toIsoString(salesStartDate, salesStartTime, timeZone);
+            const salesEndIso = toIsoString(salesEndDate, salesEndTime, timeZone);
+            if (!salesStartIso || !salesEndIso || new Date(salesEndIso) <= new Date(salesStartIso)) {
+                ticketErrors.salesEnd = 'Sales end must be after sales start.';
+            }
+        }
+
+        if (Object.keys(ticketErrors).length > 0) {
+            errors[ticket.id] = ticketErrors;
+        }
     });
+
+    return errors;
+};
+
+const getTicketSalesWindowWarning = (
+    ticket: DraftTicketType,
+    timeZone: string,
+): string | null => {
+    if (ticket.type === 'donation') {
+        return null;
+    }
+
+    const salesEndDate = ticket.salesEnd.trim();
+    const salesEndTime = ticket.salesEndTime.trim();
+    if (!salesEndDate || !salesEndTime) {
+        return null;
+    }
+
+    const salesEndIso = toIsoString(salesEndDate, salesEndTime, timeZone);
+    if (!salesEndIso) {
+        return null;
+    }
+
+    if (new Date(salesEndIso) < new Date()) {
+        return 'Sales end is in the past. This ticket is currently closed to buyers.';
+    }
+
+    return null;
+};
 
 const buildDuplicateTicketNameErrors = (tickets: DraftTicketType[]) => {
     const nameToIds = new Map<string, string[]>();
@@ -1029,6 +1058,16 @@ export function EventWizard({
     const [hasExistingAccessCode, setHasExistingAccessCode] = useState<boolean>(
         initialDraft?.formData?.accessCodeEnabled ?? false,
     );
+    const lastSavedTicketPayloadRef = useRef<string | null>(
+        mode === 'edit'
+            ? serializeTicketPayloadsForSave(
+                tickets,
+                formData.currency,
+                formData.timezone,
+                initialDraft?.eventId ?? null,
+            )
+            : null,
+    );
 
     useEffect(() => {
         if (initialDraft?.eventId && eventId !== initialDraft.eventId) {
@@ -1047,6 +1086,7 @@ export function EventWizard({
     const [promoErrors, setPromoErrors] = useState<Record<string, PromoFieldErrors>>({});
     const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
     const [ticketAdvancedOpen, setTicketAdvancedOpen] = useState<Record<string, boolean>>({});
+    const [ticketAdvancedTab, setTicketAdvancedTab] = useState<Record<string, 'limits' | 'sales' | 'earlybird'>>({});
     const [ticketOpenMap, setTicketOpenMap] = useState<Record<string, boolean>>({});
     const [showAccessCode, setShowAccessCode] = useState(false);
     const initialTicketOpenAppliedRef = useRef(false);
@@ -1458,17 +1498,32 @@ export function EventWizard({
     }, [serializedDraft]);
 
     const markSnapshotAsSaved = useCallback(
-        (override?: { formData?: DraftFormData; tickets?: DraftTicketType[]; promoCodes?: DraftPromoCode[] }) => {
+        (override?: {
+            formData?: DraftFormData;
+            tickets?: DraftTicketType[];
+            promoCodes?: DraftPromoCode[];
+            eventId?: string | null;
+        }) => {
+            const snapshotFormData = override?.formData ?? formData;
+            const snapshotTickets = override?.tickets ?? tickets;
+            const snapshotPromoCodes = override?.promoCodes ?? promoCodes;
+            const snapshotEventId = override?.eventId ?? eventId;
             const snapshot = JSON.stringify({
-                formData: override?.formData ?? formData,
-                tickets: override?.tickets ?? tickets,
-                promoCodes: override?.promoCodes ?? promoCodes,
+                formData: snapshotFormData,
+                tickets: snapshotTickets,
+                promoCodes: snapshotPromoCodes,
             });
             lastSavedSnapshotRef.current = snapshot;
+            lastSavedTicketPayloadRef.current = serializeTicketPayloadsForSave(
+                snapshotTickets,
+                snapshotFormData.currency,
+                snapshotFormData.timezone,
+                snapshotEventId,
+            );
             setHasUnsavedChanges(false);
             setLastSavedAt(new Date());
         },
-        [formData, promoCodes, tickets],
+        [eventId, formData, promoCodes, tickets],
     );
 
     useEffect(() => {
@@ -1503,409 +1558,438 @@ export function EventWizard({
             }
 
             const runSave = async (): Promise<string | null> => {
-            if (isSaving) {
-                return eventId;
-            }
+                if (isSaving) {
+                    return eventId;
+                }
 
-            if (!activeOrganizerId) {
-                setActionError('Select or create an organiser before saving.');
-                return null;
-            }
-
-            const trimmedTitle = formData.title.trim();
-            if (trimmedTitle.length < 3) {
-                setActionError('Event title must be at least 3 characters.');
-                setFieldErrors({ title: 'Title must be at least 3 characters' });
-                setCurrentStep(1); // Navigate to Basic Details step
-                return null;
-            }
-            if (trimmedTitle.length > 75) {
-                setActionError('Event title must be 75 characters or less.');
-                setFieldErrors({ title: 'Title must be 75 characters or less' });
-                setCurrentStep(1);
-                return null;
-            }
-
-            setIsSaving(true);
-            setActionError(null);
-            setHasOrganizerContactPublishBlocker(false);
-            if (!options?.silent) {
-                setActionMessage(null);
-            }
-
-            try {
-                const duplicateNameErrors = buildDuplicateTicketNameErrors(tickets);
-                if (Object.keys(duplicateNameErrors).length > 0) {
-                    setTicketErrors((prev) => mergeTicketNameErrors(prev, duplicateNameErrors, tickets));
-                    setFieldErrors((prev) => ({ ...prev, tickets: 'Ticket name must be unique.' }));
-                    setActionError('Ticket names must be unique.');
-                    setCurrentStep(4);
+                if (!activeOrganizerId) {
+                    setActionError('Select or create an organiser before saving.');
                     return null;
                 }
 
-                const payload = buildEventPayload({ ...formData, title: trimmedTitle });
-                if (bannerWasRemoved) {
-                    payload.bannerImageUrl = null;
+                const trimmedTitle = formData.title.trim();
+                if (trimmedTitle.length < 3) {
+                    setActionError('Event title must be at least 3 characters.');
+                    setFieldErrors({ title: 'Title must be at least 3 characters' });
+                    setCurrentStep(1); // Navigate to Basic Details step
+                    return null;
                 }
-                let nextEventId = eventId;
+                if (trimmedTitle.length > 75) {
+                    setActionError('Event title must be 75 characters or less.');
+                    setFieldErrors({ title: 'Title must be 75 characters or less' });
+                    setCurrentStep(1);
+                    return null;
+                }
 
-                if (!nextEventId) {
-                    if (mode === 'edit') {
-                        setActionError('Unable to determine which event to update. Please refresh and try again.');
+                setIsSaving(true);
+                setActionError(null);
+                setHasOrganizerContactPublishBlocker(false);
+                if (!options?.silent) {
+                    setActionMessage(null);
+                }
+
+                try {
+                    const duplicateNameErrors = buildDuplicateTicketNameErrors(tickets);
+                    if (Object.keys(duplicateNameErrors).length > 0) {
+                        setTicketErrors((prev) => mergeTicketNameErrors(prev, duplicateNameErrors, tickets));
+                        setFieldErrors((prev) => ({ ...prev, tickets: 'Ticket name must be unique.' }));
+                        setActionError('Ticket names must be unique.');
+                        setCurrentStep(4);
                         return null;
                     }
-                    const response = await createEventDraft(activeOrganizerId, payload);
-                    nextEventId = response.event.id;
-                    setEventId(nextEventId);
-                    setDraftEmbedSlug(response.event.slug ?? null);
-                    setDraftEmbedStatus(response.event.status ?? 'draft');
-                } else {
-                    console.log('[DEBUG] Updating event:', nextEventId, 'with payload:', payload);
-                    const response = await updateEventDraft(nextEventId, payload);
-                    setDraftEmbedSlug(response.event.slug ?? null);
-                    setDraftEmbedStatus(response.event.status ?? 'draft');
-                }
 
-                const accessCodeShouldPersist =
-                    formData.visibility === 'private' &&
-                    formData.accessCodeEnabled &&
-                    (formData.accessCode.trim().length > 0 || hasExistingAccessCode);
-                setHasExistingAccessCode(accessCodeShouldPersist);
-
-                const ticketPayloads = buildTicketPayloads(tickets, formData.currency, formData.timezone, {
-                    includeIds: shouldIncludeTicketIdsForSave(eventId),
-                });
-                console.log('[DEBUG] Saving tickets for event:', nextEventId, 'payload:', ticketPayloads);
-                const ticketResponse = await saveEventTickets(nextEventId, ticketPayloads);
-                let normalizedTickets = tickets;
-                const ticketIdMap = new Map<string, string>();
-                if (ticketResponse.tickets && ticketResponse.tickets.length > 0) {
-                    normalizedTickets = mapTicketRecordsToDraft(ticketResponse.tickets, formData.timezone);
-                    setTickets(normalizedTickets);
-                    const limit = Math.min(tickets.length, ticketResponse.tickets.length);
-                    for (let i = 0; i < limit; i += 1) {
-                        const previousId = tickets[i]?.id;
-                        const nextId = ticketResponse.tickets[i]?.id;
-                        if (previousId && nextId) {
-                            ticketIdMap.set(previousId, nextId);
-                        }
+                    const ticketSalesWindowErrors = buildTicketSalesWindowErrors(tickets, formData.timezone);
+                    if (Object.keys(ticketSalesWindowErrors).length > 0) {
+                        setTicketErrors((prev) => {
+                            const next = { ...prev };
+                            Object.entries(ticketSalesWindowErrors).forEach(([id, errors]) => {
+                                next[id] = { ...next[id], ...errors };
+                            });
+                            return next;
+                        });
+                        setFieldErrors((prev) => ({ ...prev, tickets: 'Fix ticket sales window errors.' }));
+                        setActionError('Fix ticket sales window errors before saving.');
+                        setCurrentStep(4);
+                        return null;
                     }
-                }
 
-                // Save promo codes (only if we have a valid event ID)
-                let normalizedPromoCodes = promoCodes;
-                if (ticketIdMap.size > 0) {
-                    normalizedPromoCodes = mapPromoTicketTypeIds(promoCodes, ticketIdMap);
-                    setPromoCodes(normalizedPromoCodes);
-                }
-                const nextPromoErrors: Record<string, PromoFieldErrors> = {};
-                const promoApiErrors: Record<string, PromoFieldErrors> = {};
-                let hasPromoApiErrors = false;
-                let promoErrorMessage: string | null = null;
-                const promoCurrencySymbol = getCurrencySymbol(formData.currency);
+                    const payload = buildEventPayload({ ...formData, title: trimmedTitle });
+                    if (bannerWasRemoved) {
+                        payload.bannerImageUrl = null;
+                    }
+                    let nextEventId = eventId;
 
-                for (const promo of normalizedPromoCodes) {
-                    const code = promo.code.trim();
-                    const discountValue = Number.parseFloat(promo.discountValue) || 0;
-                    const isRevealOnlyCode = promo.revealsHiddenTickets === true;
-                    const errors: { code?: string; discountValue?: string } = {};
-
-                    if (!code) {
-                        errors.code = 'Code is required.';
+                    if (!nextEventId) {
+                        if (mode === 'edit') {
+                            setActionError('Unable to determine which event to update. Please refresh and try again.');
+                            return null;
+                        }
+                        const response = await createEventDraft(activeOrganizerId, payload);
+                        nextEventId = response.event.id;
+                        setEventId(nextEventId);
+                        setDraftEmbedSlug(response.event.slug ?? null);
+                        setDraftEmbedStatus(response.event.status ?? 'draft');
                     } else {
-                        if (code.length < PROMO_CODE_MIN_LENGTH) {
-                            errors.code = `Code must be at least ${PROMO_CODE_MIN_LENGTH} characters.`;
-                        } else if (code.length > PROMO_CODE_MAX_LENGTH) {
-                            errors.code = `Code must be ${PROMO_CODE_MAX_LENGTH} characters or less.`;
-                        } else if (!/^[A-Z0-9-]+$/i.test(code)) {
-                            errors.code = 'Code must be alphanumeric.';
+                        console.log('[DEBUG] Updating event:', nextEventId, 'with payload:', payload);
+                        const response = await updateEventDraft(nextEventId, payload);
+                        setDraftEmbedSlug(response.event.slug ?? null);
+                        setDraftEmbedStatus(response.event.status ?? 'draft');
+                    }
+
+                    const accessCodeShouldPersist =
+                        formData.visibility === 'private' &&
+                        formData.accessCodeEnabled &&
+                        (formData.accessCode.trim().length > 0 || hasExistingAccessCode);
+                    setHasExistingAccessCode(accessCodeShouldPersist);
+
+                    let normalizedTickets = tickets;
+                    const ticketIdMap = new Map<string, string>();
+
+                    const ticketSavePlan = getTicketSavePlan({
+                        tickets,
+                        currency: formData.currency,
+                        timeZone: formData.timezone,
+                        existingEventId: nextEventId,
+                        lastSavedSerializedPayload: lastSavedTicketPayloadRef.current,
+                    });
+
+                    if (ticketSavePlan.shouldSave) {
+                        console.log('[DEBUG] Saving tickets for event:', nextEventId, 'payload:', ticketSavePlan.payloads);
+                        const ticketResponse = await saveEventTickets(nextEventId, ticketSavePlan.payloads);
+                        if (ticketResponse.tickets && ticketResponse.tickets.length > 0) {
+                            normalizedTickets = mapTicketRecordsToDraft(ticketResponse.tickets, formData.timezone);
+                            setTickets(normalizedTickets);
+                            const limit = Math.min(tickets.length, ticketResponse.tickets.length);
+                            for (let i = 0; i < limit; i += 1) {
+                                const previousId = tickets[i]?.id;
+                                const nextId = ticketResponse.tickets[i]?.id;
+                                if (previousId && nextId) {
+                                    ticketIdMap.set(previousId, nextId);
+                                }
+                            }
                         }
                     }
-                    // Only require positive discount for non-reveal codes
-                    if (!isRevealOnlyCode && (!Number.isFinite(discountValue) || discountValue <= 0)) {
-                        errors.discountValue = 'Discount must be greater than 0.';
-                    }
-                    if (!isRevealOnlyCode && promo.discountType === 'percentage' && discountValue > 100) {
-                        errors.discountValue = 'Percentage discount cannot exceed 100.';
-                    }
-                    if (!isRevealOnlyCode && promo.discountType === 'fixed' && discountValue > maxPromoFixed) {
-                        errors.discountValue = `Discount cannot exceed ${promoCurrencySymbol}${maxPromoFixed.toFixed(2)}.`;
-                    }
 
-                    if (errors.code || errors.discountValue) {
-                        nextPromoErrors[promo.id] = errors;
+                    // Save promo codes (only if we have a valid event ID)
+                    let normalizedPromoCodes = promoCodes;
+                    if (ticketIdMap.size > 0) {
+                        normalizedPromoCodes = mapPromoTicketTypeIds(promoCodes, ticketIdMap);
+                        setPromoCodes(normalizedPromoCodes);
                     }
-                }
-
-                const hasPromoValidationErrors = Object.keys(nextPromoErrors).length > 0;
-                setPromoErrors(nextPromoErrors);
-
-                if (hasPromoValidationErrors) {
-                    setActionError('Fix promo code errors before saving.');
-                    setCurrentStep(4);
-                }
-
-                if (normalizedPromoCodes.length > 0 && isUuid(nextEventId) && !hasPromoValidationErrors) {
-                    const existingPromos = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
-                    const existingIds = new Set(existingPromos.promoCodes.map(p => p.id));
+                    const nextPromoErrors: Record<string, PromoFieldErrors> = {};
+                    const promoApiErrors: Record<string, PromoFieldErrors> = {};
+                    let hasPromoApiErrors = false;
+                    let promoErrorMessage: string | null = null;
+                    const promoCurrencySymbol = getCurrencySymbol(formData.currency);
 
                     for (const promo of normalizedPromoCodes) {
+                        const code = promo.code.trim();
                         const discountValue = Number.parseFloat(promo.discountValue) || 0;
-                        const isRevealOnlyCode = promo.revealsHiddenTickets && discountValue === 0;
-                        // Skip if no code, or if it's a discount code with no valid discount
-                        if (!promo.code.trim()) {
-                            continue;
+                        const isRevealOnlyCode = promo.revealsHiddenTickets === true;
+                        const errors: { code?: string; discountValue?: string } = {};
+
+                        if (!code) {
+                            errors.code = 'Code is required.';
+                        } else {
+                            if (code.length < PROMO_CODE_MIN_LENGTH) {
+                                errors.code = `Code must be at least ${PROMO_CODE_MIN_LENGTH} characters.`;
+                            } else if (code.length > PROMO_CODE_MAX_LENGTH) {
+                                errors.code = `Code must be ${PROMO_CODE_MAX_LENGTH} characters or less.`;
+                            } else if (!/^[A-Z0-9-]+$/i.test(code)) {
+                                errors.code = 'Code must be alphanumeric.';
+                            }
                         }
+                        // Only require positive discount for non-reveal codes
                         if (!isRevealOnlyCode && (!Number.isFinite(discountValue) || discountValue <= 0)) {
-                            continue;
+                            errors.discountValue = 'Discount must be greater than 0.';
+                        }
+                        if (!isRevealOnlyCode && promo.discountType === 'percentage' && discountValue > 100) {
+                            errors.discountValue = 'Percentage discount cannot exceed 100.';
+                        }
+                        if (!isRevealOnlyCode && promo.discountType === 'fixed' && discountValue > maxPromoFixed) {
+                            errors.discountValue = `Discount cannot exceed ${promoCurrencySymbol}${maxPromoFixed.toFixed(2)}.`;
                         }
 
-                        const promoInput: PromoCodeInput = {
-                            code: promo.code.trim().toUpperCase(),
-                            discountType: promo.discountType === 'fixed' ? 'amount' : 'percentage',
-                            discountValue,
-                            usageLimit: promo.usageLimit || null,
-                            validFrom: promo.validFrom ? `${promo.validFrom}T00:00:00.000Z` : null,
-                            validUntil: promo.validUntil ? `${promo.validUntil}T23:59:59.000Z` : null,
-                            isActive: promo.isActive !== false,
-                            revealsHiddenTickets: promo.revealsHiddenTickets ?? false,
-                            applicableTicketTypeIds: promo.applicableTicketTypeIds ?? null,
-                        };
-
-                        try {
-                            if (existingIds.has(promo.id)) {
-                                await updatePromoCodeApi(nextEventId, promo.id, promoInput);
-                            } else {
-                                await createPromoCode(nextEventId, promoInput);
-                            }
-                        } catch (error) {
-                            hasPromoApiErrors = true;
-                            const details = error instanceof ApiError
-                                ? getBackendErrorDetails<{
-                                    fieldErrors?: Record<string, string[]>;
-                                    formErrors?: string[];
-                                }>(error.payload)
-                                : undefined;
-                            const fieldErrors = details?.fieldErrors ?? null;
-                            const mapped: PromoFieldErrors = {};
-                            if (fieldErrors) {
-                                const fieldMap: Record<string, keyof PromoFieldErrors> = {
-                                    code: 'code',
-                                    discountValue: 'discountValue',
-                                    usageLimit: 'usageLimit',
-                                    validFrom: 'validFrom',
-                                    validUntil: 'validUntil',
-                                    applicableTicketTypeIds: 'applicableTicketTypeIds',
-                                    discountType: 'discountType',
-                                };
-                                Object.entries(fieldErrors).forEach(([field, messages]) => {
-                                    const message = messages?.[0];
-                                    const mappedField = fieldMap[field];
-                                    if (message && mappedField) {
-                                        mapped[mappedField] = message;
-                                    }
-                                });
-                            }
-
-                            if (Object.keys(mapped).length === 0) {
-                                const fallback = getUserFriendlyMessage(error);
-                                mapped.code = fallback || 'Unable to save promo code.';
-                            }
-
-                            promoApiErrors[promo.id] = mapped;
-                            if (!promoErrorMessage) {
-                                promoErrorMessage = details?.formErrors?.[0] || getUserFriendlyMessage(error);
-                            }
+                        if (errors.code || errors.discountValue) {
+                            nextPromoErrors[promo.id] = errors;
                         }
                     }
 
-                    if (hasPromoApiErrors) {
-                        setPromoErrors((prev) => ({ ...prev, ...promoApiErrors }));
-                        setActionError(promoErrorMessage ?? 'Fix promo code errors before saving.');
+                    const hasPromoValidationErrors = Object.keys(nextPromoErrors).length > 0;
+                    setPromoErrors(nextPromoErrors);
+
+                    if (hasPromoValidationErrors) {
+                        setActionError('Fix promo code errors before saving.');
                         setCurrentStep(4);
-                    } else {
-                        // Delete removed promo codes
-                        const currentIds = new Set(normalizedPromoCodes.map(p => p.id));
-                        for (const existing of existingPromos.promoCodes) {
-                            if (!currentIds.has(existing.id)) {
-                                try {
-                                    await deletePromoCode(nextEventId, existing.id);
-                                } catch (error) {
-                                    hasPromoApiErrors = true;
-                                    promoErrorMessage = promoErrorMessage ?? getUserFriendlyMessage(error);
-                                    break;
+                    }
+
+                    if (normalizedPromoCodes.length > 0 && isUuid(nextEventId) && !hasPromoValidationErrors) {
+                        const existingPromos = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
+                        const existingIds = new Set(existingPromos.promoCodes.map(p => p.id));
+
+                        for (const promo of normalizedPromoCodes) {
+                            const discountValue = Number.parseFloat(promo.discountValue) || 0;
+                            const isRevealOnlyCode = promo.revealsHiddenTickets && discountValue === 0;
+                            // Skip if no code, or if it's a discount code with no valid discount
+                            if (!promo.code.trim()) {
+                                continue;
+                            }
+                            if (!isRevealOnlyCode && (!Number.isFinite(discountValue) || discountValue <= 0)) {
+                                continue;
+                            }
+
+                            const promoInput: PromoCodeInput = {
+                                code: promo.code.trim().toUpperCase(),
+                                discountType: promo.discountType === 'fixed' ? 'amount' : 'percentage',
+                                discountValue,
+                                usageLimit: promo.usageLimit || null,
+                                validFrom: promo.validFrom ? `${promo.validFrom}T00:00:00.000Z` : null,
+                                validUntil: promo.validUntil ? `${promo.validUntil}T23:59:59.000Z` : null,
+                                isActive: promo.isActive !== false,
+                                revealsHiddenTickets: promo.revealsHiddenTickets ?? false,
+                                applicableTicketTypeIds: promo.applicableTicketTypeIds ?? null,
+                            };
+
+                            try {
+                                if (existingIds.has(promo.id)) {
+                                    await updatePromoCodeApi(nextEventId, promo.id, promoInput);
+                                } else {
+                                    await createPromoCode(nextEventId, promoInput);
+                                }
+                            } catch (error) {
+                                hasPromoApiErrors = true;
+                                const details = error instanceof ApiError
+                                    ? getBackendErrorDetails<{
+                                        fieldErrors?: Record<string, string[]>;
+                                        formErrors?: string[];
+                                    }>(error.payload)
+                                    : undefined;
+                                const fieldErrors = details?.fieldErrors ?? null;
+                                const mapped: PromoFieldErrors = {};
+                                if (fieldErrors) {
+                                    const fieldMap: Record<string, keyof PromoFieldErrors> = {
+                                        code: 'code',
+                                        discountValue: 'discountValue',
+                                        usageLimit: 'usageLimit',
+                                        validFrom: 'validFrom',
+                                        validUntil: 'validUntil',
+                                        applicableTicketTypeIds: 'applicableTicketTypeIds',
+                                        discountType: 'discountType',
+                                    };
+                                    Object.entries(fieldErrors).forEach(([field, messages]) => {
+                                        const message = messages?.[0];
+                                        const mappedField = fieldMap[field];
+                                        if (message && mappedField) {
+                                            mapped[mappedField] = message;
+                                        }
+                                    });
+                                }
+
+                                if (Object.keys(mapped).length === 0) {
+                                    const fallback = getUserFriendlyMessage(error);
+                                    mapped.code = fallback || 'Unable to save promo code.';
+                                }
+
+                                promoApiErrors[promo.id] = mapped;
+                                if (!promoErrorMessage) {
+                                    promoErrorMessage = details?.formErrors?.[0] || getUserFriendlyMessage(error);
                                 }
                             }
                         }
 
                         if (hasPromoApiErrors) {
-                            setActionError(promoErrorMessage ?? 'Unable to update promo codes.');
+                            setPromoErrors((prev) => ({ ...prev, ...promoApiErrors }));
+                            setActionError(promoErrorMessage ?? 'Fix promo code errors before saving.');
                             setCurrentStep(4);
                         } else {
-                            // Refresh promo codes
-                            const refreshed = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
-                            normalizedPromoCodes = mapPromoCodeRecordsToDraft(refreshed.promoCodes);
-                            setPromoCodes(normalizedPromoCodes);
-                        }
-                    }
-                }
-
-                const hasPromoIssues = hasPromoValidationErrors || hasPromoApiErrors;
-                if (options?.blockOnPromoErrors && hasPromoIssues) {
-                    setPublishErrors([]);
-                    return null;
-                }
-
-                // Upload banner image if a new file was selected
-                if (bannerFile) {
-                    try {
-                        await uploadEventBanner(nextEventId, bannerFile);
-                        setBannerFile(null); // Clear file after successful upload
-                    } catch (uploadError) {
-                        console.warn('Banner upload failed:', uploadError);
-                        // Don't fail the draft save, just log a warning
-                    }
-                }
-
-                setEventId(nextEventId);
-
-                if (!hasPromoValidationErrors && !hasPromoApiErrors) {
-                    markSnapshotAsSaved({ tickets: normalizedTickets, promoCodes: normalizedPromoCodes });
-                    setFieldErrors({});
-                    setPublishErrors([]);
-                    setPromoErrors({});
-
-                    if (!options?.silent) {
-                        setActionMessage('Draft saved');
-                    }
-                } else {
-                    setPublishErrors([]);
-                }
-
-                return nextEventId;
-            } catch (error) {
-                let overrideMessage: string | null = null;
-                // Extract detailed field errors from backend
-                if (error instanceof ApiError) {
-                    const details = getBackendErrorDetails<{
-                        fieldErrors?: Record<string, string[]>;
-                        formErrors?: string[];
-                    }>(error.payload);
-                    if (details?.fieldErrors) {
-                        // Map Zod field errors to our fieldErrors state
-                        const mappedErrors: Record<string, string> = {};
-                        const nextTicketErrors: Record<string, TicketFieldErrors> = {};
-                        let firstMessage: string | null = null;
-                        const ticketFieldMap: Record<string, keyof TicketFieldErrors> = {
-                            name: 'name',
-                            maxPerOrder: 'maxPerOrder',
-                            price: 'price',
-                            maxQuantity: 'quantity',
-                            customFee: 'customFee',
-                            earlyBirdPrice: 'earlyBirdPrice',
-                            earlyBirdEndDate: 'earlyBirdEndDate',
-                        };
-
-                        const mapFieldError = (field: string, message: string) => {
-                            if (field === 'startDatetime') {
-                                mappedErrors.date = message;
-                                mappedErrors.startTime = message;
-                                return;
-                            }
-                            if (field === 'endDatetime') {
-                                mappedErrors.endDate = message;
-                                mappedErrors.endTime = message;
-                                return;
-                            }
-
-                            const directFields = new Set([
-                                'title',
-                                'description',
-                                'venue',
-                                'address',
-                                'city',
-                                'onlineUrl',
-                                'currency',
-                                'refundPolicy',
-                                'timezone',
-                            ]);
-
-                            if (directFields.has(field)) {
-                                mappedErrors[field] = message;
-                                return;
-                            }
-
-                            mappedErrors[field] = message;
-                        };
-
-                        for (const [field, messages] of Object.entries(details.fieldErrors)) {
-                            if (!Array.isArray(messages) || messages.length === 0) {
-                                continue;
-                            }
-
-                            const message = messages[0];
-                            if (!firstMessage) {
-                                firstMessage = message;
-                            }
-
-                            if (field === 'tickets') {
-                                mappedErrors.tickets = message;
-                                continue;
-                            }
-
-                            const ticketMatch = field.match(/^tickets\.(\d+)\.(\w+)$/);
-                            if (ticketMatch) {
-                                const index = Number(ticketMatch[1]);
-                                const fieldName = ticketMatch[2];
-                                const ticketId = tickets[index]?.id;
-                                if (ticketId) {
-                                    const current = nextTicketErrors[ticketId] ?? {};
-                                    const mappedField = ticketFieldMap[fieldName];
-                                    if (mappedField) {
-                                        current[mappedField] = message;
+                            // Delete removed promo codes
+                            const currentIds = new Set(normalizedPromoCodes.map(p => p.id));
+                            for (const existing of existingPromos.promoCodes) {
+                                if (!currentIds.has(existing.id)) {
+                                    try {
+                                        await deletePromoCode(nextEventId, existing.id);
+                                    } catch (error) {
+                                        hasPromoApiErrors = true;
+                                        promoErrorMessage = promoErrorMessage ?? getUserFriendlyMessage(error);
+                                        break;
                                     }
-                                    nextTicketErrors[ticketId] = current;
-                                    continue;
                                 }
                             }
 
-                            mapFieldError(field, message);
+                            if (hasPromoApiErrors) {
+                                setActionError(promoErrorMessage ?? 'Unable to update promo codes.');
+                                setCurrentStep(4);
+                            } else {
+                                // Refresh promo codes
+                                const refreshed = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
+                                normalizedPromoCodes = mapPromoCodeRecordsToDraft(refreshed.promoCodes);
+                                setPromoCodes(normalizedPromoCodes);
+                            }
                         }
+                    }
 
-                        if (Object.keys(nextTicketErrors).length > 0) {
-                            setTicketErrors((prev) => {
-                                const next = { ...prev };
-                                Object.entries(nextTicketErrors).forEach(([id, errors]) => {
-                                    next[id] = { ...next[id], ...errors };
+                    const hasPromoIssues = hasPromoValidationErrors || hasPromoApiErrors;
+                    if (options?.blockOnPromoErrors && hasPromoIssues) {
+                        setPublishErrors([]);
+                        return null;
+                    }
+
+                    // Upload banner image if a new file was selected
+                    if (bannerFile) {
+                        try {
+                            await uploadEventBanner(nextEventId, bannerFile);
+                            setBannerFile(null); // Clear file after successful upload
+                        } catch (uploadError) {
+                            console.warn('Banner upload failed:', uploadError);
+                            // Don't fail the draft save, just log a warning
+                        }
+                    }
+
+                    setEventId(nextEventId);
+
+                    if (!hasPromoValidationErrors && !hasPromoApiErrors) {
+                        markSnapshotAsSaved({
+                            eventId: nextEventId,
+                            tickets: normalizedTickets,
+                            promoCodes: normalizedPromoCodes,
+                        });
+                        setFieldErrors({});
+                        setPublishErrors([]);
+                        setPromoErrors({});
+
+                        if (!options?.silent) {
+                            setActionMessage('Draft saved');
+                        }
+                    } else {
+                        setPublishErrors([]);
+                    }
+
+                    return nextEventId;
+                } catch (error) {
+                    let overrideMessage: string | null = null;
+                    // Extract detailed field errors from backend
+                    if (error instanceof ApiError) {
+                        const details = getBackendErrorDetails<{
+                            fieldErrors?: Record<string, string[]>;
+                            formErrors?: string[];
+                        }>(error.payload);
+                        if (details?.fieldErrors) {
+                            // Map Zod field errors to our fieldErrors state
+                            const mappedErrors: Record<string, string> = {};
+                            const nextTicketErrors: Record<string, TicketFieldErrors> = {};
+                            let firstMessage: string | null = null;
+                            const ticketFieldMap: Record<string, keyof TicketFieldErrors> = {
+                                name: 'name',
+                                maxPerOrder: 'maxPerOrder',
+                                price: 'price',
+                                maxQuantity: 'quantity',
+                                customFee: 'customFee',
+                                salesStart: 'salesStart',
+                                salesEnd: 'salesEnd',
+                                earlyBirdPrice: 'earlyBirdPrice',
+                                earlyBirdEndDate: 'earlyBirdEndDate',
+                            };
+
+                            const mapFieldError = (field: string, message: string) => {
+                                if (field === 'startDatetime') {
+                                    mappedErrors.date = message;
+                                    mappedErrors.startTime = message;
+                                    return;
+                                }
+                                if (field === 'endDatetime') {
+                                    mappedErrors.endDate = message;
+                                    mappedErrors.endTime = message;
+                                    return;
+                                }
+
+                                const directFields = new Set([
+                                    'title',
+                                    'description',
+                                    'venue',
+                                    'address',
+                                    'city',
+                                    'onlineUrl',
+                                    'currency',
+                                    'refundPolicy',
+                                    'timezone',
+                                ]);
+
+                                if (directFields.has(field)) {
+                                    mappedErrors[field] = message;
+                                    return;
+                                }
+
+                                mappedErrors[field] = message;
+                            };
+
+                            for (const [field, messages] of Object.entries(details.fieldErrors)) {
+                                if (!Array.isArray(messages) || messages.length === 0) {
+                                    continue;
+                                }
+
+                                const message = messages[0];
+                                if (!firstMessage) {
+                                    firstMessage = message;
+                                }
+
+                                if (field === 'tickets') {
+                                    mappedErrors.tickets = message;
+                                    continue;
+                                }
+
+                                const ticketMatch = field.match(/^tickets\.(\d+)\.(\w+)$/);
+                                if (ticketMatch) {
+                                    const index = Number(ticketMatch[1]);
+                                    const fieldName = ticketMatch[2];
+                                    const ticketId = tickets[index]?.id;
+                                    if (ticketId) {
+                                        const current = nextTicketErrors[ticketId] ?? {};
+                                        const mappedField = ticketFieldMap[fieldName];
+                                        if (mappedField) {
+                                            current[mappedField] = message;
+                                        }
+                                        nextTicketErrors[ticketId] = current;
+                                        continue;
+                                    }
+                                }
+
+                                mapFieldError(field, message);
+                            }
+
+                            if (Object.keys(nextTicketErrors).length > 0) {
+                                setTicketErrors((prev) => {
+                                    const next = { ...prev };
+                                    Object.entries(nextTicketErrors).forEach(([id, errors]) => {
+                                        next[id] = { ...next[id], ...errors };
+                                    });
+                                    return next;
                                 });
-                                return next;
-                            });
-                            if (!mappedErrors.tickets && firstMessage) {
-                                mappedErrors.tickets = firstMessage;
+                                if (!mappedErrors.tickets && firstMessage) {
+                                    mappedErrors.tickets = firstMessage;
+                                }
+                                setCurrentStep(4);
+                                overrideMessage = firstMessage ?? 'Fix the highlighted ticket fields.';
                             }
-                            setCurrentStep(4);
-                            overrideMessage = firstMessage ?? 'Fix the highlighted ticket fields.';
+
+                            if (Object.keys(mappedErrors).length > 0) {
+                                setFieldErrors(mappedErrors);
+                                goToStepForErrors(mappedErrors);
+                                if (!overrideMessage && firstMessage) {
+                                    overrideMessage = firstMessage;
+                                }
+                            }
                         }
 
-                        if (Object.keys(mappedErrors).length > 0) {
-                            setFieldErrors(mappedErrors);
-                            goToStepForErrors(mappedErrors);
-                            if (!overrideMessage && firstMessage) {
-                                overrideMessage = firstMessage;
-                            }
+                        if (!overrideMessage && details?.formErrors?.length) {
+                            overrideMessage = details.formErrors[0];
                         }
                     }
-
-                    if (!overrideMessage && details?.formErrors?.length) {
-                        overrideMessage = details.formErrors[0];
-                    }
+                    const message = overrideMessage ?? getUserFriendlyMessage(error) ?? 'Unable to save draft.';
+                    setActionError(message);
+                    return null;
+                } finally {
+                    setIsSaving(false);
                 }
-                const message = overrideMessage ?? getUserFriendlyMessage(error) ?? 'Unable to save draft.';
-                setActionError(message);
-                return null;
-            } finally {
-                setIsSaving(false);
-            }
             };
 
             const savePromise = runSave();
@@ -1968,6 +2052,7 @@ export function EventWizard({
         setActionError(null);
         setActionMessage(null);
         setIsWarningOpen(false); // Close warning if open
+        const isUpdatingPublishedEvent = mode === 'edit' && eventStatus === 'published';
 
         const organizerContactEmail = currentOrganizer?.replyToEmail?.trim() ?? '';
         if (!organizerContactEmail) {
@@ -1992,7 +2077,11 @@ export function EventWizard({
             const publishResult = await publishEvent(savedEventId, formData.visibility);
             setFieldErrors({});
             setPublishErrors([]);
-            setActionMessage('Event published successfully. Redirecting...');
+            setActionMessage(
+                isUpdatingPublishedEvent
+                    ? 'Event updated successfully. Redirecting...'
+                    : 'Event published successfully. Redirecting...',
+            );
             markSnapshotAsSaved();
 
             // Build success page URL with event details
@@ -2006,6 +2095,7 @@ export function EventWizard({
             if (formData.city) successParams.set('city', formData.city);
             if (formData.visibility === 'private') successParams.set('private', 'true');
             if (activeOrganizerId) successParams.set('organizer', activeOrganizerId);
+            if (isUpdatingPublishedEvent) successParams.set('mode', 'updated');
 
             const successUrl = `/events/published?${successParams.toString()}`;
             router.push(successUrl);
@@ -2119,6 +2209,7 @@ export function EventWizard({
     }, [
         activeOrganizerId,
         draftEmbedSlug,
+        eventStatus,
         formData.city,
         formData.date,
         formData.startTime,
@@ -2128,6 +2219,7 @@ export function EventWizard({
         currentOrganizer?.replyToEmail,
         goToStepForErrors,
         markSnapshotAsSaved,
+        mode,
         router,
         saveDraft,
         setCurrentStep,
@@ -2685,7 +2777,7 @@ export function EventWizard({
                                                                         clearFieldErrors('endDate');
                                                                     }}
                                                                     hasError={!!fieldErrors.endDate}
-                                                                    minDate={formData.date ? new Date(formData.date) : undefined}
+                                                                    minDate={parseLocalDateInput(formData.date)}
                                                                     disablePast
                                                                 />
                                                                 {fieldErrors.endDate && <p className="text-xs text-destructive">{fieldErrors.endDate}</p>}
@@ -3080,10 +3172,20 @@ export function EventWizard({
                                                     {regularTickets.map((ticket, index) => {
                                                         const hasAdvancedErrors = Boolean(
                                                             ticketErrors[ticket.id]?.maxPerOrder
+                                                            || ticketErrors[ticket.id]?.salesStart
+                                                            || ticketErrors[ticket.id]?.salesEnd
                                                             || ticketErrors[ticket.id]?.earlyBirdPrice
                                                             || ticketErrors[ticket.id]?.earlyBirdEndDate,
                                                         );
                                                         const isAdvancedOpen = hasAdvancedErrors || ticketAdvancedOpen[ticket.id];
+                                                        // Determine which tab to show based on errors (auto-switch to tab with error)
+                                                        const errorTab: 'limits' | 'sales' | 'earlybird' | null = hasAdvancedErrors
+                                                            ? (ticketErrors[ticket.id]?.maxPerOrder ? 'limits'
+                                                                : (ticketErrors[ticket.id]?.salesStart || ticketErrors[ticket.id]?.salesEnd) ? 'sales'
+                                                                    : (ticketErrors[ticket.id]?.earlyBirdPrice || ticketErrors[ticket.id]?.earlyBirdEndDate) ? 'earlybird'
+                                                                        : null)
+                                                            : null;
+                                                        const activeAdvancedTab = errorTab ?? ticketAdvancedTab[ticket.id] ?? 'limits';
                                                         const headerStyle = ticketHeaderStyles[index % ticketHeaderStyles.length];
                                                         const trimmedName = ticket.name.trim();
                                                         const displayName = trimmedName || `Ticket ${index + 1}`;
@@ -3387,167 +3489,289 @@ export function EventWizard({
                                                                                     <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                                                                                 </Button>
                                                                             </CollapsibleTrigger>
-                                                                            <CollapsibleContent className="space-y-4 pt-3 mt-1">
-                                                                                {/* Min/Max Per Order - Side by Side Toggles */}
-                                                                                <div className="grid grid-cols-2 gap-3">
-                                                                                    {/* Min Per Order */}
-                                                                                    <div className="space-y-2">
-                                                                                        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
-                                                                                            <Label className="text-xs font-medium">Min Per Order</Label>
-                                                                                            <Switch
-                                                                                                checked={ticket.minPerOrder !== 0}
-                                                                                                onCheckedChange={(checked) => {
-                                                                                                    if (checked) {
-                                                                                                        updateTicket(ticket.id, 'minPerOrder', 1);
-                                                                                                    } else {
-                                                                                                        updateTicket(ticket.id, 'minPerOrder', 0);
-                                                                                                    }
-                                                                                                }}
-                                                                                            />
-                                                                                        </div>
-                                                                                        {ticket.minPerOrder !== 0 ? (
-                                                                                            <Input
-                                                                                                type="number"
-                                                                                                value={ticket.minPerOrder > 0 ? ticket.minPerOrder : ''}
-                                                                                                onChange={(e) => {
-                                                                                                    const value = e.target.value;
-                                                                                                    if (value === '') {
-                                                                                                        updateTicket(ticket.id, 'minPerOrder', -1);
-                                                                                                        return;
-                                                                                                    }
-                                                                                                    const numericValue = Number.parseInt(value, 10);
-                                                                                                    if (Number.isNaN(numericValue) || numericValue < 0) {
-                                                                                                        return;
-                                                                                                    }
-                                                                                                    const maxLimit = ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER;
-                                                                                                    updateTicket(ticket.id, 'minPerOrder', Math.min(numericValue, maxLimit));
-                                                                                                }}
-                                                                                                onBlur={() => {
-                                                                                                    if (ticket.minPerOrder < 1) {
-                                                                                                        updateTicket(ticket.id, 'minPerOrder', 1);
-                                                                                                    }
-                                                                                                }}
-                                                                                                className="h-9"
-                                                                                                min={1}
-                                                                                                max={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER}
-                                                                                            />
-                                                                                        ) : null}
-                                                                                    </div>
-                                                                                    {/* Max Per Order */}
-                                                                                    <div className="space-y-2">
-                                                                                        <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
-                                                                                            <Label className="text-xs font-medium">Max Per Order</Label>
-                                                                                            <Switch
-                                                                                                checked={ticket.maxPerOrder !== 0}
-                                                                                                onCheckedChange={(checked) => {
-                                                                                                    if (checked) {
-                                                                                                        updateTicket(ticket.id, 'maxPerOrder', 15);
-                                                                                                    } else {
-                                                                                                        updateTicket(ticket.id, 'maxPerOrder', 0);
-                                                                                                        clearTicketError(ticket.id, 'maxPerOrder');
-                                                                                                    }
-                                                                                                }}
-                                                                                            />
-                                                                                        </div>
-                                                                                        {ticket.maxPerOrder !== 0 ? (
-                                                                                            <Input
-                                                                                                type="number"
-                                                                                                value={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : ''}
-                                                                                                onChange={(e) => {
-                                                                                                    const value = e.target.value;
-                                                                                                    if (value === '') {
-                                                                                                        updateTicket(ticket.id, 'maxPerOrder', -1);
-                                                                                                        return;
-                                                                                                    }
-                                                                                                    const numericValue = Number.parseInt(value, 10);
-                                                                                                    if (Number.isNaN(numericValue) || numericValue < 0) {
-                                                                                                        return;
-                                                                                                    }
-                                                                                                    updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, MAX_PER_ORDER));
-                                                                                                    if (numericValue >= 1) {
-                                                                                                        clearTicketError(ticket.id, 'maxPerOrder');
-                                                                                                    }
-                                                                                                }}
-                                                                                                onBlur={() => {
-                                                                                                    if (ticket.maxPerOrder < 1) {
-                                                                                                        updateTicket(ticket.id, 'maxPerOrder', 15);
-                                                                                                    }
-                                                                                                }}
-                                                                                                className={cn(
-                                                                                                    'h-9',
-                                                                                                    ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                                )}
-                                                                                                min={ticket.minPerOrder > 0 ? ticket.minPerOrder : 1}
-                                                                                                max={MAX_PER_ORDER}
-                                                                                            />
-                                                                                        ) : null}
-                                                                                        {ticketErrors[ticket.id]?.maxPerOrder ? (
-                                                                                            <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
-                                                                                        ) : null}
-                                                                                    </div>
+                                                                            <CollapsibleContent className="pt-4 mt-2 space-y-4">
+                                                                                {/* Tab pills */}
+                                                                                <div className="flex gap-1 p-1 rounded-xl bg-muted/60 border border-border/40">
+                                                                                    {[
+                                                                                        { key: 'limits' as const, label: 'Order Limits', hasError: !!ticketErrors[ticket.id]?.maxPerOrder },
+                                                                                        { key: 'sales' as const, label: 'Sales Window', hasError: !!(ticketErrors[ticket.id]?.salesStart || ticketErrors[ticket.id]?.salesEnd) },
+                                                                                        { key: 'earlybird' as const, label: 'Early Bird', hasError: !!(ticketErrors[ticket.id]?.earlyBirdPrice || ticketErrors[ticket.id]?.earlyBirdEndDate) },
+                                                                                    ].map((tab) => (
+                                                                                        <button
+                                                                                            key={tab.key}
+                                                                                            type="button"
+                                                                                            className={cn(
+                                                                                                'flex-1 text-[13px] font-semibold py-2 px-3 rounded-lg transition-all duration-200 relative',
+                                                                                                activeAdvancedTab === tab.key
+                                                                                                    ? 'bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-200/60 dark:bg-background dark:text-emerald-400 dark:ring-emerald-800/40'
+                                                                                                    : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted/40',
+                                                                                            )}
+                                                                                            onClick={() => setTicketAdvancedTab((prev) => ({ ...prev, [ticket.id]: tab.key }))}
+                                                                                        >
+                                                                                            {tab.label}
+                                                                                            {tab.hasError && <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-destructive ring-2 ring-background" />}
+                                                                                        </button>
+                                                                                    ))}
                                                                                 </div>
 
-                                                                                {/* Early Bird Toggle */}
-                                                                                <div className="border border-border/50 rounded-lg p-3 space-y-3 bg-muted/20">
-                                                                                    <div className="flex items-center justify-between">
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                                                                                            <Label className="text-sm font-medium">Early Bird Pricing</Label>
+                                                                                {/* Tab content container */}
+                                                                                <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
+
+                                                                                    {/* Order Limits tab */}
+                                                                                    {activeAdvancedTab === 'limits' && (
+                                                                                        <div className="grid grid-cols-2 gap-4">
+                                                                                            {/* Min Per Order */}
+                                                                                            <div className="space-y-2.5">
+                                                                                                <div className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-muted/40 border border-border/30">
+                                                                                                    <Label className="text-xs font-medium">Min Per Order</Label>
+                                                                                                    <Switch
+                                                                                                        checked={ticket.minPerOrder !== 0}
+                                                                                                        onCheckedChange={(checked) => {
+                                                                                                            if (checked) {
+                                                                                                                updateTicket(ticket.id, 'minPerOrder', 1);
+                                                                                                            } else {
+                                                                                                                updateTicket(ticket.id, 'minPerOrder', 0);
+                                                                                                            }
+                                                                                                        }}
+                                                                                                    />
+                                                                                                </div>
+                                                                                                {ticket.minPerOrder !== 0 ? (
+                                                                                                    <Input
+                                                                                                        type="number"
+                                                                                                        value={ticket.minPerOrder > 0 ? ticket.minPerOrder : ''}
+                                                                                                        onChange={(e) => {
+                                                                                                            const value = e.target.value;
+                                                                                                            if (value === '') {
+                                                                                                                updateTicket(ticket.id, 'minPerOrder', -1);
+                                                                                                                return;
+                                                                                                            }
+                                                                                                            const numericValue = Number.parseInt(value, 10);
+                                                                                                            if (Number.isNaN(numericValue) || numericValue < 0) {
+                                                                                                                return;
+                                                                                                            }
+                                                                                                            const maxLimit = ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER;
+                                                                                                            updateTicket(ticket.id, 'minPerOrder', Math.min(numericValue, maxLimit));
+                                                                                                        }}
+                                                                                                        onBlur={() => {
+                                                                                                            if (ticket.minPerOrder < 1) {
+                                                                                                                updateTicket(ticket.id, 'minPerOrder', 1);
+                                                                                                            }
+                                                                                                        }}
+                                                                                                        className="h-9"
+                                                                                                        min={1}
+                                                                                                        max={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER}
+                                                                                                    />
+                                                                                                ) : null}
+                                                                                            </div>
+                                                                                            {/* Max Per Order */}
+                                                                                            <div className="space-y-2.5">
+                                                                                                <div className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-muted/40 border border-border/30">
+                                                                                                    <Label className="text-xs font-medium">Max Per Order</Label>
+                                                                                                    <Switch
+                                                                                                        checked={ticket.maxPerOrder !== 0}
+                                                                                                        onCheckedChange={(checked) => {
+                                                                                                            if (checked) {
+                                                                                                                updateTicket(ticket.id, 'maxPerOrder', 15);
+                                                                                                            } else {
+                                                                                                                updateTicket(ticket.id, 'maxPerOrder', 0);
+                                                                                                                clearTicketError(ticket.id, 'maxPerOrder');
+                                                                                                            }
+                                                                                                        }}
+                                                                                                    />
+                                                                                                </div>
+                                                                                                {ticket.maxPerOrder !== 0 ? (
+                                                                                                    <Input
+                                                                                                        type="number"
+                                                                                                        value={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : ''}
+                                                                                                        onChange={(e) => {
+                                                                                                            const value = e.target.value;
+                                                                                                            if (value === '') {
+                                                                                                                updateTicket(ticket.id, 'maxPerOrder', -1);
+                                                                                                                return;
+                                                                                                            }
+                                                                                                            const numericValue = Number.parseInt(value, 10);
+                                                                                                            if (Number.isNaN(numericValue) || numericValue < 0) {
+                                                                                                                return;
+                                                                                                            }
+                                                                                                            updateTicket(ticket.id, 'maxPerOrder', Math.min(numericValue, MAX_PER_ORDER));
+                                                                                                            if (numericValue >= 1) {
+                                                                                                                clearTicketError(ticket.id, 'maxPerOrder');
+                                                                                                            }
+                                                                                                        }}
+                                                                                                        onBlur={() => {
+                                                                                                            if (ticket.maxPerOrder < 1) {
+                                                                                                                updateTicket(ticket.id, 'maxPerOrder', 15);
+                                                                                                            }
+                                                                                                        }}
+                                                                                                        className={cn(
+                                                                                                            'h-9',
+                                                                                                            ticketErrors[ticket.id]?.maxPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                                        )}
+                                                                                                        min={ticket.minPerOrder > 0 ? ticket.minPerOrder : 1}
+                                                                                                        max={MAX_PER_ORDER}
+                                                                                                    />
+                                                                                                ) : null}
+                                                                                                {ticketErrors[ticket.id]?.maxPerOrder ? (
+                                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.maxPerOrder}</p>
+                                                                                                ) : null}
+                                                                                            </div>
                                                                                         </div>
-                                                                                        <Switch
-                                                                                            checked={ticket.hasEarlyBird}
-                                                                                            onCheckedChange={(checked) => {
-                                                                                                updateTicket(ticket.id, 'hasEarlyBird', checked);
-                                                                                                if (!checked) {
-                                                                                                    clearTicketError(ticket.id, 'earlyBirdPrice');
-                                                                                                    clearTicketError(ticket.id, 'earlyBirdEndDate');
-                                                                                                }
-                                                                                            }}
-                                                                                        />
-                                                                                    </div>
-                                                                                    {ticket.hasEarlyBird && (
-                                                                                        <div className="grid gap-3 sm:grid-cols-2">
-                                                                                            <div className="space-y-1.5">
-                                                                                                <Label className="text-xs">Early Bird Price ({getCurrencySymbol(formData.currency)})</Label>
-                                                                                                <Input
-                                                                                                    type="number"
-                                                                                                    placeholder="Discounted price"
-                                                                                                    min="0"
-                                                                                                    max={maxTicketPrice}
-                                                                                                    step="0.01"
-                                                                                                    value={ticket.earlyBirdPrice}
-                                                                                                    onChange={(e) => {
-                                                                                                        const value = e.target.value;
-                                                                                                        if (value === '' || Number(value) >= 0) {
+                                                                                    )}
+
+                                                                                    {/* Sales Window tab */}
+                                                                                    {activeAdvancedTab === 'sales' && (
+                                                                                        <div className="space-y-4">
+                                                                                            <div className="flex items-center justify-between gap-3">
+                                                                                                <p className="text-[13px] text-muted-foreground">Leave empty to keep this ticket always on sale.</p>
+                                                                                                <Button
+                                                                                                    type="button"
+                                                                                                    size="sm"
+                                                                                                    variant="ghost"
+                                                                                                    className="h-7 px-2 text-xs"
+                                                                                                    onClick={() => {
+                                                                                                        updateTicket(ticket.id, 'salesStart', '');
+                                                                                                        updateTicket(ticket.id, 'salesStartTime', '');
+                                                                                                        updateTicket(ticket.id, 'salesEnd', '');
+                                                                                                        updateTicket(ticket.id, 'salesEndTime', '');
+                                                                                                        clearTicketError(ticket.id, 'salesStart');
+                                                                                                        clearTicketError(ticket.id, 'salesEnd');
+                                                                                                    }}
+                                                                                                >
+                                                                                                    Clear
+                                                                                                </Button>
+                                                                                            </div>
+                                                                                            <div className="grid gap-4 sm:grid-cols-2">
+                                                                                                <div className="space-y-2">
+                                                                                                    <Label className="text-xs font-medium">Sales Start</Label>
+                                                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                                                        <DatePicker
+                                                                                                            value={ticket.salesStart}
+                                                                                                            onChange={(value) => {
+                                                                                                                clearTicketError(ticket.id, 'salesStart');
+                                                                                                                updateTicket(ticket.id, 'salesStart', value);
+                                                                                                            }}
+                                                                                                            placeholder="Start date"
+                                                                                                            hasError={!!ticketErrors[ticket.id]?.salesStart}
+                                                                                                            className="h-9"
+                                                                                                        />
+                                                                                                        <TimePicker
+                                                                                                            value={ticket.salesStartTime}
+                                                                                                            onChange={(value) => {
+                                                                                                                clearTicketError(ticket.id, 'salesStart');
+                                                                                                                updateTicket(ticket.id, 'salesStartTime', value);
+                                                                                                            }}
+                                                                                                            placeholder="Start time"
+                                                                                                            hasError={!!ticketErrors[ticket.id]?.salesStart}
+                                                                                                            className="h-9"
+                                                                                                        />
+                                                                                                    </div>
+                                                                                                    {ticketErrors[ticket.id]?.salesStart ? (
+                                                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.salesStart}</p>
+                                                                                                    ) : null}
+                                                                                                </div>
+                                                                                                <div className="space-y-2">
+                                                                                                    <Label className="text-xs font-medium">Sales End</Label>
+                                                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                                                        <DatePicker
+                                                                                                            value={ticket.salesEnd}
+                                                                                                            onChange={(value) => {
+                                                                                                                clearTicketError(ticket.id, 'salesEnd');
+                                                                                                                updateTicket(ticket.id, 'salesEnd', value);
+                                                                                                            }}
+                                                                                                            placeholder="End date"
+                                                                                                            hasError={!!ticketErrors[ticket.id]?.salesEnd}
+                                                                                                            minDate={parseLocalDateInput(ticket.salesStart)}
+                                                                                                            className="h-9"
+                                                                                                        />
+                                                                                                        <TimePicker
+                                                                                                            value={ticket.salesEndTime}
+                                                                                                            onChange={(value) => {
+                                                                                                                clearTicketError(ticket.id, 'salesEnd');
+                                                                                                                updateTicket(ticket.id, 'salesEndTime', value);
+                                                                                                            }}
+                                                                                                            placeholder="End time"
+                                                                                                            hasError={!!ticketErrors[ticket.id]?.salesEnd}
+                                                                                                            className="h-9"
+                                                                                                        />
+                                                                                                    </div>
+                                                                                                    {ticketErrors[ticket.id]?.salesEnd ? (
+                                                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.salesEnd}</p>
+                                                                                                    ) : null}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            {(() => {
+                                                                                                const warning = getTicketSalesWindowWarning(ticket, formData.timezone);
+                                                                                                return warning ? (
+                                                                                                    <p className="text-xs text-amber-700">{warning}</p>
+                                                                                                ) : null;
+                                                                                            })()}
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {/* Early Bird tab */}
+                                                                                    {activeAdvancedTab === 'earlybird' && (
+                                                                                        <div className="space-y-4">
+                                                                                            <div className="flex items-center justify-between py-1">
+                                                                                                <div className="flex items-center gap-2.5">
+                                                                                                    <Tag className="h-4 w-4 text-muted-foreground" />
+                                                                                                    <Label className="text-[13px] font-semibold">Early Bird Pricing</Label>
+                                                                                                </div>
+                                                                                                <Switch
+                                                                                                    checked={ticket.hasEarlyBird}
+                                                                                                    onCheckedChange={(checked) => {
+                                                                                                        updateTicket(ticket.id, 'hasEarlyBird', checked);
+                                                                                                        if (!checked) {
                                                                                                             clearTicketError(ticket.id, 'earlyBirdPrice');
-                                                                                                            updateTicket(ticket.id, 'earlyBirdPrice', value);
+                                                                                                            clearTicketError(ticket.id, 'earlyBirdEndDate');
                                                                                                         }
                                                                                                     }}
-                                                                                                    className={cn(
-                                                                                                        'h-9',
-                                                                                                        ticketErrors[ticket.id]?.earlyBirdPrice ? 'border-destructive focus-visible:ring-destructive' : '',
-                                                                                                    )}
                                                                                                 />
-                                                                                                {ticketErrors[ticket.id]?.earlyBirdPrice ? (
-                                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdPrice}</p>
-                                                                                                ) : null}
                                                                                             </div>
-                                                                                            <div className="space-y-1.5">
-                                                                                                <Label className="text-xs">Ends On</Label>
-                                                                                                <DatePicker
-                                                                                                    value={ticket.earlyBirdEndDate}
-                                                                                                    onChange={(value) => {
-                                                                                                        clearTicketError(ticket.id, 'earlyBirdEndDate');
-                                                                                                        updateTicket(ticket.id, 'earlyBirdEndDate', value);
-                                                                                                    }}
-                                                                                                    placeholder="Select end date"
-                                                                                                    hasError={!!ticketErrors[ticket.id]?.earlyBirdEndDate}
-                                                                                                    className="h-9"
-                                                                                                />
-                                                                                                {ticketErrors[ticket.id]?.earlyBirdEndDate ? (
-                                                                                                    <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdEndDate}</p>
-                                                                                                ) : null}
-                                                                                            </div>
+                                                                                            {ticket.hasEarlyBird && (
+                                                                                                <div className="grid gap-4 sm:grid-cols-2">
+                                                                                                    <div className="space-y-2">
+                                                                                                        <Label className="text-xs">Early Bird Price ({getCurrencySymbol(formData.currency)})</Label>
+                                                                                                        <Input
+                                                                                                            type="number"
+                                                                                                            placeholder="Discounted price"
+                                                                                                            min="0"
+                                                                                                            max={maxTicketPrice}
+                                                                                                            step="0.01"
+                                                                                                            value={ticket.earlyBirdPrice}
+                                                                                                            onChange={(e) => {
+                                                                                                                const value = e.target.value;
+                                                                                                                if (value === '' || Number(value) >= 0) {
+                                                                                                                    clearTicketError(ticket.id, 'earlyBirdPrice');
+                                                                                                                    updateTicket(ticket.id, 'earlyBirdPrice', value);
+                                                                                                                }
+                                                                                                            }}
+                                                                                                            className={cn(
+                                                                                                                'h-9',
+                                                                                                                ticketErrors[ticket.id]?.earlyBirdPrice ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                                            )}
+                                                                                                        />
+                                                                                                        {ticketErrors[ticket.id]?.earlyBirdPrice ? (
+                                                                                                            <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdPrice}</p>
+                                                                                                        ) : null}
+                                                                                                    </div>
+                                                                                                    <div className="space-y-1.5">
+                                                                                                        <Label className="text-xs">Ends On</Label>
+                                                                                                        <DatePicker
+                                                                                                            value={ticket.earlyBirdEndDate}
+                                                                                                            onChange={(value) => {
+                                                                                                                clearTicketError(ticket.id, 'earlyBirdEndDate');
+                                                                                                                updateTicket(ticket.id, 'earlyBirdEndDate', value);
+                                                                                                            }}
+                                                                                                            placeholder="Select end date"
+                                                                                                            hasError={!!ticketErrors[ticket.id]?.earlyBirdEndDate}
+                                                                                                            className="h-9"
+                                                                                                        />
+                                                                                                        {ticketErrors[ticket.id]?.earlyBirdEndDate ? (
+                                                                                                            <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.earlyBirdEndDate}</p>
+                                                                                                        ) : null}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            )}
                                                                                         </div>
                                                                                     )}
                                                                                 </div>
@@ -3979,7 +4203,7 @@ export function EventWizard({
                                                                                     onChange={(value) => updatePromoCode(promo.id, 'validUntil', value)}
                                                                                     placeholder="Select end date"
                                                                                     hasError={!!promoError?.validUntil}
-                                                                                    minDate={promo.validFrom ? new Date(promo.validFrom) : undefined}
+                                                                                    minDate={parseLocalDateInput(promo.validFrom)}
                                                                                 />
                                                                                 {promoError?.validUntil ? (
                                                                                     <p className="text-xs text-destructive">{promoError.validUntil}</p>

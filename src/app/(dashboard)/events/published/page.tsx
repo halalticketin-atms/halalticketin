@@ -13,6 +13,7 @@ interface EventData {
     city: string | null;
     slug: string;
     isPrivate: boolean;
+    isUpdate: boolean;
     dashboardHref: string;
 }
 
@@ -27,6 +28,7 @@ function SuccessContent() {
         const city = searchParams.get('city');
         const slug = searchParams.get('slug') || '';
         const isPrivate = searchParams.get('private') === 'true';
+        const isUpdate = searchParams.get('mode') === 'updated';
         const organizerId = searchParams.get('organizer');
 
         const dashboardHref = organizerId
@@ -41,6 +43,7 @@ function SuccessContent() {
             city,
             slug,
             isPrivate,
+            isUpdate,
             dashboardHref,
         };
     }, [searchParams]);
@@ -55,6 +58,7 @@ function SuccessContent() {
             eventSlug={eventData.slug}
             dashboardHref={eventData.dashboardHref}
             isPrivate={eventData.isPrivate}
+            isUpdate={eventData.isUpdate}
         />
     );
 }

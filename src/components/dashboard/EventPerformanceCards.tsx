@@ -150,15 +150,15 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                             transition={{ ...anim.transition, delay: index * anim.staggerDelay * 2 }}
                         >
                             <Card className="group overflow-hidden border-border/50 hover:border-primary/20 hover:shadow-lg transition-all duration-300 w-full max-w-full min-w-0">
-                                <div className="flex min-w-0 flex-col gap-0 md:grid md:grid-cols-[280px_1fr]">
-                                    {/* Banner Image - centered and contained */}
-                                    <div className="relative w-full h-48 sm:h-56 md:h-auto md:aspect-[4/5] overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
+                                <div className="flex min-w-0 flex-col gap-0 md:flex-row md:items-start">
+                                    {/* Banner Image - fixed poster rail, always preserving 1080x1350 ratio */}
+                                    <div className="relative w-full aspect-[1080/1350] md:w-[280px] md:shrink-0 md:self-start overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800">
                                         {event.bannerImageUrl ? (
                                             <Image
                                                 src={event.bannerImageUrl}
                                                 alt={event.title}
                                                 fill
-                                                className="object-contain"
+                                                className="object-cover"
                                                 sizes="(max-width: 768px) 100vw, 280px"
                                             />
                                         ) : (
@@ -175,7 +175,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                                     </div>
 
                                     {/* Content - contained within bounds */}
-                                    <CardContent className="min-w-0 p-4 sm:p-6 space-y-4 overflow-hidden w-full max-w-full">
+                                    <CardContent className="min-w-0 flex-1 p-4 sm:p-6 space-y-4 overflow-hidden w-full max-w-full">
                                         {/* Header */}
                                         <div className="space-y-2">
                                             <h3 className="font-display text-lg sm:text-xl font-semibold leading-tight line-clamp-2">

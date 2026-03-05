@@ -16,13 +16,24 @@ export default defineConfig({
   server: {
     host: '127.0.0.1',
   },
+  resolve: {
+    alias: {
+      '@': path.resolve(dirname, 'src'),
+    },
+  },
   test: {
+    alias: {
+      '@': path.resolve(dirname, 'src'),
+    },
     projects: [
       {
         test: {
           name: 'unit',
           include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
           environment: 'node',
+          alias: {
+            '@': path.resolve(dirname, 'src'),
+          },
         },
       },
       {

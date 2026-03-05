@@ -258,7 +258,6 @@ function DonationCard({
                     />
                 </div>
             </div>
-            <p className="text-xs text-muted-foreground">Clear the amount to remove the donation.</p>
         </div>
     );
 }
