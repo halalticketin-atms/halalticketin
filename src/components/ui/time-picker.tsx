@@ -173,15 +173,18 @@ function TimePicker({
                     id={id}
                     variant="outline"
                     disabled={disabled}
+                    title={value ? formatTimeForDisplay(value) : placeholder}
                     className={cn(
-                        "h-11 w-full justify-start text-left font-normal",
+                        "h-11 w-full min-w-0 justify-start overflow-hidden text-left font-normal",
                         !value && "text-muted-foreground",
                         hasError && "border-destructive focus-visible:ring-destructive",
                         className
                     )}
                 >
-                    <Clock className="mr-2 h-4 w-4" />
-                    {value ? formatTimeForDisplay(value) : <span>{placeholder}</span>}
+                    <Clock className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate">
+                        {value ? formatTimeForDisplay(value) : placeholder}
+                    </span>
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[200px] p-0" align="start">

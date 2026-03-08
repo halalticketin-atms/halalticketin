@@ -119,15 +119,18 @@ function DatePicker({
                     id={id}
                     variant="outline"
                     disabled={disabled}
+                    title={dateValue ? format(dateValue, "PPP") : placeholder}
                     className={cn(
-                        "h-11 w-full justify-start text-left font-normal",
+                        "h-11 w-full min-w-0 justify-start overflow-hidden text-left font-normal",
                         !dateValue && "text-muted-foreground",
                         hasError && "border-destructive focus-visible:ring-destructive",
                         className
                     )}
                 >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateValue ? format(dateValue, "PPP") : <span>{placeholder}</span>}
+                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate">
+                        {dateValue ? format(dateValue, "PPP") : placeholder}
+                    </span>
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
