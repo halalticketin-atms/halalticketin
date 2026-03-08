@@ -390,6 +390,7 @@ export function PublicEventPageContent({
     const lastQuoteSignatureRef = useRef<string | null>(null);
     const lastQuoteAtRef = useRef<number | null>(null);
     const quoteRequestIdRef = useRef(0);
+    const promoValidationSignatureRef = useRef<string | null>(null);
     const donationDebounceRef = useRef<number | null>(null);
 
     // Autofill user details - only runs once when user data first loads
@@ -765,7 +766,7 @@ export function PublicEventPageContent({
         : 0;
     const isRateLimited = cooldownRemaining > 0;
 
-    const quoteSignature = useMemo(() => {
+    const buildQuoteSignature = (promoCodeValue?: string | null) => {
         if (!event?.id || quoteItems.length === 0) {
             return null;
         }
@@ -779,10 +780,12 @@ export function PublicEventPageContent({
         return JSON.stringify({
             eventId: event.id,
             items: normalizedItems,
-            promoCode: appliedPromo?.code?.toUpperCase() ?? '',
+            promoCode: promoCodeValue?.toUpperCase() ?? '',
             accessCode: accessCode ?? ''
         });
-    }, [event?.id, quoteItems, appliedPromo?.code, accessCode]);
+    };
+
+    const quoteSignature = buildQuoteSignature(appliedPromo?.code);
 
     const customQuestionCount = event?.customQuestions?.length ?? 0;
     const forcePerTicket = customQuestionCount > 0;
@@ -810,8 +813,6 @@ export function PublicEventPageContent({
             ...prev,
             [ticketId]: quantity
         }));
-        // Clear applied promo when quantities change
-        setAppliedPromo(null);
         setPromoError(null);
     };
 
@@ -823,14 +824,11 @@ export function PublicEventPageContent({
             }
             setDonationAmount(null);
             setDonationQuoteAmount(null);
-            setAppliedPromo(null);
             setPromoError(null);
             return;
         }
         const clamped = Math.min(Math.max(amount, 0), maxDonationAmount);
         setDonationAmount(clamped);
-        // Clear applied promo when donation amount changes
-        setAppliedPromo(null);
         setPromoError(null);
     };
 
@@ -847,7 +845,6 @@ export function PublicEventPageContent({
         setIsDonationActive(false);
         setDonationAmount(null);
         setDonationQuoteAmount(null);
-        setAppliedPromo(null);
         setPromoError(null);
     };
 
@@ -912,6 +909,7 @@ export function PublicEventPageContent({
 
         if (result.valid) {
             setAppliedPromo(result);
+            promoValidationSignatureRef.current = buildQuoteSignature(trimmedCode);
             setPromoError(null);
 
             // Check if this promo reveals hidden tickets
@@ -925,6 +923,8 @@ export function PublicEventPageContent({
                         setUnlockedTickets(unlocked as TicketLike[]);
                         toast.success(`Unlocked ${unlocked.length} hidden ticket${unlocked.length === 1 ? '' : 's'}!`);
                     } else if (result.discountValue === '0' || result.discountValue === '0.00') {
+                        setAppliedPromo(null);
+                        promoValidationSignatureRef.current = null;
                         setPromoError('Code is valid but no hidden tickets are currently available.');
                     }
                 } else {
@@ -933,18 +933,23 @@ export function PublicEventPageContent({
                         trimmedCode,
                         accessCode ?? undefined
                     );
-                    if (unlocked.length > 0) {
+                    if (unlocked && unlocked.length > 0) {
                         setUnlockedTickets(unlocked as TicketLike[]);
                         toast.success(`Unlocked ${unlocked.length} hidden ticket${unlocked.length === 1 ? '' : 's'}!`);
-                    } else if (result.discountValue === '0' || result.discountValue === '0.00') {
+                    } else if (unlocked && (result.discountValue === '0' || result.discountValue === '0.00')) {
+                        setAppliedPromo(null);
+                        promoValidationSignatureRef.current = null;
                         // Reveal-only code but no tickets found
                         setPromoError('Code is valid but no hidden tickets are currently available.');
+                    } else if (!unlocked) {
+                        toast.error('Promo code applied, but hidden tickets could not be loaded. Please try again.');
                     }
                 }
             }
         } else {
             setAppliedPromo(null);
             setUnlockedTickets([]);
+            promoValidationSignatureRef.current = null;
             setPromoError(result.message || 'Invalid promo code');
         }
 
@@ -955,12 +960,12 @@ export function PublicEventPageContent({
         setAppliedPromo(null);
         setUnlockedTickets([]);
         setPromoCode('');
+        promoValidationSignatureRef.current = null;
         setPromoError(null);
     };
 
     // Calculate final total after discount
-    const discountAmount = appliedPromo?.discountAmount ? parseFloat(appliedPromo.discountAmount) : 0;
-    const finalTotal = Math.max(0, totalAmount - discountAmount);
+    const appliedPromoDiscountAmount = appliedPromo?.discountAmount ? parseFloat(appliedPromo.discountAmount) : 0;
     const currencyCode = event?.currency || safeTickets[0]?.currency || 'GBP';
     const currencySymbol = getCurrencySymbol(currencyCode);
     const maxDonationAmount = useMemo(() => {
@@ -1122,10 +1127,17 @@ export function PublicEventPageContent({
     const activeQuote = quoteFresh ? checkoutQuote : null;
     const hasQuote = Boolean(activeQuote);
     const quoteSubtotal = activeQuote?.subtotal ?? totalAmount;
+    const isPromoDiscountPendingForCurrentSelection =
+        !activeQuote
+        && Boolean(appliedPromo)
+        && promoValidationSignatureRef.current !== null
+        && promoValidationSignatureRef.current === quoteSignature;
+    const quoteDiscountAmount = activeQuote?.discount ?? (isPromoDiscountPendingForCurrentSelection ? appliedPromoDiscountAmount : 0);
     const platformFeeAmount = activeQuote?.platformFee ?? 0;
     const organizerFeeAmount = activeQuote?.organizerFee ?? 0;
     const processingFeeAmount = activeQuote?.processingFee ?? 0;
     const grandTotal = activeQuote?.total ?? 0;
+    const discountedSubtotal = Math.max(0, quoteSubtotal - quoteDiscountAmount);
     const creditsApplied = activeQuote?.creditsApplied ?? 0;
     const quotePaidTicketCount = activeQuote?.paidTicketCount ?? paidTicketCount;
     const creditSplitNote = activeQuote
@@ -1148,48 +1160,38 @@ export function PublicEventPageContent({
             : hasQuoteError
                 ? (quoteErrorMessage || 'Unable to calculate totals. Please wait or adjust your selection.')
                 : null;
+    const promoNoDiscountMessage = hasSelections && quoteFresh && quoteDiscountAmount === 0 && unlockedTickets.length === 0;
 
     const organizerFeeDetails = useMemo(() => {
         const details = new Map<string, { feePerTicket: number; creditQuantity: number; quantity: number }>();
-        if (!event || cartItems.length === 0 || creditsApplied <= 0) {
+        if (!activeQuote || cartItems.length === 0 || activeQuote.lineAllocations.length === 0) {
             return details;
         }
-
-        const eventOrganizerFee = normalizeFeeValue(event.customBookingFee);
-        let remainingCredits = creditsApplied;
 
         for (const item of cartItems) {
             if (item.ticket.type === 'donation') {
                 continue;
             }
-            const unitPrice = getCartItemUnitPrice(item);
-            if (unitPrice <= 0 || remainingCredits <= 0) {
+
+            const allocation = activeQuote.lineAllocations.reduce((acc, line) => {
+                if (line.ticketTypeId !== item.ticket.id) {
+                    return acc;
+                }
+                acc.creditQuantity += line.creditCoveredQuantity;
+                acc.quantity += line.requestedQuantity;
+                acc.feePerTicket = Math.max(acc.feePerTicket, line.organizerFeePerCreditUnit);
+                return acc;
+            }, { feePerTicket: 0, creditQuantity: 0, quantity: 0 });
+
+            if (allocation.creditQuantity <= 0 || allocation.feePerTicket <= 0) {
                 continue;
             }
 
-            const creditQuantity = Math.min(remainingCredits, item.quantity);
-            remainingCredits -= creditQuantity;
-            if (creditQuantity <= 0) {
-                continue;
-            }
-
-            const ticketCustomFee = 'customFee' in item.ticket
-                ? normalizeFeeValue(item.ticket.customFee)
-                : undefined;
-            const resolvedFee = ticketCustomFee ?? eventOrganizerFee;
-            if (!resolvedFee || resolvedFee <= 0) {
-                continue;
-            }
-
-            details.set(item.ticket.id, {
-                feePerTicket: resolvedFee,
-                creditQuantity,
-                quantity: item.quantity
-            });
+            details.set(item.ticket.id, allocation);
         }
 
         return details;
-    }, [cartItems, creditsApplied, event, getCartItemUnitPrice]);
+    }, [activeQuote, cartItems]);
 
     useEffect(() => {
         if (!quoteCooldownUntil) {
@@ -1328,6 +1330,7 @@ export function PublicEventPageContent({
                 if (changed) {
                     setTicketQuantities(nextQuantities);
                     setAppliedPromo(null);
+                    promoValidationSignatureRef.current = null;
                     setPromoError(null);
                     setHasQuoteError(false);
                     setQuoteErrorMessage(null);
@@ -1593,6 +1596,7 @@ export function PublicEventPageContent({
                     return next;
                 });
                 setAppliedPromo(null);
+                promoValidationSignatureRef.current = null;
                 setPromoError(null);
                 const errorMessage = result.error || 'Ticket quantities were adjusted to match availability. Please review and try again.';
                 setCheckoutError(errorMessage);
@@ -2343,6 +2347,7 @@ export function PublicEventPageContent({
                                                     setPromoCode(e.target.value.toUpperCase());
                                                     if (appliedPromo) {
                                                         setAppliedPromo(null);
+                                                        promoValidationSignatureRef.current = null;
                                                     }
                                                 }}
                                                 minLength={PROMO_CODE_MIN_LENGTH}
@@ -2377,10 +2382,25 @@ export function PublicEventPageContent({
                                             <p className="text-xs text-red-600">{promoError}</p>
                                         )}
                                         {appliedPromo && (
-                                            <p className="text-xs text-green-600 flex items-center gap-1">
-                                                ✓ Code applied: {appliedPromo.discountType === 'percentage'
-                                                    ? `${appliedPromo.discountValue}% off`
-                                                    : `${currencySymbol}${appliedPromo.discountValue} off`}
+                                            <p className={cn(
+                                                'text-xs flex items-center gap-1',
+                                                promoNoDiscountMessage ? 'text-amber-600' : 'text-green-600'
+                                            )}>
+                                                {promoNoDiscountMessage
+                                                    ? 'Code valid for this event, but no discount applies to this selection'
+                                                    : `${quoteDiscountAmount > 0
+                                                        ? (appliedPromo.discountType === 'percentage'
+                                                            ? `✓ Code applied: ${appliedPromo.discountValue}% off`
+                                                            : `✓ Code applied: ${currencySymbol}${appliedPromo.discountValue} off`)
+                                                        : unlockedTickets.length > 0
+                                                            ? '✓ Code applied: hidden tickets unlocked'
+                                                            : hasSelections
+                                                                ? '✓ Code applied: updating discount...'
+                                                                : appliedPromo.revealsHiddenTickets
+                                                                    ? '✓ Code applied: hidden tickets will unlock if available'
+                                                                    : appliedPromo.applicableTicketTypeIds?.length
+                                                                        ? '✓ Code applied: will apply to eligible tickets in your basket'
+                                                                        : '✓ Code applied: will apply to tickets in your basket'}`}
                                             </p>
                                         )}
                                     </div>
@@ -2391,10 +2411,10 @@ export function PublicEventPageContent({
                                                 <span>{totalTickets} ticket{totalTickets > 1 ? 's' : ''}</span>
                                                 <span>{currencySymbol}{quoteSubtotal.toFixed(2)}</span>
                                             </div>
-                                            {appliedPromo && discountAmount > 0 && (
+                                            {appliedPromo && quoteDiscountAmount > 0 && (
                                                 <div className="flex justify-between text-sm text-green-600">
                                                     <span>Discount ({appliedPromo.code})</span>
-                                                    <span>-{currencySymbol}{discountAmount.toFixed(2)}</span>
+                                                    <span>-{currencySymbol}{quoteDiscountAmount.toFixed(2)}</span>
                                                 </div>
                                             )}
                                             {hasQuote ? (
@@ -2422,17 +2442,17 @@ export function PublicEventPageContent({
                                                         <span>Total</span>
                                                         <span>{currencySymbol}{grandTotal.toFixed(2)}</span>
                                                     </div>
-                                                    {quoteFresh && finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount === 0 && (
+                                                    {quoteFresh && discountedSubtotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount === 0 && (
                                                         <p className="text-xs text-muted-foreground text-center">
                                                             No additional fees! 🎉
                                                         </p>
                                                     )}
-                                                    {quoteFresh && finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount > 0 && (
+                                                    {quoteFresh && discountedSubtotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount > 0 && (
                                                         <p className="text-xs text-muted-foreground text-center">
                                                             Processing fee applies.
                                                         </p>
                                                     )}
-                                                    {quoteFresh && finalTotal > 0 && platformFeeAmount === 0 && organizerFeeAmount > 0 && processingFeeAmount > 0 && (
+                                                    {quoteFresh && discountedSubtotal > 0 && platformFeeAmount === 0 && organizerFeeAmount > 0 && processingFeeAmount > 0 && (
                                                         <p className="text-xs text-muted-foreground text-center">
                                                             Organiser fee and processing fee apply.
                                                         </p>
@@ -2632,10 +2652,10 @@ export function PublicEventPageContent({
                                     </div>
                                 )}
 
-                                {appliedPromo && discountAmount > 0 && (
+                                {appliedPromo && quoteDiscountAmount > 0 && (
                                     <div className="flex justify-between items-center text-sm text-emerald-600 font-medium my-1">
                                         <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> {appliedPromo.code}</span>
-                                        <span>−{currencySymbol}{discountAmount.toFixed(2)}</span>
+                                        <span>−{currencySymbol}{quoteDiscountAmount.toFixed(2)}</span>
                                     </div>
                                 )}
                                 {creditSplitNote && (
@@ -3019,10 +3039,10 @@ export function PublicEventPageContent({
                                                                 </div>
                                                             );
                                                         })}
-                                                        {appliedPromo && discountAmount > 0 && (
+                                                        {appliedPromo && quoteDiscountAmount > 0 && (
                                                             <div className="flex justify-between text-green-600">
                                                                 <span>Discount ({appliedPromo.code})</span>
-                                                                <span>−{currencySymbol}{discountAmount.toFixed(2)}</span>
+                                                                <span>−{currencySymbol}{quoteDiscountAmount.toFixed(2)}</span>
                                                             </div>
                                                         )}
                                                         {hasQuote && organizerFeeAmount > 0 && (

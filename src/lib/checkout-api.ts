@@ -67,6 +67,16 @@ export interface CheckoutErrorResponse {
 
 export type CheckoutResponse = CheckoutSuccessResponse | CheckoutErrorResponse;
 
+export interface CheckoutQuoteLineAllocation {
+    lineIndex: number;
+    ticketTypeId: string;
+    requestedQuantity: number;
+    promoCoveredQuantity: number;
+    creditCoveredQuantity: number;
+    feeBearingQuantity: number;
+    organizerFeePerCreditUnit: number;
+}
+
 export interface CheckoutQuoteResponse {
     success: true;
     currency: string;
@@ -80,6 +90,7 @@ export interface CheckoutQuoteResponse {
     creditsApplied: number;
     paidTicketCount: number;
     promoCodeApplied: boolean;
+    lineAllocations: CheckoutQuoteLineAllocation[];
 }
 
 export type CheckoutQuoteResult = {
@@ -398,8 +409,11 @@ export async function fetchUnlockedTickets(
     eventSlug: string,
     promoCode: string,
     accessCode?: string
-): Promise<{ id: string; name: string; description: string | null; price: string; currency: string; type: string; customFee?: number | null; earlyBirdPrice?: string | null; earlyBirdEndDate?: string | null }[]> {
+): Promise<{ id: string; name: string; description: string | null; price: string; currency: string; type: string; customFee?: number | null; earlyBirdPrice?: string | null; earlyBirdEndDate?: string | null }[] | null> {
     try {
+        if (!eventSlug.trim()) {
+            return null;
+        }
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (accessCode) {
             headers['x-event-access-code'] = accessCode;
@@ -413,11 +427,11 @@ export async function fetchUnlockedTickets(
             }
         );
         if (!response.ok) {
-            return [];
+            return null;
         }
         const data = await response.json();
         return data.tickets || [];
     } catch {
-        return [];
+        return null;
     }
 }

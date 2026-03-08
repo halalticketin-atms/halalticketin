@@ -16,8 +16,8 @@ export function useScrollVisibility({
     isInteracting = false,
 }: ScrollVisibilityOptions = {}) {
     const getScrollY = () => (typeof window === 'undefined' ? 0 : window.scrollY);
-    const [isVisible, setIsVisible] = useState(() => getScrollY() <= topOffset || isInteracting);
-    const [isScrolled, setIsScrolled] = useState(() => getScrollY() > topOffset);
+    const [isVisible, setIsVisible] = useState(true);
+    const [isScrolled, setIsScrolled] = useState(false);
     const lastScrollY = useRef(0);
     const lastToggleY = useRef(0);
     const rafRef = useRef<number | null>(null);
@@ -80,8 +80,11 @@ export function useScrollVisibility({
         const initialScrollY = getScrollY();
         lastScrollY.current = initialScrollY;
         lastToggleY.current = initialScrollY;
-        if (!isInteracting) {
-            scheduleIdleHide(initialScrollY);
+        if (rafRef.current === null) {
+            rafRef.current = window.requestAnimationFrame(() => {
+                updateVisibility();
+                rafRef.current = null;
+            });
         }
 
         const onScroll = () => {
