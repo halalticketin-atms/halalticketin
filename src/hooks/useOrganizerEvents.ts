@@ -4,11 +4,27 @@ import { useCallback, useEffect, useState } from 'react';
 import { EventRecord, listOrganizerEvents } from '@/lib/events-api';
 
 export type DashboardEventStatus = 'draft' | 'active' | 'past';
+export const EMAIL_ATTENDEE_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
+const EVENT_FALLBACK_DURATION_MS = 24 * 60 * 60 * 1000;
 
 export interface DashboardEvent extends EventRecord {
     /** Computed status based on dates and published state */
     displayStatus: DashboardEventStatus;
+    /** Whether Email Attendees should remain available for this event */
+    canEmailAttendees: boolean;
 }
+
+const getEventEffectiveEnd = (event: EventRecord): Date | null => {
+    if (event.endDatetime) {
+        return new Date(event.endDatetime);
+    }
+
+    if (!event.startDatetime) {
+        return null;
+    }
+
+    return new Date(new Date(event.startDatetime).getTime() + EVENT_FALLBACK_DURATION_MS);
+};
 
 /**
  * Classify an event's display status based on its publish status and dates.
@@ -73,6 +89,7 @@ export function useOrganizerEvents(organizerId: string | null) {
             const classified = response.events.map((event) => ({
                 ...event,
                 displayStatus: classifyEventStatus(event),
+                canEmailAttendees: canEmailAttendeesForEvent(event),
             }));
 
             // Sort events so active ones are always first
@@ -124,4 +141,17 @@ export function useOrganizerEvents(organizerId: string | null) {
         getByStatus,
         counts,
     };
+}
+
+export function canEmailAttendeesForEvent(event: EventRecord, now: Date = new Date()): boolean {
+    if (event.status !== 'published') {
+        return false;
+    }
+
+    const effectiveEnd = getEventEffectiveEnd(event);
+    if (!effectiveEnd) {
+        return true;
+    }
+
+    return effectiveEnd.getTime() + EMAIL_ATTENDEE_GRACE_PERIOD_MS >= now.getTime();
 }

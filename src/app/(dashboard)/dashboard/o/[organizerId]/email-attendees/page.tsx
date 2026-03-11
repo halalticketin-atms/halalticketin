@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     AlertCircle,
@@ -270,6 +271,7 @@ function LiveEmailPreview({
 }
 
 export default function EmailAttendeesPage() {
+    const searchParams = useSearchParams();
     const organizerId = useOrganizerFromParams();
     const { events, isLoading, error } = useOrganizerEvents(organizerId);
     const [currentStep, setCurrentStep] = useState<Step>('event');
@@ -296,21 +298,62 @@ export default function EmailAttendeesPage() {
         () => orders.filter((order) => order.status === 'refunded'),
         [orders]
     );
+    const selectedEventFromUrl = searchParams.get('eventId');
+    const eligibleEvents = useMemo(
+        () => events.filter((event) => event.canEmailAttendees),
+        [events]
+    );
 
     const selectedEvent = useMemo(
         () => events.find((event) => event.id === selectedEventId) ?? null,
         [events, selectedEventId]
     );
 
-    // Auto-select first event
-    useEffect(() => {
-        if (!selectedEventId && events.length > 0) {
-            const activeEvents = events.filter(e => e.displayStatus === 'active');
-            if (activeEvents.length > 0) {
-                setSelectedEventId(activeEvents[0].id);
-            }
+    const getEventEndedAt = (event: DashboardEvent) => {
+        if (event.endDatetime) {
+            return new Date(event.endDatetime).getTime();
         }
-    }, [events, selectedEventId]);
+        if (event.startDatetime) {
+            return new Date(event.startDatetime).getTime();
+        }
+        return 0;
+    };
+
+    // Auto-select the best eligible event
+    useEffect(() => {
+        if (eligibleEvents.length === 0) {
+            if (selectedEventId) {
+                setSelectedEventId('');
+            }
+            return;
+        }
+
+        const existingSelection = eligibleEvents.find((event) => event.id === selectedEventId);
+        if (existingSelection) {
+            return;
+        }
+
+        const requestedEvent = selectedEventFromUrl
+            ? eligibleEvents.find((event) => event.id === selectedEventFromUrl)
+            : null;
+        if (requestedEvent) {
+            setSelectedEventId(requestedEvent.id);
+            return;
+        }
+
+        const activeEvent = eligibleEvents.find((event) => event.displayStatus === 'active');
+        if (activeEvent) {
+            setSelectedEventId(activeEvent.id);
+            return;
+        }
+
+        const mostRecentlyEndedEvent = [...eligibleEvents]
+            .sort((a, b) => getEventEndedAt(b) - getEventEndedAt(a))[0];
+
+        if (mostRecentlyEndedEvent) {
+            setSelectedEventId(mostRecentlyEndedEvent.id);
+        }
+    }, [eligibleEvents, selectedEventFromUrl, selectedEventId]);
 
     // Auto-update subject when event changes
     useEffect(() => {
@@ -587,20 +630,19 @@ export default function EmailAttendeesPage() {
                                 {currentStep === 'event' && (
                                     <div className="space-y-5">
                                         <div className="space-y-2">
-                                            <Label htmlFor="event-select">Select an event</Label>
+                                                <Label htmlFor="event-select">Select an event</Label>
                                             <Select
                                                 value={selectedEventId || undefined}
                                                 onValueChange={setSelectedEventId}
-                                                disabled={isLoading || events.length === 0}
+                                                disabled={isLoading || eligibleEvents.length === 0}
                                             >
                                                 <SelectTrigger id="event-select" className="h-12 bg-background">
                                                     <SelectValue
-                                                        placeholder={isLoading ? 'Loading events...' : 'Select event'}
+                                                        placeholder={isLoading ? 'Loading events...' : 'Select eligible event'}
                                                     />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {events
-                                                        .filter(event => event.displayStatus === 'active')
+                                                    {eligibleEvents
                                                         .map((event) => (
                                                             <SelectItem key={event.id} value={event.id}>
                                                                 <div className="flex items-center gap-3">
@@ -639,6 +681,14 @@ export default function EmailAttendeesPage() {
                                                     {error}
                                                 </div>
                                             )}
+                                            {!isLoading && !error && eligibleEvents.length === 0 && (
+                                                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-600" />
+                                                    <span>
+                                                        Email attendees stays available while an event is active and for 7 days after it ends.
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {selectedEvent && (
@@ -673,9 +723,16 @@ export default function EmailAttendeesPage() {
                                                     </div>
                                                 </div>
                                                 {statusMeta && (
-                                                    <Badge variant="outline" className={cn('border shrink-0', statusMeta.className)}>
-                                                        {statusMeta.label}
-                                                    </Badge>
+                                                    <div className="flex flex-col items-end gap-2">
+                                                        <Badge variant="outline" className={cn('border shrink-0', statusMeta.className)}>
+                                                            {statusMeta.label}
+                                                        </Badge>
+                                                        {selectedEvent.displayStatus === 'past' && selectedEvent.canEmailAttendees && (
+                                                            <p className="max-w-48 text-right text-xs text-muted-foreground">
+                                                                Emailing remains available for 7 days after the event ends.
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </motion.div>
                                         )}
