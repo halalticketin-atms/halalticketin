@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type FormEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -56,6 +56,54 @@ interface OrderResponse {
     status: OrderStatus;
 }
 
+interface EmailHistorySummary {
+    id: string;
+    event: {
+        id: string;
+        title: string | null;
+    };
+    audience: 'all' | 'individual' | 'recent' | 'refunded';
+    subject: string;
+    messagePreview: string;
+    recipientCount: number;
+    sentCount: number;
+    failedCount: number;
+    skippedCount: number;
+    status: 'sending' | 'completed' | 'partial_failure' | 'failed';
+    createdAt: string;
+    completedAt: string | null;
+    sentBy: {
+        id: string;
+        name: string | null;
+        email: string | null;
+    };
+}
+
+interface EmailHistoryDetail extends EmailHistorySummary {
+    message: string;
+    audienceSnapshot: {
+        mode: 'all' | 'individual' | 'recent' | 'refunded';
+        orderIds: string[];
+    };
+    recipients: Array<{
+        id: string;
+        orderId: string | null;
+        email: string;
+        name: string | null;
+        createdAt: string;
+    }>;
+    recipientsPage: {
+        limit: number;
+        offset: number;
+        nextOffset: number | null;
+        hasMore: boolean;
+        search: string;
+    };
+}
+
+const HISTORY_PAGE_SIZE = 50;
+const HISTORY_RECIPIENT_PAGE_SIZE = 50;
+
 const statusStyles: Record<DashboardEventStatus, { label: string; className: string }> = {
     active: {
         label: 'Active',
@@ -98,6 +146,22 @@ const formatEventLocation = (event: DashboardEvent) => {
     }
     return 'Location TBD';
 };
+
+const historyAudienceLabels: Record<EmailHistorySummary['audience'], string> = {
+    all: 'All attendees',
+    individual: 'Selected people',
+    recent: 'Recent buyers',
+    refunded: 'Refunded attendees',
+};
+
+const formatHistoryDate = (value: string) =>
+    new Date(value).toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 
 const buildSubject = (event: DashboardEvent | null) => {
     if (!event) {
@@ -289,6 +353,18 @@ export default function EmailAttendeesPage() {
     const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [isLoadingOrders, setIsLoadingOrders] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const [history, setHistory] = useState<EmailHistorySummary[]>([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
+    const [hasMoreHistory, setHasMoreHistory] = useState(false);
+    const [selectedHistory, setSelectedHistory] = useState<EmailHistoryDetail | null>(null);
+    const [isHistorySheetOpen, setIsHistorySheetOpen] = useState(false);
+    const [isLoadingHistoryDetail, setIsLoadingHistoryDetail] = useState(false);
+    const [isRefreshingHistoryRecipients, setIsRefreshingHistoryRecipients] = useState(false);
+    const [isLoadingMoreRecipients, setIsLoadingMoreRecipients] = useState(false);
+    const [recipientSearchInput, setRecipientSearchInput] = useState('');
+    const historyRequestIdRef = useRef(0);
+    const historyDetailRequestIdRef = useRef(0);
 
     const activeOrders = useMemo(
         () => orders.filter((order) => order.status !== 'refunded'),
@@ -364,6 +440,221 @@ export default function EmailAttendeesPage() {
         setSelectedAttendeeIds(new Set());
     }, [selectedEventId]);
 
+    const loadHistory = async (options?: {
+        broadcastIdToOpen?: string;
+        offset?: number;
+        append?: boolean;
+    }) => {
+        if (!organizerId) {
+            historyRequestIdRef.current += 1;
+            setHistory([]);
+            setHasMoreHistory(false);
+            return;
+        }
+
+        const offset = options?.offset ?? 0;
+        const append = options?.append ?? false;
+        const broadcastIdToOpen = options?.broadcastIdToOpen;
+        const requestId = historyRequestIdRef.current + 1;
+        historyRequestIdRef.current = requestId;
+
+        if (append) {
+            setIsLoadingMoreHistory(true);
+        } else {
+            setIsLoadingHistory(true);
+        }
+        try {
+            const response = await api.get<{ history: EmailHistorySummary[] }>(
+                `/api/v1/organizers/${organizerId}/attendee-emails/history`,
+                {
+                    params: {
+                        limit: String(HISTORY_PAGE_SIZE),
+                        offset: String(offset),
+                    },
+                }
+            );
+
+            if (requestId !== historyRequestIdRef.current) {
+                return;
+            }
+
+            const nextHistory = response.history || [];
+            let mergedHistory: EmailHistorySummary[] = nextHistory;
+            setHistory((current) => {
+                mergedHistory = append ? [...current, ...nextHistory] : nextHistory;
+                return mergedHistory;
+            });
+            setHasMoreHistory(nextHistory.length === HISTORY_PAGE_SIZE);
+
+            if (broadcastIdToOpen) {
+                const matched = mergedHistory.find((item) => item.id === broadcastIdToOpen);
+                if (matched) {
+                    void loadHistoryDetail(matched.id);
+                }
+            }
+        } catch (err) {
+            if (requestId !== historyRequestIdRef.current) {
+                return;
+            }
+            console.error('Failed to fetch email history:', err);
+            if (!append) {
+                setHistory([]);
+                setHasMoreHistory(false);
+            }
+        } finally {
+            if (requestId === historyRequestIdRef.current) {
+                if (append) {
+                    setIsLoadingMoreHistory(false);
+                } else {
+                    setIsLoadingHistory(false);
+                }
+            }
+        }
+    };
+
+    const refreshHistory = useEffectEvent(async () => {
+        await loadHistory();
+    });
+
+    const loadHistoryDetail = async (
+        broadcastId: string,
+        options?: {
+            offset?: number;
+            search?: string;
+            append?: boolean;
+        }
+    ) => {
+        if (!organizerId) {
+            return;
+        }
+
+        const offset = options?.offset ?? 0;
+        const search = options?.search?.trim() ?? '';
+        const append = options?.append ?? false;
+        const isSameBroadcastRefresh = !append && isHistorySheetOpen && selectedHistory?.id === broadcastId;
+        const requestId = historyDetailRequestIdRef.current + 1;
+        historyDetailRequestIdRef.current = requestId;
+
+        if (append) {
+            setIsLoadingMoreRecipients(true);
+        } else if (isSameBroadcastRefresh) {
+            setIsRefreshingHistoryRecipients(true);
+        } else {
+            setSelectedHistory(null);
+            setIsLoadingHistoryDetail(true);
+            setIsHistorySheetOpen(true);
+        }
+
+        try {
+            const response = await api.get<{ broadcast: EmailHistoryDetail }>(
+                `/api/v1/organizers/${organizerId}/attendee-emails/history/${broadcastId}`,
+                {
+                    params: {
+                        limit: String(HISTORY_RECIPIENT_PAGE_SIZE),
+                        offset: String(offset),
+                        ...(search ? { search } : {}),
+                    },
+                }
+            );
+
+            if (requestId !== historyDetailRequestIdRef.current) {
+                return;
+            }
+
+            setSelectedHistory((current) => {
+                if (append && current?.id === response.broadcast.id) {
+                    return {
+                        ...response.broadcast,
+                        recipients: [...current.recipients, ...response.broadcast.recipients],
+                    };
+                }
+
+                return response.broadcast;
+            });
+        } catch (err) {
+            if (requestId !== historyDetailRequestIdRef.current) {
+                return;
+            }
+            toast.error(err);
+            if (!append && !isSameBroadcastRefresh) {
+                setIsHistorySheetOpen(false);
+            }
+        } finally {
+            if (requestId === historyDetailRequestIdRef.current) {
+                if (append) {
+                    setIsLoadingMoreRecipients(false);
+                } else if (isSameBroadcastRefresh) {
+                    setIsRefreshingHistoryRecipients(false);
+                } else {
+                    setIsLoadingHistoryDetail(false);
+                }
+            }
+        }
+    };
+
+    const openHistoryDetail = (broadcastId: string) => {
+        setRecipientSearchInput('');
+        void loadHistoryDetail(broadcastId, { offset: 0, search: '' });
+    };
+
+    const handleRecipientSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (!selectedHistory) {
+            return;
+        }
+
+        const nextSearch = recipientSearchInput.trim();
+        setRecipientSearchInput(nextSearch);
+
+        void loadHistoryDetail(selectedHistory.id, {
+            offset: 0,
+            search: nextSearch,
+        });
+    };
+
+    const handleRecipientSearchReset = () => {
+        if (!selectedHistory) {
+            setRecipientSearchInput('');
+            return;
+        }
+
+        setRecipientSearchInput('');
+
+        if (!selectedHistory.recipientsPage.search) {
+            return;
+        }
+
+        void loadHistoryDetail(selectedHistory.id, { offset: 0, search: '' });
+    };
+
+    const handleLoadMoreRecipients = () => {
+        if (
+            !selectedHistory ||
+            !selectedHistory.recipientsPage.hasMore ||
+            selectedHistory.recipientsPage.nextOffset === null
+        ) {
+            return;
+        }
+
+        void loadHistoryDetail(selectedHistory.id, {
+            offset: selectedHistory.recipientsPage.nextOffset,
+            search: selectedHistory.recipientsPage.search,
+            append: true,
+        });
+    };
+
+    const handleLoadMoreHistory = () => {
+        if (!hasMoreHistory || isLoadingMoreHistory) {
+            return;
+        }
+
+        void loadHistory({
+            offset: history.length,
+            append: true,
+        });
+    };
+
     // Fetch orders for selected event
     useEffect(() => {
         const fetchOrders = async () => {
@@ -388,6 +679,22 @@ export default function EmailAttendeesPage() {
 
         void fetchOrders();
     }, [organizerId, selectedEventId]);
+
+    useEffect(() => {
+        historyRequestIdRef.current += 1;
+        historyDetailRequestIdRef.current += 1;
+        setHistory([]);
+        setHasMoreHistory(false);
+        setSelectedHistory(null);
+        setIsHistorySheetOpen(false);
+        setRecipientSearchInput('');
+        setIsLoadingHistory(false);
+        setIsLoadingMoreHistory(false);
+        setIsLoadingHistoryDetail(false);
+        setIsRefreshingHistoryRecipients(false);
+        setIsLoadingMoreRecipients(false);
+        void refreshHistory();
+    }, [organizerId]);
 
     const selectedAudience = useMemo(() => {
         const filters = [];
@@ -483,13 +790,16 @@ export default function EmailAttendeesPage() {
 
         setIsSending(true);
         try {
-            const response = await api.post<{ sent: number; skipped: number; failed: number }>(
+            const response = await api.post<{ broadcastId: string | null; sent: number; skipped: number; failed: number }>(
                 `/api/v1/organizers/${organizerId}/attendee-emails`,
                 payload
             );
-            toast.success('Email sent', {
-                description: `${response.sent} recipient${response.sent === 1 ? '' : 's'} queued${response.failed ? ` · ${response.failed} failed` : ''}`,
+            toast.info('Broadcast processed', {
+                description: response.broadcastId
+                    ? 'Recipient details are available in Recent Sends.'
+                    : 'The email was processed, but this send could not be added to Recent Sends.',
             });
+            await loadHistory({ broadcastIdToOpen: response.broadcastId ?? undefined });
         } catch (err) {
             toast.error(err);
         } finally {
@@ -583,6 +893,83 @@ export default function EmailAttendeesPage() {
                     </motion.div>
                 )}
 
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="rounded-2xl border border-border/60 bg-white/85 p-6 shadow-lg backdrop-blur-sm"
+                >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 className="font-display text-xl font-semibold">Recent Sends</h2>
+                            <p className="text-sm text-muted-foreground">
+                                Stored history for attendee emails sent from this organizer dashboard.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                        {isLoadingHistory ? (
+                            <div className="flex items-center justify-center rounded-xl border border-dashed border-border/60 py-10 text-muted-foreground">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            </div>
+                        ) : history.length === 0 ? (
+                            <div className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center">
+                                <p className="font-medium text-foreground">No email history yet</p>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Future attendee emails sent from this page will appear here.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                {history.map((entry) => (
+                                    <button
+                                        key={entry.id}
+                                        type="button"
+                                        onClick={() => openHistoryDetail(entry.id)}
+                                        className="w-full rounded-xl border border-border/60 bg-background/70 p-4 text-left transition hover:border-border hover:shadow-sm"
+                                    >
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                            <div className="space-y-2">
+                                                <p className="font-semibold text-foreground">{entry.subject}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {entry.event.title || 'Untitled event'} · {historyAudienceLabels[entry.audience]}
+                                                </p>
+                                                <p className="text-sm text-foreground/80 line-clamp-2">
+                                                    {entry.messagePreview}
+                                                </p>
+                                            </div>
+                                            <div className="flex shrink-0 flex-wrap gap-2 text-xs text-muted-foreground sm:flex-col sm:items-end">
+                                                <span>{formatHistoryDate(entry.createdAt)}</span>
+                                                <span>{entry.recipientCount} recipients</span>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                                {(hasMoreHistory || isLoadingMoreHistory) && (
+                                    <div className="flex justify-center pt-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handleLoadMoreHistory}
+                                            disabled={isLoadingMoreHistory}
+                                        >
+                                            {isLoadingMoreHistory ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Loading more
+                                                </>
+                                            ) : (
+                                                'Load more history'
+                                            )}
+                                        </Button>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </motion.div>
+
                 {/* Main Content - Split Screen */}
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr,380px] gap-8 items-start">
                     {/* Left Column - Step Content */}
@@ -630,7 +1017,7 @@ export default function EmailAttendeesPage() {
                                 {currentStep === 'event' && (
                                     <div className="space-y-5">
                                         <div className="space-y-2">
-                                                <Label htmlFor="event-select">Select an event</Label>
+                                            <Label htmlFor="event-select">Select an event</Label>
                                             <Select
                                                 value={selectedEventId || undefined}
                                                 onValueChange={setSelectedEventId}
@@ -1195,7 +1582,153 @@ export default function EmailAttendeesPage() {
                 </div>
             </div>
 
+            <Sheet open={isHistorySheetOpen} onOpenChange={setIsHistorySheetOpen}>
+                <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+                    <SheetHeader>
+                        <SheetTitle>Email History</SheetTitle>
+                    </SheetHeader>
+                    <div className="mt-6 space-y-5">
+                        {isLoadingHistoryDetail ? (
+                            <div className="flex items-center justify-center py-12 text-muted-foreground">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            </div>
+                        ) : selectedHistory ? (
+                            <>
+                                <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4">
+                                    <p className="font-semibold text-foreground">{selectedHistory.subject}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {selectedHistory.event.title || 'Untitled event'} · {historyAudienceLabels[selectedHistory.audience]}
+                                    </p>
+                                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                                        <span>{formatHistoryDate(selectedHistory.createdAt)}</span>
+                                        <span>{selectedHistory.recipientCount} recipients</span>
+                                        {selectedHistory.sentBy.email && <span>Sent by {selectedHistory.sentBy.email}</span>}
+                                    </div>
+                                </div>
 
+                                <div className="space-y-2">
+                                    <h3 className="font-medium">Message</h3>
+                                    <div className="rounded-xl border border-border/60 bg-background p-4">
+                                        <p className="whitespace-pre-wrap text-sm text-foreground">{selectedHistory.message}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-medium">Recipients</h3>
+                                        <span className="text-xs text-muted-foreground">
+                                            {selectedHistory.recipientsPage.search
+                                                ? `${selectedHistory.recipients.length}${selectedHistory.recipientsPage.hasMore ? '+' : ''} matching recipient${selectedHistory.recipients.length === 1 ? '' : 's'} loaded`
+                                                : `${selectedHistory.recipients.length} of ${selectedHistory.recipientCount} recipient${selectedHistory.recipientCount === 1 ? '' : 's'} loaded`}
+                                        </span>
+                                    </div>
+                                    <form
+                                        onSubmit={handleRecipientSearchSubmit}
+                                        className="flex flex-col gap-2 sm:flex-row sm:items-center"
+                                    >
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                            <Input
+                                                value={recipientSearchInput}
+                                                onChange={(event) => setRecipientSearchInput(event.target.value)}
+                                                placeholder="Search recipients by name or email"
+                                                className="pl-9"
+                                            />
+                                        </div>
+                                        <Button
+                                            type="submit"
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={isRefreshingHistoryRecipients || isLoadingMoreRecipients}
+                                        >
+                                            <Search className="mr-2 h-4 w-4" />
+                                            Search
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={handleRecipientSearchReset}
+                                            disabled={
+                                                (!recipientSearchInput && !selectedHistory.recipientsPage.search) ||
+                                                isRefreshingHistoryRecipients ||
+                                                isLoadingMoreRecipients
+                                            }
+                                        >
+                                            Clear
+                                        </Button>
+                                    </form>
+                                    {selectedHistory.recipientsPage.search && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Filtering recipients by &ldquo;{selectedHistory.recipientsPage.search}&rdquo;.
+                                        </p>
+                                    )}
+                                    <div className="max-h-[45vh] space-y-2 overflow-y-auto rounded-xl border border-border/60 bg-background p-3">
+                                        {selectedHistory.recipients.length === 0 ? (
+                                            <div className="rounded-lg border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+                                                No recipients match this search.
+                                            </div>
+                                        ) : (
+                                            selectedHistory.recipients.map((recipient) => (
+                                                <div
+                                                    key={recipient.id}
+                                                    className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2"
+                                                >
+                                                    <div className="min-w-0">
+                                                        <p className="truncate text-sm font-medium text-foreground">
+                                                            {recipient.name || 'Unnamed attendee'}
+                                                        </p>
+                                                        <p className="truncate text-xs text-muted-foreground">{recipient.email}</p>
+                                                    </div>
+                                                    {recipient.orderId && (
+                                                        <Badge variant="outline" className="shrink-0">
+                                                            Order linked
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="text-xs text-muted-foreground">
+                                            {isRefreshingHistoryRecipients ? (
+                                                <span className="inline-flex items-center gap-2">
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    Refreshing recipient results
+                                                </span>
+                                            ) : (
+                                                'Recipients are loaded 50 at a time.'
+                                            )}
+                                        </div>
+                                        {selectedHistory.recipientsPage.hasMore && (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={handleLoadMoreRecipients}
+                                                disabled={isLoadingMoreRecipients || isRefreshingHistoryRecipients}
+                                            >
+                                                {isLoadingMoreRecipients ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Loading...
+                                                    </>
+                                                ) : (
+                                                    'Load 50 more'
+                                                )}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+                                Select a history entry to inspect its message and recipients.
+                            </div>
+                        )}
+                    </div>
+                </SheetContent>
+            </Sheet>
 
             {/* Mobile Preview Sheet */}
             <Sheet open={showMobilePreview} onOpenChange={setShowMobilePreview}>
