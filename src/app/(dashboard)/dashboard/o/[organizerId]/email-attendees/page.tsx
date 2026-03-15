@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -11,7 +11,8 @@ import {
     ArrowRight,
     Calendar,
     Check,
-    Eye,
+    ChevronRight,
+    Clock,
     Loader2,
     Mail,
     RotateCcw,
@@ -262,78 +263,6 @@ function StepIndicator({ steps, currentStep, completedSteps, onStepClick }: Step
     );
 }
 
-function LiveEmailPreview({
-    subject,
-    message,
-    selectedEvent,
-    selectedAudience,
-}: {
-    subject: string;
-    message: string;
-    selectedEvent: DashboardEvent | null;
-    selectedAudience: string[];
-}) {
-    return (
-        <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-white/70 to-white/50 backdrop-blur-xl p-6 space-y-6 sticky top-6">
-            <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] flex items-center justify-center">
-                    <Eye className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                    <h3 className="font-display font-semibold">Live Preview</h3>
-                    <p className="text-xs text-muted-foreground">See how attendees will view this email</p>
-                </div>
-            </div>
-
-            {/* Email Preview */}
-            <div className="rounded-xl border border-border/60 bg-white shadow-sm overflow-hidden">
-                {/* Email Header */}
-                <div className="border-b border-border/40 p-4 bg-muted/30">
-                    <div className="flex items-center gap-2 mb-3">
-                        {selectedEvent?.bannerImageUrl ? (
-                            <div className="relative h-8 w-8 rounded-lg overflow-hidden">
-                                <Image
-                                    src={selectedEvent.bannerImageUrl}
-                                    alt=""
-                                    fill
-                                    sizes="32px"
-                                    className="object-cover"
-                                />
-                            </div>
-                        ) : (
-                            <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-xs font-semibold">
-                                {(selectedEvent?.title || 'E').charAt(0).toUpperCase()}
-                            </div>
-                        )}
-                        <div className="flex-1">
-                            <p className="text-sm font-semibold">
-                                {selectedEvent?.title || 'Your Event'}
-                            </p>
-                        </div>
-                    </div>
-                    <h2 className="text-base font-semibold">
-                        {subject || 'Email subject will appear here'}
-                    </h2>
-                </div>
-
-                {/* Email Body */}
-                <div className="p-6">
-                    <p className="text-sm text-foreground whitespace-pre-wrap">
-                        {message || 'Your message content will appear here as you type...'}
-                    </p>
-                </div>
-
-                {/* Email Footer */}
-                <div className="border-t border-border/40 p-4 bg-muted/20">
-                    <p className="text-xs text-muted-foreground">
-                        Sending to: {selectedAudience.join(', ') || 'No audience selected'}
-                    </p>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 export default function EmailAttendeesPage() {
     const searchParams = useSearchParams();
     const organizerId = useOrganizerFromParams();
@@ -345,7 +274,6 @@ export default function EmailAttendeesPage() {
     const [subject, setSubject] = useState('Event update');
     const [message, setMessage] = useState('');
     const [audience, setAudience] = useState<'all' | 'individual' | 'recent' | 'refunded'>('all');
-    const [showMobilePreview, setShowMobilePreview] = useState(false);
 
     // Enhanced audience filters
     const [selectedAttendeeIds, setSelectedAttendeeIds] = useState<Set<string>>(new Set());
@@ -597,36 +525,29 @@ export default function EmailAttendeesPage() {
         void loadHistoryDetail(broadcastId, { offset: 0, search: '' });
     };
 
-    const handleRecipientSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-
+    // Debounced dynamic search — fires as the user types
+    useEffect(() => {
         if (!selectedHistory) {
             return;
         }
 
-        const nextSearch = recipientSearchInput.trim();
-        setRecipientSearchInput(nextSearch);
+        const trimmed = recipientSearchInput.trim();
 
-        void loadHistoryDetail(selectedHistory.id, {
-            offset: 0,
-            search: nextSearch,
-        });
-    };
-
-    const handleRecipientSearchReset = () => {
-        if (!selectedHistory) {
-            setRecipientSearchInput('');
+        // Skip if the API already reflects this search term
+        if (trimmed === (selectedHistory.recipientsPage.search ?? '')) {
             return;
         }
 
-        setRecipientSearchInput('');
+        const timer = setTimeout(() => {
+            void loadHistoryDetail(selectedHistory.id, {
+                offset: 0,
+                search: trimmed,
+            });
+        }, 300);
 
-        if (!selectedHistory.recipientsPage.search) {
-            return;
-        }
-
-        void loadHistoryDetail(selectedHistory.id, { offset: 0, search: '' });
-    };
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [recipientSearchInput, selectedHistory?.id]);
 
     const handleLoadMoreRecipients = () => {
         if (
@@ -893,86 +814,9 @@ export default function EmailAttendeesPage() {
                     </motion.div>
                 )}
 
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15 }}
-                    className="rounded-2xl border border-border/60 bg-white/85 p-6 shadow-lg backdrop-blur-sm"
-                >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h2 className="font-display text-xl font-semibold">Recent Sends</h2>
-                            <p className="text-sm text-muted-foreground">
-                                Stored history for attendee emails sent from this organizer dashboard.
-                            </p>
-                        </div>
-                    </div>
 
-                    <div className="mt-5 space-y-3">
-                        {isLoadingHistory ? (
-                            <div className="flex items-center justify-center rounded-xl border border-dashed border-border/60 py-10 text-muted-foreground">
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                            </div>
-                        ) : history.length === 0 ? (
-                            <div className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center">
-                                <p className="font-medium text-foreground">No email history yet</p>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    Future attendee emails sent from this page will appear here.
-                                </p>
-                            </div>
-                        ) : (
-                            <>
-                                {history.map((entry) => (
-                                    <button
-                                        key={entry.id}
-                                        type="button"
-                                        onClick={() => openHistoryDetail(entry.id)}
-                                        className="w-full rounded-xl border border-border/60 bg-background/70 p-4 text-left transition hover:border-border hover:shadow-sm"
-                                    >
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                            <div className="space-y-2">
-                                                <p className="font-semibold text-foreground">{entry.subject}</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {entry.event.title || 'Untitled event'} · {historyAudienceLabels[entry.audience]}
-                                                </p>
-                                                <p className="text-sm text-foreground/80 line-clamp-2">
-                                                    {entry.messagePreview}
-                                                </p>
-                                            </div>
-                                            <div className="flex shrink-0 flex-wrap gap-2 text-xs text-muted-foreground sm:flex-col sm:items-end">
-                                                <span>{formatHistoryDate(entry.createdAt)}</span>
-                                                <span>{entry.recipientCount} recipients</span>
-                                            </div>
-                                        </div>
-                                    </button>
-                                ))}
-                                {(hasMoreHistory || isLoadingMoreHistory) && (
-                                    <div className="flex justify-center pt-2">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={handleLoadMoreHistory}
-                                            disabled={isLoadingMoreHistory}
-                                        >
-                                            {isLoadingMoreHistory ? (
-                                                <>
-                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                    Loading more
-                                                </>
-                                            ) : (
-                                                'Load more history'
-                                            )}
-                                        </Button>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </motion.div>
-
-                {/* Main Content - Split Screen */}
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr,380px] gap-8 items-start">
-                    {/* Left Column - Step Content */}
+                {/* Main Content */}
+                <div className="w-full">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentStep}
@@ -1522,15 +1366,6 @@ export default function EmailAttendeesPage() {
                                     </Button>
                                     <div className="flex items-center gap-2">
                                         <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setShowMobilePreview(true)}
-                                            className="lg:hidden gap-1.5"
-                                        >
-                                            <Eye className="h-4 w-4" />
-                                            Preview
-                                        </Button>
-                                        <Button
                                             onClick={handleContinue}
                                             disabled={
                                                 (currentStep === 'event' && !canProceedFromEvent) ||
@@ -1556,114 +1391,234 @@ export default function EmailAttendeesPage() {
                                         <ArrowLeft className="h-4 w-4" />
                                         Back to Edit
                                     </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setShowMobilePreview(true)}
-                                        className="lg:hidden gap-1.5"
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        Preview
-                                    </Button>
                                 </div>
                             )}
                         </motion.div>
                     </AnimatePresence>
-
-                    {/* Right Column - Live Preview (Desktop) */}
-                    <div className="hidden lg:block">
-                        <LiveEmailPreview
-                            subject={subject}
-                            message={message}
-                            selectedEvent={selectedEvent}
-                            selectedAudience={selectedAudience}
-                        />
-                    </div>
                 </div>
+
+                {/* Recent Sends — Timeline Feed */}
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="rounded-2xl border border-border/50 bg-white/80 backdrop-blur-sm shadow-sm overflow-hidden"
+                >
+                    {/* Section header */}
+                    <div className="px-6 py-5 border-b border-border/40 bg-gradient-to-r from-muted/30 to-transparent">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] flex items-center justify-center">
+                                    <Clock className="h-4 w-4 text-white" />
+                                </div>
+                                <div>
+                                    <h2 className="font-display text-lg font-semibold">Recent Sends</h2>
+                                    <p className="text-xs text-muted-foreground">Attendee emails sent from this dashboard</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Timeline body */}
+                    <div className="px-6 py-4">
+                        {isLoadingHistory ? (
+                            <div className="flex items-center justify-center py-12 text-muted-foreground">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            </div>
+                        ) : history.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center mb-3">
+                                    <Mail className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                                <p className="font-medium text-foreground">No email history yet</p>
+                                <p className="mt-1 text-sm text-muted-foreground max-w-xs">
+                                    Future attendee emails sent from this page will appear here.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="relative">
+                                    {/* Timeline spine */}
+                                    <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-[oklch(0.78_0.14_165)] via-[oklch(0.72_0.15_185)] to-border/30 rounded-full" />
+
+                                    <div className="space-y-0">
+                                        {history.map((entry, index) => (
+                                            <button
+                                                key={entry.id}
+                                                type="button"
+                                                onClick={() => openHistoryDetail(entry.id)}
+                                                className="group relative w-full text-left pl-7 py-3.5 transition-colors hover:bg-muted/30 rounded-lg"
+                                            >
+                                                {/* Timeline dot */}
+                                                <div className={cn(
+                                                    'absolute left-0 top-[22px] h-[15px] w-[15px] rounded-full border-2 transition-all duration-200',
+                                                    'border-[oklch(0.78_0.14_165)] bg-white group-hover:bg-[oklch(0.78_0.14_165)] group-hover:border-[oklch(0.72_0.15_185)]'
+                                                )} />
+
+                                                <div className="flex items-start justify-between gap-4">
+                                                    <div className="min-w-0 flex-1 space-y-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-semibold text-sm text-foreground truncate">{entry.subject}</p>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={cn(
+                                                                    'shrink-0 text-[10px] px-1.5 py-0 h-5',
+                                                                    entry.status === 'completed' && 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                                                                    entry.status === 'partial_failure' && 'border-amber-200 bg-amber-50 text-amber-700',
+                                                                    entry.status === 'failed' && 'border-red-200 bg-red-50 text-red-700',
+                                                                    entry.status === 'sending' && 'border-sky-200 bg-sky-50 text-sky-700'
+                                                                )}
+                                                            >
+                                                                {entry.status === 'completed' ? 'Sent' : entry.status === 'partial_failure' ? 'Partial' : entry.status === 'failed' ? 'Failed' : 'Sending'}
+                                                            </Badge>
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {entry.event.title || 'Untitled event'} · {historyAudienceLabels[entry.audience]} · {entry.recipientCount} recipient{entry.recipientCount !== 1 ? 's' : ''}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                                                        <span className="text-xs text-muted-foreground">{formatHistoryDate(entry.createdAt)}</span>
+                                                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                    </div>
+                                                </div>
+
+                                                {/* Separator — skip on last item */}
+                                                {index < history.length - 1 && (
+                                                    <div className="absolute bottom-0 left-7 right-0 h-px bg-border/40" />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {(hasMoreHistory || isLoadingMoreHistory) && (
+                                    <div className="flex justify-center pt-4">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleLoadMoreHistory}
+                                            disabled={isLoadingMoreHistory}
+                                            className="gap-2"
+                                        >
+                                            {isLoadingMoreHistory ? (
+                                                <>
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    Loading more
+                                                </>
+                                            ) : (
+                                                'Load more sends'
+                                            )}
+                                        </Button>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </motion.div>
             </div>
 
             <Sheet open={isHistorySheetOpen} onOpenChange={setIsHistorySheetOpen}>
-                <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
-                    <SheetHeader>
-                        <SheetTitle>Email History</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-6 space-y-5">
+                <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl p-0">
+                    {/* Gradient header band */}
+                    <div className="bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] px-6 py-5">
+                        <SheetHeader>
+                            <SheetTitle className="text-white font-display">
+                                {selectedHistory?.subject || 'Email Details'}
+                            </SheetTitle>
+                        </SheetHeader>
+                        {selectedHistory && (
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-white/80">
+                                <span>{formatHistoryDate(selectedHistory.createdAt)}</span>
+                                <span>·</span>
+                                <span>{selectedHistory.recipientCount} recipient{selectedHistory.recipientCount !== 1 ? 's' : ''}</span>
+                                {selectedHistory.sentBy.email && (
+                                    <>
+                                        <span>·</span>
+                                        <span>by {selectedHistory.sentBy.email}</span>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="px-6 py-5 space-y-6">
                         {isLoadingHistoryDetail ? (
                             <div className="flex items-center justify-center py-12 text-muted-foreground">
                                 <Loader2 className="h-5 w-5 animate-spin" />
                             </div>
                         ) : selectedHistory ? (
                             <>
-                                <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4">
-                                    <p className="font-semibold text-foreground">{selectedHistory.subject}</p>
-                                    <p className="text-sm text-muted-foreground">
+                                {/* Delivery stats */}
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Delivery</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700">
+                                            <Check className="h-3 w-3" />
+                                            {selectedHistory.sentCount} sent
+                                        </span>
+                                        {selectedHistory.failedCount > 0 && (
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700">
+                                                <AlertCircle className="h-3 w-3" />
+                                                {selectedHistory.failedCount} failed
+                                            </span>
+                                        )}
+                                        {selectedHistory.skippedCount > 0 && (
+                                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600">
+                                                {selectedHistory.skippedCount} skipped
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Event + audience context */}
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Context</p>
+                                    <p className="text-sm text-foreground">
                                         {selectedHistory.event.title || 'Untitled event'} · {historyAudienceLabels[selectedHistory.audience]}
                                     </p>
-                                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                                        <span>{formatHistoryDate(selectedHistory.createdAt)}</span>
-                                        <span>{selectedHistory.recipientCount} recipients</span>
-                                        {selectedHistory.sentBy.email && <span>Sent by {selectedHistory.sentBy.email}</span>}
+                                </div>
+
+                                {/* Message */}
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Message</p>
+                                    <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
+                                        <p className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">{selectedHistory.message}</p>
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <h3 className="font-medium">Message</h3>
-                                    <div className="rounded-xl border border-border/60 bg-background p-4">
-                                        <p className="whitespace-pre-wrap text-sm text-foreground">{selectedHistory.message}</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
+                                {/* Recipients */}
+                                <div className="space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="font-medium">Recipients</h3>
+                                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Recipients</p>
                                         <span className="text-xs text-muted-foreground">
                                             {selectedHistory.recipientsPage.search
                                                 ? `${selectedHistory.recipients.length}${selectedHistory.recipientsPage.hasMore ? '+' : ''} matching recipient${selectedHistory.recipients.length === 1 ? '' : 's'} loaded`
                                                 : `${selectedHistory.recipients.length} of ${selectedHistory.recipientCount} recipient${selectedHistory.recipientCount === 1 ? '' : 's'} loaded`}
                                         </span>
                                     </div>
-                                    <form
-                                        onSubmit={handleRecipientSearchSubmit}
-                                        className="flex flex-col gap-2 sm:flex-row sm:items-center"
-                                    >
-                                        <div className="relative flex-1">
-                                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input
-                                                value={recipientSearchInput}
-                                                onChange={(event) => setRecipientSearchInput(event.target.value)}
-                                                placeholder="Search recipients by name or email"
-                                                className="pl-9"
-                                            />
-                                        </div>
-                                        <Button
-                                            type="submit"
-                                            size="sm"
-                                            variant="outline"
-                                            disabled={isRefreshingHistoryRecipients || isLoadingMoreRecipients}
-                                        >
-                                            <Search className="mr-2 h-4 w-4" />
-                                            Search
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={handleRecipientSearchReset}
-                                            disabled={
-                                                (!recipientSearchInput && !selectedHistory.recipientsPage.search) ||
-                                                isRefreshingHistoryRecipients ||
-                                                isLoadingMoreRecipients
-                                            }
-                                        >
-                                            Clear
-                                        </Button>
-                                    </form>
-                                    {selectedHistory.recipientsPage.search && (
-                                        <p className="text-xs text-muted-foreground">
-                                            Filtering recipients by &ldquo;{selectedHistory.recipientsPage.search}&rdquo;.
-                                        </p>
-                                    )}
-                                    <div className="max-h-[45vh] space-y-2 overflow-y-auto rounded-xl border border-border/60 bg-background p-3">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            value={recipientSearchInput}
+                                            onChange={(event) => setRecipientSearchInput(event.target.value)}
+                                            placeholder="Search recipients by name or email…"
+                                            className="pl-9 pr-9"
+                                        />
+                                        {recipientSearchInput && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setRecipientSearchInput('')}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                            >
+                                                <RotateCcw className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
+                                        {isRefreshingHistoryRecipients && (
+                                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                                        )}
+                                    </div>
+                                    <div className="max-h-[45vh] space-y-1.5 overflow-y-auto rounded-xl border border-border/50 bg-background p-2">
                                         {selectedHistory.recipients.length === 0 ? (
                                             <div className="rounded-lg border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
                                                 No recipients match this search.
@@ -1672,16 +1627,21 @@ export default function EmailAttendeesPage() {
                                             selectedHistory.recipients.map((recipient) => (
                                                 <div
                                                     key={recipient.id}
-                                                    className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2"
+                                                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted/30"
                                                 >
-                                                    <div className="min-w-0">
-                                                        <p className="truncate text-sm font-medium text-foreground">
-                                                            {recipient.name || 'Unnamed attendee'}
-                                                        </p>
-                                                        <p className="truncate text-xs text-muted-foreground">{recipient.email}</p>
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] flex items-center justify-center text-[11px] font-semibold text-white">
+                                                            {(recipient.name || recipient.email || '?').charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="truncate text-sm font-medium text-foreground">
+                                                                {recipient.name || 'Unnamed attendee'}
+                                                            </p>
+                                                            <p className="truncate text-xs text-muted-foreground">{recipient.email}</p>
+                                                        </div>
                                                     </div>
                                                     {recipient.orderId && (
-                                                        <Badge variant="outline" className="shrink-0">
+                                                        <Badge variant="outline" className="shrink-0 text-[10px] border-[oklch(0.78_0.14_165)]/40 text-[oklch(0.55_0.12_180)]">
                                                             Order linked
                                                         </Badge>
                                                     )}
@@ -1722,27 +1682,15 @@ export default function EmailAttendeesPage() {
                                 </div>
                             </>
                         ) : (
-                            <div className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
-                                Select a history entry to inspect its message and recipients.
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center mb-3">
+                                    <Mail className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                    Select a history entry to inspect its message and recipients.
+                                </p>
                             </div>
                         )}
-                    </div>
-                </SheetContent>
-            </Sheet>
-
-            {/* Mobile Preview Sheet */}
-            <Sheet open={showMobilePreview} onOpenChange={setShowMobilePreview}>
-                <SheetContent side="bottom" className="h-[90vh]">
-                    <SheetHeader>
-                        <SheetTitle>Email Preview</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-6 overflow-y-auto h-[calc(90vh-80px)]">
-                        <LiveEmailPreview
-                            subject={subject}
-                            message={message}
-                            selectedEvent={selectedEvent}
-                            selectedAudience={selectedAudience}
-                        />
                     </div>
                 </SheetContent>
             </Sheet>
