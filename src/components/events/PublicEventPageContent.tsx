@@ -1136,6 +1136,14 @@ export function PublicEventPageContent({
     const platformFeeAmount = activeQuote?.platformFee ?? 0;
     const organizerFeeAmount = activeQuote?.organizerFee ?? 0;
     const processingFeeAmount = activeQuote?.processingFee ?? 0;
+    const processingFeeVatAmount = activeQuote?.processingFeeVat ?? 0;
+    const hasProcessingFeeRow = processingFeeAmount > 0 || processingFeeVatAmount > 0;
+    const processingFeeLabel = processingFeeVatAmount > 0
+        ? 'Stripe processing fee + VAT'
+        : 'Processing fee';
+    const processingFeeDisplay = processingFeeVatAmount > 0
+        ? `${currencySymbol}${processingFeeAmount.toFixed(2)} + ${currencySymbol}${processingFeeVatAmount.toFixed(2)}`
+        : `${currencySymbol}${processingFeeAmount.toFixed(2)}`;
     const grandTotal = activeQuote?.total ?? 0;
     const discountedSubtotal = Math.max(0, quoteSubtotal - quoteDiscountAmount);
     const creditsApplied = activeQuote?.creditsApplied ?? 0;
@@ -2431,10 +2439,10 @@ export function PublicEventPageContent({
                                                             <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                                         </div>
                                                     )}
-                                                    {processingFeeAmount > 0 && (
-                                                        <div className="flex justify-between text-sm text-muted-foreground">
-                                                            <span>Processing fee</span>
-                                                            <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
+                                                    {hasProcessingFeeRow && (
+                                                        <div className="flex items-start justify-between gap-3 text-sm text-muted-foreground">
+                                                            <span className="min-w-0">{processingFeeLabel}</span>
+                                                            <span className="shrink-0 text-right whitespace-nowrap">{processingFeeDisplay}</span>
                                                         </div>
                                                     )}
                                                     <Separator />
@@ -2447,12 +2455,17 @@ export function PublicEventPageContent({
                                                             No additional fees! 🎉
                                                         </p>
                                                     )}
-                                                    {quoteFresh && discountedSubtotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount > 0 && (
+                                                    {quoteFresh && discountedSubtotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount > 0 && processingFeeVatAmount === 0 && (
                                                         <p className="text-xs text-muted-foreground text-center">
                                                             Processing fee applies.
                                                         </p>
                                                     )}
-                                                    {quoteFresh && discountedSubtotal > 0 && platformFeeAmount === 0 && organizerFeeAmount > 0 && processingFeeAmount > 0 && (
+                                                    {quoteFresh && discountedSubtotal > 0 && processingFeeVatAmount > 0 && (
+                                                        <p className="text-xs text-muted-foreground text-center">
+                                                            Processing fee and VAT apply.
+                                                        </p>
+                                                    )}
+                                                    {quoteFresh && discountedSubtotal > 0 && platformFeeAmount === 0 && organizerFeeAmount > 0 && processingFeeAmount > 0 && processingFeeVatAmount === 0 && (
                                                         <p className="text-xs text-muted-foreground text-center">
                                                             Organiser fee and processing fee apply.
                                                         </p>
@@ -2638,10 +2651,10 @@ export function PublicEventPageContent({
                                                 <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                             </div>
                                         )}
-                                        {processingFeeAmount > 0 && (
-                                            <div className="flex justify-between items-center text-sm text-muted-foreground">
-                                                <span>Processing fee</span>
-                                                <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
+                                        {hasProcessingFeeRow && (
+                                            <div className="flex items-start justify-between gap-3 text-sm text-muted-foreground">
+                                                <span className="min-w-0">{processingFeeLabel}</span>
+                                                <span className="shrink-0 text-right whitespace-nowrap">{processingFeeDisplay}</span>
                                             </div>
                                         )}
                                     </>
@@ -3057,10 +3070,10 @@ export function PublicEventPageContent({
                                                                 <span>{currencySymbol}{platformFeeAmount.toFixed(2)}</span>
                                                             </div>
                                                         )}
-                                                        {hasQuote && processingFeeAmount > 0 && (
-                                                            <div className="flex justify-between text-muted-foreground">
-                                                                <span>Processing fee</span>
-                                                                <span>{currencySymbol}{processingFeeAmount.toFixed(2)}</span>
+                                                        {hasQuote && hasProcessingFeeRow && (
+                                                            <div className="flex items-start justify-between gap-3 text-muted-foreground">
+                                                                <span className="min-w-0">{processingFeeLabel}</span>
+                                                                <span className="shrink-0 text-right whitespace-nowrap">{processingFeeDisplay}</span>
                                                             </div>
                                                         )}
                                                         {creditSplitNote && (

@@ -85,6 +85,7 @@ export interface CheckoutQuoteResponse {
     organizerFee: number;
     platformFee: number;
     processingFee: number;
+    processingFeeVat: number;
     total: number;
     useCreditsApplied: boolean;
     creditsApplied: number;
