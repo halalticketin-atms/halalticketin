@@ -1139,7 +1139,7 @@ export function PublicEventPageContent({
     const processingFeeVatAmount = activeQuote?.processingFeeVat ?? 0;
     const hasProcessingFeeRow = processingFeeAmount > 0 || processingFeeVatAmount > 0;
     const processingFeeLabel = processingFeeVatAmount > 0
-        ? 'Stripe processing fee + VAT'
+        ? 'Processing fee + 23% VAT'
         : 'Processing fee';
     const processingFeeDisplay = processingFeeVatAmount > 0
         ? `${currencySymbol}${processingFeeAmount.toFixed(2)} + ${currencySymbol}${processingFeeVatAmount.toFixed(2)}`
@@ -2462,7 +2462,7 @@ export function PublicEventPageContent({
                                                     )}
                                                     {quoteFresh && discountedSubtotal > 0 && processingFeeVatAmount > 0 && (
                                                         <p className="text-xs text-muted-foreground text-center">
-                                                            Processing fee and VAT apply.
+                                                            Processing fee and 23% VAT apply.
                                                         </p>
                                                     )}
                                                     {quoteFresh && discountedSubtotal > 0 && platformFeeAmount === 0 && organizerFeeAmount > 0 && processingFeeAmount > 0 && processingFeeVatAmount === 0 && (
