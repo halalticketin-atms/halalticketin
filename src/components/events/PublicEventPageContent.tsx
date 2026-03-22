@@ -743,6 +743,12 @@ export function PublicEventPageContent({
         cartItems.reduce((sum, item) => sum + item.subtotal, 0)
         , [cartItems]);
 
+    const ticketSubtotal = useMemo(() =>
+        ticketCartItems.reduce((sum, item) => sum + item.subtotal, 0)
+        , [ticketCartItems]);
+
+    const donationSubtotal = donationItem?.subtotal ?? 0;
+
     const totalTickets = useMemo(() =>
         ticketCartItems.reduce((sum, item) => sum + item.quantity, 0)
         , [ticketCartItems]);
@@ -2413,12 +2419,20 @@ export function PublicEventPageContent({
                                         )}
                                     </div>
 
-                                    {totalTickets > 0 && (
+                                    {hasSelections && (
                                         <div className="space-y-2 bg-primary/5 p-3 rounded-lg">
-                                            <div className="flex justify-between text-sm">
-                                                <span>{totalTickets} ticket{totalTickets > 1 ? 's' : ''}</span>
-                                                <span>{currencySymbol}{quoteSubtotal.toFixed(2)}</span>
-                                            </div>
+                                            {totalTickets > 0 && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span>{totalTickets} ticket{totalTickets > 1 ? 's' : ''}</span>
+                                                    <span>{currencySymbol}{ticketSubtotal.toFixed(2)}</span>
+                                                </div>
+                                            )}
+                                            {donationSubtotal > 0 && (
+                                                <div className="flex justify-between text-sm">
+                                                    <span>Donation</span>
+                                                    <span>{currencySymbol}{donationSubtotal.toFixed(2)}</span>
+                                                </div>
+                                            )}
                                             {appliedPromo && quoteDiscountAmount > 0 && (
                                                 <div className="flex justify-between text-sm text-green-600">
                                                     <span>Discount ({appliedPromo.code})</span>
@@ -2458,11 +2472,6 @@ export function PublicEventPageContent({
                                                     {quoteFresh && discountedSubtotal > 0 && platformFeeAmount === 0 && organizerFeeAmount === 0 && processingFeeAmount > 0 && processingFeeVatAmount === 0 && (
                                                         <p className="text-xs text-muted-foreground text-center">
                                                             Processing fee applies.
-                                                        </p>
-                                                    )}
-                                                    {quoteFresh && discountedSubtotal > 0 && processingFeeVatAmount > 0 && (
-                                                        <p className="text-xs text-muted-foreground text-center">
-                                                            Processing fee and 23% VAT apply.
                                                         </p>
                                                     )}
                                                     {quoteFresh && discountedSubtotal > 0 && platformFeeAmount === 0 && organizerFeeAmount > 0 && processingFeeAmount > 0 && processingFeeVatAmount === 0 && (
@@ -2636,6 +2645,23 @@ export function PublicEventPageContent({
 
                                 {/* Fees & Discounts */}
                                 <Separator className="my-3 bg-primary/10" />
+
+                                {(totalTickets > 0 || donationSubtotal > 0) && (
+                                    <div className="space-y-2">
+                                        {totalTickets > 0 && (
+                                            <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                                <span>{totalTickets} ticket{totalTickets > 1 ? 's' : ''}</span>
+                                                <span>{currencySymbol}{ticketSubtotal.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        {donationSubtotal > 0 && (
+                                            <div className="flex justify-between items-center text-sm text-muted-foreground">
+                                                <span>Donation</span>
+                                                <span>{currencySymbol}{donationSubtotal.toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {hasQuote ? (
                                     <>
