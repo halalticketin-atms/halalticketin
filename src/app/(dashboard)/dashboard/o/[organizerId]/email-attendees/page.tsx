@@ -198,7 +198,7 @@ function StepIndicator({ steps, currentStep, completedSteps, onStepClick }: Step
     const currentIndex = steps.findIndex(s => s.id === currentStep);
 
     return (
-        <div className="flex items-center justify-center gap-0 w-full max-w-2xl mx-auto">
+        <div className="flex items-start justify-center gap-0 w-full max-w-2xl mx-auto overflow-x-hidden">
             {steps.map((step, index) => {
                 const isCompleted = completedSteps.has(step.id);
                 const isCurrent = step.id === currentStep;
@@ -207,20 +207,20 @@ function StepIndicator({ steps, currentStep, completedSteps, onStepClick }: Step
                 const Icon = step.icon;
 
                 return (
-                    <div key={step.id} className="flex items-center flex-1 last:flex-none">
+                    <div key={step.id} className="flex min-w-0 items-start flex-1 last:flex-none">
                         {/* Step circle */}
                         <button
                             onClick={() => isClickable && onStepClick(step.id)}
                             disabled={!isClickable}
                             className={cn(
-                                'relative flex flex-col items-center gap-2 group transition-all duration-300',
+                                'relative flex min-w-0 flex-col items-center gap-2 group transition-all duration-300',
                                 isClickable && 'cursor-pointer',
                                 !isClickable && 'cursor-default'
                             )}
                         >
                             <motion.div
                                 className={cn(
-                                    'h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm',
+                                    'h-10 w-10 rounded-xl sm:h-12 sm:w-12 sm:rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm',
                                     isCurrent && 'bg-gradient-to-br from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] text-white shadow-lg scale-110',
                                     isCompleted && !isCurrent && 'bg-emerald-500 text-white',
                                     !isCurrent && !isCompleted && 'bg-muted/60 text-muted-foreground border-2 border-dashed border-border/60'
@@ -235,7 +235,7 @@ function StepIndicator({ steps, currentStep, completedSteps, onStepClick }: Step
                                 )}
                             </motion.div>
                             <span className={cn(
-                                'text-xs font-medium transition-colors whitespace-nowrap',
+                                'max-w-full text-center text-[11px] leading-tight font-medium transition-colors sm:text-xs sm:whitespace-nowrap',
                                 isCurrent && 'text-foreground',
                                 isCompleted && !isCurrent && 'text-emerald-600',
                                 !isCurrent && !isCompleted && 'text-muted-foreground'
@@ -246,7 +246,7 @@ function StepIndicator({ steps, currentStep, completedSteps, onStepClick }: Step
 
                         {/* Connector line */}
                         {index < steps.length - 1 && (
-                            <div className="flex-1 h-0.5 mx-3 relative">
+                            <div className="mt-5 sm:mt-6 flex-1 h-0.5 mx-2 sm:mx-3 relative min-w-2">
                                 <div className="absolute inset-0 bg-border/40 rounded-full" />
                                 <motion.div
                                     className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full origin-left"
@@ -867,18 +867,18 @@ export default function EmailAttendeesPage() {
                                                 onValueChange={setSelectedEventId}
                                                 disabled={isLoading || eligibleEvents.length === 0}
                                             >
-                                                <SelectTrigger id="event-select" className="h-12 bg-background">
+                                                <SelectTrigger id="event-select" className="h-12 w-full min-w-0 bg-background">
                                                     <SelectValue
                                                         placeholder={isLoading ? 'Loading events...' : 'Select eligible event'}
                                                     />
                                                 </SelectTrigger>
-                                                <SelectContent>
+                                                <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                                                     {eligibleEvents
                                                         .map((event) => (
-                                                            <SelectItem key={event.id} value={event.id}>
-                                                                <div className="flex items-center gap-3">
+                                                            <SelectItem key={event.id} value={event.id} className="max-w-full">
+                                                                <div className="flex min-w-0 items-center gap-3">
                                                                     {event.bannerImageUrl ? (
-                                                                        <div className="relative h-6 w-6 rounded overflow-hidden">
+                                                                        <div className="relative h-6 w-6 shrink-0 rounded overflow-hidden">
                                                                             <Image
                                                                                 src={event.bannerImageUrl}
                                                                                 alt=""
@@ -888,13 +888,13 @@ export default function EmailAttendeesPage() {
                                                                             />
                                                                         </div>
                                                                     ) : (
-                                                                        <div className="h-6 w-6 rounded bg-muted/70 flex items-center justify-center text-[10px] text-muted-foreground">
+                                                                        <div className="h-6 w-6 shrink-0 rounded bg-muted/70 flex items-center justify-center text-[10px] text-muted-foreground">
                                                                             {(event.title || 'E')
                                                                                 .charAt(0)
                                                                                 .toUpperCase()}
                                                                         </div>
                                                                     )}
-                                                                    <span>{event.title || 'Untitled event'}</span>
+                                                                    <span className="min-w-0 truncate">{event.title || 'Untitled event'}</span>
                                                                 </div>
                                                             </SelectItem>
                                                         ))}
@@ -928,9 +928,9 @@ export default function EmailAttendeesPage() {
                                                 animate={{ opacity: 1, y: 0 }}
                                                 className="flex flex-col gap-3 rounded-xl border border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between bg-muted/20"
                                             >
-                                                <div className="flex items-center gap-3">
+                                                <div className="flex min-w-0 items-start gap-3">
                                                     {selectedEvent.bannerImageUrl ? (
-                                                        <div className="relative h-14 w-14 rounded-xl overflow-hidden">
+                                                        <div className="relative h-14 w-14 shrink-0 rounded-xl overflow-hidden">
                                                             <Image
                                                                 src={selectedEvent.bannerImageUrl}
                                                                 alt=""
@@ -940,26 +940,26 @@ export default function EmailAttendeesPage() {
                                                             />
                                                         </div>
                                                     ) : (
-                                                        <div className="h-14 w-14 rounded-xl bg-muted flex items-center justify-center text-lg text-muted-foreground">
+                                                        <div className="h-14 w-14 shrink-0 rounded-xl bg-muted flex items-center justify-center text-lg text-muted-foreground">
                                                             {(selectedEvent.title || 'E').charAt(0).toUpperCase()}
                                                         </div>
                                                     )}
-                                                    <div>
-                                                        <p className="font-semibold">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="font-semibold break-words">
                                                             {selectedEvent.title || 'Untitled event'}
                                                         </p>
-                                                        <p className="text-sm text-muted-foreground">
+                                                        <p className="text-sm text-muted-foreground break-words">
                                                             {formattedDate} · {formattedLocation}
                                                         </p>
                                                     </div>
                                                 </div>
                                                 {statusMeta && (
-                                                    <div className="flex flex-col items-end gap-2">
+                                                    <div className="flex flex-col items-start gap-2 sm:items-end">
                                                         <Badge variant="outline" className={cn('border shrink-0', statusMeta.className)}>
                                                             {statusMeta.label}
                                                         </Badge>
                                                         {selectedEvent.displayStatus === 'past' && selectedEvent.canEmailAttendees && (
-                                                            <p className="max-w-48 text-right text-xs text-muted-foreground">
+                                                            <p className="max-w-full text-left text-xs text-muted-foreground sm:max-w-48 sm:text-right">
                                                                 Emailing remains available for 7 days after the event ends.
                                                             </p>
                                                         )}
@@ -1276,7 +1276,7 @@ export default function EmailAttendeesPage() {
                                                     <Calendar className="h-4 w-4 text-muted-foreground" />
                                                     <span className="text-xs text-muted-foreground">Event</span>
                                                 </div>
-                                                <p className="font-semibold text-sm truncate">
+                                                <p className="font-semibold text-sm break-words">
                                                     {selectedEvent?.title || 'Not selected'}
                                                 </p>
                                             </div>
@@ -1285,7 +1285,7 @@ export default function EmailAttendeesPage() {
                                                     <Users className="h-4 w-4 text-muted-foreground" />
                                                     <span className="text-xs text-muted-foreground">Audience</span>
                                                 </div>
-                                                <p className="font-semibold text-sm truncate">
+                                                <p className="font-semibold text-sm break-words">
                                                     {selectedAudience[0] || 'Not selected'}
                                                 </p>
                                             </div>
@@ -1294,7 +1294,7 @@ export default function EmailAttendeesPage() {
                                                     <Mail className="h-4 w-4 text-muted-foreground" />
                                                     <span className="text-xs text-muted-foreground">Subject</span>
                                                 </div>
-                                                <p className="font-semibold text-sm truncate">
+                                                <p className="font-semibold text-sm break-words">
                                                     {subject || 'No subject'}
                                                 </p>
                                             </div>
@@ -1354,17 +1354,17 @@ export default function EmailAttendeesPage() {
 
                             {/* Step Navigation */}
                             {currentStep !== 'send' && (
-                                <div className="border-t border-border/40 px-6 py-4 bg-muted/10 flex items-center justify-between">
+                                <div className="border-t border-border/40 px-4 py-4 sm:px-6 bg-muted/10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <Button
                                         variant="ghost"
                                         onClick={handleBack}
                                         disabled={currentStep === 'event'}
-                                        className="gap-2"
+                                        className="w-full gap-2 sm:w-auto"
                                     >
                                         <ArrowLeft className="h-4 w-4" />
                                         Back
                                     </Button>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex w-full items-center gap-2 sm:w-auto">
                                         <Button
                                             onClick={handleContinue}
                                             disabled={
@@ -1372,7 +1372,7 @@ export default function EmailAttendeesPage() {
                                                 (currentStep === 'audience' && !canProceedFromAudience) ||
                                                 (currentStep === 'compose' && !canProceedFromCompose)
                                             }
-                                            className="gap-2 bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] hover:from-[oklch(0.75_0.14_165)] hover:to-[oklch(0.68_0.15_185)]"
+                                            className="w-full gap-2 bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)] hover:from-[oklch(0.75_0.14_165)] hover:to-[oklch(0.68_0.15_185)] sm:w-auto"
                                         >
                                             Continue
                                             <ArrowRight className="h-4 w-4" />
@@ -1382,11 +1382,11 @@ export default function EmailAttendeesPage() {
                             )}
 
                             {currentStep === 'send' && (
-                                <div className="border-t border-border/40 px-6 py-4 bg-muted/10 flex items-center justify-between">
+                                <div className="border-t border-border/40 px-4 py-4 sm:px-6 bg-muted/10 flex items-center justify-between">
                                     <Button
                                         variant="ghost"
                                         onClick={handleBack}
-                                        className="gap-2"
+                                        className="w-full gap-2 sm:w-auto"
                                     >
                                         <ArrowLeft className="h-4 w-4" />
                                         Back to Edit
@@ -1455,9 +1455,9 @@ export default function EmailAttendeesPage() {
                                                     'border-[oklch(0.78_0.14_165)] bg-white group-hover:bg-[oklch(0.78_0.14_165)] group-hover:border-[oklch(0.72_0.15_185)]'
                                                 )} />
 
-                                                <div className="flex items-start justify-between gap-4">
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                                                     <div className="min-w-0 flex-1 space-y-1">
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex flex-wrap items-center gap-2">
                                                             <p className="font-semibold text-sm text-foreground truncate">{entry.subject}</p>
                                                             <Badge
                                                                 variant="outline"
@@ -1472,11 +1472,11 @@ export default function EmailAttendeesPage() {
                                                                 {entry.status === 'completed' ? 'Sent' : entry.status === 'partial_failure' ? 'Partial' : entry.status === 'failed' ? 'Failed' : 'Sending'}
                                                             </Badge>
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground">
+                                                        <p className="text-xs text-muted-foreground break-words">
                                                             {entry.event.title || 'Untitled event'} · {historyAudienceLabels[entry.audience]} · {entry.recipientCount} recipient{entry.recipientCount !== 1 ? 's' : ''}
                                                         </p>
                                                     </div>
-                                                    <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                                                    <div className="flex items-center gap-1.5 pt-0.5 sm:shrink-0">
                                                         <span className="text-xs text-muted-foreground">{formatHistoryDate(entry.createdAt)}</span>
                                                         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                     </div>

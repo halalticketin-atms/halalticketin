@@ -342,8 +342,8 @@ export default function AnalyticsPage() {
     }, [curvePath, chartPoints, plotHeight]);
 
     return (
-        <div className="min-h-screen bg-muted/30">
-            <div className="container py-8 max-w-7xl">
+        <div className="min-h-screen overflow-x-hidden bg-muted/30">
+            <div className="container max-w-7xl overflow-x-hidden py-8">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -367,17 +367,17 @@ export default function AnalyticsPage() {
                     </div>
 
                     {/* Event Selector */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
                         {mounted ? (
                             <Select value={selectedEvent} onValueChange={handleEventChange}>
-                                <SelectTrigger className="w-full sm:w-[280px] h-12 bg-background">
+                                <SelectTrigger className="h-12 w-full min-w-0 bg-background sm:w-[280px]">
                                     <SelectValue placeholder="Select event" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]">
                                     <SelectItem value="all">All events</SelectItem>
                                     {eventOptions.map(event => (
-                                        <SelectItem key={event.id} value={event.id}>
-                                            <div className="flex items-center gap-3">
+                                        <SelectItem key={event.id} value={event.id} className="max-w-full">
+                                            <div className="flex min-w-0 items-center gap-3">
                                                 {event.bannerImageUrl && (
                                                     <div className="relative h-6 w-6 rounded overflow-hidden flex-shrink-0">
                                                         <Image
@@ -389,7 +389,7 @@ export default function AnalyticsPage() {
                                                         />
                                                     </div>
                                                 )}
-                                                <span className="truncate">{event.name}</span>
+                                                <span className="min-w-0 truncate">{event.name}</span>
                                             </div>
                                         </SelectItem>
                                     ))}
@@ -447,19 +447,19 @@ export default function AnalyticsPage() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 }}
                         >
-                            <Card className="border-border/50 gap-4 sm:gap-6">
-                                <CardHeader className="pb-3 sm:pb-4">
-                                    <div className="flex items-center justify-between flex-wrap gap-4">
-                                        <CardTitle className="text-lg font-semibold">
+                            <Card className="border-border/50 gap-4 overflow-hidden sm:gap-6">
+                                <CardHeader className="px-4 pb-3 sm:px-6 sm:pb-4">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <CardTitle className="min-w-0 text-lg font-semibold leading-tight">
                                             {chartView === 'revenue' ? 'Net Revenue' : 'Tickets Sold'} — Last 6 Months
                                         </CardTitle>
                                         {/* Revenue vs Tickets Toggle */}
-                                        <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                        <div className="grid w-full grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:flex sm:w-auto">
                                             <Button
                                                 variant={chartView === 'revenue' ? 'default' : 'ghost'}
                                                 size="sm"
                                                 onClick={() => setChartView('revenue')}
-                                                className="h-7 px-3"
+                                                className="h-8 w-full px-3 text-xs sm:h-7 sm:w-auto sm:text-sm"
                                             >
                                                 <DollarSign className="h-3.5 w-3.5 mr-1.5" />
                                                 Revenue
@@ -468,7 +468,7 @@ export default function AnalyticsPage() {
                                                 variant={chartView === 'tickets' ? 'default' : 'ghost'}
                                                 size="sm"
                                                 onClick={() => setChartView('tickets')}
-                                                className="h-7 px-3"
+                                                className="h-8 w-full px-3 text-xs sm:h-7 sm:w-auto sm:text-sm"
                                             >
                                                 <Ticket className="h-3.5 w-3.5 mr-1.5" />
                                                 Tickets
@@ -476,9 +476,9 @@ export default function AnalyticsPage() {
                                         </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="px-4 sm:px-6">
                                     {/* Fixed height chart container */}
-                                    <div ref={chartContainerRef} className="h-[260px] sm:h-[280px] relative">
+                                    <div ref={chartContainerRef} className="relative h-[240px] sm:h-[280px] min-w-0 overflow-hidden">
                                         <svg
                                             className="w-full h-full"
                                             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
@@ -507,7 +507,7 @@ export default function AnalyticsPage() {
                                                         x="-10"
                                                         y={(i / (yAxisValues.length - 1)) * plotHeight + 4}
                                                         textAnchor="end"
-                                                        className="fill-muted-foreground text-[10px]"
+                                                        className={isCompactChart ? 'fill-muted-foreground text-[9px]' : 'fill-muted-foreground text-[10px]'}
                                                     >
                                                         {formatAxisValue(value, chartView === 'revenue', analytics?.stats.currency ?? 'GBP')}
                                                     </text>
@@ -558,7 +558,7 @@ export default function AnalyticsPage() {
                                                                         <circle
                                                                             cx={point.x}
                                                                             cy={point.y}
-                                                                            r="16"
+                                                                            r={isCompactChart ? 12 : 16}
                                                                             fill="transparent"
                                                                             className="cursor-pointer"
                                                                             onMouseEnter={() => setHoveredPoint(i)}
@@ -568,7 +568,7 @@ export default function AnalyticsPage() {
                                                                         <motion.circle
                                                                             cx={point.x}
                                                                             cy={point.y}
-                                                                            r={isHovered ? 6 : 4}
+                                                                            r={isCompactChart ? (isHovered ? 5 : 3.5) : (isHovered ? 6 : 4)}
                                                                             fill={chartColor}
                                                                             stroke="white"
                                                                             strokeWidth="2"
@@ -585,9 +585,9 @@ export default function AnalyticsPage() {
                                                                 <text
                                                                     key={i}
                                                                     x={point.x}
-                                                                    y={plotHeight + 20}
+                                                                    y={plotHeight + (isCompactChart ? 16 : 20)}
                                                                     textAnchor="middle"
-                                                                    className="fill-muted-foreground text-[11px]"
+                                                                    className={isCompactChart ? 'fill-muted-foreground text-[10px]' : 'fill-muted-foreground text-[11px]'}
                                                                 >
                                                                     {point.label}
                                                                 </text>
@@ -628,15 +628,15 @@ export default function AnalyticsPage() {
                             transition={{ delay: 0.4 }}
                         >
                             <Card className="border-border/50">
-                                <CardHeader>
-                                    <div className="flex items-center justify-between flex-wrap gap-4">
-                                        <CardTitle className="text-lg font-semibold">Top Performing Events</CardTitle>
-                                        <div className="flex gap-1 bg-muted rounded-lg p-1">
+                                <CardHeader className="px-4 sm:px-6">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <CardTitle className="min-w-0 text-lg font-semibold leading-tight">Top Performing Events</CardTitle>
+                                        <div className="grid w-full grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:flex sm:w-auto">
                                             <Button
                                                 variant={eventSortBy === 'revenue' ? 'default' : 'ghost'}
                                                 size="sm"
                                                 onClick={() => setEventSortBy('revenue')}
-                                                className="h-7 text-xs"
+                                                className="h-8 w-full text-xs sm:h-7 sm:w-auto"
                                             >
                                                 <DollarSign className="h-3 w-3 mr-1" />
                                                 Revenue
@@ -645,7 +645,7 @@ export default function AnalyticsPage() {
                                                 variant={eventSortBy === 'tickets' ? 'default' : 'ghost'}
                                                 size="sm"
                                                 onClick={() => setEventSortBy('tickets')}
-                                                className="h-7 text-xs"
+                                                className="h-8 w-full text-xs sm:h-7 sm:w-auto"
                                             >
                                                 <Ticket className="h-3 w-3 mr-1" />
                                                 Tickets
@@ -653,7 +653,7 @@ export default function AnalyticsPage() {
                                         </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="overflow-hidden px-4 sm:px-6">
                                     {topEvents.length === 0 ? (
                                         <p className="text-sm text-muted-foreground py-8 text-center">No event data available</p>
                                     ) : (
@@ -669,7 +669,7 @@ export default function AnalyticsPage() {
                                                         transition={{ delay: 0.4 + (i * 0.08) }}
                                                         className="space-y-2.5"
                                                     >
-                                                        <div className="flex items-center gap-3">
+                                                        <div className="grid min-w-0 grid-cols-[20px_48px_minmax(0,1fr)] items-center gap-2.5 sm:flex sm:gap-3">
                                                             {/* Rank number */}
                                                             <span className="text-sm font-medium text-muted-foreground w-5 text-center">
                                                                 {i + 1}
@@ -677,7 +677,7 @@ export default function AnalyticsPage() {
 
                                                             {/* Event image */}
                                                             {event.bannerImageUrl ? (
-                                                                <div className="relative h-10 w-14 rounded-md overflow-hidden flex-shrink-0 bg-muted">
+                                                                <div className="relative h-10 w-12 sm:w-14 rounded-md overflow-hidden flex-shrink-0 bg-muted">
                                                                     <Image
                                                                         src={event.bannerImageUrl}
                                                                         alt=""
@@ -687,19 +687,19 @@ export default function AnalyticsPage() {
                                                                     />
                                                                 </div>
                                                             ) : (
-                                                                <div className="h-10 w-14 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                                                                <div className="h-10 w-12 sm:w-14 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
                                                                     <Calendar className="h-4 w-4 text-muted-foreground" />
                                                                 </div>
                                                             )}
 
                                                             {/* Event name */}
-                                                            <p className="text-sm font-medium flex-1 min-w-0 truncate">
+                                                            <p className="min-w-0 pr-1 text-xs font-medium leading-tight break-words line-clamp-2 sm:text-sm sm:pr-0 sm:leading-normal sm:truncate">
                                                                 {event.name}
                                                             </p>
                                                         </div>
 
                                                         {/* Progress bar */}
-                                                        <div className="flex items-center gap-3 pl-8">
+                                                        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pl-7 sm:flex sm:gap-3 sm:pl-8">
                                                             <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                                                                 <motion.div
                                                                     className="h-full rounded-full"
@@ -713,7 +713,7 @@ export default function AnalyticsPage() {
                                                             </div>
 
                                                             {/* Value */}
-                                                            <span className="text-sm font-medium min-w-[80px] text-right">
+                                                            <span className="min-w-[56px] text-right text-[11px] font-medium sm:min-w-[80px] sm:text-sm">
                                                                 {eventSortBy === 'revenue'
                                                                     ? formatCurrency(event.revenue, analytics?.stats.currency ?? 'GBP')
                                                                     : event.ticketsSold.toLocaleString()}
