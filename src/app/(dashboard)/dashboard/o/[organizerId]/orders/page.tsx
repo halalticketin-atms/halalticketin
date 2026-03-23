@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search,
@@ -98,6 +99,40 @@ interface TicketBreakdownResponse {
     currency: string;
 }
 
+interface OrderTicket {
+    id: string;
+    ticketCode: string;
+    ticketTypeId: string;
+    ticketType: string | null;
+    attendeeName: string | null;
+    attendeeEmail: string | null;
+    status: 'valid' | 'checked_in' | 'cancelled' | 'refunded';
+    unitPrice?: number;
+    paidAmount?: number;
+    refundBasePrice?: number;
+    refundableAmount?: number;
+}
+
+interface OrderDetailResponse extends Omit<OrderResponse, 'attendee'> {
+    attendee: OrderResponse['attendee'] & {
+        gender?: string | null;
+        age?: number | null;
+    };
+    totals: OrderResponse['totals'] & {
+        remainingTicketRefundable?: number;
+        breakdown?: {
+            ticketSubtotal: number;
+            organizerFeeTotal: number;
+            discount: number;
+            donationTotal: number;
+            platformFee: number;
+            processingFee: number;
+            processingFeeVat: number;
+        };
+    };
+    tickets: OrderTicket[];
+}
+
 const statusBadges: Record<OrderStatus, string> = {
     completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
     refunded: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -121,6 +156,12 @@ const formatCurrency = (amount: number, currency: string) => {
 const getEffectiveUnitPrice = (item: Pick<OrderItem, 'unitPrice' | 'organizerFee'>) =>
     item.unitPrice + (item.organizerFee ?? 0);
 
+const getTicketPaidAmount = (ticket: OrderTicket) =>
+    Math.max(0, ticket.paidAmount ?? ticket.refundBasePrice ?? ticket.unitPrice ?? 0);
+
+const getRefundableTicketPrice = (ticket: OrderTicket) =>
+    Math.max(0, ticket.refundableAmount ?? 0);
+
 export default function OrdersPage() {
     const organizerId = useOrganizerFromParams();
     const { organizers } = useOrganizers();
@@ -129,8 +170,10 @@ export default function OrdersPage() {
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [eventFilter, setEventFilter] = useState<string[]>([]); // Multi-select event filter
     const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
+    const [selectedOrderDetail, setSelectedOrderDetail] = useState<OrderDetailResponse | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingOrderDetail, setIsLoadingOrderDetail] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Dialog state
@@ -376,6 +419,43 @@ export default function OrdersPage() {
         };
     }, [organizerId]);
 
+    useEffect(() => {
+        if (!isDialogOpen || !selectedOrder) {
+            setSelectedOrderDetail(null);
+            setIsLoadingOrderDetail(false);
+            return;
+        }
+
+        let isMounted = true;
+        setIsLoadingOrderDetail(true);
+
+        const fetchOrderDetail = async () => {
+            try {
+                const detail = await api.get<OrderDetailResponse>(`/api/v1/orders/${selectedOrder.id}`);
+                if (!isMounted) {
+                    return;
+                }
+                setSelectedOrderDetail(detail);
+            } catch (err) {
+                if (!isMounted) {
+                    return;
+                }
+                setSelectedOrderDetail(null);
+                toast.error(err, 'Unable to load refund details');
+            } finally {
+                if (isMounted) {
+                    setIsLoadingOrderDetail(false);
+                }
+            }
+        };
+
+        void fetchOrderDetail();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [isDialogOpen, selectedOrder]);
+
     const filteredOrders = orders.filter(order => {
         const matchesSearch =
             order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -388,6 +468,7 @@ export default function OrdersPage() {
 
     const openOrderDetails = (order: OrderResponse) => {
         setSelectedOrder(order);
+        setSelectedOrderDetail(null);
         setActiveTab('details');
         setRefundType('full');
         setPartialAmount('');
@@ -396,7 +477,43 @@ export default function OrdersPage() {
         setIsDialogOpen(true);
     };
 
-    const { totalOrders, paidOrders, revenueTotal } = useMemo(() => {
+    const detailOrder = selectedOrderDetail ?? selectedOrder;
+    const detailBreakdown = selectedOrderDetail?.totals.breakdown;
+    const remainingRefundable = selectedOrderDetail?.totals.remainingRefundable ?? 0;
+    const remainingTicketRefundable = selectedOrderDetail?.totals.remainingTicketRefundable ?? 0;
+    const hasDonationAmount = (detailBreakdown?.donationTotal ?? 0) > 0;
+    const refundableTickets = useMemo(
+        () =>
+            (selectedOrderDetail?.tickets ?? []).filter(
+                (ticket) =>
+                    (ticket.status === 'valid' || ticket.status === 'checked_in')
+            ),
+        [selectedOrderDetail]
+    );
+    const isRefundActionDisabled =
+        detailOrder?.status === 'refunded' ||
+        (selectedOrderDetail !== null && remainingRefundable <= 0 && refundableTickets.length === 0);
+    const selectedRefundTotal = useMemo(
+        () =>
+            refundableTickets.reduce((sum, ticket) => {
+                if (!selectedTicketIds.has(ticket.id)) {
+                    return sum;
+                }
+                return sum + getRefundableTicketPrice(ticket);
+            }, 0),
+        [refundableTickets, selectedTicketIds]
+    );
+    const parsedPartialAmount = parseFloat(partialAmount);
+    const isPartialAmountInvalid =
+        refundType === 'partial' &&
+        (
+            !partialAmount ||
+            Number.isNaN(parsedPartialAmount) ||
+            parsedPartialAmount <= 0 ||
+            parsedPartialAmount > remainingRefundable
+        );
+
+    const { totalOrders, paidOrders, revenueTotal, ticketRevenueTotal, donationRevenueTotal } = useMemo(() => {
         const totals = orders.reduce(
             (acc, order) => {
                 acc.totalOrders += 1;
@@ -406,10 +523,12 @@ export default function OrdersPage() {
                     }
                     // Use net revenue to match overview stats
                     acc.revenueTotal += order.totals.net ?? order.totals.total;
+                    acc.ticketRevenueTotal += order.totals.ticketRevenue ?? 0;
+                    acc.donationRevenueTotal += order.totals.donationRevenue ?? 0;
                 }
                 return acc;
             },
-            { totalOrders: 0, paidOrders: 0, revenueTotal: 0 }
+            { totalOrders: 0, paidOrders: 0, revenueTotal: 0, ticketRevenueTotal: 0, donationRevenueTotal: 0 }
         );
         return totals;
     }, [orders]);
@@ -470,15 +589,15 @@ export default function OrdersPage() {
                             transition={{ delay: 0.1 }}
                             className="min-w-[280px] snap-start md:min-w-0"
                         >
-                            <Card className="bg-linear-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900">
-                                <CardContent className="pt-6">
+                            <Card className="h-full bg-linear-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border-indigo-100 dark:border-indigo-900">
+                                <CardContent className="pt-4 pb-4">
                                     <div className="flex items-center gap-4">
                                         <div className="h-12 w-12 rounded-xl bg-linear-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
                                             <Receipt className="h-6 w-6 text-white" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
-                                            <p className="text-2xl font-bold">{totalOrders}</p>
+                                            <p className="text-sm font-medium text-muted-foreground leading-tight">Total Orders</p>
+                                            <p className="text-2xl font-bold leading-tight">{totalOrders}</p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -490,15 +609,15 @@ export default function OrdersPage() {
                             transition={{ delay: 0.2 }}
                             className="min-w-[280px] snap-start md:min-w-0"
                         >
-                            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
-                                <CardContent className="pt-6">
+                            <Card className="h-full bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
+                                <CardContent className="pt-4 pb-4">
                                     <div className="flex items-center gap-4">
                                         <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
                                             <Check className="h-6 w-6 text-white" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Paid Orders</p>
-                                            <p className="text-2xl font-bold">{paidOrders}</p>
+                                            <p className="text-sm font-medium text-muted-foreground leading-tight">Paid Orders</p>
+                                            <p className="text-2xl font-bold leading-tight">{paidOrders}</p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -510,17 +629,23 @@ export default function OrdersPage() {
                             transition={{ delay: 0.3 }}
                             className="min-w-[280px] snap-start md:min-w-0"
                         >
-                            <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
-                                <CardContent className="pt-6">
+                            <Card className="h-full bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
+                                <CardContent className="pt-4 pb-4">
                                     <div className="flex items-center gap-4">
                                         <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
                                             <CreditCard className="h-6 w-6 text-white" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Net Revenue</p>
-                                            <p className="text-2xl font-bold">
+                                            <p className="text-sm font-medium text-muted-foreground leading-tight">Net Revenue</p>
+                                            <p className="text-2xl font-bold leading-tight">
                                                 {formatCurrency(revenueTotal, netRevenueCurrency)}
                                             </p>
+                                            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                                                <span>Tickets {formatCurrency(ticketRevenueTotal, netRevenueCurrency)}</span>
+                                                {donationRevenueTotal > 0 && (
+                                                    <span>Donations {formatCurrency(donationRevenueTotal, netRevenueCurrency)}</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -613,7 +738,7 @@ export default function OrdersPage() {
                                                                 )}
                                                             </div>
                                                             <p className="text-xs text-muted-foreground mt-1">
-                                                                {event.total.quantity} tickets • {formatCurrency(event.total.revenue, breakdownCurrency)}
+                                                                {event.total.quantity} tickets
                                                             </p>
                                                         </div>
                                                     </div>
@@ -646,9 +771,6 @@ export default function OrdersPage() {
                                                                         <span className="font-medium truncate flex-1 mr-2">{ticket.name}</span>
                                                                         <div className="flex items-center gap-2 text-right shrink-0">
                                                                             <span className="text-muted-foreground">{ticket.quantity}</span>
-                                                                            <span className="font-medium min-w-[60px]">
-                                                                                {formatCurrency(ticket.revenue, breakdownCurrency)}
-                                                                            </span>
                                                                         </div>
                                                                     </div>
                                                                     <TooltipProvider>
@@ -896,6 +1018,7 @@ export default function OrdersPage() {
                                                 onResendEmail={handleResendEmail}
                                                 onRefund={(order) => {
                                                     setSelectedOrder(order);
+                                                    setSelectedOrderDetail(null);
                                                     setActiveTab('refund');
                                                     setRefundType('full');
                                                     setPartialAmount('');
@@ -914,15 +1037,26 @@ export default function OrdersPage() {
                 )}
 
                 {/* Order Details Dialog with Tabs */}
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <Dialog
+                    open={isDialogOpen}
+                    onOpenChange={(open) => {
+                        setIsDialogOpen(open);
+                        if (!open) {
+                            setSelectedOrderDetail(null);
+                            setSelectedTicketIds(new Set());
+                            setPartialAmount('');
+                            setRefundError(null);
+                        }
+                    }}
+                >
                     <DialogContent className="sm:max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[85dvh] overflow-y-auto">
-                        {selectedOrder && (
+                        {detailOrder && (
                             <>
                                 <DialogHeader>
                                     <DialogTitle className="flex items-center gap-3">
-                                        <span className="font-mono text-sm">{selectedOrder.orderNumber.slice(0, 8)}...</span>
-                                        <Badge className={`${statusBadges[selectedOrder.status]} capitalize`}>
-                                            {statusLabels[selectedOrder.status]}
+                                        <span className="font-mono text-sm">{detailOrder.orderNumber.slice(0, 8)}...</span>
+                                        <Badge className={`${statusBadges[detailOrder.status]} capitalize`}>
+                                            {statusLabels[detailOrder.status]}
                                         </Badge>
                                     </DialogTitle>
                                 </DialogHeader>
@@ -932,7 +1066,7 @@ export default function OrdersPage() {
                                         <TabsTrigger value="details">Details</TabsTrigger>
                                         <TabsTrigger
                                             value="refund"
-                                            disabled={selectedOrder.status === 'refunded'}
+                                            disabled={isRefundActionDisabled}
                                         >
                                             Refund
                                         </TabsTrigger>
@@ -958,8 +1092,8 @@ export default function OrdersPage() {
                                                             <User className="h-4 w-4" /> Customer
                                                         </h4>
                                                         <div className="bg-muted/50 rounded-lg p-3">
-                                                            <p className="font-semibold">{selectedOrder.attendee.name ?? 'Unnamed'}</p>
-                                                            <p className="text-sm text-muted-foreground">{selectedOrder.attendee.email}</p>
+                                                            <p className="font-semibold">{detailOrder.attendee.name ?? 'Unnamed'}</p>
+                                                            <p className="text-sm text-muted-foreground">{detailOrder.attendee.email}</p>
                                                         </div>
                                                     </div>
 
@@ -969,7 +1103,7 @@ export default function OrdersPage() {
                                                             <Calendar className="h-4 w-4" /> Event
                                                         </h4>
                                                         <div className="bg-muted/50 rounded-lg p-3">
-                                                            <p className="font-semibold">{selectedOrder.event.name ?? 'Unpublished'}</p>
+                                                            <p className="font-semibold">{detailOrder.event.name ?? 'Unpublished'}</p>
                                                         </div>
                                                     </div>
 
@@ -979,23 +1113,85 @@ export default function OrdersPage() {
                                                             <Ticket className="h-4 w-4" /> Tickets
                                                         </h4>
                                                         <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                                                            {selectedOrder.items.map((item) => (
+                                                            {detailOrder.items.map((item) => (
                                                                 <div key={item.id} className="flex justify-between text-sm">
                                                                     <span>{item.quantity}x {item.name ?? 'Ticket'}</span>
                                                                     <span className="font-medium">
-                                                                        {formatCurrency(getEffectiveUnitPrice(item) * item.quantity, selectedOrder.totals.currency)}
+                                                                        {formatCurrency(getEffectiveUnitPrice(item) * item.quantity, detailOrder.totals.currency)}
                                                                     </span>
                                                                 </div>
                                                             ))}
                                                         </div>
                                                     </div>
 
+                                                    {detailBreakdown && (
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-muted-foreground mb-2">Order Summary</h4>
+                                                            <div className="bg-muted/50 rounded-lg p-3 space-y-2 text-sm">
+                                                                <div className="flex justify-between">
+                                                                    <span>Ticket subtotal</span>
+                                                                    <span className="font-medium">
+                                                                        {formatCurrency(detailBreakdown.ticketSubtotal, detailOrder.totals.currency)}
+                                                                    </span>
+                                                                </div>
+                                                                {detailBreakdown.organizerFeeTotal > 0 && (
+                                                                    <div className="flex justify-between">
+                                                                        <span>Organiser fees</span>
+                                                                        <span className="font-medium">
+                                                                            {formatCurrency(detailBreakdown.organizerFeeTotal, detailOrder.totals.currency)}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {detailBreakdown.discount > 0 && (
+                                                                    <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
+                                                                        <span>Discount</span>
+                                                                        <span className="font-medium">
+                                                                            -{formatCurrency(detailBreakdown.discount, detailOrder.totals.currency)}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {detailBreakdown.donationTotal > 0 && (
+                                                                    <div className="flex justify-between">
+                                                                        <span>Donation</span>
+                                                                        <span className="font-medium">
+                                                                            {formatCurrency(detailBreakdown.donationTotal, detailOrder.totals.currency)}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {detailBreakdown.platformFee > 0 && (
+                                                                    <div className="flex justify-between">
+                                                                        <span>Platform fee</span>
+                                                                        <span className="font-medium">
+                                                                            {formatCurrency(detailBreakdown.platformFee, detailOrder.totals.currency)}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {detailBreakdown.processingFee > 0 && (
+                                                                    <div className="flex justify-between">
+                                                                        <span>Processing fee</span>
+                                                                        <span className="font-medium">
+                                                                            {formatCurrency(detailBreakdown.processingFee, detailOrder.totals.currency)}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {detailBreakdown.processingFeeVat > 0 && (
+                                                                    <div className="flex justify-between">
+                                                                        <span>Processing fee VAT</span>
+                                                                        <span className="font-medium">
+                                                                            {formatCurrency(detailBreakdown.processingFeeVat, detailOrder.totals.currency)}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     <Separator />
 
                                                     {/* Total */}
                                                     <div className="flex justify-between font-semibold text-lg">
                                                         <span>Total</span>
-                                                        <span>{formatCurrency(selectedOrder.totals.total, selectedOrder.totals.currency)}</span>
+                                                        <span>{formatCurrency(detailOrder.totals.total, detailOrder.totals.currency)}</span>
                                                     </div>
 
                                                     {/* Payment */}
@@ -1004,8 +1200,8 @@ export default function OrdersPage() {
                                                             <CreditCard className="h-4 w-4" /> Payment
                                                         </h4>
                                                         <div className="bg-muted/50 rounded-lg p-3">
-                                                            <p className="font-medium">{selectedOrder.paymentMethod ?? 'Payment details unavailable'}</p>
-                                                            <p className="text-xs text-muted-foreground">{new Date(selectedOrder.createdAt).toLocaleString('en-GB')}</p>
+                                                            <p className="font-medium">{detailOrder.paymentMethod ?? 'Payment details unavailable'}</p>
+                                                            <p className="text-xs text-muted-foreground">{new Date(detailOrder.createdAt).toLocaleString('en-GB')}</p>
                                                         </div>
                                                     </div>
 
@@ -1015,12 +1211,12 @@ export default function OrdersPage() {
                                                             variant="outline"
                                                             className="flex-1"
                                                             onClick={() => selectedOrder && handleResendEmail(selectedOrder.id)}
-                                                            disabled={isResending || selectedOrder.status !== 'completed'}
+                                                            disabled={isResending || detailOrder.status !== 'completed'}
                                                         >
                                                             <Mail className="h-4 w-4 mr-2" />
                                                             {isResending ? 'Sending...' : 'Resend Email'}
                                                         </Button>
-                                                        {(selectedOrder.status === 'completed' || selectedOrder.status === 'partially_refunded') && (
+                                                        {(detailOrder.status === 'completed' || detailOrder.status === 'partially_refunded') && !isRefundActionDisabled && (
                                                             <Button
                                                                 variant="destructive"
                                                                 className="flex-1"
@@ -1045,7 +1241,7 @@ export default function OrdersPage() {
                                                     <div className="space-y-3">
                                                         <Label>Refund Type</Label>
                                                         <p className="text-xs text-muted-foreground">
-                                                        Refunds apply to ticket price only. Platform, processing, and organiser fees are not refunded.
+                                                            Ticket refunds exclude platform, processing, and organiser fees.
                                                         </p>
                                                         <div className="grid grid-cols-3 gap-2">
                                                             {(['full', 'partial', 'tickets'] as const).map((type) => (
@@ -1062,85 +1258,103 @@ export default function OrdersPage() {
                                                         </div>
                                                     </div>
 
+                                                    {isLoadingOrderDetail && (
+                                                        <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+                                                            Loading refundable ticket details...
+                                                        </div>
+                                                    )}
+
                                                     {/* Full Refund */}
-                                                    {refundType === 'full' && (
+                                                    {selectedOrderDetail && refundType === 'full' && (
                                                         <div className="bg-muted/50 rounded-lg p-4 text-center">
-                                                            <p className="text-sm text-muted-foreground">Full refund amount</p>
-                                                            <p className="text-2xl font-bold">{formatCurrency(selectedOrder.totals.total, selectedOrder.totals.currency)}</p>
+                                                            <p className="text-sm text-muted-foreground">Total refundable amount</p>
+                                                            <p className="text-2xl font-bold">{formatCurrency(remainingRefundable, detailOrder.totals.currency)}</p>
+                                                            {remainingTicketRefundable > 0 && (
+                                                                <p className="text-xs text-muted-foreground mt-1">
+                                                                    Tickets {formatCurrency(remainingTicketRefundable, detailOrder.totals.currency)}
+                                                                </p>
+                                                            )}
                                                             <p className="text-xs text-muted-foreground mt-1">All tickets will be revoked</p>
                                                         </div>
                                                     )}
 
                                                     {/* Partial Amount */}
-                                                    {refundType === 'partial' && (
+                                                    {selectedOrderDetail && refundType === 'partial' && (
                                                         <div className="space-y-2">
-                                                            <Label htmlFor="amount">Refund Amount</Label>
+                                                            <Label htmlFor="amount">Refund amount</Label>
                                                             <div className="relative">
                                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                                                    {selectedOrder.totals.currency === 'GBP' ? '£' : selectedOrder.totals.currency === 'EUR' ? '€' : '$'}
+                                                                    {detailOrder.totals.currency === 'GBP' ? '£' : detailOrder.totals.currency === 'EUR' ? '€' : '$'}
                                                                 </span>
                                                                 <Input
                                                                     id="amount"
                                                                     type="number"
                                                                     step="0.01"
                                                                     min="0.01"
-                                                                    max={selectedOrder.totals.total}
+                                                                    max={remainingRefundable}
                                                                     value={partialAmount}
                                                                     onChange={(e) => setPartialAmount(e.target.value)}
                                                                     className="pl-8"
-                                                                    placeholder={`Max: ${selectedOrder.totals.total.toFixed(2)}`}
+                                                                    placeholder={`Max: ${remainingRefundable.toFixed(2)}`}
                                                                 />
                                                             </div>
+                                                            {partialAmount && parsedPartialAmount > remainingRefundable && (
+                                                                <p className="text-xs text-destructive">
+                                                                    Partial refunds cannot exceed the remaining refundable balance.
+                                                                </p>
+                                                            )}
                                                             <p className="text-xs text-muted-foreground">Tickets remain valid after partial refund</p>
                                                         </div>
                                                     )}
 
                                                     {/* Ticket Selection */}
-                                                    {refundType === 'tickets' && (
+                                                    {selectedOrderDetail && refundType === 'tickets' && (
                                                         <div className="space-y-3">
                                                             <Label>Select Tickets to Refund</Label>
                                                             <div className="max-h-40 overflow-y-auto space-y-2 border rounded-lg p-2">
-                                                                {selectedOrder.items.flatMap((item) =>
-                                                                    Array.from({ length: item.quantity }, (_, i) => {
-                                                                        const ticketId = `${item.id}-${i}`;
-                                                                        return (
-                                                                            <div
-                                                                                key={ticketId}
-                                                                                className="flex items-center justify-between p-2 rounded hover:bg-muted/50 cursor-pointer"
-                                                                                onClick={() => {
-                                                                                    setSelectedTicketIds((prev) => {
-                                                                                        const next = new Set(prev);
-                                                                                        if (next.has(ticketId)) next.delete(ticketId);
-                                                                                        else next.add(ticketId);
-                                                                                        return next;
-                                                                                    });
-                                                                                }}
-                                                                            >
-                                                                                <div className="flex items-center gap-3">
-                                                                                    <Checkbox checked={selectedTicketIds.has(ticketId)} />
-                                                                                    <span className="text-sm">{item.name || 'Ticket'}</span>
-                                                                                </div>
-                                                                                <span className="text-sm font-medium">
-                                                                                    {formatCurrency(getEffectiveUnitPrice(item), selectedOrder.totals.currency)}
+                                                                {refundableTickets.length === 0 ? (
+                                                                    <p className="p-2 text-sm text-muted-foreground">
+                                                                        {isLoadingOrderDetail ? 'Loading tickets...' : 'No refundable tickets remaining.'}
+                                                                    </p>
+                                                                ) : refundableTickets.map((ticket) => (
+                                                                    <div
+                                                                        key={ticket.id}
+                                                                        className="flex items-center justify-between p-2 rounded hover:bg-muted/50 cursor-pointer"
+                                                                        onClick={() => {
+                                                                            setSelectedTicketIds((prev) => {
+                                                                                const next = new Set(prev);
+                                                                                if (next.has(ticket.id)) next.delete(ticket.id);
+                                                                                else next.add(ticket.id);
+                                                                                return next;
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <div className="flex items-center gap-3">
+                                                                            <Checkbox checked={selectedTicketIds.has(ticket.id)} />
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-sm">{ticket.ticketType || 'Ticket'}</span>
+                                                                                <span className="text-xs text-muted-foreground">
+                                                                                    {ticket.attendeeName || ticket.ticketCode}
+                                                                                </span>
+                                                                                <span className="text-xs text-muted-foreground">
+                                                                                    Paid {formatCurrency(getTicketPaidAmount(ticket), detailOrder.totals.currency)}
                                                                                 </span>
                                                                             </div>
-                                                                        );
-                                                                    })
-                                                                )}
+                                                                        </div>
+                                                                        <div className="text-right">
+                                                                            <span className="block text-sm font-medium">
+                                                                                {formatCurrency(getRefundableTicketPrice(ticket), detailOrder.totals.currency)}
+                                                                            </span>
+                                                                            <span className="text-xs text-muted-foreground">Refundable</span>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
                                                             </div>
                                                             {selectedTicketIds.size > 0 && (
                                                                 <div className="flex justify-between text-sm font-medium">
                                                                     <span>{selectedTicketIds.size} ticket(s)</span>
                                                                     <span>
-                                                                        {formatCurrency(
-                                                                            selectedOrder.items.reduce((sum, item) => {
-                                                                                const count = Array.from({ length: item.quantity }).filter((_, i) =>
-                                                                                    selectedTicketIds.has(`${item.id}-${i}`)
-                                                                                ).length;
-                                                                                return sum + count * getEffectiveUnitPrice(item);
-                                                                            }, 0),
-                                                                            selectedOrder.totals.currency
-                                                                        )}
+                                                                        {formatCurrency(selectedRefundTotal, detailOrder.totals.currency)}
                                                                     </span>
                                                                 </div>
                                                             )}
@@ -1153,25 +1367,41 @@ export default function OrdersPage() {
                                                         </div>
                                                     )}
 
+                                                    {hasDonationAmount && (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            To refund a donation, contact the HalalTicketin team via the{' '}
+                                                            <Link href="/contact" className="text-foreground underline underline-offset-2 hover:text-primary">
+                                                                contact form
+                                                            </Link>
+                                                            .
+                                                        </p>
+                                                    )}
+
                                                     {/* Refund Button */}
                                                     <Button
                                                         variant="destructive"
                                                         className="w-full"
-                                                        disabled={isProcessing || (refundType === 'partial' && (!partialAmount || parseFloat(partialAmount) <= 0))}
+                                                        disabled={
+                                                            isProcessing ||
+                                                            isLoadingOrderDetail ||
+                                                            !selectedOrderDetail ||
+                                                            isPartialAmountInvalid ||
+                                                            (refundType === 'tickets' && selectedTicketIds.size === 0)
+                                                        }
                                                         onClick={async () => {
+                                                            if (!selectedOrder || !selectedOrderDetail) {
+                                                                return;
+                                                            }
                                                             setIsProcessing(true);
                                                             setRefundError(null);
                                                             try {
-                                                                const body: { amount?: number } = {};
+                                                                const body: { amount?: number; ticketIds?: string[] } = {};
                                                                 if (refundType === 'partial') {
-                                                                    body.amount = parseFloat(partialAmount);
+                                                                    body.amount = parsedPartialAmount;
                                                                 } else if (refundType === 'tickets') {
-                                                                    body.amount = selectedOrder.items.reduce((sum, item) => {
-                                                                        const count = Array.from({ length: item.quantity }).filter((_, i) =>
-                                                                            selectedTicketIds.has(`${item.id}-${i}`)
-                                                                        ).length;
-                                                                        return sum + count * getEffectiveUnitPrice(item);
-                                                                    }, 0);
+                                                                    body.ticketIds = refundableTickets
+                                                                        .filter((ticket) => selectedTicketIds.has(ticket.id))
+                                                                        .map((ticket) => ticket.id);
                                                                 }
                                                                 await api.post(`/api/v1/orders/${selectedOrder.id}/refund`, body);
                                                                 setOrders((prev) =>
@@ -1181,6 +1411,8 @@ export default function OrdersPage() {
                                                                             : o
                                                                     )
                                                                 );
+                                                                setSelectedTicketIds(new Set());
+                                                                setPartialAmount('');
                                                                 setIsDialogOpen(false);
                                                             } catch (err) {
                                                                 setRefundError(err instanceof Error ? err.message : 'Failed to process refund');
@@ -1189,7 +1421,13 @@ export default function OrdersPage() {
                                                             }
                                                         }}
                                                     >
-                                                        {isProcessing ? 'Processing...' : `Process ${refundType === 'full' ? 'Full' : 'Partial'} Refund`}
+                                                        {isProcessing
+                                                            ? 'Processing...'
+                                                            : refundType === 'full'
+                                                                ? 'Process Full Refund'
+                                                                : refundType === 'partial'
+                                                                    ? 'Process Partial Refund'
+                                                                    : 'Process Ticket Refund'}
                                                     </Button>
                                                 </TabsContent>
                                             </motion.div>

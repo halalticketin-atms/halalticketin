@@ -121,17 +121,6 @@ function formatEventRevenue(amount: number, currency: string): string {
   }
 }
 
-function buildRevenueSplitLabel(
-  ticketRevenue: number,
-  donationRevenue: number,
-  currency: string
-): string {
-  if (donationRevenue > 0) {
-    return `Tickets ${formatEventRevenue(ticketRevenue, currency)} • Donations ${formatEventRevenue(donationRevenue, currency)}`;
-  }
-  return `Tickets ${formatEventRevenue(ticketRevenue, currency)}`;
-}
-
 function EventCard({
   event,
   index,
@@ -160,11 +149,8 @@ function EventCard({
 
   // Use actual data from backend
   const ticketsSold = event.ticketsSold || 0;
-  const donationCount = event.donationCount || 0;
   const totalTickets = event.totalTickets || 0;
   const revenue = event.revenue || 0;
-  const ticketRevenue = event.ticketRevenue ?? Math.max(0, revenue - (event.donationRevenue ?? 0));
-  const donationRevenue = event.donationRevenue ?? 0;
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't navigate if clicking on the dropdown menu
@@ -330,20 +316,12 @@ function EventCard({
                 <p className="text-xs text-muted-foreground">Tickets Sold</p>
                 <p className="font-bold text-primary">
                   {ticketsSold}/{totalTickets || '∞'}
-                  {donationCount > 0 && (
-                    <span className="font-normal text-muted-foreground ml-1">
-                      + {donationCount} donation{donationCount !== 1 ? 's' : ''}
-                    </span>
-                  )}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Net Revenue</p>
                 <p className="font-semibold text-primary">
                   {formatEventRevenue(revenue, currency)}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {buildRevenueSplitLabel(ticketRevenue, donationRevenue, currency)}
                 </p>
               </div>
             </div>
