@@ -232,7 +232,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                         <span className="text-muted-foreground flex-shrink-0">Capacity</span>
                         <span className="font-mono text-xs sm:text-sm font-bold text-primary truncate">
                           {event.ticketsSold}/{event.totalTickets} ({Math.round(percentage)}%)
-                          {event.donationCount && event.donationCount > 0 && (
+                          {event.donationCount > 0 && (
                             <span className="font-normal text-muted-foreground ml-1">
                               + {event.donationCount} donation{event.donationCount !== 1 ? 's' : ''}
                             </span>

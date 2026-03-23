@@ -60,8 +60,8 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-53%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
-          // Mobile-friendly scrolling: use dynamic viewport height, enable vertical scroll only
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed top-1/2 left-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-4 shadow-lg duration-200 sm:w-full sm:p-6",
+          // Keep dialogs centered with even viewport margins and safe scrolling on mobile.
           "max-h-[calc(100dvh-2rem)] overflow-y-auto overflow-x-hidden overscroll-contain",
           className
         )}
