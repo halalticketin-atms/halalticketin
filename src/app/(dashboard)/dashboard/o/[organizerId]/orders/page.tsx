@@ -478,6 +478,7 @@ export default function OrdersPage() {
     };
 
     const detailOrder = selectedOrderDetail ?? selectedOrder;
+    const detailTickets = selectedOrderDetail?.tickets ?? [];
     const detailBreakdown = selectedOrderDetail?.totals.breakdown;
     const remainingRefundable = selectedOrderDetail?.totals.remainingRefundable ?? 0;
     const remainingTicketRefundable = selectedOrderDetail?.totals.remainingTicketRefundable ?? 0;
@@ -1113,14 +1114,42 @@ export default function OrdersPage() {
                                                             <Ticket className="h-4 w-4" /> Tickets
                                                         </h4>
                                                         <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                                                            {detailOrder.items.map((item) => (
-                                                                <div key={item.id} className="flex justify-between text-sm">
-                                                                    <span>{item.quantity}x {item.name ?? 'Ticket'}</span>
-                                                                    <span className="font-medium">
-                                                                        {formatCurrency(getEffectiveUnitPrice(item) * item.quantity, detailOrder.totals.currency)}
-                                                                    </span>
-                                                                </div>
-                                                            ))}
+                                                            {detailTickets.length > 0 ? (
+                                                                detailTickets.map((ticket) => (
+                                                                    <div
+                                                                        key={ticket.id}
+                                                                        className="flex items-start justify-between gap-3 text-sm"
+                                                                    >
+                                                                        <div className="min-w-0">
+                                                                            <p className="font-medium">
+                                                                                {ticket.ticketType ?? 'Ticket'}
+                                                                            </p>
+                                                                            <p className="text-muted-foreground truncate">
+                                                                                {ticket.attendeeName || ticket.ticketCode}
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 shrink-0">
+                                                                            {ticket.status === 'refunded' && (
+                                                                                <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
+                                                                                    Refunded
+                                                                                </Badge>
+                                                                            )}
+                                                                            <span className="font-medium">
+                                                                                {formatCurrency(getTicketPaidAmount(ticket), detailOrder.totals.currency)}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                detailOrder.items.map((item) => (
+                                                                    <div key={item.id} className="flex justify-between text-sm">
+                                                                        <span>{item.quantity}x {item.name ?? 'Ticket'}</span>
+                                                                        <span className="font-medium">
+                                                                            {formatCurrency(getEffectiveUnitPrice(item) * item.quantity, detailOrder.totals.currency)}
+                                                                        </span>
+                                                                    </div>
+                                                                ))
+                                                            )}
                                                         </div>
                                                     </div>
 
