@@ -157,6 +157,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
             event.city && event.venue
               ? `${event.venue}, ${event.city}`
               : event.venue || event.city || 'Location TBD';
+          const donationCount = event.donationCount ?? 0;
           const ticketRevenue =
             event.ticketRevenue ?? Math.max(0, event.revenue - (event.donationRevenue ?? 0));
           const donationRevenue = event.donationRevenue ?? 0;
@@ -232,9 +233,9 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                         <span className="text-muted-foreground flex-shrink-0">Capacity</span>
                         <span className="font-mono text-xs sm:text-sm font-bold text-primary truncate">
                           {event.ticketsSold}/{event.totalTickets} ({Math.round(percentage)}%)
-                          {event.donationCount > 0 && (
+                          {donationCount > 0 && (
                             <span className="font-normal text-muted-foreground ml-1">
-                              + {event.donationCount} donation{event.donationCount !== 1 ? 's' : ''}
+                              + {donationCount} donation{donationCount !== 1 ? 's' : ''}
                             </span>
                           )}
                         </span>
