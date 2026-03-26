@@ -7,6 +7,7 @@ import {
     RefreshCw,
     Eye,
     Calendar,
+    Ticket,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ export interface OrderItem {
     quantity: number;
     unitPrice: number;
     organizerFee?: number;
+    ticketType?: string | null;
 }
 
 export interface OrderResponse {
@@ -56,6 +58,12 @@ export interface OrderResponse {
     lastConfirmationSentAt?: string | null;
     confirmationEmailStatus?: 'pending' | 'sent' | 'failed' | null;
     confirmationEmailLastError?: string | null;
+    promo?: {
+        id: string;
+        code: string;
+        discountType: 'percentage' | 'amount';
+        discountValue: string;
+    } | null;
     items: OrderItem[];
     paymentMethod?: string | null;
 }
@@ -96,6 +104,23 @@ const getInitials = (name: string | null) => {
         .join('')
         .toUpperCase()
         .slice(0, 2);
+};
+
+const getTicketBreakdownLabel = (items: OrderItem[]) => {
+    const ticketItems = items.filter((item) => item.ticketType !== 'donation');
+
+    if (ticketItems.length === 0) {
+        return 'No tickets';
+    }
+
+    const visibleItems = ticketItems.slice(0, 2).map((item) => `${item.quantity}x ${item.name ?? 'Ticket'}`);
+    const remainingTypes = ticketItems.length - visibleItems.length;
+
+    if (remainingTypes > 0) {
+        visibleItems.push(`+${remainingTypes} more`);
+    }
+
+    return visibleItems.join(' • ');
 };
 
 export function OrderCard({
@@ -146,7 +171,7 @@ export function OrderCard({
                     </div>
                 </div>
 
-                {/* Event and date */}
+                {/* Event and summary */}
                 <div className="space-y-2 mb-4">
                     <div className="flex items-center gap-2 text-sm">
                         <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -155,30 +180,28 @@ export function OrderCard({
                         </span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>
-                            {new Date(order.createdAt).toLocaleDateString('en-GB', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                            })}
-                        </span>
-                        <span>•</span>
-                        <span>
-                            {new Date(order.createdAt).toLocaleTimeString('en-GB', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                            })}
-                        </span>
+                        <Ticket className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{getTicketBreakdownLabel(order.items)}</span>
                     </div>
                 </div>
 
                 {/* Footer: Price and actions */}
                 <div className="flex items-center justify-between pt-4 border-t">
-                    <div>
-                        <p className="text-xs text-muted-foreground mb-0.5">Total</p>
-                        <p className="text-xl font-bold">
-                            {formatCurrency(order.totals.total, order.totals.currency)}
-                        </p>
+                    <div className="flex items-center gap-4 min-w-0">
+                        <div>
+                            <p className="text-xs text-muted-foreground mb-0.5">Total</p>
+                            <p className="text-xl font-bold">
+                                {formatCurrency(order.totals.total, order.totals.currency)}
+                            </p>
+                        </div>
+                        {order.promo?.code && (
+                            <div className="mt-5 ml-2 flex items-center gap-2 min-w-0">
+                                <span className="text-[11px] text-muted-foreground whitespace-nowrap">Promo code used</span>
+                                <Badge variant="secondary" className="font-mono text-[11px] shrink-0">
+                                    {order.promo.code}
+                                </Badge>
+                            </div>
+                        )}
                     </div>
 
                     {/* Desktop action menu */}

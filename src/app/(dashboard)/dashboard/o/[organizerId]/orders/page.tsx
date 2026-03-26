@@ -196,7 +196,6 @@ export default function OrdersPage() {
 
     // Ticket breakdown state
     const [eventBreakdowns, setEventBreakdowns] = useState<EventBreakdown[]>([]);
-    const [breakdownCurrency, setBreakdownCurrency] = useState('GBP');
     const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
     const [showAllBreakdown, setShowAllBreakdown] = useState(false);
 
@@ -405,7 +404,6 @@ export default function OrdersPage() {
                 });
                 if (!isMounted) return;
                 setEventBreakdowns(response.events);
-                setBreakdownCurrency(response.currency);
             } catch (err) {
                 console.error('Failed to fetch ticket breakdown:', err);
             } finally {
@@ -460,7 +458,8 @@ export default function OrdersPage() {
         const matchesSearch =
             order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (order.attendee.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-            order.attendee.email.toLowerCase().includes(searchQuery.toLowerCase());
+            order.attendee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (order.promo?.code ?? '').toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
         const matchesEvent = eventFilter.length === 0 || eventFilter.includes(order.event.id);
         return matchesSearch && matchesStatus && matchesEvent;
@@ -826,7 +825,7 @@ export default function OrdersPage() {
                                     <div className="relative flex-1">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                         <Input
-                                            placeholder="Search by order ID, name, or email..."
+                                            placeholder="Search by order ID, name, email, or promo code..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             className="pl-9 h-10 bg-background/80 backdrop-blur"
@@ -1087,27 +1086,6 @@ export default function OrdersPage() {
                                                 transition={{ duration: 0.2 }}
                                             >
                                                 <TabsContent value="details" forceMount className="mt-0 space-y-4 p-1">
-                                                    {/* Customer */}
-                                                    <div>
-                                                        <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                                                            <User className="h-4 w-4" /> Customer
-                                                        </h4>
-                                                        <div className="bg-muted/50 rounded-lg p-3">
-                                                            <p className="font-semibold">{detailOrder.attendee.name ?? 'Unnamed'}</p>
-                                                            <p className="text-sm text-muted-foreground">{detailOrder.attendee.email}</p>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Event */}
-                                                    <div>
-                                                        <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                                                            <Calendar className="h-4 w-4" /> Event
-                                                        </h4>
-                                                        <div className="bg-muted/50 rounded-lg p-3">
-                                                            <p className="font-semibold">{detailOrder.event.name ?? 'Unpublished'}</p>
-                                                        </div>
-                                                    </div>
-
                                                     {/* Tickets */}
                                                     <div>
                                                         <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
@@ -1153,6 +1131,27 @@ export default function OrdersPage() {
                                                         </div>
                                                     </div>
 
+                                                    {/* Customer */}
+                                                    <div>
+                                                        <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                                                            <User className="h-4 w-4" /> Customer
+                                                        </h4>
+                                                        <div className="bg-muted/50 rounded-lg p-3">
+                                                            <p className="font-semibold">{detailOrder.attendee.name ?? 'Unnamed'}</p>
+                                                            <p className="text-sm text-muted-foreground">{detailOrder.attendee.email}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Event */}
+                                                    <div>
+                                                        <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                                                            <Calendar className="h-4 w-4" /> Event
+                                                        </h4>
+                                                        <div className="bg-muted/50 rounded-lg p-3">
+                                                            <p className="font-semibold">{detailOrder.event.name ?? 'Unpublished'}</p>
+                                                        </div>
+                                                    </div>
+
                                                     {detailBreakdown && (
                                                         <div>
                                                             <h4 className="text-sm font-medium text-muted-foreground mb-2">Order Summary</h4>
@@ -1173,7 +1172,10 @@ export default function OrdersPage() {
                                                                 )}
                                                                 {detailBreakdown.discount > 0 && (
                                                                     <div className="flex justify-between text-emerald-700 dark:text-emerald-400">
-                                                                        <span>Discount</span>
+                                                                        <span>
+                                                                            Discount
+                                                                            {detailOrder.promo?.code ? ` (${detailOrder.promo.code})` : ''}
+                                                                        </span>
                                                                         <span className="font-medium">
                                                                             -{formatCurrency(detailBreakdown.discount, detailOrder.totals.currency)}
                                                                         </span>
