@@ -71,6 +71,7 @@ export interface DraftPromoCode {
   discountType: 'percentage' | 'fixed';
   discountValue: string;
   usageLimit: number;
+  usageCount?: number;
   validFrom: string;
   validFromTime: string;
   validUntil: string;

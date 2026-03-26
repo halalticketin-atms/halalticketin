@@ -4003,6 +4003,10 @@ export function EventWizard({
                                                         <div className="p-4 space-y-4">
                                                             {promoCodes.map((promo) => {
                                                                 const promoError = promoErrors[promo.id];
+                                                                const usageCount = promo.usageCount ?? 0;
+                                                                const usageLabel = promo.usageLimit > 0
+                                                                    ? `${usageCount}/${promo.usageLimit} used`
+                                                                    : `${usageCount} used`;
 
                                                                 return (
                                                                     <div key={promo.id} className="border rounded-xl p-4 space-y-4">
@@ -4023,6 +4027,7 @@ export function EventWizard({
                                                                                 {promoError?.code ? (
                                                                                     <p className="text-xs text-destructive">{promoError.code}</p>
                                                                                 ) : null}
+                                                                                <p className="text-xs text-muted-foreground">{usageLabel}</p>
                                                                             </div>
                                                                             <Button
                                                                                 variant="ghost"

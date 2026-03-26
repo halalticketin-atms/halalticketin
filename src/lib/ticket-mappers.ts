@@ -88,6 +88,7 @@ export const mapPromoCodeRecordsToDraft = (
         discountType: promo.discountType === 'amount' ? 'fixed' : 'percentage',
         discountValue: promo.discountValue,
         usageLimit: promo.usageLimit ?? 0,
+        usageCount: promo.usageCount ?? 0,
         validFrom: promo.validFromHasTime || !isLegacyDateOnlyBoundary(promo.validFrom, false)
             ? isoToDate(promo.validFrom, timeZone)
             : isoToUtcCalendarDate(promo.validFrom),

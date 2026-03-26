@@ -90,6 +90,13 @@ interface EventBreakdown {
     eventName: string;
     bannerImageUrl?: string;
     isActive: boolean;
+    promoCodes: Array<{
+        id: string;
+        code: string;
+        usageCount: number;
+        usageLimit: number | null;
+        isActive: boolean;
+    }>;
     tickets: TicketBreakdownItem[];
     total: { quantity: number; revenue: number };
 }
@@ -161,6 +168,19 @@ const getTicketPaidAmount = (ticket: OrderTicket) =>
 
 const getRefundableTicketPrice = (ticket: OrderTicket) =>
     Math.max(0, ticket.refundableAmount ?? 0);
+
+const formatPromoUsage = (promo: EventBreakdown['promoCodes'][number]) =>
+    promo.usageLimit && promo.usageLimit > 0
+        ? `${promo.usageCount}/${promo.usageLimit} used`
+        : `${promo.usageCount} used`;
+
+const getPromoUsageBadges = (promoCodes: EventBreakdown['promoCodes']) =>
+    [...promoCodes].sort((a, b) => {
+        if (a.usageCount !== b.usageCount) {
+            return b.usageCount - a.usageCount;
+        }
+        return a.code.localeCompare(b.code);
+    });
 
 export default function OrdersPage() {
     const organizerId = useOrganizerFromParams();
@@ -609,10 +629,10 @@ export default function OrdersPage() {
                             transition={{ delay: 0.2 }}
                             className="min-w-[280px] snap-start md:min-w-0"
                         >
-                            <Card className="h-full bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
+                            <Card className="h-full bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-100 dark:border-green-900">
                                 <CardContent className="pt-4 pb-4">
                                     <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
+                                        <div className="h-12 w-12 rounded-xl bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
                                             <Check className="h-6 w-6 text-white" />
                                         </div>
                                         <div>
@@ -629,10 +649,10 @@ export default function OrdersPage() {
                             transition={{ delay: 0.3 }}
                             className="min-w-[280px] snap-start md:min-w-0"
                         >
-                            <Card className="h-full bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
+                            <Card className="h-full bg-linear-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-100 dark:border-blue-900">
                                 <CardContent className="pt-4 pb-4">
                                     <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                                        <div className="h-12 w-12 rounded-xl bg-linear-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
                                             <CreditCard className="h-6 w-6 text-white" />
                                         </div>
                                         <div>
@@ -711,7 +731,7 @@ export default function OrdersPage() {
                                             transition={{ duration: 0.2 }}
                                         >
                                             <Card
-                                                className={`bg-gradient-to-br ${event.isActive
+                                                className={`bg-linear-to-br ${event.isActive
                                                     ? 'from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-100 dark:border-violet-900'
                                                     : 'from-gray-50/50 to-slate-50/50 dark:from-gray-950/20 dark:to-slate-950/20 border-gray-200 dark:border-gray-800'
                                                     }`}
@@ -805,6 +825,71 @@ export default function OrdersPage() {
                                                             );
                                                         })}
                                                     </div>
+
+                                                    {event.promoCodes.length > 0 && (
+                                                        <div className="mt-8 pt-6 border-t border-dashed border-border/30">
+                                                            <div className="flex items-center gap-2 mb-4">
+                                                                <Ticket className="w-3.5 h-3.5 text-muted-foreground/50" />
+                                                                <span className="text-[10px] font-bold tracking-[0.15em] uppercase text-muted-foreground/60">
+                                                                    Promo Code Usage
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {getPromoUsageBadges(event.promoCodes).map((promo, idx) => {
+                                                                    const hasLimit = promo.usageLimit && promo.usageLimit > 0;
+                                                                    const percentage = hasLimit ? Math.min(100, (promo.usageCount / (promo.usageLimit as number)) * 100) : 0;
+                                                                    
+                                                                    // Subtle personality colors - low opacity backgrounds
+                                                                    const chromaticColors = [
+                                                                        { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', text: 'text-emerald-700 dark:text-emerald-400', progress: 'bg-emerald-500/40' },
+                                                                        { bg: 'bg-violet-500/10', border: 'border-violet-500/20', text: 'text-violet-700 dark:text-violet-400', progress: 'bg-violet-500/40' },
+                                                                        { bg: 'bg-rose-500/10', border: 'border-rose-500/20', text: 'text-rose-700 dark:text-rose-400', progress: 'bg-rose-500/40' },
+                                                                        { bg: 'bg-amber-500/10', border: 'border-amber-500/20', text: 'text-amber-700 dark:text-amber-400', progress: 'bg-amber-500/40' },
+                                                                        { bg: 'bg-sky-500/10', border: 'border-sky-500/20', text: 'text-sky-700 dark:text-sky-400', progress: 'bg-sky-500/40' },
+                                                                        { bg: 'bg-fuchsia-500/10', border: 'border-fuchsia-500/20', text: 'text-fuchsia-700 dark:text-fuchsia-400', progress: 'bg-fuchsia-500/40' },
+                                                                    ];
+                                                                    const theme = chromaticColors[idx % chromaticColors.length];
+
+                                                                    return (
+                                                                        <motion.div
+                                                                            key={promo.id}
+                                                                            initial={{ opacity: 0, y: 8 }}
+                                                                            animate={{ opacity: 1, y: 0 }}
+                                                                            whileHover={{ y: -1 }}
+                                                                            transition={{ delay: 0.3 + idx * 0.05, duration: 0.3 }}
+                                                                            className={`inline-flex items-center gap-3 px-3 py-1.5 rounded-full border ${theme.bg} ${theme.border} transition-all duration-200 hover:shadow-sm`}
+                                                                        >
+                                                                            <span className={`font-mono text-[11px] font-bold ${theme.text} border-r ${theme.border} pr-3 leading-none`}>
+                                                                                {promo.code}
+                                                                            </span>
+                                                                            
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="flex items-baseline gap-1 tabular-nums">
+                                                                                    <span className={`text-[11px] font-bold ${theme.text}`}>
+                                                                                        {promo.usageCount}
+                                                                                    </span>
+                                                                                    <span className="text-[9px] font-medium text-muted-foreground/60 uppercase">
+                                                                                        Used
+                                                                                    </span>
+                                                                                </div>
+                                                                                
+                                                                                {hasLimit && (
+                                                                                    <div className="w-10 h-1 bg-muted/40 rounded-full overflow-hidden">
+                                                                                        <motion.div 
+                                                                                            initial={{ width: 0 }}
+                                                                                            animate={{ width: `${percentage}%` }}
+                                                                                            transition={{ delay: 0.6 + idx * 0.1, duration: 0.5 }}
+                                                                                            className={`h-full ${theme.progress}`}
+                                                                                        />
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </motion.div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </CardContent>
                                             </Card>
                                         </motion.div>
