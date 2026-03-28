@@ -78,6 +78,7 @@ const EventLocationMap = dynamic(
 
 type EventLike = EventRecord | PublicEventRecord;
 type TicketLike = PublicTicketRecord | TicketRecord;
+type TicketSoldOutReason = 'event_capacity' | 'ticket_capacity' | null;
 
 const QUOTE_CACHE_TTL_MS = 30000;
 const QUOTE_MAX_AGE_MS = 120000;
@@ -131,12 +132,16 @@ function TicketCard({
     ticket,
     quantity,
     onQuantityChange,
-    organizerFeeNote
+    organizerFeeNote,
+    soldOut = false,
+    soldOutReason = null,
 }: {
     ticket: TicketLike;
     quantity: number;
     onQuantityChange: (quantity: number) => void;
     organizerFeeNote?: string | null;
+    soldOut?: boolean;
+    soldOutReason?: TicketSoldOutReason;
 }) {
     const regularPrice = formatPrice(ticket.price, ticket.currency);
     const isFree = ticket.type === 'free' || regularPrice === 'Free';
@@ -149,11 +154,25 @@ function TicketCard({
     const now = new Date();
     const isEarlyBirdActive = !isFree && earlyBirdPrice && earlyBirdEndDate && now < new Date(earlyBirdEndDate);
     const displayPrice = isEarlyBirdActive ? formatPrice(earlyBirdPrice, ticket.currency) : regularPrice;
+    const soldOutMessage = soldOutReason === 'event_capacity' ? 'Event sold out' : 'Ticket sold out';
 
     return (
-        <div className="flex items-center justify-between gap-3 p-4 border rounded-lg hover:border-primary/50 transition-colors">
+        <div
+            className={cn(
+                "flex items-center justify-between gap-3 p-4 border rounded-lg transition-colors",
+                soldOut ? "border-muted bg-muted/40 opacity-70" : "hover:border-primary/50",
+            )}
+            aria-disabled={soldOut}
+        >
             <div className="flex-1 min-w-0">
-                <h4 className="font-medium break-words">{ticket.name}</h4>
+                <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="font-medium break-words">{ticket.name}</h4>
+                    {soldOut ? (
+                        <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-rose-700">
+                            Sold out
+                        </span>
+                    ) : null}
+                </div>
                 {ticket.description && (
                     <p className="text-sm text-muted-foreground mt-1 break-words">{ticket.description}</p>
                 )}
@@ -168,6 +187,9 @@ function TicketCard({
                         </>
                     )}
                 </div>
+                {soldOut ? (
+                    <p className="text-xs font-medium text-rose-700 mt-1">{soldOutMessage}</p>
+                ) : null}
                 {organizerFeeNote ? (
                     <p className="text-xs text-muted-foreground mt-1">{organizerFeeNote}</p>
                 ) : null}
@@ -178,7 +200,7 @@ function TicketCard({
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => onQuantityChange(Math.max(0, quantity - 1))}
-                    disabled={quantity === 0}
+                    disabled={quantity === 0 || soldOut}
                 >
                     <Minus className="h-4 w-4" />
                 </Button>
@@ -188,7 +210,7 @@ function TicketCard({
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => onQuantityChange(Math.min(maxQty, quantity + 1))}
-                    disabled={quantity >= maxQty}
+                    disabled={soldOut || quantity >= maxQty}
                 >
                     <Plus className="h-4 w-4" />
                 </Button>
@@ -523,6 +545,18 @@ export function PublicEventPageContent({
     );
     const hasDonationOption = Boolean(donationTicket);
     const hasRegularTickets = regularTickets.length > 0 || regularUnlockedTickets.length > 0;
+    const soldOutStateByTicketId = useMemo(() => {
+        const allTickets = [...visibleTickets, ...unlockedTickets];
+        return new Map<string, { isSoldOut: boolean; soldOutReason: TicketSoldOutReason }>(
+            allTickets.map((ticket) => [
+                ticket.id,
+                {
+                    isSoldOut: Boolean(ticket.isSoldOut),
+                    soldOutReason: ticket.soldOutReason ?? null,
+                },
+            ]),
+        );
+    }, [unlockedTickets, visibleTickets]);
 
     const donationDefaultAmount = useMemo(() => {
         if (!donationTicket) {
@@ -816,12 +850,43 @@ export function PublicEventPageContent({
     }, [forcePerTicket, useSharedInfo]);
 
     const handleQuantityChange = (ticketId: string, quantity: number) => {
+        const soldOutState = soldOutStateByTicketId.get(ticketId);
+        if (soldOutState?.isSoldOut) {
+            setTicketQuantities(prev => {
+                if ((prev[ticketId] ?? 0) === 0) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    [ticketId]: 0
+                };
+            });
+            setPromoError(null);
+            return;
+        }
+
         setTicketQuantities(prev => ({
             ...prev,
             [ticketId]: quantity
         }));
         setPromoError(null);
     };
+
+    useEffect(() => {
+        setTicketQuantities(prev => {
+            let changed = false;
+            const next = { ...prev };
+
+            for (const [ticketId, quantity] of Object.entries(prev)) {
+                if (quantity > 0 && soldOutStateByTicketId.get(ticketId)?.isSoldOut) {
+                    next[ticketId] = 0;
+                    changed = true;
+                }
+            }
+
+            return changed ? next : prev;
+        });
+    }, [soldOutStateByTicketId]);
 
     const handleDonationChange = (amount: number | null) => {
         if (amount === null || !Number.isFinite(amount)) {
@@ -2289,6 +2354,8 @@ export function PublicEventPageContent({
                                                     quantity={ticketQuantities[ticket.id] || 0}
                                                     onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
                                                     organizerFeeNote={organizerFeeNotes.get(ticket.id)}
+                                                    soldOut={soldOutStateByTicketId.get(ticket.id)?.isSoldOut ?? false}
+                                                    soldOutReason={soldOutStateByTicketId.get(ticket.id)?.soldOutReason ?? null}
                                                 />
                                             ))}
 
@@ -2307,6 +2374,8 @@ export function PublicEventPageContent({
                                                                     quantity={ticketQuantities[ticket.id] || 0}
                                                                     onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
                                                                     organizerFeeNote={organizerFeeNotes.get(ticket.id)}
+                                                                    soldOut={soldOutStateByTicketId.get(ticket.id)?.isSoldOut ?? false}
+                                                                    soldOutReason={soldOutStateByTicketId.get(ticket.id)?.soldOutReason ?? null}
                                                                 />
                                                             </div>
                                                         ))}

@@ -60,6 +60,8 @@ export interface EventRecord {
   donationCount?: number; // Donation quantities (non-seat)
   totalTickets?: number; // Event-level total capacity
   totalCapacity?: number | null;
+  remainingCapacity?: number;
+  isSoldOut?: boolean;
   revenue?: number; // Net revenue from completed orders (organizer currency)
   ticketRevenue?: number; // Ticket-only net revenue from completed orders
   donationRevenue?: number; // Donation-only net revenue from completed orders
@@ -85,6 +87,10 @@ export interface TicketRecord {
   customFee?: number | null;
   earlyBirdPrice: string | null;
   earlyBirdEndDate: string | null;
+  ticketsSold?: number;
+  remainingQuantity?: number | null;
+  isSoldOut?: boolean;
+  soldOutReason?: 'event_capacity' | 'ticket_capacity' | null;
 }
 
 export interface CustomQuestionPayload {
@@ -303,6 +309,10 @@ export interface PublicEventRecord {
   status?: 'draft' | 'published' | 'cancelled' | 'archived';
   attendeeInfoMode: 'per_ticket' | 'buyer_choice' | null;
   customQuestions: CustomQuestionPayload[] | null;
+  totalCapacity?: number | null;
+  ticketsSold?: number;
+  remainingCapacity?: number;
+  isSoldOut?: boolean;
   // Favorite status (only present when authenticated)
   isFavorited?: boolean | null;
 }
@@ -324,6 +334,10 @@ export interface PublicTicketRecord {
   absorbFee?: boolean | null;
   earlyBirdPrice: string | null;
   earlyBirdEndDate: string | null;
+  ticketsSold?: number;
+  remainingQuantity?: number | null;
+  isSoldOut?: boolean;
+  soldOutReason?: 'event_capacity' | 'ticket_capacity' | null;
 }
 
 export interface PublicOrganizerContactInput {
