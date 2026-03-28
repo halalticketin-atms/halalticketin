@@ -748,6 +748,7 @@ export function PublicEventPageContent({
         , [ticketCartItems]);
 
     const donationSubtotal = donationItem?.subtotal ?? 0;
+    const shouldShowDonationInCheckoutSummary = donationSubtotal > 0;
 
     const totalTickets = useMemo(() =>
         ticketCartItems.reduce((sum, item) => sum + item.quantity, 0)
@@ -2597,50 +2598,14 @@ export function PublicEventPageContent({
                                         </div>
                                     );
                                 })}
-                                {hasDonationOption && donationTicket && (
-                                    !isDonationActive ? (
-                                        <div className="flex justify-between items-center text-sm">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium text-foreground">{donationTicket.name}</span>
-                                                <span className="text-xs text-muted-foreground">Optional donation</span>
-                                            </div>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleAddDonation}
-                                            >
-                                                Add
-                                            </Button>
+                                {shouldShowDonationInCheckoutSummary && donationTicket && (
+                                    <div className="flex justify-between items-start text-sm">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-foreground">{donationTicket.name}</span>
+                                            <span className="text-xs text-muted-foreground">Optional donation</span>
                                         </div>
-                                    ) : (
-                                        <div className="flex justify-between items-center text-sm">
-                                            <div className="flex flex-col">
-                                                <span className="font-medium text-foreground">{donationTicket.name}</span>
-                                                <span className="text-xs text-muted-foreground">Optional donation</span>
-                                            </div>
-                                            <div className="w-24">
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    max={maxDonationAmount}
-                                                    step="0.01"
-                                                    value={donationAmount === null ? '' : donationAmount.toString()}
-                                                    onChange={(e) => {
-                                                        const value = e.target.value;
-                                                        if (value === '') {
-                                                            handleDonationChange(null);
-                                                            return;
-                                                        }
-                                                        const numeric = Number(value);
-                                                        if (Number.isFinite(numeric) && numeric >= 0) {
-                                                            handleDonationChange(Math.min(numeric, maxDonationAmount));
-                                                        }
-                                                    }}
-                                                    className="h-9"
-                                                />
-                                            </div>
-                                        </div>
-                                    )
+                                        <span className="font-semibold text-foreground">{currencySymbol}{donationSubtotal.toFixed(2)}</span>
+                                    </div>
                                 )}
 
                                 {/* Fees & Discounts */}
