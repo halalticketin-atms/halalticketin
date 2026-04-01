@@ -4,12 +4,22 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Check, CheckCircle, Calendar, Loader2, Download, AlertCircle, Clock } from 'lucide-react';
+import {
+    Check,
+    CheckCircle,
+    Calendar,
+    Loader2,
+    Download,
+    AlertCircle,
+    Clock,
+    Copy,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { useMarketingConsentRequirement } from '@/hooks/useMarketingConsentRequirement';
 import { QRCodeCanvas } from 'qrcode.react';
 import { getBackendErrorMessage } from '@/lib/api-errors';
+import { copyShareUrl } from '@/lib/share';
 import { cn } from '@/lib/utils';
 
 interface TicketInfo {
@@ -18,6 +28,8 @@ interface TicketInfo {
     ticketType: string;
     attendeeName: string | null;
     attendeeEmail: string | null;
+    giftStatus?: 'pending_claim' | 'claimed' | 'expired' | null;
+    giftClaimUrl?: string | null;
 }
 
 interface OrderStatus {
@@ -173,6 +185,10 @@ function CheckoutSuccessContent() {
         }
     };
 
+    const copyGiftClaimUrl = async (url: string) => {
+        await copyShareUrl(url, 'Gift claim link copied');
+    };
+
     const formatCurrency = (amount: number, currency: string) => {
         try {
             return new Intl.NumberFormat('en-IE', {
@@ -228,6 +244,8 @@ function CheckoutSuccessContent() {
 
     const isPending = orderStatus ? (orderStatus.isPending ?? orderStatus.status === 'pending') : false;
     const isCompleted = orderStatus?.status === 'completed' && !isPending;
+    const giftTickets = orderStatus?.tickets?.filter((ticket) => Boolean(ticket.giftStatus)) ?? [];
+    const ownedTickets = orderStatus?.tickets?.filter((ticket) => !ticket.giftStatus) ?? [];
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:flex md:items-center md:justify-center md:p-8 dark:from-slate-900 dark:to-slate-800">
@@ -339,18 +357,94 @@ function CheckoutSuccessContent() {
                         {/* Header */}
                         <div className="mb-4">
                             <h3 className="text-lg font-semibold text-foreground">
-                                Your Tickets
+                                Ticket Summary
                             </h3>
                             <p className="text-sm text-muted-foreground">
-                                Download your QR codes to present at the event
+                                Download your QR codes and manage any gifted tickets from this order
                             </p>
                         </div>
 
                         {/* Tickets with QR Codes - Scrollable */}
                         <div className="custom-scrollbar md:min-h-0 md:flex-1 md:overflow-y-auto">
-                            {isCompleted && orderStatus?.tickets && orderStatus.tickets.length > 0 && (
+                            {isCompleted && giftTickets.length > 0 && (
+                                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/20">
+                                    <p className="font-medium text-foreground">Gifted tickets</p>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Share each pending claim link with its recipient. Claimed gifts stay listed here so you can track their status.
+                                    </p>
+                                    <div className="mt-3 space-y-2">
+                                        {giftTickets.map((ticket) => (
+                                            <div
+                                                key={`${ticket.id}-gift`}
+                                                className="rounded-lg bg-background/80 p-3 text-sm"
+                                            >
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                                    <div className="min-w-0">
+                                                        <p className="font-medium text-foreground">{ticket.ticketType}</p>
+                                                        <p className="mt-1 text-xs text-muted-foreground">
+                                                            {ticket.attendeeName || ticket.attendeeEmail || 'Recipient details pending'}
+                                                        </p>
+                                                    </div>
+                                                    <span
+                                                        className={cn(
+                                                            'inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-medium',
+                                                            ticket.giftStatus === 'claimed'
+                                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                                                : ticket.giftStatus === 'expired'
+                                                                  ? 'bg-slate-200 text-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                                                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                                        )}
+                                                    >
+                                                        {ticket.giftStatus === 'claimed'
+                                                            ? 'Claimed'
+                                                            : ticket.giftStatus === 'expired'
+                                                              ? 'Expired'
+                                                              : 'Awaiting claim'}
+                                                    </span>
+                                                </div>
+
+                                                {ticket.giftClaimUrl ? (
+                                                    <div className="mt-3 rounded-lg border border-border/60 bg-background p-3">
+                                                        <p className="break-all text-xs text-muted-foreground">
+                                                            {ticket.giftClaimUrl}
+                                                        </p>
+                                                        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="sm:w-auto"
+                                                                onClick={() => copyGiftClaimUrl(ticket.giftClaimUrl!)}
+                                                            >
+                                                                <Copy className="mr-2 h-4 w-4" />
+                                                                Copy link
+                                                            </Button>
+                                                            <Button variant="ghost" size="sm" asChild className="sm:w-auto">
+                                                                <a
+                                                                    href={ticket.giftClaimUrl}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                >
+                                                                    Open link
+                                                                </a>
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="mt-3 text-xs text-muted-foreground">
+                                                        {ticket.giftStatus === 'claimed'
+                                                            ? 'This gifted ticket has already been claimed.'
+                                                            : 'This gift link is no longer active.'}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {isCompleted && ownedTickets.length > 0 && (
                                 <div className="space-y-3">
-                                    {orderStatus.tickets.map((ticket) => (
+                                    {ownedTickets.map((ticket) => (
                                         <div
                                             key={ticket.id}
                                             className="group flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm transition-colors hover:bg-slate-100 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900/60 dark:hover:bg-slate-900"

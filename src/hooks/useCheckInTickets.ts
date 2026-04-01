@@ -24,6 +24,7 @@ export function transformCheckInTicket(record: CheckInTicketRecord): CheckInTick
     checkedInAt: record.checkedInAt ? new Date(record.checkedInAt) : undefined,
     checkedInBy: record.checkedInBy ?? undefined,
     checkedInByName: record.checkedInByName,
+    requiresClaim: record.requiresClaim ?? false,
     // Group features not yet implemented in backend
     groupSize: 1,
     groupCheckedIn: record.status === 'checked_in' ? 1 : 0,
@@ -100,11 +101,13 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
       return apiStats;
     }
     // Fallback: calculate from local tickets
-    const totalTickets = tickets.length;
-    const checkedIn = tickets.filter((t) => t.checkInStatus === 'checked_in').length;
-    const notCheckedIn = tickets.filter((t) => t.checkInStatus === 'not_checked_in').length;
+    const claimBlockedCount = tickets.filter((t) => t.requiresClaim).length;
+    const eligibleTickets = tickets.filter((t) => !t.requiresClaim);
+    const totalTickets = eligibleTickets.length;
+    const checkedIn = eligibleTickets.filter((t) => t.checkInStatus === 'checked_in').length;
+    const notCheckedIn = eligibleTickets.filter((t) => t.checkInStatus === 'not_checked_in').length;
     const percentage = totalTickets > 0 ? (checkedIn / totalTickets) * 100 : 0;
-    return { totalTickets, checkedIn, notCheckedIn, percentage };
+    return { totalTickets, checkedIn, notCheckedIn, requiresClaimCount: claimBlockedCount, percentage };
   }, [tickets, apiStats]);
 
   const applyCheckInUpdate = useCallback(

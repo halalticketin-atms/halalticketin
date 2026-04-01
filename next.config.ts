@@ -1,6 +1,13 @@
-import type { NextConfig } from "next";
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
+import type { NextConfig } from 'next';
+
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: projectRoot,
+  },
   images: {
     // Keep WebP optimization while avoiding AVIF decoding issues in some runtimes.
     formats: ['image/webp'],

@@ -165,6 +165,7 @@ export interface CheckInTicket {
     checkedInAt?: Date;
     checkedInBy?: string;
     checkedInByName?: string | null;
+    requiresClaim?: boolean;
     // Group awareness
     groupSize: number;
     groupCheckedIn: number;
@@ -174,6 +175,7 @@ export interface CheckInStats {
     totalTickets: number;
     checkedIn: number;
     notCheckedIn: number;
+    requiresClaimCount?: number;
     percentage: number;
 }
 

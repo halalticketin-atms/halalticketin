@@ -9,6 +9,9 @@ export interface CheckInTicketRecord {
     ticketCode: string;
     attendeeName: string | null;
     attendeeEmail: string | null;
+    giftStatus?: 'pending_claim' | 'claimed' | 'expired' | null;
+    giftDeliveryMode?: 'email' | 'link' | null;
+    requiresClaim?: boolean;
     ticketType: string;
     orderNumber: string;
     status: 'valid' | 'checked_in' | 'cancelled' | 'refunded';
@@ -22,6 +25,7 @@ export interface CheckInStatsRecord {
     totalTickets: number;
     checkedIn: number;
     notCheckedIn: number;
+    requiresClaimCount?: number;
     percentage: number;
 }
 

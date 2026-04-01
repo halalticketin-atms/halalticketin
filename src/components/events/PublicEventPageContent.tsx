@@ -65,6 +65,13 @@ import { toast } from '@/lib/notifications';
 import { getSupabase } from '@/lib/supabase';
 import { getAuthToken } from '@/lib/api';
 import {
+    isGiftCheckoutTicketAttendee,
+    normalizeCheckoutTicketAttendee,
+    serializeCheckoutTicketAttendee,
+    validateCheckoutTicketAttendee,
+    type CheckoutTicketAttendeeForm,
+} from '@/lib/checkout-ticket-attendees';
+import {
     getPublicOrganizerContactFormError,
     isPublicOrganizerContactFormValid,
     normalizePublicOrganizerContactForm,
@@ -99,13 +106,8 @@ interface PublicEventPageContentProps {
     onAccessSubmit?: (code: string) => void;
 }
 
-// Per-ticket attendee info structure
-interface TicketAttendee {
-    name: string;
-    gender: 'male' | 'female' | '';
-    age: string;
-    customAnswers: Record<string, string>;
-}
+type TicketAttendee = CheckoutTicketAttendeeForm;
+type TicketDeliverySelection = 'attendee' | 'link' | 'email';
 
 /**
  * Format a price for display.
@@ -649,7 +651,13 @@ export function PublicEventPageContent({
                 setAttendeeAge(draft.attendeeAge);
             }
             if (draft.ticketAttendees && ticketAttendees.length === 0) {
-                setTicketAttendees(draft.ticketAttendees);
+                setTicketAttendees(
+                    Array.isArray(draft.ticketAttendees)
+                        ? draft.ticketAttendees.map((attendee: Partial<TicketAttendee>) =>
+                            normalizeCheckoutTicketAttendee(attendee)
+                        )
+                        : []
+                );
             }
             if (draft.promoCode && !promoCode) {
                 setPromoCode(draft.promoCode);
@@ -787,6 +795,17 @@ export function PublicEventPageContent({
     const totalTickets = useMemo(() =>
         ticketCartItems.reduce((sum, item) => sum + item.quantity, 0)
         , [ticketCartItems]);
+
+    const ticketFlowSelections = useMemo(
+        () =>
+            ticketCartItems.flatMap((item) =>
+                Array.from({ length: item.quantity }, () => ({
+                    ticket: item.ticket,
+                    canGift: getCartItemUnitPrice(item) > 0,
+                }))
+            ),
+        [ticketCartItems, getCartItemUnitPrice]
+    );
 
     const paidTicketCount = useMemo(() =>
         ticketCartItems.reduce((sum, item) => {
@@ -933,17 +952,24 @@ export function PublicEventPageContent({
 
                 const newAttendees: TicketAttendee[] = [];
                 for (let i = 0; i < totalTickets; i++) {
-                    newAttendees.push(prev[i] || {
-                        name: '',
-                        gender: '',
-                        age: '',
-                        customAnswers: {},
-                    });
+                    const normalized = prev[i]
+                        ? normalizeCheckoutTicketAttendee(prev[i])
+                        : normalizeCheckoutTicketAttendee();
+                    const canGift = ticketFlowSelections[i]?.canGift ?? false;
+                    newAttendees.push(
+                        canGift
+                            ? normalized
+                            : {
+                                ...normalized,
+                                giftDeliveryMode: undefined,
+                                email: '',
+                            }
+                    );
                 }
                 return newAttendees;
             });
         });
-    }, [requiresPerTicket, totalTickets]);
+    }, [requiresPerTicket, ticketFlowSelections, totalTickets]);
 
     const handleApplyPromo = async () => {
         if (!event || !promoCode.trim()) return;
@@ -1453,6 +1479,15 @@ export function PublicEventPageContent({
             : checkoutStep <= totalTickets && requiresPerTicket ? 'ticket'
                 : 'confirm';
     const currentTicketIndex = stepType === 'ticket' ? checkoutStep - 1 : -1;
+    const currentTicketAttendee =
+        stepType === 'ticket' && currentTicketIndex >= 0 ? ticketAttendees[currentTicketIndex] : null;
+    const currentTicketCanBeGifted =
+        stepType === 'ticket' && currentTicketIndex >= 0
+            ? (ticketFlowSelections[currentTicketIndex]?.canGift ?? false)
+            : false;
+    const currentTicketIsGift = currentTicketAttendee
+        ? currentTicketCanBeGifted && isGiftCheckoutTicketAttendee(currentTicketAttendee)
+        : false;
 
     // Reset step when modal closes
     useEffect(() => {
@@ -1491,25 +1526,12 @@ export function PublicEventPageContent({
             }
         } else if (stepType === 'ticket' && currentTicketIndex >= 0) {
             const attendee = ticketAttendees[currentTicketIndex];
-            if (!attendee?.name?.trim()) return `Please enter name for Ticket ${currentTicketIndex + 1}.`;
-            if (attendee.name.trim().length < 2) return `Ticket ${currentTicketIndex + 1}: name must be at least 2 characters.`;
-            if (!attendee?.age?.trim()) return `Please enter age for Ticket ${currentTicketIndex + 1}.`;
-            if (!attendee?.gender) return `Please select gender for Ticket ${currentTicketIndex + 1}.`;
-            const ageNum = Number(attendee.age);
-            if (Number.isNaN(ageNum) || ageNum < 0 || ageNum > 120) {
-                return `Please enter a valid age (0-120) for Ticket ${currentTicketIndex + 1}.`;
-            }
-            // Check custom questions
-            if (event?.customQuestions?.length) {
-                for (const q of event.customQuestions) {
-                    if (q.required) {
-                        const answer = attendee.customAnswers[q.id];
-                        if (!answer || answer === '') {
-                            return `Please answer "${q.label}" for Ticket ${currentTicketIndex + 1}.`;
-                        }
-                    }
-                }
-            }
+            return validateCheckoutTicketAttendee({
+                attendee,
+                ticketIndex: currentTicketIndex,
+                questions: event?.customQuestions ?? undefined,
+                allowGifting: ticketFlowSelections[currentTicketIndex]?.canGift ?? false,
+            });
         }
         return null;
     };
@@ -1558,27 +1580,14 @@ export function PublicEventPageContent({
             }
 
             for (let i = 0; i < ticketAttendees.length; i += 1) {
-                const attendee = ticketAttendees[i];
-                if (!attendee.name.trim() || !attendee.gender || !attendee.age.trim()) {
-                    return `Ticket ${i + 1}: attendee name, gender, and age are required.`;
-                }
-                if (attendee.name.trim().length < 2) {
-                    return `Ticket ${i + 1}: name must be at least 2 characters.`;
-                }
-
-                const ageNumber = Number(attendee.age);
-                if (Number.isNaN(ageNumber) || ageNumber < 0 || ageNumber > 120) {
-                    return `Ticket ${i + 1}: please enter a valid age (0-120).`;
-                }
-
-                if (event?.customQuestions?.length) {
-                    for (const question of event.customQuestions) {
-                        if (!question.required) continue;
-                        const answer = attendee.customAnswers[question.id];
-                        if (answer === undefined || answer === null || answer === '') {
-                            return `Ticket ${i + 1}: please answer "${question.label}".`;
-                        }
-                    }
+                const attendeeError = validateCheckoutTicketAttendee({
+                    attendee: ticketAttendees[i],
+                    ticketIndex: i,
+                    questions: event?.customQuestions ?? undefined,
+                    allowGifting: ticketFlowSelections[i]?.canGift ?? false,
+                });
+                if (attendeeError) {
+                    return attendeeError;
                 }
             }
         }
@@ -1632,22 +1641,7 @@ export function PublicEventPageContent({
         const buyerAgeNumber = Number(attendeeAge);
 
         const ticketAttendeePayload: TicketAttendeePayload[] | undefined = requiresPerTicket
-            ? ticketAttendees.map((attendee) => {
-                const normalizedAnswers = Object.entries(attendee.customAnswers).reduce<Record<string, string>>((acc, [key, value]) => {
-                    if (value !== undefined && value !== null && value !== '') {
-                        acc[key] = value;
-                    }
-                    return acc;
-                }, {});
-                const hasAnswers = Object.keys(normalizedAnswers).length > 0;
-
-                return {
-                    name: attendee.name.trim(),
-                    gender: attendee.gender as 'male' | 'female',
-                    age: attendee.age ? Math.floor(Number(attendee.age)) : undefined,
-                    customAnswers: hasAnswers ? normalizedAnswers : undefined,
-                };
-            })
+            ? ticketAttendees.map((attendee) => serializeCheckoutTicketAttendee(attendee))
             : undefined;
 
         const result = await handleCheckout(
@@ -2822,7 +2816,11 @@ export function PublicEventPageContent({
                                             </h4>
                                             <p className="text-xs text-muted-foreground">
                                                 {stepType === 'buyer' && 'Where should we send your tickets?'}
-                                                {stepType === 'ticket' && `Information for ${ticketAttendees[currentTicketIndex]?.name || 'attendee'}`}
+                                                {stepType === 'ticket' && (
+                                                    currentTicketIsGift
+                                                        ? 'Choose how the recipient should claim this ticket.'
+                                                        : `Information for ${currentTicketAttendee?.name || 'attendee'}`
+                                                )}
                                                 {stepType === 'confirm' && 'Select your preferred payment method'}
                                             </p>
                                         </div>
@@ -2896,7 +2894,7 @@ export function PublicEventPageContent({
                                                 </div>
 
                                                 {/* Shared Info Toggle */}
-                                                {event?.attendeeInfoMode === 'buyer_choice' && totalTickets > 1 && !forcePerTicket && (
+                                                {event?.attendeeInfoMode === 'buyer_choice' && totalTickets > 0 && !forcePerTicket && (
                                                     <div className="flex items-center gap-2 mt-2">
                                                         <input
                                                             type="checkbox"
@@ -2907,7 +2905,9 @@ export function PublicEventPageContent({
                                                             disabled={isProcessing}
                                                         />
                                                         <label htmlFor="useSharedInfo" className="text-xs text-muted-foreground cursor-pointer select-none">
-                                                            Save time: use this info for all tickets
+                                                            {totalTickets > 1
+                                                                ? 'Save time: use this info for all tickets'
+                                                                : 'Save time: use this info for this ticket'}
                                                         </label>
                                                     </div>
                                                 )}
@@ -2915,47 +2915,21 @@ export function PublicEventPageContent({
                                         )}
 
                                         {/* Ticket Step (Same as before but styled) */}
-                                        {stepType === 'ticket' && currentTicketIndex >= 0 && ticketAttendees[currentTicketIndex] && (
+                                        {stepType === 'ticket' && currentTicketIndex >= 0 && currentTicketAttendee && (
                                             <>
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-xs font-medium text-muted-foreground">Attendee Name</Label>
-                                                    <Input
-                                                        value={ticketAttendees[currentTicketIndex].name}
-                                                        onChange={(e) => {
-                                                            const updated = [...ticketAttendees];
-                                                            updated[currentTicketIndex] = { ...updated[currentTicketIndex], name: e.target.value };
-                                                            setTicketAttendees(updated);
-                                                        }}
-                                                        disabled={isProcessing}
-                                                        minLength={2}
-                                                        maxLength={80}
-                                                        className="h-10 bg-muted/30"
-                                                    />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4">
+                                                {currentTicketCanBeGifted ? (
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs font-medium text-muted-foreground">Age</Label>
-                                                        <Input
-                                                            type="number"
-                                                            value={ticketAttendees[currentTicketIndex].age}
-                                                            onChange={(e) => {
-                                                                const updated = [...ticketAttendees];
-                                                                updated[currentTicketIndex] = { ...updated[currentTicketIndex], age: e.target.value };
-                                                                setTicketAttendees(updated);
-                                                            }}
-                                                            disabled={isProcessing}
-                                                            min="0"
-                                                            max="120"
-                                                            className="h-10 bg-muted/30"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs font-medium text-muted-foreground">Gender</Label>
+                                                        <Label className="text-xs font-medium text-muted-foreground">Who is this ticket for?</Label>
                                                         <Select
-                                                            value={ticketAttendees[currentTicketIndex].gender}
+                                                            value={(currentTicketAttendee.giftDeliveryMode ?? 'attendee') as TicketDeliverySelection}
                                                             onValueChange={(value) => {
                                                                 const updated = [...ticketAttendees];
-                                                                updated[currentTicketIndex] = { ...updated[currentTicketIndex], gender: value as 'male' | 'female' };
+                                                                const selection = value as TicketDeliverySelection;
+                                                                updated[currentTicketIndex] = {
+                                                                    ...updated[currentTicketIndex],
+                                                                    giftDeliveryMode: selection === 'attendee' ? undefined : selection,
+                                                                    email: selection === 'email' ? updated[currentTicketIndex].email : '',
+                                                                };
                                                                 setTicketAttendees(updated);
                                                             }}
                                                             disabled={isProcessing}
@@ -2964,113 +2938,220 @@ export function PublicEventPageContent({
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem value="male">Male</SelectItem>
-                                                                <SelectItem value="female">Female</SelectItem>
+                                                                <SelectItem value="attendee">I&apos;m entering attendee details now</SelectItem>
+                                                                <SelectItem value="link">Gift ticket, I&apos;ll share the claim link</SelectItem>
+                                                                <SelectItem value="email">Gift ticket, email the recipient</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
-                                                </div>
-                                                {/* Customer questions */}
-                                                {event?.customQuestions && event.customQuestions.length > 0 && (
-                                                    <div className="space-y-3 pt-2 border-t border-border/50 mt-2">
-                                                        {event.customQuestions.map((q) => (
-                                                            <div key={q.id} className="space-y-1.5">
-                                                                <Label className="text-xs font-medium text-muted-foreground">
-                                                                    {q.label}{q.required && <span className="text-destructive ml-0.5">*</span>}
-                                                                </Label>
-                                                                {q.type === 'text' && (
-                                                                    <Input
-                                                                        value={ticketAttendees[currentTicketIndex].customAnswers[q.id] || ''}
-                                                                        onChange={(e) => {
-                                                                            const updated = [...ticketAttendees];
-                                                                            updated[currentTicketIndex] = {
-                                                                                ...updated[currentTicketIndex],
-                                                                                customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.value }
-                                                                            };
-                                                                            setTicketAttendees(updated);
-                                                                        }}
-                                                                        disabled={isProcessing}
-                                                                        maxLength={500}
-                                                                        className="h-10 bg-muted/30"
-                                                                    />
-                                                                )}
-                                                                {q.type === 'checkbox' && q.options && q.options.length > 0 ? (
-                                                                    <div className="space-y-2">
-                                                                        {q.options.map((opt) => {
-                                                                            const currentAnswers = (ticketAttendees[currentTicketIndex].customAnswers[q.id] || '').split(',').filter(Boolean);
-                                                                            const isChecked = currentAnswers.includes(opt);
-                                                                            return (
-                                                                                <label key={opt} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                                                                                    <input
-                                                                                        type="checkbox"
-                                                                                        checked={isChecked}
-                                                                                        onChange={(e) => {
-                                                                                            const updated = [...ticketAttendees];
-                                                                                            let newAnswers: string[];
-                                                                                            if (e.target.checked) {
-                                                                                                newAnswers = [...currentAnswers, opt];
-                                                                                            } else {
-                                                                                                newAnswers = currentAnswers.filter(a => a !== opt);
-                                                                                            }
-                                                                                            updated[currentTicketIndex] = {
-                                                                                                ...updated[currentTicketIndex],
-                                                                                                customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: newAnswers.join(',') }
-                                                                                            };
-                                                                                            setTicketAttendees(updated);
-                                                                                        }}
-                                                                                        disabled={isProcessing}
-                                                                                        className="h-4 w-4 rounded border-border"
-                                                                                    />
-                                                                                    {opt}
-                                                                                </label>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                ) : q.type === 'checkbox' && (
-                                                                    <label className="flex items-center gap-2 text-sm text-foreground">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={ticketAttendees[currentTicketIndex].customAnswers[q.id] === 'true'}
-                                                                            onChange={(e) => {
-                                                                                const updated = [...ticketAttendees];
-                                                                                updated[currentTicketIndex] = {
-                                                                                    ...updated[currentTicketIndex],
-                                                                                    customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.checked ? 'true' : 'false' }
-                                                                                };
-                                                                                setTicketAttendees(updated);
-                                                                            }}
-                                                                            disabled={isProcessing}
-                                                                            className="h-4 w-4 rounded border-border"
-                                                                        />
-                                                                        Yes
-                                                                    </label>
-                                                                )}
-                                                                {q.type === 'select' && q.options && (
-                                                                    <Select
-                                                                        value={ticketAttendees[currentTicketIndex].customAnswers[q.id] || ''}
-                                                                        onValueChange={(value) => {
-                                                                            const updated = [...ticketAttendees];
-                                                                            updated[currentTicketIndex] = {
-                                                                                ...updated[currentTicketIndex],
-                                                                                customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: value }
-                                                                            };
-                                                                            setTicketAttendees(updated);
-                                                                        }}
-                                                                        disabled={isProcessing}
-                                                                    >
-                                                                        <SelectTrigger className="h-10 bg-muted/30">
-                                                                            <SelectValue />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent>
-                                                                            {q.options.map((opt) => (
-                                                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                                                            ))}
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                )}
-                                                            </div>
-                                                        ))}
+                                                ) : (
+                                                    <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-4 text-sm text-slate-700">
+                                                        Free ticket types can&apos;t be gifted. Please enter the attendee details for this ticket now.
                                                     </div>
+                                                )}
+
+                                                {currentTicketIsGift ? (
+                                                    <>
+                                                        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-950">
+                                                            The recipient will complete their age, gender, and required event questions when they claim the gifted ticket.
+                                                        </div>
+
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-xs font-medium text-muted-foreground">Recipient Name <span className="text-muted-foreground/70">(Optional)</span></Label>
+                                                            <Input
+                                                                value={currentTicketAttendee.name}
+                                                                onChange={(e) => {
+                                                                    const updated = [...ticketAttendees];
+                                                                    updated[currentTicketIndex] = { ...updated[currentTicketIndex], name: e.target.value };
+                                                                    setTicketAttendees(updated);
+                                                                }}
+                                                                disabled={isProcessing}
+                                                                minLength={2}
+                                                                maxLength={80}
+                                                                className="h-10 bg-muted/30"
+                                                            />
+                                                        </div>
+
+                                                        {currentTicketAttendee.giftDeliveryMode === 'email' ? (
+                                                            <div className="space-y-1.5">
+                                                                <Label className="text-xs font-medium text-muted-foreground">Recipient Email</Label>
+                                                                <Input
+                                                                    type="email"
+                                                                    value={currentTicketAttendee.email}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...ticketAttendees];
+                                                                        updated[currentTicketIndex] = { ...updated[currentTicketIndex], email: e.target.value };
+                                                                        setTicketAttendees(updated);
+                                                                    }}
+                                                                    disabled={isProcessing}
+                                                                    maxLength={254}
+                                                                    className="h-10 bg-muted/30"
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-xs text-muted-foreground">
+                                                                We&apos;ll show the secure claim link after checkout so you can share it yourself.
+                                                            </p>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-xs font-medium text-muted-foreground">Attendee Name</Label>
+                                                            <Input
+                                                                value={currentTicketAttendee.name}
+                                                                onChange={(e) => {
+                                                                    const updated = [...ticketAttendees];
+                                                                    updated[currentTicketIndex] = { ...updated[currentTicketIndex], name: e.target.value };
+                                                                    setTicketAttendees(updated);
+                                                                }}
+                                                                disabled={isProcessing}
+                                                                minLength={2}
+                                                                maxLength={80}
+                                                                className="h-10 bg-muted/30"
+                                                            />
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div className="space-y-1.5">
+                                                                <Label className="text-xs font-medium text-muted-foreground">Age</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    value={currentTicketAttendee.age}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...ticketAttendees];
+                                                                        updated[currentTicketIndex] = { ...updated[currentTicketIndex], age: e.target.value };
+                                                                        setTicketAttendees(updated);
+                                                                    }}
+                                                                    disabled={isProcessing}
+                                                                    min="0"
+                                                                    max="120"
+                                                                    className="h-10 bg-muted/30"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <Label className="text-xs font-medium text-muted-foreground">Gender</Label>
+                                                                <Select
+                                                                    value={currentTicketAttendee.gender}
+                                                                    onValueChange={(value) => {
+                                                                        const updated = [...ticketAttendees];
+                                                                        updated[currentTicketIndex] = { ...updated[currentTicketIndex], gender: value as 'male' | 'female' };
+                                                                        setTicketAttendees(updated);
+                                                                    }}
+                                                                    disabled={isProcessing}
+                                                                >
+                                                                    <SelectTrigger className="h-10 bg-muted/30">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="male">Male</SelectItem>
+                                                                        <SelectItem value="female">Female</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        </div>
+                                                        {/* Customer questions */}
+                                                        {event?.customQuestions && event.customQuestions.length > 0 && (
+                                                            <div className="space-y-3 pt-2 border-t border-border/50 mt-2">
+                                                                {event.customQuestions.map((q) => (
+                                                                    <div key={q.id} className="space-y-1.5">
+                                                                        <Label className="text-xs font-medium text-muted-foreground">
+                                                                            {q.label}{q.required && <span className="text-destructive ml-0.5">*</span>}
+                                                                        </Label>
+                                                                        {q.type === 'text' && (
+                                                                            <Input
+                                                                                value={currentTicketAttendee.customAnswers[q.id] || ''}
+                                                                                onChange={(e) => {
+                                                                                    const updated = [...ticketAttendees];
+                                                                                    updated[currentTicketIndex] = {
+                                                                                        ...updated[currentTicketIndex],
+                                                                                        customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.value }
+                                                                                    };
+                                                                                    setTicketAttendees(updated);
+                                                                                }}
+                                                                                disabled={isProcessing}
+                                                                                maxLength={500}
+                                                                                className="h-10 bg-muted/30"
+                                                                            />
+                                                                        )}
+                                                                        {q.type === 'checkbox' && q.options && q.options.length > 0 ? (
+                                                                            <div className="space-y-2">
+                                                                                {q.options.map((opt) => {
+                                                                                    const currentAnswers = (currentTicketAttendee.customAnswers[q.id] || '').split(',').filter(Boolean);
+                                                                                    const isChecked = currentAnswers.includes(opt);
+                                                                                    return (
+                                                                                        <label key={opt} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                                                                                            <input
+                                                                                                type="checkbox"
+                                                                                                checked={isChecked}
+                                                                                                onChange={(e) => {
+                                                                                                    const updated = [...ticketAttendees];
+                                                                                                    let newAnswers: string[];
+                                                                                                    if (e.target.checked) {
+                                                                                                        newAnswers = [...currentAnswers, opt];
+                                                                                                    } else {
+                                                                                                        newAnswers = currentAnswers.filter(a => a !== opt);
+                                                                                                    }
+                                                                                                    updated[currentTicketIndex] = {
+                                                                                                        ...updated[currentTicketIndex],
+                                                                                                        customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: newAnswers.join(',') }
+                                                                                                    };
+                                                                                                    setTicketAttendees(updated);
+                                                                                                }}
+                                                                                                disabled={isProcessing}
+                                                                                                className="h-4 w-4 rounded border-border"
+                                                                                            />
+                                                                                            {opt}
+                                                                                        </label>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        ) : q.type === 'checkbox' && (
+                                                                            <label className="flex items-center gap-2 text-sm text-foreground">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={currentTicketAttendee.customAnswers[q.id] === 'true'}
+                                                                                    onChange={(e) => {
+                                                                                        const updated = [...ticketAttendees];
+                                                                                        updated[currentTicketIndex] = {
+                                                                                            ...updated[currentTicketIndex],
+                                                                                            customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.checked ? 'true' : 'false' }
+                                                                                        };
+                                                                                        setTicketAttendees(updated);
+                                                                                    }}
+                                                                                    disabled={isProcessing}
+                                                                                    className="h-4 w-4 rounded border-border"
+                                                                                />
+                                                                                Yes
+                                                                            </label>
+                                                                        )}
+                                                                        {q.type === 'select' && q.options && (
+                                                                            <Select
+                                                                                value={currentTicketAttendee.customAnswers[q.id] || ''}
+                                                                                onValueChange={(value) => {
+                                                                                    const updated = [...ticketAttendees];
+                                                                                    updated[currentTicketIndex] = {
+                                                                                        ...updated[currentTicketIndex],
+                                                                                        customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: value }
+                                                                                    };
+                                                                                    setTicketAttendees(updated);
+                                                                                }}
+                                                                                disabled={isProcessing}
+                                                                            >
+                                                                                <SelectTrigger className="h-10 bg-muted/30">
+                                                                                    <SelectValue />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    {q.options.map((opt) => (
+                                                                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                                                    ))}
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 )}
                                             </>
                                         )}
@@ -3156,7 +3237,12 @@ export function PublicEventPageContent({
                                                         <div className="space-y-1.5">
                                                             {ticketAttendees.map((att, i) => (
                                                                 <p key={i} className="text-sm text-foreground">
-                                                                    <span className="text-muted-foreground">Ticket {i + 1}:</span> {att.name}
+                                                                    <span className="text-muted-foreground">Ticket {i + 1}:</span>{' '}
+                                                                    {isGiftCheckoutTicketAttendee(att)
+                                                                        ? att.giftDeliveryMode === 'email'
+                                                                            ? `Gift via email${att.email ? ` to ${att.email}` : ''}`
+                                                                            : 'Gift via share link'
+                                                                        : att.name}
                                                                 </p>
                                                             ))}
                                                         </div>
