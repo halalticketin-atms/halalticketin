@@ -250,7 +250,7 @@ function CheckoutSuccessContent() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:flex md:items-center md:justify-center md:p-8 dark:from-slate-900 dark:to-slate-800">
             <div className="sm:max-w-[850px] w-[95vw] mx-auto">
-                <div className="bg-card flex flex-col rounded-3xl border border-primary/10 shadow-2xl md:h-[540px] md:max-h-[calc(100dvh-2rem)] md:flex-row md:overflow-hidden">
+                <div className="bg-card flex flex-col rounded-3xl border border-primary/10 shadow-2xl md:max-h-[calc(100dvh-4rem)] md:flex-row md:overflow-hidden">
 
                     {/* LEFT PANEL: Success Message & Actions */}
                     <div className="relative flex w-full flex-col overflow-hidden border-b border-border/50 bg-primary/5 p-5 sm:p-6 md:w-[320px] md:border-b-0 md:border-r">
@@ -350,7 +350,7 @@ function CheckoutSuccessContent() {
                     </div>
 
                     {/* RIGHT PANEL: Order Summary & Tickets */}
-                    <div className="relative flex flex-1 flex-col bg-card p-5 sm:p-6 md:overflow-hidden md:p-8">
+                    <div className="relative flex flex-1 flex-col bg-card p-5 sm:p-6 md:overflow-y-auto md:p-8">
                         {/* Step Indicators */}
                         <StepIndicator currentStep={3} />
 
@@ -365,9 +365,9 @@ function CheckoutSuccessContent() {
                         </div>
 
                         {/* Tickets with QR Codes - Scrollable */}
-                        <div className="custom-scrollbar md:min-h-0 md:flex-1 md:overflow-y-auto">
+                        <div className="md:min-h-0 md:flex-1">
                             {isCompleted && giftTickets.length > 0 && (
-                                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/20">
+                                <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4 dark:border-primary/30 dark:bg-primary/10">
                                     <p className="font-medium text-foreground">Gifted tickets</p>
                                     <p className="mt-1 text-sm text-muted-foreground">
                                         Share each pending claim link with its recipient. Claimed gifts stay listed here so you can track their status.
@@ -392,7 +392,7 @@ function CheckoutSuccessContent() {
                                                                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                                                                 : ticket.giftStatus === 'expired'
                                                                   ? 'bg-slate-200 text-slate-700 dark:bg-slate-900 dark:text-slate-300'
-                                                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                                                  : 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
                                                         )}
                                                     >
                                                         {ticket.giftStatus === 'claimed'

@@ -26,6 +26,7 @@ import {
     Mail,
     Lock,
     X,
+    Gift,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +35,7 @@ import { FavoriteButton } from '@/components/ui/FavoriteButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import {
     Dialog,
     DialogContent,
@@ -2612,7 +2614,7 @@ export function PublicEventPageContent({
                         </button>
 
                         {/* LEFT PANEL: Brand & Order Summary */}
-                        <div className="w-full max-h-[38dvh] md:max-h-none md:w-[340px] bg-primary/5 border-b md:border-b-0 md:border-r border-border/50 p-3.5 md:p-6 flex flex-col relative overflow-hidden group shrink-0 md:shrink">
+                        <div className="w-full max-h-[38dvh] min-w-0 md:max-h-none md:w-[340px] bg-primary/5 border-b md:border-b-0 md:border-r border-border/50 p-3.5 md:p-6 flex flex-col relative overflow-hidden group shrink-0 md:shrink">
                             {/* Decorative background accent */}
                             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none transition-opacity duration-700 group-hover:opacity-70" />
                             <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -ml-24 -mb-24 pointer-events-none" />
@@ -2754,7 +2756,7 @@ export function PublicEventPageContent({
                         </div>
 
                         {/* RIGHT PANEL: Wizard Form */}
-                        <div className="flex-1 flex flex-col bg-card relative min-h-0 overflow-hidden">
+                        <div className="flex-1 min-w-0 flex flex-col bg-card relative min-h-0 overflow-hidden">
                             {/* Wizard Header */}
                             <div className="px-4 pt-4 pb-1.5 md:px-8 md:pt-6 md:pb-2">
                                 {/* Step Indicators */}
@@ -2809,17 +2811,51 @@ export function PublicEventPageContent({
                                     >
                                         {/* Step Title */}
                                         <div className="mb-4">
-                                            <h4 className="text-base md:text-lg font-bold text-foreground">
-                                                {stepType === 'buyer' && 'Contact Information'}
-                                                {stepType === 'ticket' && `Ticket ${currentTicketIndex + 1} Details`}
-                                                {stepType === 'confirm' && 'Payment Details'}
-                                            </h4>
-                                            <p className="text-xs text-muted-foreground">
+                                            <div className="flex flex-col items-start gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                                                <h4 className="min-w-0 text-base md:text-lg font-bold text-foreground">
+                                                    {stepType === 'buyer' && 'Contact Information'}
+                                                    {stepType === 'ticket' && `Ticket ${currentTicketIndex + 1} Details`}
+                                                    {stepType === 'confirm' && 'Payment Details'}
+                                                </h4>
+                                                {stepType === 'ticket' && currentTicketCanBeGifted && (
+                                                    <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+                                                        <Gift className="h-4 w-4 text-primary/70" />
+                                                        <label
+                                                            htmlFor={`gift-toggle-${currentTicketIndex}`}
+                                                            className="min-w-0 text-xs font-medium text-muted-foreground select-none cursor-pointer"
+                                                        >
+                                                            Gift this ticket
+                                                        </label>
+                                                        <Switch
+                                                            id={`gift-toggle-${currentTicketIndex}`}
+                                                            checked={currentTicketIsGift}
+                                                            onCheckedChange={(checked) => {
+                                                                const updated = [...ticketAttendees];
+                                                                if (checked) {
+                                                                    updated[currentTicketIndex] = {
+                                                                        ...updated[currentTicketIndex],
+                                                                        giftDeliveryMode: 'link',
+                                                                        email: '',
+                                                                    };
+                                                                } else {
+                                                                    updated[currentTicketIndex] = {
+                                                                        ...updated[currentTicketIndex],
+                                                                        giftDeliveryMode: undefined,
+                                                                    };
+                                                                }
+                                                                setTicketAttendees(updated);
+                                                            }}
+                                                            disabled={isProcessing}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
                                                 {stepType === 'buyer' && 'Where should we send your tickets?'}
                                                 {stepType === 'ticket' && (
                                                     currentTicketIsGift
                                                         ? 'Choose how the recipient should claim this ticket.'
-                                                        : `Information for ${currentTicketAttendee?.name || 'attendee'}`
+                                                        : `Provide attendee information for this ticket.`
                                                 )}
                                                 {stepType === 'confirm' && 'Select your preferred payment method'}
                                             </p>
@@ -2859,7 +2895,7 @@ export function PublicEventPageContent({
                                                         <p className="text-xs text-destructive">Please enter your email</p>
                                                     )}
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                                     <div className="space-y-1.5">
                                                         <Label htmlFor="buyerAge" className={cn("text-xs font-medium", hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) < 13 || Number(attendeeAge) > 120) ? "text-destructive" : "text-muted-foreground")}>Age</Label>
                                                         <Input
@@ -2917,48 +2953,69 @@ export function PublicEventPageContent({
                                         {/* Ticket Step (Same as before but styled) */}
                                         {stepType === 'ticket' && currentTicketIndex >= 0 && currentTicketAttendee && (
                                             <>
-                                                {currentTicketCanBeGifted ? (
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs font-medium text-muted-foreground">Who is this ticket for?</Label>
-                                                        <Select
-                                                            value={(currentTicketAttendee.giftDeliveryMode ?? 'attendee') as TicketDeliverySelection}
-                                                            onValueChange={(value) => {
-                                                                const updated = [...ticketAttendees];
-                                                                const selection = value as TicketDeliverySelection;
-                                                                updated[currentTicketIndex] = {
-                                                                    ...updated[currentTicketIndex],
-                                                                    giftDeliveryMode: selection === 'attendee' ? undefined : selection,
-                                                                    email: selection === 'email' ? updated[currentTicketIndex].email : '',
-                                                                };
-                                                                setTicketAttendees(updated);
-                                                            }}
-                                                            disabled={isProcessing}
-                                                        >
-                                                            <SelectTrigger className="h-10 bg-muted/30">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="attendee">I&apos;m entering attendee details now</SelectItem>
-                                                                <SelectItem value="link">Gift ticket, I&apos;ll share the claim link</SelectItem>
-                                                                <SelectItem value="email">Gift ticket, email the recipient</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                ) : (
-                                                    <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-4 text-sm text-slate-700">
-                                                        Free ticket types can&apos;t be gifted. Please enter the attendee details for this ticket now.
-                                                    </div>
-                                                )}
-
                                                 {currentTicketIsGift ? (
                                                     <>
-                                                        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-950">
-                                                            The recipient will complete their age, gender, and required event questions when they claim the gifted ticket.
+                                                        {/* Delivery mode pills */}
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs font-medium text-muted-foreground">How should the recipient get this ticket?</Label>
+                                                            <div className="flex flex-col gap-2 sm:flex-row">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const updated = [...ticketAttendees];
+                                                                        updated[currentTicketIndex] = {
+                                                                            ...updated[currentTicketIndex],
+                                                                            giftDeliveryMode: 'link',
+                                                                            email: '',
+                                                                        };
+                                                                        setTicketAttendees(updated);
+                                                                    }}
+                                                                    disabled={isProcessing}
+                                                                    className={cn(
+                                                                        "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-all duration-200",
+                                                                        currentTicketAttendee.giftDeliveryMode === 'link'
+                                                                            ? "border-primary bg-primary/10 text-primary shadow-sm"
+                                                                            : "border-border bg-muted/30 text-muted-foreground hover:border-primary/30 hover:bg-muted/50"
+                                                                    )}
+                                                                >
+                                                                    <Share2 className="h-3.5 w-3.5" />
+                                                                    Share link
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const updated = [...ticketAttendees];
+                                                                        updated[currentTicketIndex] = {
+                                                                            ...updated[currentTicketIndex],
+                                                                            giftDeliveryMode: 'email',
+                                                                        };
+                                                                        setTicketAttendees(updated);
+                                                                    }}
+                                                                    disabled={isProcessing}
+                                                                    className={cn(
+                                                                        "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-all duration-200",
+                                                                        currentTicketAttendee.giftDeliveryMode === 'email'
+                                                                            ? "border-primary bg-primary/10 text-primary shadow-sm"
+                                                                            : "border-border bg-muted/30 text-muted-foreground hover:border-primary/30 hover:bg-muted/50"
+                                                                    )}
+                                                                >
+                                                                    <Mail className="h-3.5 w-3.5" />
+                                                                    Email them
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        <Separator className="my-1 opacity-50" />
+
+                                                        <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 text-xs text-muted-foreground flex items-start gap-2">
+                                                            <Gift className="h-3.5 w-3.5 text-primary/60 mt-0.5 shrink-0" />
+                                                            <span>The recipient will complete their age, gender, and any required event questions when they claim the ticket.</span>
                                                         </div>
 
                                                         <div className="space-y-1.5">
                                                             <Label className="text-xs font-medium text-muted-foreground">Recipient Name <span className="text-muted-foreground/70">(Optional)</span></Label>
                                                             <Input
+                                                                placeholder="e.g. Sarah"
                                                                 value={currentTicketAttendee.name}
                                                                 onChange={(e) => {
                                                                     const updated = [...ticketAttendees];
@@ -2968,7 +3025,7 @@ export function PublicEventPageContent({
                                                                 disabled={isProcessing}
                                                                 minLength={2}
                                                                 maxLength={80}
-                                                                className="h-10 bg-muted/30"
+                                                                className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors"
                                                             />
                                                         </div>
 
@@ -2977,6 +3034,7 @@ export function PublicEventPageContent({
                                                                 <Label className="text-xs font-medium text-muted-foreground">Recipient Email</Label>
                                                                 <Input
                                                                     type="email"
+                                                                    placeholder="recipient@email.com"
                                                                     value={currentTicketAttendee.email}
                                                                     onChange={(e) => {
                                                                         const updated = [...ticketAttendees];
@@ -2985,7 +3043,7 @@ export function PublicEventPageContent({
                                                                     }}
                                                                     disabled={isProcessing}
                                                                     maxLength={254}
-                                                                    className="h-10 bg-muted/30"
+                                                                    className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors"
                                                                 />
                                                             </div>
                                                         ) : (
@@ -2994,7 +3052,13 @@ export function PublicEventPageContent({
                                                             </p>
                                                         )}
                                                     </>
-                                                ) : (
+                                                ) : !currentTicketCanBeGifted ? (
+                                                    <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-3 text-sm text-slate-700">
+                                                        Free ticket types can&apos;t be gifted. Please enter the attendee details for this ticket now.
+                                                    </div>
+                                                ) : null}
+
+                                                {!currentTicketIsGift && (
                                                     <>
                                                         <div className="space-y-1.5">
                                                             <Label className="text-xs font-medium text-muted-foreground">Attendee Name</Label>
@@ -3011,7 +3075,7 @@ export function PublicEventPageContent({
                                                                 className="h-10 bg-muted/30"
                                                             />
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-4">
+                                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                                             <div className="space-y-1.5">
                                                                 <Label className="text-xs font-medium text-muted-foreground">Age</Label>
                                                                 <Input

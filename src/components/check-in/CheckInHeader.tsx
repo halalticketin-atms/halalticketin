@@ -132,11 +132,6 @@ export function CheckInHeader({
                                 style={{ width: `${percentage}%` }}
                             />
                         </div>
-                        {stats.requiresClaimCount ? (
-                            <p className="px-6 py-3 text-xs font-black uppercase tracking-[0.18em] text-amber-700/80">
-                                {stats.requiresClaimCount} ticket{stats.requiresClaimCount === 1 ? '' : 's'} awaiting gift claim
-                            </p>
-                        ) : null}
                     </div>
                 </CardContent>
             </Card>
