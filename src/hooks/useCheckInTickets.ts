@@ -7,8 +7,14 @@ import {
   undoCheckIn as apiUndoCheckIn,
   CheckInTicketRecord,
 } from '@/lib/check-in-api';
+import { ApiError } from '@/lib/api';
 
 const CHECK_IN_TICKETS_PAGE_SIZE = 100;
+type CheckInFailureResult = Extract<CheckInResult, { status: 'needs_claim' | 'invalid' }>;
+
+export function isCheckInEligibleStatus(status: CheckInTicketRecord['status']): boolean {
+  return status === 'valid' || status === 'checked_in';
+}
 
 /**
  * Transform API ticket record to frontend CheckInTicket format.
@@ -22,6 +28,7 @@ export function transformCheckInTicket(record: CheckInTicketRecord): CheckInTick
     attendeeName: record.attendeeName ?? 'Unknown',
     attendeeEmail: record.attendeeEmail ?? '',
     ticketType: record.ticketType,
+    status: record.status,
     checkInStatus: record.status === 'checked_in' ? 'checked_in' : 'not_checked_in',
     checkedInAt: record.checkedInAt ? new Date(record.checkedInAt) : undefined,
     checkedInBy: record.checkedInBy ?? undefined,
@@ -30,6 +37,43 @@ export function transformCheckInTicket(record: CheckInTicketRecord): CheckInTick
     // Group features not yet implemented in backend
     groupSize: 1,
     groupCheckedIn: record.status === 'checked_in' ? 1 : 0,
+  };
+}
+
+const getNeedsClaimInstructions = (error: ApiError): string | null => {
+  const payload = error.payload as
+    | { error?: { details?: { reason?: string; instructions?: string } } }
+    | null
+    | undefined;
+  const details = payload?.error?.details;
+
+  if (details?.reason !== 'needs_claim') {
+    return null;
+  }
+
+  return typeof details.instructions === 'string' && details.instructions.length > 0
+    ? details.instructions
+    : error.message;
+};
+
+export function getCheckInFailureResult(
+  error: unknown,
+  currentTicket?: CheckInTicket,
+): CheckInFailureResult {
+  if (error instanceof ApiError) {
+    const instructions = getNeedsClaimInstructions(error);
+    if (instructions) {
+      return {
+        status: 'needs_claim',
+        message: instructions,
+        ticket: currentTicket,
+      };
+    }
+  }
+
+  return {
+    status: 'invalid',
+    message: error instanceof Error ? error.message : 'Failed to check in ticket',
   };
 }
 
@@ -51,7 +95,7 @@ export async function listAllCheckInTickets(
       return allTickets;
     }
 
-    allTickets.push(...pageTickets);
+    allTickets.push(...pageTickets.filter((ticket) => isCheckInEligibleStatus(ticket.status)));
     offset += pageTickets.length;
 
     if (pageTickets.length < CHECK_IN_TICKETS_PAGE_SIZE) {
@@ -131,7 +175,7 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
     }
     // Fallback: calculate from local tickets
     const claimBlockedCount = tickets.filter((t) => t.requiresClaim).length;
-    const eligibleTickets = tickets.filter((t) => !t.requiresClaim);
+    const eligibleTickets = tickets.filter((t) => isCheckInEligibleStatus(t.status));
     const totalTickets = eligibleTickets.length;
     const checkedIn = eligibleTickets.filter((t) => t.checkInStatus === 'checked_in').length;
     const notCheckedIn = eligibleTickets.filter((t) => t.checkInStatus === 'not_checked_in').length;
@@ -210,14 +254,15 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
 
         return { status: 'invalid', message: 'Failed to check in ticket' };
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to check in ticket';
-        setError(message);
-        return { status: 'invalid', message };
+        const currentTicket = tickets.find((ticket) => ticket.id === ticketId);
+        const failure = getCheckInFailureResult(err, currentTicket);
+        setError(failure.message);
+        return failure;
       } finally {
         setUpdatingTicketId(null);
       }
     },
-    [applyCheckInUpdate, eventId]
+    [applyCheckInUpdate, eventId, tickets]
   );
 
   const undo = useCallback(

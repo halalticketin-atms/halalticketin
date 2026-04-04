@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Search, ScanLine, ChevronDown, Radio } from 'lucide-react';
+import { Search, ScanLine, ChevronDown, Radio, AlertCircle } from 'lucide-react';
 import {
     Select,
     SelectContent,
@@ -39,6 +39,7 @@ export function CheckInHeader({
     mode = 'scan',
     onModeChange,
     showModeToggle = true,
+    error,
     isEventLoading,
 }: CheckInHeaderProps) {
     const percentage = useMemo(() => {
@@ -187,6 +188,18 @@ export function CheckInHeader({
                     </div>
                 </div>
             </div>
+
+            {error ? (
+                <div
+                    className="animate-in fade-in slide-in-from-bottom-2 duration-500"
+                    style={{ animationDelay: '75ms', animationFillMode: 'backwards' }}
+                >
+                    <div className="flex items-start gap-2 rounded-xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <p className="text-sm font-medium leading-relaxed">{error}</p>
+                    </div>
+                </div>
+            ) : null}
 
             {/* Mode Toggle */}
             {showModeToggle && onModeChange && (

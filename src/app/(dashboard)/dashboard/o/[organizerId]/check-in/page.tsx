@@ -19,7 +19,7 @@ import { ScanResultOverlay } from '@/components/check-in/ScanResultOverlay';
 import { AttendeeCard } from '@/components/check-in/AttendeeCard';
 import { QRScanner } from '@/components/check-in/QRScanner';
 import { CheckInHeader } from '@/components/check-in/CheckInHeader';
-import { useCheckInTickets, transformCheckInTicket } from '@/hooks/useCheckInTickets';
+import { isCheckInEligibleStatus, useCheckInTickets, transformCheckInTicket } from '@/hooks/useCheckInTickets';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents } from '@/hooks/useOrganizerEvents';
 import { scanAndCheckInTicket } from '@/lib/check-in-api';
@@ -271,6 +271,10 @@ function CheckInContent() {
   }
 
   const filteredTickets = tickets.filter((ticket) => {
+    if (!isCheckInEligibleStatus(ticket.status)) {
+      return false;
+    }
+
     const matchesSearch =
       ticket.attendeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.attendeeEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -376,6 +380,15 @@ function CheckInContent() {
           checkedInAt: scanResponse.checkedInAt
             ? new Date(scanResponse.checkedInAt)
             : normalizedTicket.checkedInAt || new Date(),
+        });
+        return;
+      }
+
+      if (scanResponse.status === 'needs_claim') {
+        setScanResult({
+          status: 'needs_claim',
+          ticket: normalizedTicket,
+          message: scanResponse.message,
         });
         return;
       }

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CheckInHeader } from './CheckInHeader';
 
 vi.mock('lucide-react', () => ({
+  AlertCircle: () => React.createElement('svg'),
   ChevronDown: () => React.createElement('svg'),
   Radio: () => React.createElement('svg'),
   Search: () => React.createElement('svg'),
@@ -55,5 +56,25 @@ describe('CheckInHeader', () => {
     );
 
     expect(html).not.toContain('awaiting gift claim');
+  });
+
+  it('renders surfaced action errors when provided', () => {
+    const html = renderToStaticMarkup(
+      <CheckInHeader
+        events={[{ id: 'event-1', name: 'Community Dinner' }]}
+        selectedEventId="event-1"
+        onEventChange={() => {}}
+        stats={{
+          totalTickets: 10,
+          checkedIn: 5,
+          notCheckedIn: 5,
+          requiresClaimCount: 3,
+          percentage: 50,
+        }}
+        error="Gift ticket must be claimed first."
+      />,
+    );
+
+    expect(html).toContain('Gift ticket must be claimed first.');
   });
 });

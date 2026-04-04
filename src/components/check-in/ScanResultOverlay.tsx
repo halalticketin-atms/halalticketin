@@ -47,6 +47,12 @@ export function ScanResultOverlay({ result, onClose }: ScanResultOverlayProps) {
                     bg: 'bg-amber-500',
                     title: 'Already Checked In',
                 };
+            case 'needs_claim':
+                return {
+                    icon: AlertTriangle,
+                    bg: 'bg-amber-500',
+                    title: 'Valid but Needs Claiming',
+                };
             case 'invalid':
             default:
                 return {
@@ -84,14 +90,17 @@ export function ScanResultOverlay({ result, onClose }: ScanResultOverlayProps) {
                 <Icon className="h-16 w-16 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">{config.title}</h2>
 
-                {(result.status === 'success' || result.status === 'already_checked_in') && (
+                {(result.status === 'success' ||
+                    result.status === 'already_checked_in' ||
+                    result.status === 'needs_claim') &&
+                    result.ticket && (
                     <div className="space-y-1 mb-4">
                         <p className="font-medium">{result.ticket.attendeeName}</p>
                         <p className="text-sm opacity-80">{result.ticket.ticketType}</p>
                     </div>
                 )}
 
-                {result.status === 'invalid' && (
+                {(result.status === 'invalid' || result.status === 'needs_claim') && (
                     <p className="text-sm opacity-80">{result.message}</p>
                 )}
 

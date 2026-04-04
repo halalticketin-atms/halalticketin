@@ -32,12 +32,13 @@ export interface CheckInStatsRecord {
 export interface ScanResult {
     valid: boolean;
     alreadyCheckedIn?: boolean;
+    requiresClaim?: boolean;
     message: string;
     ticket?: CheckInTicketRecord;
 }
 
 export interface ScanAndCheckInResponse {
-    status: 'success' | 'already_checked_in';
+    status: 'success' | 'already_checked_in' | 'needs_claim';
     message: string;
     ticket: CheckInTicketRecord;
     checkedInAt?: string | null;

@@ -165,6 +165,7 @@ export interface CheckInTicket {
     checkedInAt?: Date;
     checkedInBy?: string;
     checkedInByName?: string | null;
+    status: 'valid' | 'checked_in' | 'cancelled' | 'refunded';
     requiresClaim?: boolean;
     // Group awareness
     groupSize: number;
@@ -182,6 +183,7 @@ export interface CheckInStats {
 export type CheckInResult =
     | { status: 'success'; ticket: CheckInTicket }
     | { status: 'already_checked_in'; ticket: CheckInTicket; checkedInAt: Date }
+    | { status: 'needs_claim'; message: string; ticket?: CheckInTicket }
     | { status: 'invalid'; message: string };
 
 export * from './organizers';

@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { ApiError } from '@/lib/api';
 import type { CheckInTicketRecord } from '@/lib/check-in-api';
 
-import { listAllCheckInTickets } from './useCheckInTickets';
+import {
+  getCheckInFailureResult,
+  isCheckInEligibleStatus,
+  listAllCheckInTickets,
+  transformCheckInTicket,
+} from './useCheckInTickets';
 
 const makeTicket = (index: number): CheckInTicketRecord => ({
   id: `ticket-${index}`,
@@ -41,5 +47,72 @@ describe('listAllCheckInTickets', () => {
 
     await expect(listAllCheckInTickets('event-1', listTickets)).resolves.toEqual([]);
     expect(listTickets).toHaveBeenCalledTimes(1);
+  });
+
+  it('filters refunded and cancelled tickets from the aggregated attendee list', async () => {
+    const listTickets = vi
+      .fn()
+      .mockResolvedValueOnce({
+        tickets: [
+          makeTicket(0),
+          { ...makeTicket(1), status: 'refunded' },
+          { ...makeTicket(2), status: 'cancelled' },
+          { ...makeTicket(3), status: 'checked_in' },
+        ],
+      });
+
+    await expect(listAllCheckInTickets('event-1', listTickets)).resolves.toEqual([
+      makeTicket(0),
+      { ...makeTicket(3), status: 'checked_in' },
+    ]);
+  });
+
+  it('keeps unclaimed gifted tickets in the aggregated attendee list', async () => {
+    const listTickets = vi.fn().mockResolvedValueOnce({
+      tickets: [{ ...makeTicket(4), requiresClaim: true, giftStatus: 'pending_claim' }],
+    });
+
+    await expect(listAllCheckInTickets('event-1', listTickets)).resolves.toEqual([
+      { ...makeTicket(4), requiresClaim: true, giftStatus: 'pending_claim' },
+    ]);
+  });
+});
+
+describe('check-in eligibility helpers', () => {
+  it('marks only valid and checked-in tickets as check-in eligible', () => {
+    expect(isCheckInEligibleStatus('valid')).toBe(true);
+    expect(isCheckInEligibleStatus('checked_in')).toBe(true);
+    expect(isCheckInEligibleStatus('refunded')).toBe(false);
+    expect(isCheckInEligibleStatus('cancelled')).toBe(false);
+  });
+
+  it('preserves raw ticket status on transformed tickets', () => {
+    const ticket = transformCheckInTicket({ ...makeTicket(1), status: 'checked_in' });
+
+    expect(ticket.status).toBe('checked_in');
+    expect(ticket.checkInStatus).toBe('checked_in');
+  });
+
+  it('maps needs-claim validation errors to the warning result', () => {
+    const ticket = transformCheckInTicket({
+      ...makeTicket(5),
+      requiresClaim: true,
+      giftStatus: 'pending_claim',
+      giftDeliveryMode: 'email',
+    });
+    const error = new ApiError('Gift ticket must be claimed first.', 400, {
+      error: {
+        details: {
+          reason: 'needs_claim',
+          instructions: 'Ask the recipient to click the claim link in their gift email before entry.',
+        },
+      },
+    });
+
+    expect(getCheckInFailureResult(error, ticket)).toEqual({
+      status: 'needs_claim',
+      message: 'Ask the recipient to click the claim link in their gift email before entry.',
+      ticket,
+    });
   });
 });
