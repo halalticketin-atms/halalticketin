@@ -8,6 +8,8 @@ import {
   CheckInTicketRecord,
 } from '@/lib/check-in-api';
 
+const CHECK_IN_TICKETS_PAGE_SIZE = 100;
+
 /**
  * Transform API ticket record to frontend CheckInTicket format.
  */
@@ -29,6 +31,33 @@ export function transformCheckInTicket(record: CheckInTicketRecord): CheckInTick
     groupSize: 1,
     groupCheckedIn: record.status === 'checked_in' ? 1 : 0,
   };
+}
+
+export async function listAllCheckInTickets(
+  eventId: string,
+  listTickets: typeof listCheckInTickets = listCheckInTickets,
+): Promise<CheckInTicketRecord[]> {
+  const allTickets: CheckInTicketRecord[] = [];
+  let offset = 0;
+
+  while (true) {
+    const response = await listTickets(eventId, {
+      limit: CHECK_IN_TICKETS_PAGE_SIZE,
+      offset,
+    });
+    const pageTickets = response.tickets;
+
+    if (pageTickets.length === 0) {
+      return allTickets;
+    }
+
+    allTickets.push(...pageTickets);
+    offset += pageTickets.length;
+
+    if (pageTickets.length < CHECK_IN_TICKETS_PAGE_SIZE) {
+      return allTickets;
+    }
+  }
 }
 
 interface UseCheckInTicketsResult {
@@ -66,7 +95,7 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
     try {
       // Fetch tickets and stats in parallel
       const [ticketsRes, statsRes] = await Promise.all([
-        listCheckInTickets(eventId),
+        listAllCheckInTickets(eventId),
         getCheckInStats(eventId),
       ]);
 
@@ -74,7 +103,7 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
         return;
       }
 
-      setTickets(ticketsRes.tickets.map(transformCheckInTicket));
+      setTickets(ticketsRes.map(transformCheckInTicket));
       setApiStats(statsRes);
     } catch (err) {
       if (fetchIdRef.current !== requestId) {
