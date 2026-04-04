@@ -116,9 +116,10 @@ interface EventScopeSelectorProps {
     onChange: (value: EventScopeInput) => void;
     disabled?: boolean;
     events: OrganizerEventOption[];
+    validationMessage?: string | null;
 }
 
-function EventScopeSelector({ value, onChange, disabled, events }: EventScopeSelectorProps) {
+function EventScopeSelector({ value, onChange, disabled, events, validationMessage }: EventScopeSelectorProps) {
     return (
         <div className="space-y-3">
             <div className="space-y-2">
@@ -195,6 +196,10 @@ function EventScopeSelector({ value, onChange, disabled, events }: EventScopeSel
                     )}
                 </div>
             )}
+
+            {validationMessage && (
+                <p className="text-sm text-destructive">{validationMessage}</p>
+            )}
         </div>
     );
 }
@@ -205,6 +210,14 @@ function getRoleColor(role: string) {
 
 function getRoleLabel(role: string) {
     return ROLE_OPTIONS.find(r => r.value === role)?.label ?? role.replace('_', ' ');
+}
+
+function getEventScopeValidationMessage(scope: EventScopeInput): string | null {
+    if (scope.mode === 'limited' && scope.eventIds.length === 0) {
+        return 'Choose at least one event when limiting access.';
+    }
+
+    return null;
 }
 
 // Compact member card component
@@ -330,6 +343,7 @@ export default function OrganizerTeamPage() {
     // Edit dialog
     const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
     const [editSaving, setEditSaving] = useState(false);
+    const [editError, setEditError] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<{
         role: string;
         status: string;
@@ -443,6 +457,12 @@ export default function OrganizerTeamPage() {
         event.preventDefault();
         if (!organizerId) return;
 
+        const eventScopeError = getEventScopeValidationMessage(inviteForm.eventScope);
+        if (eventScopeError) {
+            setInviteError(eventScopeError);
+            return;
+        }
+
         setIsInviting(true);
         setInviteError(null);
         setInviteSuccess(null);
@@ -452,7 +472,7 @@ export default function OrganizerTeamPage() {
                 email: inviteForm.email,
                 role: inviteForm.role,
             };
-            if (inviteForm.eventScope.mode === 'limited' && (inviteForm.eventScope.eventIds?.length ?? 0) > 0) {
+            if (inviteForm.eventScope.mode === 'limited') {
                 payload.eventScope = {
                     mode: 'limited',
                     eventIds: inviteForm.eventScope.eventIds,
@@ -520,6 +540,7 @@ export default function OrganizerTeamPage() {
     const openEditDialog = (member: TeamMember) => {
         if (member.role === 'owner') return;
         setEditingMember(member);
+        setEditError(null);
         setEditForm({
             role: member.role,
             status: member.status === 'suspended' ? 'suspended' : 'active',
@@ -531,12 +552,20 @@ export default function OrganizerTeamPage() {
         setEditingMember(null);
         setEditForm(null);
         setEditSaving(false);
+        setEditError(null);
     };
 
     const handleSaveMembership = async () => {
         if (!organizerId || !editingMember || !editForm) return;
 
+        const eventScopeError = getEventScopeValidationMessage(editForm.eventScope);
+        if (eventScopeError) {
+            setEditError(eventScopeError);
+            return;
+        }
+
         setEditSaving(true);
+        setEditError(null);
         try {
             const payload = {
                 role: editForm.role as CreateInvitationPayload['role'],
@@ -552,7 +581,7 @@ export default function OrganizerTeamPage() {
         } catch (err) {
             console.error(err);
             setEditSaving(false);
-            setError(err instanceof Error ? err.message : 'Failed to update membership');
+            setEditError(err instanceof Error ? err.message : 'Failed to update membership');
         }
     };
 
@@ -599,6 +628,8 @@ export default function OrganizerTeamPage() {
     }
 
     const pendingInvites = invitations.filter((invite) => invite.status === 'pending');
+    const inviteScopeError = getEventScopeValidationMessage(inviteForm.eventScope);
+    const editScopeError = editForm ? getEventScopeValidationMessage(editForm.eventScope) : null;
 
     return (
         <div className="min-h-screen bg-muted/30">
@@ -977,8 +1008,12 @@ export default function OrganizerTeamPage() {
                         {/* Event Access */}
                         <EventScopeSelector
                             value={inviteForm.eventScope}
-                            onChange={(scope) => setInviteForm((prev) => ({ ...prev, eventScope: scope }))}
+                            onChange={(scope) => {
+                                setInviteForm((prev) => ({ ...prev, eventScope: scope }));
+                                setInviteError(null);
+                            }}
                             events={events}
+                            validationMessage={inviteScopeError}
                         />
 
                         {/* Status Messages */}
@@ -1007,7 +1042,7 @@ export default function OrganizerTeamPage() {
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={isInviting}
+                                disabled={isInviting || Boolean(inviteScopeError)}
                                 className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 gap-2 px-6 w-full sm:w-auto"
                             >
                                 {isInviting ? (
@@ -1083,11 +1118,20 @@ export default function OrganizerTeamPage() {
 
                             <EventScopeSelector
                                 value={editForm.eventScope}
-                                onChange={(scope) =>
-                                    setEditForm((prev) => (prev ? { ...prev, eventScope: scope } : prev))
-                                }
+                                onChange={(scope) => {
+                                    setEditForm((prev) => (prev ? { ...prev, eventScope: scope } : prev));
+                                    setEditError(null);
+                                }}
                                 events={events}
+                                validationMessage={editScopeError}
                             />
+
+                            {editError && (
+                                <div className="flex items-center gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20">
+                                    <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                                    <p className="text-sm text-destructive">{editError}</p>
+                                </div>
+                            )}
                         </div>
 
                         <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between gap-2">
@@ -1104,7 +1148,7 @@ export default function OrganizerTeamPage() {
                                 <Button variant="outline" onClick={closeEditDialog}>
                                     Cancel
                                 </Button>
-                                <Button onClick={() => void handleSaveMembership()} disabled={editSaving}>
+                                <Button onClick={() => void handleSaveMembership()} disabled={editSaving || Boolean(editScopeError)}>
                                     {editSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Save changes
                                 </Button>

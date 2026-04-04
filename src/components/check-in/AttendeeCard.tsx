@@ -19,32 +19,32 @@ export function AttendeeCard({ ticket, isUpdating, onCheckIn, onUndo }: Attendee
 
     return (
         <Card className={cn(
-            'transition-all',
-            isCheckedIn && 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+            'rounded-xl border-border/60 shadow-sm transition-all duration-200',
+            isCheckedIn && 'bg-emerald-50/30 dark:bg-emerald-950/15 border-emerald-200/50 dark:border-emerald-800/40'
         )}>
-            <CardContent className="p-4">
-                <div className="flex items-center justify-between gap-4">
+            <CardContent className="px-4 py-3.5">
+                <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                         <div className={cn(
-                            'h-10 w-10 rounded-full flex items-center justify-center shrink-0',
+                            'h-10 w-10 rounded-xl flex items-center justify-center shrink-0',
                             isCheckedIn
-                                ? 'bg-green-100 dark:bg-green-900'
-                                : 'bg-muted'
+                                ? 'bg-emerald-100 dark:bg-emerald-900/50'
+                                : 'bg-muted/60'
                         )}>
                             {isCheckedIn ? (
-                                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                             ) : (
-                                <User className="h-5 w-5 text-muted-foreground" />
+                                <User className="h-4 w-4 text-muted-foreground/60" />
                             )}
                         </div>
                         <div className="min-w-0">
-                            <p className="font-medium truncate">{ticket.attendeeName}</p>
-                            <p className="text-sm text-muted-foreground truncate">{ticket.attendeeEmail}</p>
+                            <p className="font-bold text-sm truncate">{ticket.attendeeName}</p>
+                            <p className="text-xs text-muted-foreground/60 truncate">{ticket.attendeeEmail}</p>
                             <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="secondary" className="text-xs">
+                                <Badge variant="secondary" className="text-[10px] font-semibold px-2 py-0 h-5 rounded-md">
                                     {ticket.ticketType}
                                 </Badge>
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-[10px] text-muted-foreground/40 font-medium">
                                     #{ticket.orderNumber}
                                 </span>
                             </div>
@@ -55,11 +55,11 @@ export function AttendeeCard({ ticket, isUpdating, onCheckIn, onUndo }: Attendee
                         {isCheckedIn ? (
                             <>
                                 <div className="text-right hidden sm:block">
-                                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">Checked in</p>
+                                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">Checked in</p>
                                     {ticket.checkedInAt && (
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <p className="text-[10px] text-muted-foreground/50 flex items-center gap-1 justify-end mt-0.5">
                                             <Clock className="h-3 w-3" />
-                                            {new Date(ticket.checkedInAt).toLocaleTimeString()}
+                                            {new Date(ticket.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </p>
                                     )}
                                 </div>
@@ -67,6 +67,7 @@ export function AttendeeCard({ ticket, isUpdating, onCheckIn, onUndo }: Attendee
                                     <Button
                                         size="sm"
                                         variant="ghost"
+                                        className="h-9 w-9 rounded-xl text-muted-foreground/40 hover:text-foreground"
                                         onClick={() => onUndo(ticket.id)}
                                         disabled={isUpdating}
                                     >
@@ -82,13 +83,14 @@ export function AttendeeCard({ ticket, isUpdating, onCheckIn, onUndo }: Attendee
                             onCheckIn && (
                                 <Button
                                     size="sm"
+                                    className="h-9 rounded-xl text-xs font-bold gap-1.5 px-3.5"
                                     onClick={() => onCheckIn(ticket.id)}
                                     disabled={isUpdating}
                                 >
                                     {isUpdating ? (
-                                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                     ) : (
-                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                        <CheckCircle className="h-3.5 w-3.5" />
                                     )}
                                     Check In
                                 </Button>

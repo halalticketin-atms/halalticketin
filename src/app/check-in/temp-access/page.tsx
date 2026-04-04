@@ -9,6 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import { acceptTempAccessToken } from '@/lib/check-in-api';
+import {
+    TEMP_CHECK_IN_ACCESS_DISABLED_MESSAGE,
+    TEMP_CHECK_IN_ACCESS_ENABLED,
+} from '@/lib/check-in-flags';
 import { buildDashboardPath } from '@/lib/organizer-path';
 
 function TempAccessContent() {
@@ -28,7 +32,13 @@ function TempAccessContent() {
     const registerUrl = useMemo(() => `/register?next=${encodeURIComponent(destination)}`, [destination]);
 
     useEffect(() => {
-        if (!token || !user || status === 'processing' || status === 'success') {
+        if (
+            !TEMP_CHECK_IN_ACCESS_ENABLED
+            || !token
+            || !user
+            || status === 'processing'
+            || status === 'success'
+        ) {
             return;
         }
 
@@ -61,7 +71,24 @@ function TempAccessContent() {
                     <p className="text-sm text-muted-foreground">Confirm access to check in attendees.</p>
                 </CardHeader>
                 <CardContent className="space-y-6 py-6">
-                    {!token ? (
+                    {!TEMP_CHECK_IN_ACCESS_ENABLED ? (
+                        <div className="space-y-4 text-center">
+                            <ShieldAlert className="h-9 w-9 text-amber-500 mx-auto" />
+                            <div className="space-y-2">
+                                <p className="text-sm text-muted-foreground">
+                                    {TEMP_CHECK_IN_ACCESS_DISABLED_MESSAGE}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    Please ask the organizer to use a standard team invite for now.
+                                </p>
+                            </div>
+                            <Button asChild className="w-full">
+                                <Link href={user ? '/dashboard' : '/login'}>
+                                    {user ? 'Go to dashboard' : 'Go to sign in'}
+                                </Link>
+                            </Button>
+                        </div>
+                    ) : !token ? (
                         <div className="space-y-3 text-center">
                             <ShieldAlert className="h-9 w-9 text-destructive mx-auto" />
                             <p className="text-sm text-muted-foreground">

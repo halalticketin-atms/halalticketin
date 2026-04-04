@@ -5,7 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { CheckInHeader } from './CheckInHeader';
 
 vi.mock('lucide-react', () => ({
-  Calendar: () => React.createElement('svg'),
+  ChevronDown: () => React.createElement('svg'),
+  Radio: () => React.createElement('svg'),
   Search: () => React.createElement('svg'),
   ScanLine: () => React.createElement('svg'),
 }));

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { EventRecord, listOrganizerEvents } from '@/lib/events-api';
 
 export type DashboardEventStatus = 'draft' | 'active' | 'past';
@@ -74,10 +74,16 @@ export function useOrganizerEvents(organizerId: string | null) {
     const [events, setEvents] = useState<DashboardEvent[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [resolvedOrganizerId, setResolvedOrganizerId] = useState<string | null>(null);
+    const fetchIdRef = useRef(0);
 
     const fetchEvents = useCallback(async () => {
+        const requestId = ++fetchIdRef.current;
         if (!organizerId) {
             setEvents([]);
+            setError(null);
+            setResolvedOrganizerId(null);
+            setIsLoading(false);
             return;
         }
 
@@ -86,6 +92,9 @@ export function useOrganizerEvents(organizerId: string | null) {
 
         try {
             const response = await listOrganizerEvents(organizerId);
+            if (fetchIdRef.current !== requestId) {
+                return;
+            }
             const classified = response.events.map((event) => ({
                 ...event,
                 displayStatus: classifyEventStatus(event),
@@ -100,12 +109,19 @@ export function useOrganizerEvents(organizerId: string | null) {
             });
 
             setEvents(classified);
+            setResolvedOrganizerId(organizerId);
         } catch (err) {
+            if (fetchIdRef.current !== requestId) {
+                return;
+            }
             const message = err instanceof Error ? err.message : 'Failed to load events';
             setError(message);
             setEvents([]);
+            setResolvedOrganizerId(organizerId);
         } finally {
-            setIsLoading(false);
+            if (fetchIdRef.current === requestId) {
+                setIsLoading(false);
+            }
         }
     }, [organizerId]);
 
@@ -137,6 +153,7 @@ export function useOrganizerEvents(organizerId: string | null) {
         events,
         isLoading,
         error,
+        resolvedOrganizerId,
         refresh: fetchEvents,
         getByStatus,
         counts,

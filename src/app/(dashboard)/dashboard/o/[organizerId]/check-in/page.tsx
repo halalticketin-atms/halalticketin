@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
-import { Search, Users, Loader2 } from 'lucide-react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Search, Users, Loader2, Calendar, ChevronRight, ScanLine, Monitor } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,13 +19,13 @@ import { ScanResultOverlay } from '@/components/check-in/ScanResultOverlay';
 import { AttendeeCard } from '@/components/check-in/AttendeeCard';
 import { QRScanner } from '@/components/check-in/QRScanner';
 import { CheckInHeader } from '@/components/check-in/CheckInHeader';
-import { TempStaffDialog } from '@/components/check-in/TempStaffDialog';
 import { useCheckInTickets, transformCheckInTicket } from '@/hooks/useCheckInTickets';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizerEvents } from '@/hooks/useOrganizerEvents';
 import { scanAndCheckInTicket } from '@/lib/check-in-api';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
+import { resolveCheckInEventResolution } from '@/lib/check-in-event-resolution';
 
 // Detect if mobile/tablet
 function useIsMobile() {
@@ -76,7 +76,12 @@ function CheckInContent() {
   const [scanResult, setScanResult] = useState<CheckInResult | null>(null);
 
   // Fetch real events and filter to only active ones
-  const { events, isLoading: eventsLoading } = useOrganizerEvents(organizerId);
+  const {
+    events,
+    isLoading: eventsLoading,
+    error: eventsError,
+    resolvedOrganizerId,
+  } = useOrganizerEvents(organizerId);
   const activeEvents = useMemo(() => {
     return events
       .filter(e => e.displayStatus === 'active')
@@ -90,13 +95,24 @@ function CheckInContent() {
   const modeFromUrl = searchParams.get('mode');
   const viewFromUrl = searchParams.get('view');
 
-  const selectedEvent = useMemo(() => {
-    const fallbackId = activeEvents[0]?.id;
-    if (!fallbackId) return '';
-    if (!selectedEventFromUrl) return fallbackId;
-    const exists = activeEvents.some((e) => e.id === selectedEventFromUrl);
-    return exists ? selectedEventFromUrl : fallbackId;
-  }, [selectedEventFromUrl, activeEvents]);
+  const updateQuery = useCallback((key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set(key, value);
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [pathname, router, searchParams]);
+
+  const eventResolution = useMemo(() => (
+    resolveCheckInEventResolution({
+      activeEvents,
+      hasFreshEvents: organizerId !== null && resolvedOrganizerId === organizerId,
+      isLoading: eventsLoading,
+      error: resolvedOrganizerId === organizerId ? eventsError : null,
+      requestedEventId: selectedEventFromUrl,
+    })
+  ), [activeEvents, eventsError, eventsLoading, organizerId, resolvedOrganizerId, selectedEventFromUrl]);
+
+  const selectedEvent =
+    eventResolution.status === 'ready' ? eventResolution.selectedEventId : '';
 
   const mode: 'scan' | 'search' =
     modeFromUrl === 'search' ? 'search' : 'scan';
@@ -108,9 +124,6 @@ function CheckInContent() {
   const organizerMembership = memberships.find(
     (membership) => membership.organizerId === organizerId && membership.status === 'active'
   );
-  const canInviteTempStaff = organizerMembership
-    ? ['owner', 'co_owner', 'admin', 'editor'].includes(organizerMembership.role)
-    : false;
 
   const {
     tickets,
@@ -123,33 +136,139 @@ function CheckInContent() {
     error,
   } = useCheckInTickets(selectedEvent || null);
 
-  const noActiveEvents = !eventsLoading && activeEvents.length === 0;
+  useEffect(() => {
+    if (
+      eventResolution.status === 'ready' &&
+      eventResolution.shouldNormalizeUrl &&
+      selectedEventFromUrl !== eventResolution.selectedEventId
+    ) {
+      updateQuery('event', eventResolution.selectedEventId);
+    }
+  }, [eventResolution, selectedEventFromUrl, updateQuery]);
 
-  if (eventsLoading && activeEvents.length === 0) {
+  if (eventResolution.status === 'loading') {
     return <CheckInFallback />;
   }
 
-  if (noActiveEvents || !selectedEvent) {
+  if (eventResolution.status === 'access_error') {
     return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-8 text-center space-y-3">
-            <Users className="h-10 w-10 mx-auto text-muted-foreground" />
-            <h2 className="font-semibold text-lg">No active events available</h2>
-            <p className="text-muted-foreground">
-              Publish an event with a future end time to start checking in attendees.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-muted/30">
+        <div className="container py-8">
+          <div className="mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold">Check-in</h1>
+            <p className="text-muted-foreground mt-1">Scan tickets and manage attendee check-ins</p>
+          </div>
+
+          <Card className="border-2 border-amber-200/60 rounded-2xl shadow-sm animate-in fade-in slide-in-from-bottom-3 duration-500">
+            <CardContent className="p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                <div className="shrink-0 w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="font-bold text-lg">Check-in access unavailable</h2>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    {organizerMembership
+                      ? 'We could not load the live events for this organizer.'
+                      : 'Your temporary check-in access could not be verified for this organizer.'}
+                  </p>
+                  {eventResolution.errorMessage && (
+                    <p className="text-xs text-muted-foreground/70 bg-muted/50 rounded-lg px-3 py-2 mt-2 inline-block">{eventResolution.errorMessage}</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
 
-  const updateQuery = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set(key, value);
-    router.replace(`${pathname}?${params.toString()}`);
-  };
+  if (eventResolution.status === 'no_active_events') {
+    return (
+      <div className="min-h-screen bg-muted/30">
+        <div className="container py-8">
+          <div className="mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold">Check-in</h1>
+            <p className="text-muted-foreground mt-1">Scan tickets and manage attendee check-ins</p>
+          </div>
+
+          <Card className="border-2 border-black/5 rounded-2xl shadow-sm animate-in fade-in slide-in-from-bottom-3 duration-500">
+            <CardContent className="p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                <div className="shrink-0 w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="font-bold text-lg">No active events</h2>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    Publish an event with a future end time to start checking in attendees.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (eventResolution.status === 'selection_required') {
+    return (
+      <div className="min-h-screen bg-muted/30">
+        <div className="container py-8">
+          {/* Header */}
+          <div className="space-y-3 mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                <ScanLine className="h-6 w-6 text-primary" />
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Check-in</h1>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-lg">
+              {eventResolution.invalidEventId
+                ? 'That event is no longer available for check-in. Choose one of the live events below.'
+                : 'Multiple live events found. Select the event you want to manage.'}
+            </p>
+          </div>
+
+          {/* Event count label */}
+          <p className="text-xs text-muted-foreground/50 font-medium uppercase tracking-widest mb-4 animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ animationDelay: '50ms', animationFillMode: 'backwards' }}>
+            {activeEvents.length} active {activeEvents.length === 1 ? 'event' : 'events'}
+          </p>
+
+          {/* Event Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {activeEvents.map((event, i) => (
+              <button
+                key={event.id}
+                className="w-full group cursor-pointer text-left animate-in fade-in slide-in-from-bottom-2 duration-300"
+                style={{ animationDelay: `${(i + 1) * 80}ms`, animationFillMode: 'backwards' }}
+                onClick={() => updateQuery('event', event.id)}
+              >
+                <Card className="h-full border-2 border-black/5 hover:border-primary/30 shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 rounded-2xl overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="flex items-center gap-4 p-4 sm:p-5">
+                      <div className="shrink-0 w-12 h-12 rounded-xl bg-primary/10 group-hover:bg-primary/15 flex items-center justify-center transition-colors duration-300">
+                        <Calendar className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-base truncate">{event.name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 font-medium">Tap to open check-in</div>
+                      </div>
+                      <div className="shrink-0 w-8 h-8 rounded-xl bg-black/[0.03] group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all duration-300">
+                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-white transition-colors duration-300" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch =
@@ -291,7 +410,7 @@ function CheckInContent() {
   if (!isMobile && view === 'monitor') {
     return (
       <div className="min-h-screen bg-muted/30 pb-24">
-        <div className="container py-6 space-y-4">
+        <div className="container py-8 space-y-5">
           <CheckInHeader
             events={activeEvents}
             selectedEventId={selectedEvent}
@@ -303,64 +422,61 @@ function CheckInContent() {
             isEventLoading={eventsLoading}
           />
 
-          <div className="flex justify-end gap-2">
-            {canInviteTempStaff && selectedEvent && selectedEventData && (
-              <TempStaffDialog eventId={selectedEvent} eventName={selectedEventData.name} />
-            )}
+          <div className="flex items-center justify-between gap-3">
+            {/* Search & Filter */}
+            <div className="flex gap-2 flex-1 max-w-xl">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                <Input
+                  placeholder="Search name, email, order..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-11 pl-10 bg-card border-border/60 rounded-xl shadow-sm"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[130px] h-11 bg-card border-border/60 rounded-xl shadow-sm font-medium text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-border/60">
+                  <SelectItem value="all" className="rounded-lg">All</SelectItem>
+                  <SelectItem value="not_checked_in" className="rounded-lg">Pending</SelectItem>
+                  <SelectItem value="checked_in" className="rounded-lg">Checked In</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <Button
               variant="outline"
               size="sm"
+              className="rounded-xl h-11 px-4 border-border/60 font-semibold text-sm gap-2 hover:border-primary/30 hover:text-primary transition-colors"
               onClick={() => updateQuery('view', 'scanner')}
             >
-              Back to scanner view
+              <ScanLine className="h-4 w-4" />
+              Scanner view
             </Button>
           </div>
 
-          <Card className="mb-4">
-            <CardContent className="py-3">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search name, email, order..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="not_checked_in">Pending</SelectItem>
-                    <SelectItem value="checked_in">Checked In</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {isLoading ? (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  <p>Loading tickets...</p>
+              <Card className="rounded-xl border-border/60">
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-3 text-primary" />
+                  <p className="text-sm font-medium">Loading tickets...</p>
                 </CardContent>
               </Card>
             ) : tickets.length === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No tickets for this event yet</p>
+              <Card className="rounded-xl border-border/60">
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <Users className="h-7 w-7 mx-auto mb-2.5 opacity-30" />
+                  <p className="text-sm font-medium">No tickets for this event yet</p>
                 </CardContent>
               </Card>
             ) : filteredTickets.length === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No attendees found</p>
+              <Card className="rounded-xl border-border/60">
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <Search className="h-7 w-7 mx-auto mb-2.5 opacity-30" />
+                  <p className="text-sm font-medium">No attendees match your search</p>
                 </CardContent>
               </Card>
             ) : (
@@ -384,7 +500,7 @@ function CheckInContent() {
   if (!isMobile && view === 'scanner') {
     return (
       <div className="min-h-screen bg-muted/30">
-        <div className="container py-8">
+        <div className="container py-8 space-y-5">
           <CheckInHeader
             events={activeEvents}
             selectedEventId={selectedEvent}
@@ -395,20 +511,19 @@ function CheckInContent() {
             isEventLoading={eventsLoading}
           />
 
-          <div className="flex justify-end gap-2 mb-4">
-            {canInviteTempStaff && selectedEvent && selectedEventData && (
-              <TempStaffDialog eventId={selectedEvent} eventName={selectedEventData.name} />
-            )}
+          <div className="flex justify-end">
             <Button
               variant="outline"
               size="sm"
+              className="rounded-xl h-11 px-4 border-border/60 font-semibold text-sm gap-2 hover:border-primary/30 hover:text-primary transition-colors"
               onClick={() => updateQuery('view', 'monitor')}
             >
-              Open monitor view
+              <Monitor className="h-4 w-4" />
+              Monitor view
             </Button>
           </div>
 
-          <Card>
+          <Card className="rounded-xl border-border/60 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-500" style={{ animationDelay: '200ms', animationFillMode: 'backwards' }}>
             <DesktopQRRedirect
               eventId={selectedEvent}
               eventName={selectedEventData?.name || ''}
@@ -501,7 +616,7 @@ function CheckInContent() {
       {/* Search Mode - Clean white background */}
       {mode === 'search' && (
         <div className="flex-1 bg-background pt-(--nav-safe-offset) pb-32">
-          <div className="container py-6 px-4">
+          <div className="container pt-3 pb-6 px-4">
             <CheckInHeader
               events={activeEvents}
               selectedEventId={selectedEvent}
@@ -514,21 +629,21 @@ function CheckInContent() {
             />
 
             {/* Search & Filter */}
-            <div className="flex gap-3 mb-6">
+            <div className="flex gap-2 mb-6">
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground opacity-50" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                 <Input
                   placeholder="Search name, email, order..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-12 pl-11 bg-white border-2 border-black/5 rounded-xl shadow-sm transition-all"
+                  className="h-12 pl-10 bg-card border border-border/60 rounded-xl shadow-sm transition-all"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[120px] h-12 bg-white border-2 border-black/5 rounded-xl shadow-sm font-medium">
+                <SelectTrigger className="w-[120px] h-12 bg-card border border-border/60 rounded-xl shadow-sm font-medium text-sm">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-2">
+                <SelectContent className="rounded-xl border-border/60">
                   <SelectItem value="all" className="rounded-lg">All</SelectItem>
                   <SelectItem value="not_checked_in" className="rounded-lg">Pending</SelectItem>
                   <SelectItem value="checked_in" className="rounded-lg">Checked In</SelectItem>
@@ -537,25 +652,26 @@ function CheckInContent() {
             </div>
 
             {/* Attendee List */}
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {isLoading ? (
-                <Card>
-                  <CardContent className="py-8 text-center text-muted-foreground">
-                    <p>Loading tickets...</p>
+                <Card className="rounded-xl border-border/60">
+                  <CardContent className="py-10 text-center text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-3 text-primary" />
+                    <p className="text-sm font-medium">Loading tickets...</p>
                   </CardContent>
                 </Card>
               ) : tickets.length === 0 ? (
-                <Card>
-                  <CardContent className="py-8 text-center text-muted-foreground">
-                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No tickets for this event yet</p>
+                <Card className="rounded-xl border-border/60">
+                  <CardContent className="py-10 text-center text-muted-foreground">
+                    <Users className="h-7 w-7 mx-auto mb-2.5 opacity-30" />
+                    <p className="text-sm font-medium">No tickets for this event yet</p>
                   </CardContent>
                 </Card>
               ) : filteredTickets.length === 0 ? (
-                <Card>
-                  <CardContent className="py-8 text-center text-muted-foreground">
-                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No attendees found</p>
+                <Card className="rounded-xl border-border/60">
+                  <CardContent className="py-10 text-center text-muted-foreground">
+                    <Search className="h-7 w-7 mx-auto mb-2.5 opacity-30" />
+                    <p className="text-sm font-medium">No attendees match your search</p>
                   </CardContent>
                 </Card>
               ) : (

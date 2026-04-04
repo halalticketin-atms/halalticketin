@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import api from '@/lib/api';
+import { TEMP_CHECK_IN_ACCESS_ENABLED } from '@/lib/check-in-flags';
 
 interface TempStaffDialogProps {
     eventId: string;
@@ -75,6 +76,21 @@ export function TempStaffDialog({ eventId, eventName }: TempStaffDialogProps) {
             setEmail('');
         }, 200);
     };
+
+    if (!TEMP_CHECK_IN_ACCESS_ENABLED) {
+        return (
+            <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled
+                title="Temporary check-in access is currently disabled"
+            >
+                <UserPlus className="h-4 w-4" />
+                Temporary Staff Disabled
+            </Button>
+        );
+    }
 
     return (
         <Dialog open={open} onOpenChange={(isOpen) => isOpen ? setOpen(true) : handleClose()}>
