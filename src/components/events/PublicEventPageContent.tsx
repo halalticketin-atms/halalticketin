@@ -1475,6 +1475,7 @@ export function PublicEventPageContent({
     ]);
 
     // Step-based checkout: Step 0 = Buyer, Step 1..N = Tickets (if per-ticket), Final = Confirm
+    const giftTicketsUiEnabled = false;
     const totalCheckoutSteps = requiresPerTicket ? 1 + totalTickets + 1 : 2;
     const stepType: 'buyer' | 'ticket' | 'confirm' =
         checkoutStep === 0 ? 'buyer'
@@ -1485,7 +1486,7 @@ export function PublicEventPageContent({
         stepType === 'ticket' && currentTicketIndex >= 0 ? ticketAttendees[currentTicketIndex] : null;
     const currentTicketCanBeGifted =
         stepType === 'ticket' && currentTicketIndex >= 0
-            ? (ticketFlowSelections[currentTicketIndex]?.canGift ?? false)
+            ? giftTicketsUiEnabled && (ticketFlowSelections[currentTicketIndex]?.canGift ?? false)
             : false;
     const currentTicketIsGift = currentTicketAttendee
         ? currentTicketCanBeGifted && isGiftCheckoutTicketAttendee(currentTicketAttendee)
