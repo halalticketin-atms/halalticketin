@@ -167,12 +167,13 @@ function EventCard({
 
   return (
     <motion.div
+      className="h-full"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
     >
       <Card
-        className="group relative overflow-hidden border border-border/60 hover:border-primary/20 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer p-0"
+        className="group relative flex h-full flex-col overflow-hidden border border-border/60 p-0 shadow-sm transition-all duration-300 hover:border-primary/20 hover:shadow-md cursor-pointer"
         onClick={handleCardClick}
       >
         {/* Banner Image - Portrait 4:5 */}
@@ -287,14 +288,14 @@ function EventCard({
         </div>
 
         {/* Card Content */}
-        <CardContent className="p-3 space-y-2 bg-gradient-to-b from-background to-muted/20">
+        <CardContent className="flex flex-1 flex-col bg-gradient-to-b from-background to-muted/20 p-3">
           {/* Title */}
-          <h3 className="font-bold text-sm leading-snug break-words [overflow-wrap:anywhere] sm:line-clamp-2 sm:min-h-[2.5rem] sm:leading-tight">
+          <h3 className="min-h-[2.75rem] line-clamp-2 text-sm font-bold leading-snug break-words [overflow-wrap:anywhere] sm:leading-tight">
             {event.title || 'Untitled Event'}
           </h3>
 
           {/* Event Details */}
-          <div className="space-y-1 pt-0.5 text-xs text-muted-foreground">
+          <div className="space-y-1 pt-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3 w-3 shrink-0 text-primary/70" />
               <span className="truncate sm:hidden">{date}</span>
@@ -310,7 +311,7 @@ function EventCard({
           </div>
 
           {/* Stats Section - Enhanced */}
-          <div className="-mx-3 px-3 py-2 mt-2 border-t bg-primary/5">
+          <div className="-mx-3 mt-auto border-t bg-primary/5 px-3 py-2">
             <div className="grid grid-cols-2 gap-2 text-xs mb-1.5">
               <div>
                 <p className="text-xs text-muted-foreground">Tickets Sold</p>
