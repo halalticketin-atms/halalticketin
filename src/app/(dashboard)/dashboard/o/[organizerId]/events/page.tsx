@@ -290,7 +290,7 @@ function EventCard({
         {/* Card Content */}
         <CardContent className="flex flex-1 flex-col bg-gradient-to-b from-background to-muted/20 p-3">
           {/* Title */}
-          <h3 className="min-h-[2.75rem] line-clamp-2 text-sm font-bold leading-snug break-words [overflow-wrap:anywhere] sm:leading-tight">
+          <h3 className="h-[2.75rem] overflow-hidden text-sm font-bold leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] break-words [overflow-wrap:anywhere] sm:leading-tight">
             {event.title || 'Untitled Event'}
           </h3>
 
