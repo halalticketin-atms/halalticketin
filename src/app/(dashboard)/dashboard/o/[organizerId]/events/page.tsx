@@ -167,13 +167,12 @@ function EventCard({
 
   return (
     <motion.div
-      className="h-full"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
     >
       <Card
-        className="group relative flex h-full flex-col overflow-hidden border border-border/60 p-0 shadow-sm transition-all duration-300 hover:border-primary/20 hover:shadow-md cursor-pointer"
+        className="group relative gap-0 overflow-hidden border border-border/60 p-0 shadow-sm transition-all duration-300 hover:border-primary/20 hover:shadow-md cursor-pointer"
         onClick={handleCardClick}
       >
         {/* Banner Image - Portrait 4:5 */}
@@ -288,11 +287,13 @@ function EventCard({
         </div>
 
         {/* Card Content */}
-        <CardContent className="flex flex-1 flex-col bg-gradient-to-b from-background to-muted/20 p-3">
+        <CardContent className="bg-gradient-to-b from-background to-muted/20 p-3">
           {/* Title */}
-          <h3 className="h-[2.75rem] overflow-hidden text-sm font-bold leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] break-words [overflow-wrap:anywhere] sm:leading-tight">
-            {event.title || 'Untitled Event'}
-          </h3>
+          <div className="min-h-[2.75rem] overflow-hidden">
+            <h3 className="line-clamp-2 text-sm font-bold leading-snug break-words [overflow-wrap:anywhere] sm:leading-tight">
+              {event.title || 'Untitled Event'}
+            </h3>
+          </div>
 
           {/* Event Details */}
           <div className="space-y-1 pt-2 text-xs text-muted-foreground">
@@ -311,7 +312,7 @@ function EventCard({
           </div>
 
           {/* Stats Section - Enhanced */}
-          <div className="-mx-3 mt-auto border-t bg-primary/5 px-3 py-2">
+          <div className="-mx-3 mt-2 border-t bg-primary/5 px-3 py-2">
             <div className="grid grid-cols-2 gap-2 text-xs mb-1.5">
               <div>
                 <p className="text-xs text-muted-foreground">Tickets Sold</p>
