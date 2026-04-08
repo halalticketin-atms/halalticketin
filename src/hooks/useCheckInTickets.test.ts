@@ -7,10 +7,11 @@ import {
   getCheckInFailureResult,
   isCheckInEligibleStatus,
   listAllCheckInTickets,
+  sortCheckInTickets,
   transformCheckInTicket,
 } from './useCheckInTickets';
 
-const makeTicket = (index: number): CheckInTicketRecord => ({
+const makeTicket = (index: number, overrides: Partial<CheckInTicketRecord> = {}): CheckInTicketRecord => ({
   id: `ticket-${index}`,
   ticketCode: `code-${index}`,
   attendeeName: `Attendee ${index}`,
@@ -22,6 +23,7 @@ const makeTicket = (index: number): CheckInTicketRecord => ({
   checkedInBy: null,
   checkedInByName: null,
   createdAt: `2026-04-04T00:${String(index).padStart(2, '0')}:00.000Z`,
+  ...overrides,
 });
 
 describe('listAllCheckInTickets', () => {
@@ -114,5 +116,50 @@ describe('check-in eligibility helpers', () => {
       message: 'Ask the recipient to click the claim link in their gift email before entry.',
       ticket,
     });
+  });
+
+  it('sorts attendee lists alphabetically by attendee name, case-insensitively', () => {
+    const tickets = [
+      transformCheckInTicket(makeTicket(1, { attendeeName: 'zara' })),
+      transformCheckInTicket(makeTicket(2, { attendeeName: 'Amina' })),
+      transformCheckInTicket(makeTicket(3, { attendeeName: 'bilal' })),
+    ];
+
+    expect(sortCheckInTickets(tickets).map((ticket) => ticket.attendeeName)).toEqual([
+      'Amina',
+      'bilal',
+      'zara',
+    ]);
+  });
+
+  it('falls back to attendee email and then order number when the displayed name is missing', () => {
+    const tickets = [
+      transformCheckInTicket(makeTicket(1, { attendeeName: null, attendeeEmail: 'zeta@example.com' })),
+      transformCheckInTicket(makeTicket(2, { attendeeName: null, attendeeEmail: 'alpha@example.com' })),
+      transformCheckInTicket(makeTicket(3, { attendeeName: null, attendeeEmail: null, orderNumber: 'order-050' })),
+      transformCheckInTicket(makeTicket(4, { attendeeName: null, attendeeEmail: null, orderNumber: 'order-010' })),
+    ];
+
+    expect(sortCheckInTickets(tickets).map((ticket) => ticket.orderNumber)).toEqual([
+      'order-2',
+      'order-010',
+      'order-050',
+      'order-1',
+    ]);
+  });
+
+  it('keeps alphabetical order after filtering to eligible attendee-list statuses', () => {
+    const tickets = sortCheckInTickets([
+      transformCheckInTicket(makeTicket(1, { attendeeName: 'Zayn', status: 'checked_in' })),
+      transformCheckInTicket(makeTicket(2, { attendeeName: 'Aaliyah', status: 'valid' })),
+      transformCheckInTicket(makeTicket(3, { attendeeName: 'Maryam', status: 'cancelled' })),
+      transformCheckInTicket(makeTicket(4, { attendeeName: 'Bilal', status: 'refunded' })),
+    ]);
+
+    expect(
+      tickets
+        .filter((ticket) => isCheckInEligibleStatus(ticket.status))
+        .map((ticket) => ticket.attendeeName),
+    ).toEqual(['Aaliyah', 'Zayn']);
   });
 });

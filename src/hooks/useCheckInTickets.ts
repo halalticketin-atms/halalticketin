@@ -10,6 +10,11 @@ import {
 import { ApiError } from '@/lib/api';
 
 const CHECK_IN_TICKETS_PAGE_SIZE = 100;
+const UNKNOWN_ATTENDEE_NAME = 'Unknown';
+const checkInTicketCollator = new Intl.Collator(undefined, {
+  sensitivity: 'base',
+  numeric: true,
+});
 type CheckInFailureResult = Extract<CheckInResult, { status: 'needs_claim' | 'invalid' }>;
 
 export function isCheckInEligibleStatus(status: CheckInTicketRecord['status']): boolean {
@@ -38,6 +43,45 @@ export function transformCheckInTicket(record: CheckInTicketRecord): CheckInTick
     groupSize: 1,
     groupCheckedIn: record.status === 'checked_in' ? 1 : 0,
   };
+}
+
+function normalizeCheckInSortValue(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getCheckInTicketSortLabel(ticket: CheckInTicket): string {
+  const attendeeName = normalizeCheckInSortValue(ticket.attendeeName);
+  const attendeeEmail = normalizeCheckInSortValue(ticket.attendeeEmail);
+  const orderNumber = normalizeCheckInSortValue(ticket.orderNumber) ?? ticket.id;
+
+  if (attendeeName && attendeeName.toLowerCase() !== UNKNOWN_ATTENDEE_NAME.toLowerCase()) {
+    return attendeeName;
+  }
+
+  return attendeeEmail ?? orderNumber;
+}
+
+export function sortCheckInTickets(tickets: CheckInTicket[]): CheckInTicket[] {
+  return [...tickets].sort((left, right) => {
+    const labelComparison = checkInTicketCollator.compare(
+      getCheckInTicketSortLabel(left),
+      getCheckInTicketSortLabel(right),
+    );
+
+    if (labelComparison !== 0) {
+      return labelComparison;
+    }
+
+    const orderComparison = checkInTicketCollator.compare(left.orderNumber, right.orderNumber);
+    if (orderComparison !== 0) {
+      return orderComparison;
+    }
+
+    return checkInTicketCollator.compare(left.id, right.id);
+  });
 }
 
 const getNeedsClaimInstructions = (error: ApiError): string | null => {
@@ -147,7 +191,7 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
         return;
       }
 
-      setTickets(ticketsRes.map(transformCheckInTicket));
+      setTickets(sortCheckInTickets(ticketsRes.map(transformCheckInTicket)));
       setApiStats(statsRes);
     } catch (err) {
       if (fetchIdRef.current !== requestId) {
@@ -198,7 +242,7 @@ export function useCheckInTickets(eventId: string | null): UseCheckInTicketsResu
           return ticket;
         });
 
-        return found ? next : prev;
+        return found ? sortCheckInTickets(next) : prev;
       });
 
       if (!found) {
