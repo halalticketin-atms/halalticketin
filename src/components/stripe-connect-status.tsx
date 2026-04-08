@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { CheckCircle, AlertCircle, ExternalLink, CreditCard, Loader2, Link2Off } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +41,7 @@ type BlockingEvent = {
 };
 
 export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
+    const searchParams = useSearchParams();
     const [status, setStatus] = useState<StripeStatusResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState(false);
@@ -134,6 +136,8 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
     const isPending = !status?.hasStripeAccount || status?.onboardingStatus === 'pending';
     const blockingEvents = status?.blockingEvents ?? [];
     const disconnectBlocked = Boolean(status?.disconnectBlocked && blockingEvents.length > 0);
+    const stripeResult = searchParams.get('stripe');
+    const stripeError = searchParams.get('stripe_error');
 
     return (
         <>
@@ -177,6 +181,18 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                     {error && (
                         <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3">
                             {error}
+                        </div>
+                    )}
+
+                    {!error && stripeResult === 'connected' && (
+                        <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3">
+                            Stripe account connected successfully.
+                        </div>
+                    )}
+
+                    {!error && stripeResult === 'error' && (
+                        <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3">
+                            {stripeError || 'Unable to connect Stripe account.'}
                         </div>
                     )}
 
