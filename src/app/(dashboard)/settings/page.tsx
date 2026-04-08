@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -88,6 +88,8 @@ const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'imag
 const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
 
 export default function SettingsPage() {
+    const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
     const { user, isLoading: authLoading, refresh: refreshAuth } = useAuth();
     const { activeOrganizerId, setActiveOrganizerId, organizers, activeOrganizers, isLoading: organizersLoading, refresh } = useOrganizers();
@@ -180,6 +182,34 @@ export default function SettingsPage() {
 
         setActiveTab(nextTab);
     }, [hasActiveOrganizer, searchParams]);
+
+    useEffect(() => {
+        const requestedOrganizerId = searchParams.get('organizerId');
+        if (!requestedOrganizerId) {
+            return;
+        }
+
+        if (!organizers.some((organizer) => organizer.id === requestedOrganizerId)) {
+            return;
+        }
+
+        if (activeOrganizerId === requestedOrganizerId) {
+            const nextParams = new URLSearchParams(searchParams.toString());
+            nextParams.delete('organizerId');
+            const nextQuery = nextParams.toString();
+            const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+            router.replace(nextUrl, { scroll: false });
+            return;
+        }
+
+        setActiveOrganizerId(requestedOrganizerId);
+
+        const nextParams = new URLSearchParams(searchParams.toString());
+        nextParams.delete('organizerId');
+        const nextQuery = nextParams.toString();
+        const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+        router.replace(nextUrl, { scroll: false });
+    }, [activeOrganizerId, organizers, pathname, router, searchParams, setActiveOrganizerId]);
 
     useEffect(() => {
         const targetId = searchParams.get('focus');
