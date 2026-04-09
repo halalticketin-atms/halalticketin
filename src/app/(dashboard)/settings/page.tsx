@@ -193,16 +193,14 @@ export default function SettingsPage() {
             return;
         }
 
-        if (activeOrganizerId === requestedOrganizerId) {
-            const nextParams = new URLSearchParams(searchParams.toString());
-            nextParams.delete('organizerId');
-            const nextQuery = nextParams.toString();
-            const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
-            router.replace(nextUrl, { scroll: false });
+        if (activeOrganizerId !== requestedOrganizerId) {
+            setActiveOrganizerId(requestedOrganizerId);
             return;
         }
 
-        setActiveOrganizerId(requestedOrganizerId);
+        if (searchParams.has('stripe')) {
+            return;
+        }
 
         const nextParams = new URLSearchParams(searchParams.toString());
         nextParams.delete('organizerId');
