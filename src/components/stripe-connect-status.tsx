@@ -1,12 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, AlertCircle, ExternalLink, CreditCard, Loader2, Link2Off } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import api, { ApiError } from '@/lib/api';
+import {
+    clearStripeConnectCallbackParams,
+    readStripeConnectCallbackBanner,
+    type StripeConnectCallbackBanner,
+} from '@/lib/stripe-connect-callback';
 import {
     Dialog,
     DialogContent,
@@ -41,6 +46,8 @@ type BlockingEvent = {
 };
 
 export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
+    const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
     const [status, setStatus] = useState<StripeStatusResponse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -50,6 +57,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
     const [confirmDisconnectOpen, setConfirmDisconnectOpen] = useState(false);
     const [blockDialogOpen, setBlockDialogOpen] = useState(false);
     const [blockDialogEvents, setBlockDialogEvents] = useState<BlockingEvent[]>([]);
+    const [callbackBanner, setCallbackBanner] = useState<StripeConnectCallbackBanner | null>(null);
 
     const fetchStatus = useCallback(async () => {
         try {
@@ -70,10 +78,31 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
         fetchStatus();
     }, [fetchStatus]);
 
+    useEffect(() => {
+        const nextBanner = readStripeConnectCallbackBanner(searchParams, organizerId);
+        if (!nextBanner) {
+            return;
+        }
+
+        setCallbackBanner(nextBanner);
+
+        const nextParams = clearStripeConnectCallbackParams(searchParams);
+        const nextQuery = nextParams.toString();
+        const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+        router.replace(nextUrl, { scroll: false });
+    }, [organizerId, pathname, router, searchParams]);
+
+    useEffect(() => {
+        setCallbackBanner((current) =>
+            current?.organizerId === organizerId ? current : null
+        );
+    }, [organizerId]);
+
     const handleConnect = async () => {
         try {
             setConnecting(true);
             setError(null);
+            setCallbackBanner(null);
             const response = await api.post<ConnectLinkResponse>(
                 `/api/v1/organizers/${organizerId}/stripe/connect-link`
             );
@@ -100,6 +129,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
             setConfirmDisconnectOpen(false);
             setDisconnecting(true);
             setError(null);
+            setCallbackBanner(null);
             await api.post(`/api/v1/organizers/${organizerId}/stripe/disconnect`);
             await fetchStatus();
         } catch (err) {
@@ -136,8 +166,17 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
     const isPending = !status?.hasStripeAccount || status?.onboardingStatus === 'pending';
     const blockingEvents = status?.blockingEvents ?? [];
     const disconnectBlocked = Boolean(status?.disconnectBlocked && blockingEvents.length > 0);
-    const stripeResult = searchParams.get('stripe');
-    const stripeError = searchParams.get('stripe_error');
+    const showConnectedBanner = Boolean(
+        !error &&
+        callbackBanner?.organizerId === organizerId &&
+        callbackBanner.type === 'connected' &&
+        status?.hasStripeAccount
+    );
+    const showErrorBanner = Boolean(
+        !error &&
+        callbackBanner?.organizerId === organizerId &&
+        callbackBanner.type === 'error'
+    );
 
     return (
         <>
@@ -184,15 +223,15 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                         </div>
                     )}
 
-                    {!error && stripeResult === 'connected' && (
+                    {showConnectedBanner && (
                         <div className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3">
                             Stripe account connected successfully.
                         </div>
                     )}
 
-                    {!error && stripeResult === 'error' && (
+                    {showErrorBanner && (
                         <div className="text-sm text-destructive bg-destructive/10 rounded-lg p-3">
-                            {stripeError || 'Unable to connect Stripe account.'}
+                            {callbackBanner?.message || 'Unable to connect Stripe account.'}
                         </div>
                     )}
 
