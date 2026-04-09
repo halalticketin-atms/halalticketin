@@ -26,6 +26,8 @@ interface TicketInfo {
     ticketType: string;
     attendeeName: string | null;
     attendeeEmail: string | null;
+    giftStatus?: 'pending_claim' | 'claimed' | 'expired' | null;
+    giftClaimUrl?: string | null;
 }
 
 interface OrderStatus {
