@@ -96,6 +96,34 @@ export async function uploadEventBanner(eventId: string, file: File): Promise<Up
 }
 
 /**
+ * Upload an attendee email image for a specific event.
+ */
+export async function uploadAttendeeEmailImage(eventId: string, file: File): Promise<UploadResponse> {
+    const token = getAuthToken();
+    if (!token) {
+        throw new Error('Not authenticated');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE}/api/v1/uploads/attendee-email-image/${eventId}`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null) as UploadError | null;
+        throw new Error(getBackendErrorMessage(errorData, 'Failed to upload email image'));
+    }
+
+    return response.json() as Promise<UploadResponse>;
+}
+
+/**
  * Convert a File to a data URL for preview.
  */
 export function fileToDataUrl(file: File): Promise<string> {
