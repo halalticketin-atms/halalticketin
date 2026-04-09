@@ -26,7 +26,6 @@ import {
     Mail,
     Lock,
     X,
-    Gift,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +34,6 @@ import { FavoriteButton } from '@/components/ui/FavoriteButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import {
     Dialog,
     DialogContent,
@@ -67,7 +65,6 @@ import { toast } from '@/lib/notifications';
 import { getSupabase } from '@/lib/supabase';
 import { getAuthToken } from '@/lib/api';
 import {
-    isGiftCheckoutTicketAttendee,
     normalizeCheckoutTicketAttendee,
     serializeCheckoutTicketAttendee,
     validateCheckoutTicketAttendee,
@@ -109,7 +106,6 @@ interface PublicEventPageContentProps {
 }
 
 type TicketAttendee = CheckoutTicketAttendeeForm;
-type TicketDeliverySelection = 'attendee' | 'link' | 'email';
 
 /**
  * Format a price for display.
@@ -656,7 +652,11 @@ export function PublicEventPageContent({
                 setTicketAttendees(
                     Array.isArray(draft.ticketAttendees)
                         ? draft.ticketAttendees.map((attendee: Partial<TicketAttendee>) =>
-                            normalizeCheckoutTicketAttendee(attendee)
+                            ({
+                                ...normalizeCheckoutTicketAttendee(attendee),
+                                giftDeliveryMode: undefined,
+                                email: '',
+                            })
                         )
                         : []
                 );
@@ -957,16 +957,11 @@ export function PublicEventPageContent({
                     const normalized = prev[i]
                         ? normalizeCheckoutTicketAttendee(prev[i])
                         : normalizeCheckoutTicketAttendee();
-                    const canGift = ticketFlowSelections[i]?.canGift ?? false;
-                    newAttendees.push(
-                        canGift
-                            ? normalized
-                            : {
-                                ...normalized,
-                                giftDeliveryMode: undefined,
-                                email: '',
-                            }
-                    );
+                    newAttendees.push({
+                        ...normalized,
+                        giftDeliveryMode: undefined,
+                        email: '',
+                    });
                 }
                 return newAttendees;
             });
@@ -1475,7 +1470,6 @@ export function PublicEventPageContent({
     ]);
 
     // Step-based checkout: Step 0 = Buyer, Step 1..N = Tickets (if per-ticket), Final = Confirm
-    const giftTicketsUiEnabled = false;
     const totalCheckoutSteps = requiresPerTicket ? 1 + totalTickets + 1 : 2;
     const stepType: 'buyer' | 'ticket' | 'confirm' =
         checkoutStep === 0 ? 'buyer'
@@ -1484,14 +1478,6 @@ export function PublicEventPageContent({
     const currentTicketIndex = stepType === 'ticket' ? checkoutStep - 1 : -1;
     const currentTicketAttendee =
         stepType === 'ticket' && currentTicketIndex >= 0 ? ticketAttendees[currentTicketIndex] : null;
-    const currentTicketCanBeGifted =
-        stepType === 'ticket' && currentTicketIndex >= 0
-            ? giftTicketsUiEnabled && (ticketFlowSelections[currentTicketIndex]?.canGift ?? false)
-            : false;
-    const currentTicketIsGift = currentTicketAttendee
-        ? currentTicketCanBeGifted && isGiftCheckoutTicketAttendee(currentTicketAttendee)
-        : false;
-
     // Reset step when modal closes
     useEffect(() => {
         if (!isCheckoutOpen) {
@@ -1533,7 +1519,7 @@ export function PublicEventPageContent({
                 attendee,
                 ticketIndex: currentTicketIndex,
                 questions: event?.customQuestions ?? undefined,
-                allowGifting: ticketFlowSelections[currentTicketIndex]?.canGift ?? false,
+                allowGifting: false,
             });
         }
         return null;
@@ -1587,7 +1573,7 @@ export function PublicEventPageContent({
                     attendee: ticketAttendees[i],
                     ticketIndex: i,
                     questions: event?.customQuestions ?? undefined,
-                    allowGifting: ticketFlowSelections[i]?.canGift ?? false,
+                    allowGifting: false,
                 });
                 if (attendeeError) {
                     return attendeeError;
@@ -2818,46 +2804,10 @@ export function PublicEventPageContent({
                                                     {stepType === 'ticket' && `Ticket ${currentTicketIndex + 1} Details`}
                                                     {stepType === 'confirm' && 'Payment Details'}
                                                 </h4>
-                                                {stepType === 'ticket' && currentTicketCanBeGifted && (
-                                                    <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
-                                                        <Gift className="h-4 w-4 text-primary/70" />
-                                                        <label
-                                                            htmlFor={`gift-toggle-${currentTicketIndex}`}
-                                                            className="min-w-0 text-xs font-medium text-muted-foreground select-none cursor-pointer"
-                                                        >
-                                                            Gift this ticket
-                                                        </label>
-                                                        <Switch
-                                                            id={`gift-toggle-${currentTicketIndex}`}
-                                                            checked={currentTicketIsGift}
-                                                            onCheckedChange={(checked) => {
-                                                                const updated = [...ticketAttendees];
-                                                                if (checked) {
-                                                                    updated[currentTicketIndex] = {
-                                                                        ...updated[currentTicketIndex],
-                                                                        giftDeliveryMode: 'link',
-                                                                        email: '',
-                                                                    };
-                                                                } else {
-                                                                    updated[currentTicketIndex] = {
-                                                                        ...updated[currentTicketIndex],
-                                                                        giftDeliveryMode: undefined,
-                                                                    };
-                                                                }
-                                                                setTicketAttendees(updated);
-                                                            }}
-                                                            disabled={isProcessing}
-                                                        />
-                                                    </div>
-                                                )}
                                             </div>
                                             <p className="text-xs text-muted-foreground mt-0.5">
                                                 {stepType === 'buyer' && 'Where should we send your tickets?'}
-                                                {stepType === 'ticket' && (
-                                                    currentTicketIsGift
-                                                        ? 'Choose how the recipient should claim this ticket.'
-                                                        : `Provide attendee information for this ticket.`
-                                                )}
+                                                {stepType === 'ticket' && 'Provide attendee information for this ticket.'}
                                                 {stepType === 'confirm' && 'Select your preferred payment method'}
                                             </p>
                                         </div>
@@ -2954,112 +2904,6 @@ export function PublicEventPageContent({
                                         {/* Ticket Step (Same as before but styled) */}
                                         {stepType === 'ticket' && currentTicketIndex >= 0 && currentTicketAttendee && (
                                             <>
-                                                {currentTicketIsGift ? (
-                                                    <>
-                                                        {/* Delivery mode pills */}
-                                                        <div className="space-y-2">
-                                                            <Label className="text-xs font-medium text-muted-foreground">How should the recipient get this ticket?</Label>
-                                                            <div className="flex flex-col gap-2 sm:flex-row">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const updated = [...ticketAttendees];
-                                                                        updated[currentTicketIndex] = {
-                                                                            ...updated[currentTicketIndex],
-                                                                            giftDeliveryMode: 'link',
-                                                                            email: '',
-                                                                        };
-                                                                        setTicketAttendees(updated);
-                                                                    }}
-                                                                    disabled={isProcessing}
-                                                                    className={cn(
-                                                                        "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-all duration-200",
-                                                                        currentTicketAttendee.giftDeliveryMode === 'link'
-                                                                            ? "border-primary bg-primary/10 text-primary shadow-sm"
-                                                                            : "border-border bg-muted/30 text-muted-foreground hover:border-primary/30 hover:bg-muted/50"
-                                                                    )}
-                                                                >
-                                                                    <Share2 className="h-3.5 w-3.5" />
-                                                                    Share link
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const updated = [...ticketAttendees];
-                                                                        updated[currentTicketIndex] = {
-                                                                            ...updated[currentTicketIndex],
-                                                                            giftDeliveryMode: 'email',
-                                                                        };
-                                                                        setTicketAttendees(updated);
-                                                                    }}
-                                                                    disabled={isProcessing}
-                                                                    className={cn(
-                                                                        "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-all duration-200",
-                                                                        currentTicketAttendee.giftDeliveryMode === 'email'
-                                                                            ? "border-primary bg-primary/10 text-primary shadow-sm"
-                                                                            : "border-border bg-muted/30 text-muted-foreground hover:border-primary/30 hover:bg-muted/50"
-                                                                    )}
-                                                                >
-                                                                    <Mail className="h-3.5 w-3.5" />
-                                                                    Email them
-                                                                </button>
-                                                            </div>
-                                                        </div>
-
-                                                        <Separator className="my-1 opacity-50" />
-
-                                                        <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 text-xs text-muted-foreground flex items-start gap-2">
-                                                            <Gift className="h-3.5 w-3.5 text-primary/60 mt-0.5 shrink-0" />
-                                                            <span>The recipient will complete their age, gender, and any required event questions when they claim the ticket.</span>
-                                                        </div>
-
-                                                        <div className="space-y-1.5">
-                                                            <Label className="text-xs font-medium text-muted-foreground">Recipient Name <span className="text-muted-foreground/70">(Optional)</span></Label>
-                                                            <Input
-                                                                placeholder="e.g. Sarah"
-                                                                value={currentTicketAttendee.name}
-                                                                onChange={(e) => {
-                                                                    const updated = [...ticketAttendees];
-                                                                    updated[currentTicketIndex] = { ...updated[currentTicketIndex], name: e.target.value };
-                                                                    setTicketAttendees(updated);
-                                                                }}
-                                                                disabled={isProcessing}
-                                                                minLength={2}
-                                                                maxLength={80}
-                                                                className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors"
-                                                            />
-                                                        </div>
-
-                                                        {currentTicketAttendee.giftDeliveryMode === 'email' ? (
-                                                            <div className="space-y-1.5">
-                                                                <Label className="text-xs font-medium text-muted-foreground">Recipient Email</Label>
-                                                                <Input
-                                                                    type="email"
-                                                                    placeholder="recipient@email.com"
-                                                                    value={currentTicketAttendee.email}
-                                                                    onChange={(e) => {
-                                                                        const updated = [...ticketAttendees];
-                                                                        updated[currentTicketIndex] = { ...updated[currentTicketIndex], email: e.target.value };
-                                                                        setTicketAttendees(updated);
-                                                                    }}
-                                                                    disabled={isProcessing}
-                                                                    maxLength={254}
-                                                                    className="h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors"
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <p className="text-xs text-muted-foreground">
-                                                                We&apos;ll show the secure claim link after checkout so you can share it yourself.
-                                                            </p>
-                                                        )}
-                                                    </>
-                                                ) : !currentTicketCanBeGifted ? (
-                                                    <div className="rounded-xl border border-slate-200 bg-slate-50/90 p-3 text-sm text-slate-700">
-                                                        Free ticket types can&apos;t be gifted. Please enter the attendee details for this ticket now.
-                                                    </div>
-                                                ) : null}
-
-                                                {!currentTicketIsGift && (
                                                     <>
                                                         <div className="space-y-1.5">
                                                             <Label className="text-xs font-medium text-muted-foreground">Attendee Name</Label>
@@ -3217,7 +3061,6 @@ export function PublicEventPageContent({
                                                             </div>
                                                         )}
                                                     </>
-                                                )}
                                             </>
                                         )}
 
@@ -3303,11 +3146,7 @@ export function PublicEventPageContent({
                                                             {ticketAttendees.map((att, i) => (
                                                                 <p key={i} className="text-sm text-foreground">
                                                                     <span className="text-muted-foreground">Ticket {i + 1}:</span>{' '}
-                                                                    {isGiftCheckoutTicketAttendee(att)
-                                                                        ? att.giftDeliveryMode === 'email'
-                                                                            ? `Gift via email${att.email ? ` to ${att.email}` : ''}`
-                                                                            : 'Gift via share link'
-                                                                        : att.name}
+                                                                    {att.name}
                                                                 </p>
                                                             ))}
                                                         </div>
