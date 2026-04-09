@@ -54,7 +54,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { GiftedTicketBadge } from '@/components/orders/GiftedTicketBadge';
 import api from '@/lib/api';
 import { toast } from '@/lib/notifications';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
@@ -823,7 +822,7 @@ export default function OrdersPage() {
                                                         })}
                                                     </div>
 
-                                                    {(event.promoCodes.length > 0 || event.giftedTickets > 0) && (
+                                                    {event.promoCodes.length > 0 && (
                                                         <div className="mt-8 pt-6 border-t border-dashed border-border/30">
                                                             {event.promoCodes.length > 0 && (
                                                                 <>
@@ -887,11 +886,6 @@ export default function OrdersPage() {
                                                                         })}
                                                                     </div>
                                                                 </>
-                                                            )}
-                                                            {event.giftedTickets > 0 && (
-                                                                <div className={event.promoCodes.length > 0 ? 'mt-4' : ''}>
-                                                                    <GiftedTicketBadge count={event.giftedTickets} />
-                                                                </div>
                                                             )}
                                                         </div>
                                                     )}
