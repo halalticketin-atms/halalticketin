@@ -212,7 +212,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                             ? 'Your Stripe account is connected. You can receive payments for your events.'
                             : isInProgress
                                 ? 'Please complete your Stripe account setup to receive payments.'
-                                : 'Connect your Stripe account to accept payments for paid events.'
+                                : 'Connect any Stripe account you want to accept payments for paid events.'
                         }
                     </CardDescription>
                 </CardHeader>
@@ -316,7 +316,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                     {isPending && (
                         <p className="text-xs text-muted-foreground">
                             You&apos;ll need to complete Stripe verification to publish paid events.
-                            Free events can be published without Stripe.
+                            If you disconnected before, reconnecting here starts a fresh Stripe connection.
                         </p>
                     )}
                 </CardContent>
@@ -356,7 +356,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                     <DialogHeader>
                         <DialogTitle>Disconnect Stripe?</DialogTitle>
                         <DialogDescription>
-                            Disconnecting will disable paid events until you reconnect Stripe.
+                            Disconnecting removes the saved Stripe link for this organizer. You can reconnect later with any Stripe account.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
