@@ -554,6 +554,7 @@ export default function SettingsPage() {
     const normalizedCurrentPixel = currentOrganizer?.metaPixelId || '';
     const metaPixelChanged = normalizedPixelInput !== normalizedCurrentPixel;
     const metaCapiConnected = Boolean(currentOrganizer?.metaCapiTokenLast4);
+    const showMetaCapiWarning = Boolean(currentOrganizer?.metaPixelId) && !metaCapiConnected;
 
     // Check if profile has changed
     const profileHasChanges = user && (
@@ -1367,11 +1368,16 @@ export default function SettingsPage() {
                                                 placeholder="Paste token from Meta Events Manager"
                                             />
                                             <p className="text-xs text-muted-foreground">
-                                                Enables server-side purchase tracking for improved attribution when browsers block pixels.
+                                                Enables server-side Purchase tracking for improved attribution when browsers block pixels.
                                             </p>
                                             {metaCapiConnected && (
                                                 <p className="text-xs text-emerald-600">
                                                     Connected (••••{currentOrganizer?.metaCapiTokenLast4})
+                                                </p>
+                                            )}
+                                            {showMetaCapiWarning && (
+                                                <p className="text-xs text-amber-700 dark:text-amber-300">
+                                                    Browser tracking is enabled. Add a Conversions API token to improve server-side Purchase reliability.
                                                 </p>
                                             )}
                                             {metaCapiStatus === 'success' && (

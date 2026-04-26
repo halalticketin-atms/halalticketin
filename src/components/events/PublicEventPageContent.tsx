@@ -90,6 +90,7 @@ const QUOTE_CACHE_TTL_MS = 30000;
 const QUOTE_MAX_AGE_MS = 120000;
 const DONATION_QUOTE_DEBOUNCE_MS = 500;
 const QUOTE_AGE_TICK_MS = 10000;
+const INITIATE_CHECKOUT_QUOTE_WAIT_MS = 2000;
 
 interface PublicEventPageContentProps {
     event: EventLike | null;
@@ -123,6 +124,50 @@ function normalizeFeeValue(value?: number | string | null): number | undefined {
     if (value === null || value === undefined) return undefined;
     const parsed = typeof value === 'string' ? parseFloat(value) : value;
     return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function buildInitiateCheckoutSignature(
+    eventId: string | null | undefined,
+    cartItems: Array<{ ticket: TicketLike; quantity: number; subtotal: number }>,
+    options: {
+        accessCode?: string | null;
+        currency: string;
+        promoCode?: string | null;
+    }
+) {
+    if (!eventId || cartItems.length === 0) {
+        return null;
+    }
+
+    const items = [...cartItems]
+        .map((item) => ({
+            id: item.ticket.id,
+            quantity: item.quantity,
+            subtotal: Number(item.subtotal.toFixed(2)),
+            unitPrice: Number((item.subtotal / item.quantity).toFixed(2)),
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+
+    return JSON.stringify({
+        eventId,
+        items,
+        currency: options.currency.toUpperCase(),
+        promoCode: options.promoCode?.toUpperCase() ?? '',
+        accessCode: options.accessCode ?? '',
+    });
+}
+
+function buildMetaContents(
+    cartItems: Array<{ ticket: TicketLike; quantity: number; subtotal: number }>,
+    getUnitPrice: (item: { ticket: TicketLike; quantity: number; subtotal: number }) => number,
+) {
+    return cartItems
+        .map((item) => ({
+            id: item.ticket.id,
+            quantity: item.quantity,
+            item_price: Number(getUnitPrice(item).toFixed(2)),
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /**
@@ -414,6 +459,11 @@ export function PublicEventPageContent({
     const quoteRequestIdRef = useRef(0);
     const promoValidationSignatureRef = useRef<string | null>(null);
     const donationDebounceRef = useRef<number | null>(null);
+    const initiateCheckoutTimeoutRef = useRef<number | null>(null);
+    const [pendingInitiateCheckout, setPendingInitiateCheckout] = useState<{
+        signature: string;
+        fallbackValue: number;
+    } | null>(null);
 
     // Autofill user details - only runs once when user data first loads
     useEffect(() => {
@@ -613,6 +663,7 @@ export function PublicEventPageContent({
 
     // --- Checkout Draft Persistence ---
     const DRAFT_KEY = event?.id ? `checkout_draft_${event.id}` : null;
+    const INITIATE_CHECKOUT_STORAGE_KEY = event?.id ? `ht_initiate_checkout:${event.id}` : null;
     const DRAFT_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 
     // Restore draft from sessionStorage on mount
@@ -713,13 +764,26 @@ export function PublicEventPageContent({
         }
     };
 
-    const handleOpenCheckout = () => {
-        if (isPreview) {
-            toast.error('Preview mode: checkout is disabled.');
-            return;
+    const wasInitiateCheckoutTracked = useCallback((signature: string) => {
+        try {
+            const stored = sessionStorage.getItem(INITIATE_CHECKOUT_STORAGE_KEY ?? '');
+            const parsed = stored ? (JSON.parse(stored) as string[]) : [];
+            return Array.isArray(parsed) && parsed.includes(signature);
+        } catch {
+            return false;
         }
-        setIsCheckoutOpen(true);
-    };
+    }, [INITIATE_CHECKOUT_STORAGE_KEY]);
+
+    const markInitiateCheckoutTracked = useCallback((signature: string) => {
+        try {
+            const stored = sessionStorage.getItem(INITIATE_CHECKOUT_STORAGE_KEY ?? '');
+            const parsed = stored ? (JSON.parse(stored) as string[]) : [];
+            const next = Array.isArray(parsed) ? [...new Set([...parsed, signature])] : [signature];
+            sessionStorage.setItem(INITIATE_CHECKOUT_STORAGE_KEY ?? '', JSON.stringify(next));
+        } catch {
+            // Ignore sessionStorage errors.
+        }
+    }, [INITIATE_CHECKOUT_STORAGE_KEY]);
 
     // Helper to get effective price (early bird or regular)
     const getEffectivePrice = useCallback((t: TicketLike) => {
@@ -1156,11 +1220,7 @@ export function PublicEventPageContent({
         }
 
         addToCartTimeoutRef.current = window.setTimeout(() => {
-            const contents = cartItems.map((item) => ({
-                id: item.ticket.id,
-                quantity: item.quantity,
-                item_price: Number(getCartItemUnitPrice(item).toFixed(2))
-            }));
+            const contents = buildMetaContents(cartItems, getCartItemUnitPrice);
 
             track(eventPixelId, 'AddToCart', {
                 value: Number(totalAmount.toFixed(2)),
@@ -1220,6 +1280,11 @@ export function PublicEventPageContent({
         && !quoteTooOld
         && !isDonationQuotePending;
     const activeQuote = quoteFresh ? checkoutQuote : null;
+    const initiateCheckoutSignature = buildInitiateCheckoutSignature(event?.id, cartItems, {
+        accessCode,
+        currency: currencyCode,
+        promoCode: appliedPromo?.code ?? null,
+    });
     const hasQuote = Boolean(activeQuote);
     const quoteSubtotal = activeQuote?.subtotal ?? totalAmount;
     const isPromoDiscountPendingForCurrentSelection =
@@ -1256,6 +1321,126 @@ export function PublicEventPageContent({
     const quoteTotalLabel = hasQuote
         ? `${currencySymbol}${grandTotal.toFixed(2)}`
         : quoteStatusLabel;
+
+    const getFreshInitiateCheckoutTotal = useCallback((signature: string): number | null => {
+        if (isDonationQuotePending || !initiateCheckoutSignature || signature !== initiateCheckoutSignature) {
+            return null;
+        }
+
+        if (activeQuote) {
+            return activeQuote.total;
+        }
+
+        const cached = quoteSignature ? quoteCacheRef.current.get(quoteSignature) : null;
+        if (cached && Date.now() - cached.cachedAt <= QUOTE_MAX_AGE_MS) {
+            return cached.quote.total;
+        }
+
+        return null;
+    }, [activeQuote, initiateCheckoutSignature, isDonationQuotePending, quoteSignature]);
+
+    const sendInitiateCheckout = useCallback((signature: string, value: number) => {
+        if (!eventPixelId) {
+            return;
+        }
+
+        track(eventPixelId, 'InitiateCheckout', {
+            value: Number(value.toFixed(2)),
+            currency: currencyCode,
+            num_items: itemCountForTracking,
+            content_ids: event?.id ? [event.id] : undefined,
+            content_type: 'product',
+            contents: buildMetaContents(cartItems, getCartItemUnitPrice),
+        });
+        markInitiateCheckoutTracked(signature);
+        setPendingInitiateCheckout(null);
+    }, [
+        cartItems,
+        currencyCode,
+        event?.id,
+        eventPixelId,
+        getCartItemUnitPrice,
+        itemCountForTracking,
+        markInitiateCheckoutTracked,
+        track,
+    ]);
+
+    const handleOpenCheckout = useCallback(() => {
+        if (isPreview) {
+            toast.error('Preview mode: checkout is disabled.');
+            return;
+        }
+
+        const signature = initiateCheckoutSignature;
+        if (eventPixelId && signature && itemCountForTracking > 0 && !wasInitiateCheckoutTracked(signature)) {
+            const quotedTotal = getFreshInitiateCheckoutTotal(signature);
+            if (quotedTotal !== null) {
+                sendInitiateCheckout(signature, quotedTotal);
+            } else {
+                setPendingInitiateCheckout({
+                    signature,
+                    fallbackValue: Number(totalAmount.toFixed(2)),
+                });
+            }
+        }
+
+        setIsCheckoutOpen(true);
+    }, [
+        eventPixelId,
+        getFreshInitiateCheckoutTotal,
+        initiateCheckoutSignature,
+        isPreview,
+        itemCountForTracking,
+        sendInitiateCheckout,
+        totalAmount,
+        wasInitiateCheckoutTracked,
+    ]);
+
+    useEffect(() => {
+        if (!pendingInitiateCheckout || !eventPixelId || itemCountForTracking <= 0) {
+            return;
+        }
+
+        if (wasInitiateCheckoutTracked(pendingInitiateCheckout.signature)) {
+            setPendingInitiateCheckout(null);
+            return;
+        }
+
+        if (pendingInitiateCheckout.signature !== initiateCheckoutSignature) {
+            setPendingInitiateCheckout(null);
+            return;
+        }
+
+        const quotedTotal = getFreshInitiateCheckoutTotal(pendingInitiateCheckout.signature);
+        if (quotedTotal !== null) {
+            sendInitiateCheckout(pendingInitiateCheckout.signature, quotedTotal);
+            return;
+        }
+
+        if (initiateCheckoutTimeoutRef.current !== null) {
+            window.clearTimeout(initiateCheckoutTimeoutRef.current);
+        }
+
+        initiateCheckoutTimeoutRef.current = window.setTimeout(() => {
+            sendInitiateCheckout(pendingInitiateCheckout.signature, pendingInitiateCheckout.fallbackValue);
+            initiateCheckoutTimeoutRef.current = null;
+        }, INITIATE_CHECKOUT_QUOTE_WAIT_MS);
+
+        return () => {
+            if (initiateCheckoutTimeoutRef.current !== null) {
+                window.clearTimeout(initiateCheckoutTimeoutRef.current);
+                initiateCheckoutTimeoutRef.current = null;
+            }
+        };
+    }, [
+        eventPixelId,
+        getFreshInitiateCheckoutTotal,
+        initiateCheckoutSignature,
+        itemCountForTracking,
+        pendingInitiateCheckout,
+        sendInitiateCheckout,
+        wasInitiateCheckoutTracked,
+    ]);
     const quoteStatusMessage = isRateLimited
         ? `Too many requests. Retrying in ${cooldownRemaining}s.`
         : isQuoteUpdating
@@ -1377,6 +1562,7 @@ export function PublicEventPageContent({
         setQuoteErrorMessage(null);
 
         const requestId = ++quoteRequestIdRef.current;
+        const shouldRequestImmediately = pendingInitiateCheckout?.signature === quoteSignature;
         let cancelled = false;
         const timer = window.setTimeout(async () => {
             const result = await getCheckoutQuote(event.id, {
@@ -1447,7 +1633,7 @@ export function PublicEventPageContent({
             setCheckoutQuote(null);
             const backendIssues = result.error?.issues?.join(' ');
             setQuoteErrorMessage(backendIssues || result.error?.message || 'Unable to calculate totals. Please wait or adjust your selection.');
-        }, 350);
+        }, shouldRequestImmediately ? 0 : 350);
 
         return () => {
             cancelled = true;
@@ -1461,6 +1647,7 @@ export function PublicEventPageContent({
         isDonationQuotePending,
         appliedPromo?.code,
         accessCode,
+        pendingInitiateCheckout?.signature,
         isPreview,
         previewToken,
         checkoutQuote,
@@ -1615,16 +1802,6 @@ export function PublicEventPageContent({
             setCheckoutError('Calculating totals. Please wait a moment and try again.');
             setIsProcessing(false);
             return;
-        }
-
-        if (eventPixelId && itemCountForTracking > 0) {
-            track(eventPixelId, 'InitiateCheckout', {
-                value: Number(grandTotal.toFixed(2)),
-                currency: currencyCode,
-                num_items: itemCountForTracking,
-                content_ids: event?.id ? [event.id] : undefined,
-                content_type: 'product'
-            });
         }
 
         const buyerAgeNumber = Number(attendeeAge);
