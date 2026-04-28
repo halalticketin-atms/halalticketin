@@ -8,6 +8,19 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
+  async headers() {
+    return [
+      {
+        source: '/_mobile-testflight-qr-a7f42c9d13e84b6a/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow, noarchive',
+          },
+        ],
+      },
+    ];
+  },
   images: {
     // Keep WebP optimization while avoiding AVIF decoding issues in some runtimes.
     formats: ['image/webp'],

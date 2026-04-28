@@ -4,7 +4,13 @@ const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://halalticketin.com'
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [{ userAgent: '*', allow: '/' }],
+    rules: [
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: '/_mobile-testflight-qr-a7f42c9d13e84b6a/',
+      },
+    ],
     sitemap: `${siteUrl}/sitemap.xml`,
   };
 }
