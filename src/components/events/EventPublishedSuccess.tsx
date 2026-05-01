@@ -377,13 +377,15 @@ export function EventPublishedSuccess({
 
                                 {isPrivate && (
                                     <motion.p
-                                        className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-100/80 dark:bg-amber-900/30 px-4 py-2 text-sm font-medium text-amber-800 dark:text-amber-200 max-w-full flex-wrap sm:flex-nowrap"
+                                        className="mt-4 inline-flex max-w-full items-start gap-2 rounded-full bg-amber-100/80 px-4 py-2 text-left text-sm font-medium leading-snug text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 sm:items-center"
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
                                         transition={{ delay: 0.7 }}
                                     >
-                                        <span className="h-2 w-2 rounded-full bg-amber-500" />
-                                        Private event — Only people with the link can access
+                                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500 sm:mt-0" />
+                                        <span className="min-w-0 break-words">
+                                            Private event — Only people with the link can access
+                                        </span>
                                     </motion.p>
                                 )}
                             </motion.div>

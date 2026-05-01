@@ -369,6 +369,8 @@
 .halal-toast {
   @apply flex items-start gap-3 p-3.5 rounded-lg shadow-md border;
   @apply font-sans text-sm min-w-[300px] max-w-[420px];
+  box-sizing: border-box;
+  width: fit-content;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   /* Required for absolute positioning of close button */
@@ -451,6 +453,13 @@
   @apply text-gray-700 dark:text-gray-300;
   @apply border border-gray-200 dark:border-gray-600;
   @apply transition-colors duration-150;
+  min-width: max-content;
+  min-height: 40px;
+  white-space: nowrap;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Close button - subtle yet visible, positioned top-right */
@@ -477,9 +486,22 @@
 /* Mobile responsive - optimized touch targets */
 @media (max-width: 640px) {
   .halal-toast {
-    @apply min-w-[260px] max-w-[calc(100vw-2rem)];
+    @apply min-w-0 max-w-[calc(100vw-2rem)];
+    width: calc(100vw - 2rem);
+    align-items: center;
     padding-right: 2.5rem;
     /* Adjust padding for mobile */
+  }
+
+  .halal-toast-title,
+  .halal-toast-description {
+    overflow-wrap: anywhere;
+  }
+
+  .halal-toast-action {
+    min-width: 72px;
+    padding-left: 0.875rem;
+    padding-right: 0.875rem;
   }
 
   /* Larger touch target on mobile */
