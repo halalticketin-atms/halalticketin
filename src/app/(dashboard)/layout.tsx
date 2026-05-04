@@ -32,7 +32,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
     }, [isPreviewRoute, user, isLoading, needsOnboarding, router]);
 
     // Show loading spinner while checking auth
-    if (isLoading && !isPreviewRoute) {
+    if (isLoading && !user && !isPreviewRoute) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-muted/30">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

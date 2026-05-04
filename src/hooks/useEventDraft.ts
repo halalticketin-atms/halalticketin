@@ -88,6 +88,7 @@ export interface DraftEventInitial {
   tickets?: DraftTicketType[];
   promoCodes?: DraftPromoCode[];
   currentStep?: number;
+  currentSubStep?: string;
 }
 
 const stepsCountDefault = 4;

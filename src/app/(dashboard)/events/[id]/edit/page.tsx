@@ -12,6 +12,7 @@ import { fetchEventDetails, fetchEventPromoCodes } from '@/lib/events-api';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
 import { getUserFriendlyMessage } from '@/lib/notifications';
+import { clearEventEditRecovery, readEventEditRecovery } from '@/lib/event-edit-recovery';
 
 export default function EditEventPage() {
     const params = useParams<{ id: string }>();
@@ -22,6 +23,9 @@ export default function EditEventPage() {
         : '/dashboard';
 
     const [initialDraft, setInitialDraft] = useState<DraftEventInitial | null>(null);
+    const [serverDraft, setServerDraft] = useState<DraftEventInitial | null>(null);
+    const [hasRecoveredDraft, setHasRecoveredDraft] = useState(false);
+    const [wizardKey, setWizardKey] = useState(0);
     const [embedMeta, setEmbedMeta] = useState<{
         slug: string | null;
         status: 'draft' | 'published' | 'cancelled' | 'archived';
@@ -33,7 +37,9 @@ export default function EditEventPage() {
     useEffect(() => {
         if (!eventId) {
             setInitialDraft(null);
+            setServerDraft(null);
             setEmbedMeta(null);
+            setHasRecoveredDraft(false);
             setIsLoading(false);
             setError('Invalid event id.');
             return;
@@ -54,17 +60,29 @@ export default function EditEventPage() {
                     status: eventResponse.event.status,
                     isPublic: eventResponse.event.isPubliclyAccessible,
                 });
-                setInitialDraft(
-                    buildDraftFromEventRecord(
-                        eventResponse.event,
-                        eventResponse.tickets,
-                        promoResponse.promoCodes
-                    )
+                const loadedDraft = buildDraftFromEventRecord(
+                    eventResponse.event,
+                    eventResponse.tickets,
+                    promoResponse.promoCodes
                 );
+                const recovery = readEventEditRecovery(eventId, {
+                    backendUpdatedAt: eventResponse.event.updatedAt,
+                });
+                setServerDraft(loadedDraft);
+                if (recovery) {
+                    setInitialDraft(recovery.draft);
+                    setHasRecoveredDraft(true);
+                } else {
+                    setInitialDraft(loadedDraft);
+                    setHasRecoveredDraft(false);
+                }
+                setWizardKey((current) => current + 1);
             } catch (err) {
                 if (cancelled) return;
                 setInitialDraft(null);
+                setServerDraft(null);
                 setEmbedMeta(null);
+                setHasRecoveredDraft(false);
                 const message = getUserFriendlyMessage(err) || 'Unable to load this event.';
                 setError(message);
             } finally {
@@ -119,12 +137,27 @@ export default function EditEventPage() {
 
     return (
         <EventWizard
+            key={wizardKey}
             mode="edit"
             initialDraft={initialDraft}
             entryContext={{
                 label: 'Editing existing event',
-                description: 'Changes will update this event once you publish.',
+                description: hasRecoveredDraft
+                    ? 'Review restored edits before saving.'
+                    : 'Changes will update this event once you publish.',
             }}
+            recoveryNotice={
+                hasRecoveredDraft && serverDraft
+                    ? {
+                        onDiscard: () => {
+                            clearEventEditRecovery(eventId);
+                            setInitialDraft(serverDraft);
+                            setHasRecoveredDraft(false);
+                            setWizardKey((current) => current + 1);
+                        },
+                    }
+                    : undefined
+            }
             embedCheckout={
                 embedMeta?.slug
                     ? {

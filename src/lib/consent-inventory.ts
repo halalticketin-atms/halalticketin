@@ -129,6 +129,14 @@ export const BROWSER_STORAGE_ITEMS: BrowserStorageItem[] = [
         categoryId: 'essential'
     },
     {
+        key: 'halalticketin:event-edit-recovery:{eventId}',
+        storage: 'sessionStorage',
+        purpose:
+            'Temporarily stores unsaved event edits in the current browser tab so organisers can recover work after refreshes, route reloads, or tab visibility changes.',
+        retention: 'Removed when you close the tab, discard the recovered edits, or save/publish the event.',
+        categoryId: 'essential'
+    },
+    {
         key: 'checkout_draft_{eventId}',
         storage: 'sessionStorage',
         purpose: 'Temporarily stores in-progress public checkout form details per event to support tab refresh recovery.',

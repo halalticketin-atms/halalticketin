@@ -100,6 +100,7 @@ import { getTicketSavePlan, serializeTicketPayloadsForSave } from '@/lib/ticket-
 import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/lib/timezone';
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
+import { clearEventEditRecovery, getEventEditRecoverySavedAt, writeEventEditRecovery } from '@/lib/event-edit-recovery';
 import {
     Dialog,
     DialogContent,
@@ -786,11 +787,20 @@ const validatePublishForm = (
     return errors;
 };
 
+const PARTIAL_SAVE_PROMO_MESSAGE =
+    'Event details were saved, but promo code changes need fixing. Your unsaved changes are protected in this browser tab until you save again.';
+
+const buildPartialSaveErrorMessage = (detail?: string | null) =>
+    detail
+        ? `${detail} Event details were saved, and your unsaved changes are protected in this browser tab until you save again.`
+        : 'Event details were saved, but some changes still need fixing. Your unsaved changes are protected in this browser tab until you save again.';
+
 export function EventWizard({
     mode = 'create',
     initialDraft,
     entryContext,
     embedCheckout,
+    recoveryNotice,
 }: {
     mode?: 'create' | 'edit';
     initialDraft?: DraftEventInitial;
@@ -799,6 +809,9 @@ export function EventWizard({
         slug: string;
         isPublic: boolean;
         status: 'draft' | 'published' | 'cancelled' | 'archived' | null;
+    };
+    recoveryNotice?: {
+        onDiscard: () => void;
     };
 }) {
     const {
@@ -824,9 +837,9 @@ export function EventWizard({
     } = useEventDraft(initialDraft, steps.length);
 
     // Sub-step navigation state
-    const [currentSubStep, setCurrentSubStep] = useState<string>(mainSteps[0]?.subSteps[0]?.id || '');
+    const [currentSubStep, setCurrentSubStep] = useState<string>(initialDraft?.currentSubStep ?? mainSteps[0]?.subSteps[0]?.id ?? '');
     // Ref to track intentional sub-step navigation (prevents effect from overriding)
-    const pendingSubStepRef = useRef<string | null>(null);
+    const pendingSubStepRef = useRef<string | null>(initialDraft?.currentSubStep ?? null);
 
     // Get current main step config
     const currentMainStep = useMemo(
@@ -1115,7 +1128,7 @@ export function EventWizard({
         initialDraft?.formData?.accessCodeEnabled ?? false,
     );
     const lastSavedTicketPayloadRef = useRef<string | null>(
-        mode === 'edit'
+        mode === 'edit' && !recoveryNotice
             ? serializeTicketPayloadsForSave(
                 tickets,
                 formData.currency,
@@ -1552,12 +1565,75 @@ export function EventWizard({
         () => JSON.stringify({ formData, tickets, promoCodes }),
         [formData, tickets, promoCodes],
     );
-    const lastSavedSnapshotRef = useRef(serializedDraft);
+    const lastSavedSnapshotRef = useRef(recoveryNotice ? '' : serializedDraft);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     useEffect(() => {
         setHasUnsavedChanges(serializedDraft !== lastSavedSnapshotRef.current);
     }, [serializedDraft]);
+
+    const persistEditRecovery = useCallback((options?: {
+        eventId?: string | null;
+        tickets?: DraftTicketType[];
+        promoCodes?: DraftPromoCode[];
+        savedAt?: number;
+        force?: boolean;
+    }) => {
+        const snapshotEventId = options?.eventId ?? eventId;
+        const snapshotTickets = options?.tickets ?? tickets;
+        const snapshotPromoCodes = options?.promoCodes ?? promoCodes;
+        const snapshot = JSON.stringify({
+            formData,
+            tickets: snapshotTickets,
+            promoCodes: snapshotPromoCodes,
+        });
+        const isDirty = snapshot !== lastSavedSnapshotRef.current;
+        if (mode !== 'edit' || !snapshotEventId || (!options?.force && !isDirty)) {
+            return;
+        }
+
+        writeEventEditRecovery(snapshotEventId, {
+            eventId: snapshotEventId,
+            savedAt: options?.savedAt ?? Date.now(),
+            currentStep,
+            currentSubStep,
+            draft: {
+                eventId: snapshotEventId,
+                eventStatus: eventStatus ?? undefined,
+                formData,
+                tickets: snapshotTickets,
+                promoCodes: snapshotPromoCodes,
+                currentStep,
+                currentSubStep,
+            },
+        });
+    }, [currentStep, currentSubStep, eventId, eventStatus, formData, mode, promoCodes, tickets]);
+
+    useEffect(() => {
+        persistEditRecovery();
+    }, [persistEditRecovery]);
+
+    useEffect(() => {
+        if (mode !== 'edit') {
+            return;
+        }
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                persistEditRecovery();
+            }
+        };
+        const handlePageHide = () => {
+            persistEditRecovery();
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('pagehide', handlePageHide);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('pagehide', handlePageHide);
+        };
+    }, [mode, persistEditRecovery]);
 
     const markSnapshotAsSaved = useCallback(
         (override?: {
@@ -1582,6 +1658,9 @@ export function EventWizard({
                 snapshotFormData.timezone,
                 snapshotEventId,
             );
+            if (snapshotEventId) {
+                clearEventEditRecovery(snapshotEventId);
+            }
             setHasUnsavedChanges(false);
             setLastSavedAt(new Date());
         },
@@ -1650,6 +1729,10 @@ export function EventWizard({
                     setActionMessage(null);
                 }
 
+                let persistedEventUpdatedAt: string | null = null;
+                let persistedEventId: string | null = eventId;
+                let eventWasPersisted = false;
+
                 try {
                     const duplicateNameErrors = buildDuplicateTicketNameErrors(tickets);
                     if (Object.keys(duplicateNameErrors).length > 0) {
@@ -1688,12 +1771,18 @@ export function EventWizard({
                         }
                         const response = await createEventDraft(activeOrganizerId, payload);
                         nextEventId = response.event.id;
+                        persistedEventId = nextEventId;
+                        persistedEventUpdatedAt = response.event.updatedAt;
+                        eventWasPersisted = true;
                         setEventId(nextEventId);
                         setDraftEmbedSlug(response.event.slug ?? null);
                         setDraftEmbedStatus(response.event.status ?? 'draft');
                     } else {
                         console.log('[DEBUG] Updating event:', nextEventId, 'with payload:', payload);
                         const response = await updateEventDraft(nextEventId, payload);
+                        persistedEventId = nextEventId;
+                        persistedEventUpdatedAt = response.event.updatedAt;
+                        eventWasPersisted = true;
                         setDraftEmbedSlug(response.event.slug ?? null);
                         setDraftEmbedStatus(response.event.status ?? 'draft');
                     }
@@ -1784,7 +1873,7 @@ export function EventWizard({
                     setPromoErrors(nextPromoErrors);
 
                     if (hasPromoValidationErrors) {
-                        setActionError('Fix promo code errors before saving.');
+                        setActionError(PARTIAL_SAVE_PROMO_MESSAGE);
                         setCurrentStep(4);
                     }
 
@@ -1866,7 +1955,7 @@ export function EventWizard({
 
                         if (hasPromoApiErrors) {
                             setPromoErrors((prev) => ({ ...prev, ...promoApiErrors }));
-                            setActionError(promoErrorMessage ?? 'Fix promo code errors before saving.');
+                            setActionError(buildPartialSaveErrorMessage(promoErrorMessage ?? 'Fix promo code errors before saving.'));
                             setCurrentStep(4);
                         } else {
                             // Delete removed promo codes
@@ -1884,7 +1973,7 @@ export function EventWizard({
                             }
 
                             if (hasPromoApiErrors) {
-                                setActionError(promoErrorMessage ?? 'Unable to update promo codes.');
+                                setActionError(buildPartialSaveErrorMessage(promoErrorMessage ?? 'Unable to update promo codes.'));
                                 setCurrentStep(4);
                             } else {
                                 // Refresh promo codes
@@ -1896,7 +1985,18 @@ export function EventWizard({
                     }
 
                     const hasPromoIssues = hasPromoValidationErrors || hasPromoApiErrors;
+                    const persistPartialSaveRecovery = () => {
+                        persistEditRecovery({
+                            eventId: nextEventId,
+                            tickets: normalizedTickets,
+                            promoCodes: normalizedPromoCodes,
+                            savedAt: getEventEditRecoverySavedAt(persistedEventUpdatedAt),
+                            force: true,
+                        });
+                    };
+
                     if (options?.blockOnPromoErrors && hasPromoIssues) {
+                        persistPartialSaveRecovery();
                         setPublishErrors([]);
                         return null;
                     }
@@ -1928,6 +2028,7 @@ export function EventWizard({
                             setActionMessage('Draft saved');
                         }
                     } else {
+                        persistPartialSaveRecovery();
                         setPublishErrors([]);
                     }
 
@@ -2051,7 +2152,16 @@ export function EventWizard({
                             overrideMessage = details.formErrors[0];
                         }
                     }
-                    const message = overrideMessage ?? getUserFriendlyMessage(error) ?? 'Unable to save draft.';
+                    if (eventWasPersisted) {
+                        persistEditRecovery({
+                            eventId: persistedEventId,
+                            savedAt: getEventEditRecoverySavedAt(persistedEventUpdatedAt),
+                            force: true,
+                        });
+                    }
+                    const message = eventWasPersisted
+                        ? buildPartialSaveErrorMessage(overrideMessage ?? getUserFriendlyMessage(error))
+                        : overrideMessage ?? getUserFriendlyMessage(error) ?? 'Unable to save draft.';
                     setActionError(message);
                     return null;
                 } finally {
@@ -2069,7 +2179,7 @@ export function EventWizard({
                 }
             }
         },
-        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, goToStepForErrors, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, mode, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
+        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, goToStepForErrors, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, mode, persistEditRecovery, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
@@ -2388,8 +2498,8 @@ export function EventWizard({
     const disableSaveButtons = !activeOrganizerId || isBusy;
     const disablePublishButtons = !activeOrganizerId || isPublishing;
     const isAlreadyPublished = eventStatus === 'published';
-    const embedSlug = embedCheckout?.slug ?? draftEmbedSlug;
-    const embedStatus = embedCheckout?.status ?? draftEmbedStatus ?? (eventId ? 'draft' : null);
+    const embedSlug = draftEmbedSlug ?? embedCheckout?.slug ?? null;
+    const embedStatus = draftEmbedStatus ?? embedCheckout?.status ?? (eventId ? 'draft' : null);
     const embedIsPublic = embedCheckout?.isPublic ?? true;
     const embedCanCopy = Boolean(embedSlug);
     const embedIsLive = embedStatus === 'published' && embedIsPublic;
@@ -2502,6 +2612,24 @@ export function EventWizard({
                         transition={{ duration: 0.3, ease: 'easeOut' }}
                     />
                 </div>
+                {recoveryNotice ? (
+                    <div className="border-t border-amber-200/70 bg-amber-50 text-amber-950">
+                        <div className="container flex flex-col gap-2 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between">
+                            <p className="min-w-0 leading-snug">
+                                Unsaved changes restored. Save or discard them.
+                            </p>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={recoveryNotice.onDiscard}
+                                className="h-8 justify-start px-0 text-amber-900 hover:bg-amber-100 hover:text-amber-950 sm:px-3"
+                            >
+                                Discard
+                            </Button>
+                        </div>
+                    </div>
+                ) : null}
             </div>
 
             {/* Main Step Tabs - Horizontal navigation */}
