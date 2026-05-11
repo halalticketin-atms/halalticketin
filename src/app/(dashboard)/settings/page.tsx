@@ -48,6 +48,7 @@ import {
     getOrganizerContactEmailError,
     normalizeOrganizerContactEmail,
 } from '@/lib/organizer-contact-email';
+import { getMetaTrackingStatus, type MetaTrackingStatusTone } from '@/lib/meta-tracking-status';
 
 type SettingsTab = 'profile' | 'organizer-profile' | 'currency' | 'marketing' | 'payments';
 
@@ -86,6 +87,28 @@ interface OrganizerProfileFormData {
 
 const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
+
+const META_TRACKING_STATUS_STYLES: Record<MetaTrackingStatusTone, {
+    dot: string;
+    label: string;
+    panel: string;
+}> = {
+    muted: {
+        dot: 'bg-slate-400',
+        label: 'text-slate-700 dark:text-slate-300',
+        panel: 'border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/20',
+    },
+    warning: {
+        dot: 'bg-amber-500',
+        label: 'text-amber-800 dark:text-amber-200',
+        panel: 'border-amber-200 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-900/20',
+    },
+    success: {
+        dot: 'bg-emerald-500',
+        label: 'text-emerald-800 dark:text-emerald-200',
+        panel: 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-900/20',
+    },
+};
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -554,7 +577,12 @@ export default function SettingsPage() {
     const normalizedCurrentPixel = currentOrganizer?.metaPixelId || '';
     const metaPixelChanged = normalizedPixelInput !== normalizedCurrentPixel;
     const metaCapiConnected = Boolean(currentOrganizer?.metaCapiTokenLast4);
-    const showMetaCapiWarning = Boolean(currentOrganizer?.metaPixelId) && !metaCapiConnected;
+    const metaCapiActive = Boolean(currentOrganizer?.metaPixelId?.trim() && currentOrganizer?.metaCapiTokenLast4?.trim());
+    const metaTrackingStatus = getMetaTrackingStatus({
+        metaPixelId: currentOrganizer?.metaPixelId,
+        metaCapiTokenLast4: currentOrganizer?.metaCapiTokenLast4,
+    });
+    const metaTrackingStatusStyles = META_TRACKING_STATUS_STYLES[metaTrackingStatus.tone];
 
     // Check if profile has changed
     const profileHasChanges = user && (
@@ -1230,7 +1258,7 @@ export default function SettingsPage() {
                                         <div>
                                             <h2 className="text-xl font-semibold mb-1">Meta Pixel Tracking</h2>
                                             <p className="text-muted-foreground text-sm">
-                                                Track ad performance on your event pages
+                                                Configure the tracking signals Halal Ticketin can send for this organiser.
                                             </p>
                                         </div>
                                         {activeOrganizers.length > 1 && (
@@ -1286,18 +1314,33 @@ export default function SettingsPage() {
                                     )}
 
                                     <div className="space-y-5 max-w-xl">
-                                        {/* Info Box */}
-                                        <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl">
-                                            <p className="text-sm text-muted-foreground">
-                                                Allow your Meta ads to measure views, checkouts, and purchases on your event + checkout pages (after attendees accept optional cookies).
+                                        <div className={cn('rounded-lg border p-4', metaTrackingStatusStyles.panel)}>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={cn('h-2.5 w-2.5 rounded-full', metaTrackingStatusStyles.dot)} />
+                                                    <span className={cn('text-sm font-medium', metaTrackingStatusStyles.label)}>
+                                                        {metaTrackingStatus.label}
+                                                    </span>
+                                                </div>
+                                                {metaCapiActive && currentOrganizer?.metaCapiTokenLast4 && (
+                                                    <span className="text-xs text-muted-foreground">
+                                                        CAPI ••••{currentOrganizer.metaCapiTokenLast4}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="mt-3 text-sm text-muted-foreground">
+                                                {metaTrackingStatus.summary}
+                                            </p>
+                                            <p className="mt-1 text-sm text-muted-foreground">
+                                                {metaTrackingStatus.purchaseReliability}
                                             </p>
                                             <a
                                                 href="https://www.facebook.com/business/help/952192354843755"
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="inline-flex items-center gap-1 mt-2 text-sm text-primary hover:underline"
+                                                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                                             >
-                                                Learn how to verify events in Meta Events Manager
+                                                Verify events in Meta Events Manager
                                                 <ExternalLink className="h-3 w-3" />
                                             </a>
                                         </div>
@@ -1313,7 +1356,7 @@ export default function SettingsPage() {
                                                 placeholder="e.g. 123456789012345"
                                             />
                                             <p className="text-xs text-muted-foreground">
-                                                We only load this pixel for your public event and checkout pages after attendees opt into marketing cookies.
+                                                Loads on organiser event and checkout pages after marketing cookies are accepted.
                                             </p>
                                             {metaPixelStatus === 'success' && (
                                                 <p className="text-sm text-green-600 flex items-center gap-1">
@@ -1368,16 +1411,11 @@ export default function SettingsPage() {
                                                 placeholder="Paste token from Meta Events Manager"
                                             />
                                             <p className="text-xs text-muted-foreground">
-                                                Enables server-side Purchase tracking for improved attribution when browsers block pixels.
+                                                Optional. Improves Purchase tracking when browser events are blocked.
                                             </p>
                                             {metaCapiConnected && (
                                                 <p className="text-xs text-emerald-600">
                                                     Connected (••••{currentOrganizer?.metaCapiTokenLast4})
-                                                </p>
-                                            )}
-                                            {showMetaCapiWarning && (
-                                                <p className="text-xs text-amber-700 dark:text-amber-300">
-                                                    Browser tracking is enabled. Add a Conversions API token to improve server-side Purchase reliability.
                                                 </p>
                                             )}
                                             {metaCapiStatus === 'success' && (
