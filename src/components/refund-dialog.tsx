@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -15,12 +15,17 @@ import {
 } from '@/components/ui/dialog';
 import { Loader2, AlertTriangle, Ticket } from 'lucide-react';
 import api from '@/lib/api';
+import {
+    clearStoredRefundIdempotencyKey,
+    getStoredRefundIdempotencyKey,
+    getTopUpUrlFromError,
+    type RefundIdempotencyParams,
+} from '@/lib/refunds';
 
 interface TicketInfo {
     id: string;
     name: string | null;
     price: number;
-    selected: boolean;
 }
 
 interface RefundDialogProps {
@@ -30,6 +35,7 @@ interface RefundDialogProps {
     orderTotal: number;
     currency: string;
     items: Array<{ id: string; name: string | null; quantity: number; unitPrice: number }>;
+    tickets?: TicketInfo[];
     onRefundComplete: () => void;
 }
 
@@ -47,7 +53,7 @@ export function RefundDialog({
     orderId,
     orderTotal,
     currency,
-    items,
+    tickets = [],
     onRefundComplete,
 }: RefundDialogProps) {
     const [refundType, setRefundType] = useState<'full' | 'partial' | 'tickets'>('full');
@@ -56,21 +62,17 @@ export function RefundDialog({
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Flatten items to individual tickets for selection
-    const tickets: TicketInfo[] = useMemo(() => {
-        const result: TicketInfo[] = [];
-        items.forEach((item) => {
-            for (let i = 0; i < item.quantity; i++) {
-                result.push({
-                    id: `${item.id}-${i}`,
-                    name: item.name,
-                    price: item.unitPrice,
-                    selected: selectedTicketIds.has(`${item.id}-${i}`),
-                });
-            }
-        });
-        return result;
-    }, [items, selectedTicketIds]);
+    const canRefundByTicket = tickets.length > 0;
+    const refundTypes: Array<'full' | 'partial' | 'tickets'> = canRefundByTicket
+        ? ['full', 'partial', 'tickets']
+        : ['full', 'partial'];
+
+    useEffect(() => {
+        if (!canRefundByTicket && refundType === 'tickets') {
+            setRefundType('partial');
+            setSelectedTicketIds(new Set());
+        }
+    }, [canRefundByTicket, refundType]);
 
     const selectedTotal = useMemo(() => {
         return tickets
@@ -108,7 +110,7 @@ export function RefundDialog({
         setError(null);
 
         try {
-            const body: { amount?: number; ticketIds?: string[] } = {};
+            const refundParams: RefundIdempotencyParams = {};
 
             if (refundType === 'partial') {
                 const amount = parseFloat(partialAmount);
@@ -118,21 +120,36 @@ export function RefundDialog({
                 if (amount > orderTotal) {
                     throw new Error('Refund amount cannot exceed order total');
                 }
-                body.amount = amount;
+                refundParams.amount = amount;
             } else if (refundType === 'tickets') {
+                if (!canRefundByTicket) {
+                    throw new Error('Ticket-level refunds require ticket IDs');
+                }
                 if (selectedTicketIds.size === 0) {
                     throw new Error('Please select at least one ticket to refund');
                 }
-                body.amount = selectedTotal;
-                // Note: ticketIds would be actual database IDs in production
-                // For now, we just use the amount approach
+                refundParams.ticketIds = tickets
+                    .filter((ticket) => selectedTicketIds.has(ticket.id))
+                    .map((ticket) => ticket.id);
             }
 
+            const body: { amount?: number; ticketIds?: string[]; idempotencyKey: string } = {
+                ...refundParams,
+                idempotencyKey: getStoredRefundIdempotencyKey(orderId, refundParams),
+            };
+
             await api.post(`/api/v1/orders/${orderId}/refund`, body);
+            clearStoredRefundIdempotencyKey(orderId, refundParams);
             onRefundComplete();
             onOpenChange(false);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to process refund');
+            const topUpUrl = getTopUpUrlFromError(err);
+            if (topUpUrl) {
+                setError('This refund needs an organiser top-up before it can be completed.');
+                window.open(topUpUrl, '_blank', 'noopener,noreferrer');
+            } else {
+                setError(err instanceof Error ? err.message : 'Failed to process refund');
+            }
         } finally {
             setIsProcessing(false);
         }
@@ -166,7 +183,7 @@ export function RefundDialog({
                     <div className="space-y-3">
                         <Label>Refund Type</Label>
                         <div className="grid grid-cols-3 gap-2">
-                            {(['full', 'partial', 'tickets'] as const).map((type) => (
+                            {refundTypes.map((type) => (
                                 <Button
                                     key={type}
                                     variant={refundType === type ? 'default' : 'outline'}

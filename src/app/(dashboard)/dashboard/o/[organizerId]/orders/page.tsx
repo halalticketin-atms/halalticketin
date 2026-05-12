@@ -56,6 +56,12 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
 import { toast } from '@/lib/notifications';
+import {
+    clearStoredRefundIdempotencyKey,
+    getStoredRefundIdempotencyKey,
+    getTopUpUrlFromError,
+    type RefundIdempotencyParams,
+} from '@/lib/refunds';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizers } from '@/context/organizer-context';
 import { OrderCard, type OrderResponse, type OrderItem, type OrderStatus } from '@/components/orders/OrderCard';
@@ -71,8 +77,6 @@ const progressColorMap: Record<string, string> = {
     lime: 'bg-linear-to-r from-lime-500 to-green-500',
     fuchsia: 'bg-linear-to-r from-fuchsia-500 to-pink-500',
 };
-
-
 
 interface OrdersResponse {
     orders: OrderResponse[];
@@ -1510,15 +1514,20 @@ export default function OrdersPage() {
                                                             setIsProcessing(true);
                                                             setRefundError(null);
                                                             try {
-                                                                const body: { amount?: number; ticketIds?: string[] } = {};
+                                                                const refundParams: RefundIdempotencyParams = {};
                                                                 if (refundType === 'partial') {
-                                                                    body.amount = parsedPartialAmount;
+                                                                    refundParams.amount = parsedPartialAmount;
                                                                 } else if (refundType === 'tickets') {
-                                                                    body.ticketIds = refundableTickets
+                                                                    refundParams.ticketIds = refundableTickets
                                                                         .filter((ticket) => selectedTicketIds.has(ticket.id))
                                                                         .map((ticket) => ticket.id);
                                                                 }
+                                                                const body: { amount?: number; ticketIds?: string[]; idempotencyKey: string } = {
+                                                                    ...refundParams,
+                                                                    idempotencyKey: getStoredRefundIdempotencyKey(selectedOrder.id, refundParams),
+                                                                };
                                                                 await api.post(`/api/v1/orders/${selectedOrder.id}/refund`, body);
+                                                                clearStoredRefundIdempotencyKey(selectedOrder.id, refundParams);
                                                                 setOrders((prev) =>
                                                                     prev.map((o) =>
                                                                         o.id === selectedOrder.id
@@ -1530,7 +1539,13 @@ export default function OrdersPage() {
                                                                 setPartialAmount('');
                                                                 setIsDialogOpen(false);
                                                             } catch (err) {
-                                                                setRefundError(err instanceof Error ? err.message : 'Failed to process refund');
+                                                                const topUpUrl = getTopUpUrlFromError(err);
+                                                                if (topUpUrl) {
+                                                                    setRefundError('This refund needs an organiser top-up before it can be completed.');
+                                                                    window.open(topUpUrl, '_blank', 'noopener,noreferrer');
+                                                                } else {
+                                                                    setRefundError(err instanceof Error ? err.message : 'Failed to process refund');
+                                                                }
                                                             } finally {
                                                                 setIsProcessing(false);
                                                             }
