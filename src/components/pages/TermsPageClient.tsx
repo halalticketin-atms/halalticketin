@@ -18,7 +18,7 @@ const sections: Section[] = [
   {
     title: '2. Who We Are',
     body:
-      'Halal Ticketin’ is operated by [Halal Ticketin’ Legal Name], an Irish company incorporated under the laws of Ireland. Our Services connect event organisers (“Organisers”) with attendees (“Consumers”) seeking events that comply with Islamic principles.',
+      'Halal Ticketin’ is operated by ATMS Limited, an Irish company incorporated under the laws of Ireland. Our Services connect event organisers (“Organisers”) with attendees (“Consumers”) seeking events that comply with Islamic principles.',
   },
   {
     title: '3. Platform Use and Role',
@@ -41,40 +41,45 @@ const sections: Section[] = [
   {
     title: '6. Fees and Payment',
     body:
-      'Organisers may be charged a per-ticket platform fee, which can be absorbed by the Organiser or passed to the Consumer. Payments are processed via Stripe. By using the Services, you agree to the payment processor’s terms.',
+      'Organisers may be charged a per-ticket platform fee. This fee may be absorbed by the Organiser or passed to the Consumer, depending on the event setup. Payments are processed through Stripe, including Stripe Connect for Organiser payments and payouts. Stripe may deduct processing fees, taxes, and currency conversion fees before funds are available. If an event currency differs from the Organiser’s Stripe settlement currency, Stripe may convert funds using its applicable exchange rate and fees.',
   },
   {
-    title: '7. Data and Privacy',
+    title: '7. Refunds',
+    body:
+      'Refunds are handled according to the Organiser’s refund policy and applicable law. Unless stated otherwise, refunds apply to the ticket price only. Platform fees, payment processing fees, VAT, taxes, and currency conversion costs are non-refundable. If an Organiser has insufficient available Stripe balance, or has absorbed fees for an order, a refund may require the Organiser to top up their Stripe balance before it can be completed.',
+  },
+  {
+    title: '8. Data and Privacy',
     body:
       'We collect and process personal data in accordance with our Privacy Policy. Consumers’ data may be shared with Organisers for event-related purposes, and Organisers are independently responsible for their handling of that data.',
   },
   {
-    title: '8. Intellectual Property',
+    title: '9. Intellectual Property',
     body:
       'All content, branding, and software related to Halal Ticketin’ are the property of Halal Ticketin’ or its licensors. You may not reproduce or exploit our materials without permission.',
   },
   {
-    title: '9. Disclaimers and Limitation of Liability',
+    title: '10. Disclaimers and Limitation of Liability',
     body:
       'Halal Ticketin’ provides the Services “as is” and disclaims all warranties. We are not liable for issues arising from events, including cancellations, conduct, or disputes between Organisers and Consumers.',
   },
   {
-    title: '10. Indemnity',
+    title: '11. Indemnity',
     body:
       'You agree to indemnify and hold Halal Ticketin’ harmless from any claims arising from your use of the Services or violation of these Terms.',
   },
   {
-    title: '11. Termination',
+    title: '12. Termination',
     body:
       'We may suspend or terminate access if you breach these Terms or for other valid reasons. We reserve the right to remove any content at our discretion.',
   },
   {
-    title: '12. Governing Law',
+    title: '13. Governing Law',
     body:
       'These Terms are governed by the laws of Ireland. Disputes arising from these Terms will be subject to the exclusive jurisdiction of the Irish courts.',
   },
   {
-    title: '13. Changes to Terms',
+    title: '14. Changes to Terms',
     body:
       'We may update these Terms from time to time. Continued use of the Services constitutes acceptance of the revised Terms.',
   },

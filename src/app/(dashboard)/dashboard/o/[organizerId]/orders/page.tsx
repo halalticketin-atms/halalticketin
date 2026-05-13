@@ -59,7 +59,7 @@ import { toast } from '@/lib/notifications';
 import {
     clearStoredRefundIdempotencyKey,
     getStoredRefundIdempotencyKey,
-    getTopUpUrlFromError,
+    isStripeBalanceTopUpRequiredError,
     type RefundIdempotencyParams,
 } from '@/lib/refunds';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
@@ -1539,10 +1539,8 @@ export default function OrdersPage() {
                                                                 setPartialAmount('');
                                                                 setIsDialogOpen(false);
                                                             } catch (err) {
-                                                                const topUpUrl = getTopUpUrlFromError(err);
-                                                                if (topUpUrl) {
-                                                                    setRefundError('This refund needs an organiser top-up before it can be completed.');
-                                                                    window.open(topUpUrl, '_blank', 'noopener,noreferrer');
+                                                                if (isStripeBalanceTopUpRequiredError(err)) {
+                                                                    setRefundError('The organiser Stripe account needs enough available balance before this refund can be completed. Top up the connected Stripe account in Stripe, then retry once the funds are available.');
                                                                 } else {
                                                                     setRefundError(err instanceof Error ? err.message : 'Failed to process refund');
                                                                 }

@@ -18,7 +18,7 @@ import api from '@/lib/api';
 import {
     clearStoredRefundIdempotencyKey,
     getStoredRefundIdempotencyKey,
-    getTopUpUrlFromError,
+    isStripeBalanceTopUpRequiredError,
     type RefundIdempotencyParams,
 } from '@/lib/refunds';
 
@@ -143,10 +143,10 @@ export function RefundDialog({
             onRefundComplete();
             onOpenChange(false);
         } catch (err) {
-            const topUpUrl = getTopUpUrlFromError(err);
-            if (topUpUrl) {
-                setError('This refund needs an organiser top-up before it can be completed.');
-                window.open(topUpUrl, '_blank', 'noopener,noreferrer');
+            if (isStripeBalanceTopUpRequiredError(err)) {
+                setError(
+                    'The organiser Stripe account needs enough available balance before this refund can be completed. Top up the connected Stripe account in Stripe, then retry once the funds are available.',
+                );
             } else {
                 setError(err instanceof Error ? err.message : 'Failed to process refund');
             }

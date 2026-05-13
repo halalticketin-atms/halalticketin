@@ -57,13 +57,22 @@ export const clearStoredRefundIdempotencyKey = (
     }
 };
 
-export const getTopUpUrlFromError = (error: unknown) => {
+export const isStripeBalanceTopUpRequiredError = (error: unknown) => {
     if (!(error instanceof ApiError) || typeof error.payload !== 'object' || error.payload === null) {
-        return null;
+        return false;
     }
 
-    const payload = error.payload as { code?: string; topUpUrl?: unknown };
-    return payload.code === 'REFUND_TOP_UP_REQUIRED' && typeof payload.topUpUrl === 'string'
-        ? payload.topUpUrl
-        : null;
+    const payload = error.payload as {
+        code?: string;
+        error?: {
+            code?: string;
+            details?: {
+                code?: string;
+            };
+        };
+    };
+    const codes = [payload.code, payload.error?.code, payload.error?.details?.code];
+    return codes.some((code) =>
+        code === 'STRIPE_BALANCE_TOP_UP_REQUIRED' || code === 'REFUND_TOP_UP_REQUIRED'
+    );
 };
