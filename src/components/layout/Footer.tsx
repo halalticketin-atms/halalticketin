@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Linkedin, Instagram } from 'lucide-react';
 import { ManageCookiesButton } from '@/components/privacy/manage-cookies-button';
+import { AppStoreBadge } from '@/components/layout/AppStoreBadge';
 
 export function Footer() {
     return (
@@ -22,6 +23,15 @@ export function Footer() {
                         <p className="mt-4 text-sm text-muted-foreground">
                             Your trusted platform for halal events and ticketing.
                         </p>
+
+                        {/* App Store download */}
+                        <div className="mt-6">
+                            <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">
+                                Get the organiser app
+                            </p>
+                            <AppStoreBadge />
+                        </div>
+
                         <div className="mt-6 hidden md:flex gap-4">
                             <Link
                                 href="https://www.linkedin.com/search/results/all/?fetchDeterministicClustersOnly=true&heroEntityKey=urn%3Ali%3Aorganization%3A107720490&keywords=halalticketin%27&origin=RICH_QUERY_SUGGESTION&position=0&searchId=ba6311fc-916d-4a07-b095-44ae38281c9b&sid=A4e&spellCorrectionEnabled=false"
