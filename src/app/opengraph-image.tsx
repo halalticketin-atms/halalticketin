@@ -6,7 +6,7 @@ export const size = {
 };
 
 export const contentType = 'image/png';
-export const alt = "HalalTicketin' - Your Trusted Halal Event Platform";
+export const alt = "HalalTicketin' - Your Home of Meaningful Events";
 
 export default function OpenGraphImage() {
   return new ImageResponse(
@@ -38,11 +38,11 @@ export default function OpenGraphImage() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', fontSize: 72, fontWeight: 800, lineHeight: 1.05 }}>
+            <div>Your home of</div>
             <div>Meaningful events.</div>
-            <div>Trusted ticketing.</div>
           </div>
           <div style={{ fontSize: 30, color: '#334155' }}>
-            Built for halal-friendly communities.
+            Your home for halal-friendly communities.
           </div>
         </div>
       </div>

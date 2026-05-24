@@ -285,7 +285,7 @@ export function Header() {
                     {/* Logo */}
                     <Link href="/" className="flex items-center gap-2 relative z-50 pl-2">
                         <Image
-                            src="/images/HTlogocr.png"
+                            src="/logos/HTlogocr.png"
                             alt="HalalTicketin' Logo"
                             width={120}
                             height={35}

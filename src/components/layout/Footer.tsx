@@ -13,7 +13,7 @@ export function Footer() {
                     <div className="col-span-2 md:col-span-1">
                         <Link href="/" className="flex items-center gap-2">
                             <Image
-                                src="/images/HTlogocr.png"
+                                src="/logos/HTlogocr.png"
                                 alt="HalalTicketin' Logo"
                                 width={120}
                                 height={35}
@@ -21,7 +21,7 @@ export function Footer() {
                             />
                         </Link>
                         <p className="mt-4 text-sm text-muted-foreground">
-                            Your trusted platform for halal events and ticketing.
+                            Your home for meaningful events and ticketing.
                         </p>
 
                         {/* App Store download */}

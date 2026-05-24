@@ -8,6 +8,14 @@ import { AuthProvider } from '@/context/auth-context';
 import { ExchangeRatesProvider } from '@/hooks/useExchangeRates';
 import { CookieBanner } from '@/components/privacy/cookie-banner';
 import { MetaPixelScript } from '@/components/analytics/meta-pixel-script';
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_KEYWORDS,
+  DEFAULT_TITLE,
+  SITE_NAME,
+  absoluteUrl,
+  getSiteUrl,
+} from '@/lib/seo';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -33,8 +41,6 @@ const sora = Sora({
   display: 'swap',
 });
 
-const metadataBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://halalticketin.com';
-
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#f8fdfb' },
@@ -48,18 +54,33 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(metadataBaseUrl),
-  title: "HalalTicketin' - Your Trusted Halal Event Platform",
-  description:
-    'Discover and create halal events with ease. The trusted ticketing platform for the Muslim community.',
-  keywords: ['halal events', 'ticketing', 'muslim events', 'event platform'],
+  metadataBase: new URL(getSiteUrl()),
+  title: DEFAULT_TITLE,
+  description: DEFAULT_DESCRIPTION,
+  keywords: DEFAULT_KEYWORDS,
+  alternates: {
+    canonical: absoluteUrl('/'),
+  },
+  openGraph: {
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    url: absoluteUrl('/'),
+    siteName: SITE_NAME,
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+  },
   icons: {
     icon: [
-      { url: '/images/ht-icon-512.png', sizes: '512x512', type: 'image/png' },
-      { url: '/images/ht-icon-180.png', sizes: '180x180', type: 'image/png' },
+      { url: '/logos/ht-favicon-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/logos/ht-favicon-180.png', sizes: '180x180', type: 'image/png' },
+      { url: '/logos/ht-favicon-48.png', sizes: '48x48', type: 'image/png' },
     ],
-    apple: [{ url: '/images/ht-icon-180.png', sizes: '180x180', type: 'image/png' }],
-    shortcut: '/images/ht-icon-512.png',
+    apple: [{ url: '/logos/ht-favicon-180.png', sizes: '180x180', type: 'image/png' }],
+    shortcut: '/logos/ht-favicon-512.png',
   },
 };
 

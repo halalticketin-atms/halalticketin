@@ -2787,7 +2787,7 @@ export function PublicEventPageContent({
                             <div className="mb-4 md:mb-6 relative z-10">
                                 <Link href="/" className="inline-block relative h-7 w-24 md:h-8 mb-3 md:mb-4 opacity-90 hover:opacity-100 transition-opacity">
                                     <Image
-                                        src="/images/HTlogocr.png"
+                                        src="/logos/HTlogocr.png"
                                         alt="Halal Ticketin"
                                         fill
                                         className="object-contain object-left"

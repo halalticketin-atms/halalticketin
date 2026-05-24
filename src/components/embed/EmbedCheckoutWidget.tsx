@@ -139,7 +139,7 @@ export function EmbedCheckoutWidget({
             />
             <div className={cn('container pb-6 pt-2 flex items-center gap-3 text-sm', isDark ? 'text-slate-300' : 'text-muted-foreground')}>
                 <Image
-                    src="/images/HTlogocr.png"
+                    src="/logos/HTlogocr.png"
                     alt="HalalTicketin' logo"
                     width={32}
                     height={32}

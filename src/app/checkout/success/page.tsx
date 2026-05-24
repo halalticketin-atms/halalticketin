@@ -255,7 +255,7 @@ function CheckoutSuccessContent() {
                         <div className="mb-6 relative z-10">
                             <Link href="/" className="inline-block relative h-8 w-24 mb-4 opacity-90 hover:opacity-100 transition-opacity">
                                 <Image
-                                    src="/images/HTlogocr.png"
+                                    src="/logos/HTlogocr.png"
                                     alt="Halal Ticketin"
                                     fill
                                     className="object-contain object-left"

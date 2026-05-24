@@ -106,7 +106,7 @@ export default function EventPreviewPublicPage() {
                 <div className="max-w-7xl mx-auto rounded-[2rem] bg-white/95 border border-white/70 shadow-lg ring-1 ring-white/60 backdrop-blur flex items-center justify-between px-4 py-2">
                     <Link href="/" className="flex items-center gap-2">
                         <Image
-                            src="/images/HTlogocr.png"
+                            src="/logos/HTlogocr.png"
                             alt="HalalTicketin' Logo"
                             width={120}
                             height={35}

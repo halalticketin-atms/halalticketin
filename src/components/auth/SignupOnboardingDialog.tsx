@@ -917,7 +917,7 @@ export function SignupOnboardingDialog({
                                 {/* Logo - white version for contrast */}
                                 <div className="relative h-7 w-24 shrink-0">
                                     <Image
-                                        src="/images/HTlogocr.png"
+                                        src="/logos/HTlogocr.png"
                                         alt="Halal Ticketin"
                                         fill
                                         className="object-contain object-left brightness-0 invert"
@@ -1082,7 +1082,7 @@ export function SignupOnboardingDialog({
                                 <div className="mt-auto flex justify-end">
                                     <div className="relative h-10 w-32">
                                         <Image
-                                            src="/images/HTlogocr.png"
+                                            src="/logos/HTlogocr.png"
                                             alt="Halal Ticketin"
                                             fill
                                             className="object-contain object-right brightness-0 invert"
