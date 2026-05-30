@@ -19,7 +19,6 @@ export interface CreditHistoryItem {
 export interface CreditBalanceResponse {
     balance: number;
     availableBalance?: number;
-    heldCredits?: number;
     usedCredits?: number;
     totalPurchased: number;
     lastPurchaseAt: string | null;
@@ -64,7 +63,6 @@ export async function getCreditBalance(
         return {
             balance: 0,
             availableBalance: 0,
-            heldCredits: 0,
             usedCredits: 0,
             totalPurchased: 0,
             lastPurchaseAt: null,

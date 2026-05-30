@@ -185,7 +185,6 @@ export default function DashboardPage() {
           setCreditData({
             balance: 0,
             availableBalance: 0,
-            heldCredits: 0,
             usedCredits: 0,
             totalPurchased: 0,
             lastPurchaseAt: null,
@@ -362,14 +361,6 @@ export default function DashboardPage() {
                 transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
                 className="h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]"
               />
-              {creditUsage.held > 0 && (
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${creditUsage.heldPercentage}%` }}
-                  transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
-                  className="h-full bg-amber-300"
-                />
-              )}
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${creditUsage.availablePercentage}%` }}
@@ -389,17 +380,6 @@ export default function DashboardPage() {
                   </span>
                 </span>
               </div>
-              {creditUsage.held > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-amber-300" />
-                  <span className="text-muted-foreground">
-                    Held:{' '}
-                    <span className="font-medium text-foreground">
-                      {creditUsage.held.toLocaleString()}
-                    </span>
-                  </span>
-                </div>
-              )}
               <div className="flex items-center gap-1.5">
                 <div className="h-2 w-2 rounded-full bg-[var(--brand-mint)]/60" />
                 <span className="text-muted-foreground">

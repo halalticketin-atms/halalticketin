@@ -66,7 +66,7 @@ async function mockAuthenticatedOwner(page: Page) {
   );
 }
 
-test('organiser billing shows available, held, and used credits separately', async ({ page }) => {
+test('organiser billing shows available and used credits, keeping held credits internal', async ({ page }) => {
   await mockAuthenticatedOwner(page);
 
   await page.route(`**/api/v1/organizers/${organizerId}/credits`, route =>
@@ -76,7 +76,6 @@ test('organiser billing shows available, held, and used credits separately', asy
       body: JSON.stringify({
         balance: 96,
         availableBalance: 96,
-        heldCredits: 4,
         usedCredits: 25,
         totalPurchased: 125,
         lastPurchaseAt: '2026-01-01T00:00:00.000Z',
@@ -91,8 +90,10 @@ test('organiser billing shows available, held, and used credits separately', asy
   await expect(page.getByText('Available Credits')).toBeVisible();
   await expect(page.getByRole('heading', { name: '96' })).toBeVisible();
   await expect(page.getByText('Used: 25')).toBeVisible();
-  await expect(page.getByText('Held: 4')).toBeVisible();
   await expect(page.getByText('Available: 96')).toBeVisible();
+
+  // Held credits are an internal backend safety state and must not be customer-facing.
+  await expect(page.getByText(/Held/)).toHaveCount(0);
 
   const overflow = await page.evaluate(() => ({
     bodyWidth: document.body.scrollWidth,

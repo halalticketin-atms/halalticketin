@@ -3,11 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { getCreditAccounting } from './credit-accounting';
 
 describe('getCreditAccounting', () => {
-  it('uses explicit available, held, and used credit totals when provided', () => {
+  it('surfaces only available and used credits, excluding internal held credits', () => {
     const result = getCreditAccounting({
       balance: 96,
       availableBalance: 96,
-      heldCredits: 4,
       usedCredits: 25,
       totalPurchased: 125,
     });
@@ -15,11 +14,11 @@ describe('getCreditAccounting', () => {
     expect(result).toEqual(
       expect.objectContaining({
         available: 96,
-        held: 4,
         used: 25,
-        total: 125,
+        total: 121,
       }),
     );
+    expect(result).not.toHaveProperty('held');
   });
 
   it('falls back to legacy total minus balance usage when explicit usage is missing', () => {
@@ -29,7 +28,6 @@ describe('getCreditAccounting', () => {
     });
 
     expect(result.used).toBe(25);
-    expect(result.held).toBe(0);
     expect(result.available).toBe(75);
   });
 });

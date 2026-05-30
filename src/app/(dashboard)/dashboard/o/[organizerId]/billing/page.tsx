@@ -43,7 +43,6 @@ export default function BillingPage() {
             return getCreditAccounting({
                 balance: 0,
                 availableBalance: 0,
-                heldCredits: 0,
                 usedCredits: 0,
                 totalPurchased: 0,
             });
@@ -133,14 +132,6 @@ export default function BillingPage() {
                                 transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 }}
                                 className="h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]"
                             />
-                            {usageData.held > 0 && (
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${usageData.heldPercentage}%` }}
-                                    transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 }}
-                                    className="h-full bg-amber-300"
-                                />
-                            )}
                             <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${usageData.availablePercentage}%` }}
@@ -156,12 +147,6 @@ export default function BillingPage() {
                                     <div className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]" />
                                     <span className="text-muted-foreground">Used: <span className="font-medium text-foreground">{usageData.used.toLocaleString()}</span></span>
                                 </div>
-                                {usageData.held > 0 && (
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-                                        <span className="text-muted-foreground">Held: <span className="font-medium text-foreground">{usageData.held.toLocaleString()}</span></span>
-                                    </div>
-                                )}
                                 <div className="flex items-center gap-2">
                                     <div className="h-2.5 w-2.5 rounded-full bg-[var(--brand-mint)]/60" />
                                     <span className="text-muted-foreground">Available: <span className="font-medium text-foreground">{usageData.available.toLocaleString()}</span></span>
