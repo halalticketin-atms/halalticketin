@@ -4,7 +4,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
-import { Calendar, Ticket, DollarSign, Plus } from 'lucide-react';
+import { Calendar, Ticket, DollarSign, Plus, AlertCircle, RefreshCw } from 'lucide-react';
 
 import { StatCard, EventPerformanceCards } from '@/components/dashboard';
 
@@ -13,6 +13,7 @@ import { useOrganizers } from '@/context/organizer-context';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import api from '@/lib/api';
+import { getCreditAccounting } from '@/lib/credit-accounting';
 import { getCreditBalance, CreditBalanceResponse } from '@/lib/credits-api';
 import { MIN_CREDITS } from '@/lib/fees';
 
@@ -97,6 +98,8 @@ export default function DashboardPage() {
   const [hasLoadedEvents, setHasLoadedEvents] = useState(false);
   const [creditData, setCreditData] = useState<CreditBalanceResponse | null>(null);
   const [isCreditsLoading, setIsCreditsLoading] = useState(false);
+  const [creditError, setCreditError] = useState(false);
+  const [creditReload, setCreditReload] = useState(0);
 
   // Get the current user's role for this organizer
   const activeOrganizer = organizers.find((org) => org.id === organizerId);
@@ -176,12 +179,16 @@ export default function DashboardPage() {
       .then((credits) => {
         if (!cancelled) {
           setCreditData(credits);
+          setCreditError(false);
         }
       })
       .catch((error) => {
         console.error('Failed to fetch credit balance:', error);
         if (!cancelled) {
-          setCreditData({ balance: 0, totalPurchased: 0, lastPurchaseAt: null, history: [] });
+          // Clear stale data and flag the error so we never render a misleading
+          // zero balance or "running low" banner during an outage.
+          setCreditData(null);
+          setCreditError(true);
         }
       })
       .finally(() => {
@@ -193,7 +200,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizerId]);
+  }, [organizerId, creditReload]);
 
   const greetingName = user?.name || user?.email?.split('@')[0] || '';
   const prefersReducedMotion = useReducedMotion();
@@ -256,18 +263,14 @@ export default function DashboardPage() {
     creditData !== null &&
     !isCreditsLoading &&
     activeOrganizer?.feeTier === 'token' &&
-    creditData.balance < MIN_CREDITS;
+    (creditData.availableBalance ?? creditData.balance) < MIN_CREDITS;
 
   // Credit usage calculations for the bar - show when there's credit data with positive balance OR purchases
   const creditUsage = useMemo(() => {
     if (!creditData) return null;
     // Only show if they have purchased credits or have a balance
-    if (creditData.totalPurchased === 0 && creditData.balance === 0) return null;
-    const total = creditData.totalPurchased > 0 ? creditData.totalPurchased : creditData.balance;
-    const used = Math.max(0, creditData.totalPurchased - creditData.balance);
-    const available = creditData.balance;
-    const usedPercentage = total > 0 ? (used / total) * 100 : 0;
-    return { total, used, available, usedPercentage };
+    const accounting = getCreditAccounting(creditData);
+    return accounting.hasActivity ? accounting : null;
   }, [creditData]);
 
   return (
@@ -297,13 +300,42 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {creditError && !isCreditsLoading && organizerId && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 rounded-xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900"
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+                <div>
+                  <p className="font-semibold">Couldn&rsquo;t load your credit balance</p>
+                  <p className="text-amber-900/80">
+                    Your credits are safe &mdash; this is a temporary connection issue, not a change
+                    to your balance.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreditReload((count) => count + 1)}
+                className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-amber-300/70 bg-white/70 px-3 py-1.5 text-xs font-semibold text-amber-900 transition-colors hover:bg-white"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Retry
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {showLowCredits && organizerId && (
           <div className="mb-6 rounded-xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-semibold">Credits running low</p>
                 <p className="text-amber-900/80">
-                  You have {creditData.balance.toLocaleString()} credits left. Add more credits to
+                  You have {(creditData.availableBalance ?? creditData.balance).toLocaleString()} credits left. Add more credits to
                   keep organiser fees active.
                 </p>
               </div>
@@ -350,18 +382,18 @@ export default function DashboardPage() {
             </div>
 
             {/* Minimal Progress Bar */}
-            <div className="relative h-2 w-full bg-muted/40 rounded-full overflow-hidden">
+            <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/40">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${creditUsage.usedPercentage}%` }}
                 transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
-                className="absolute left-0 top-0 h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)] rounded-full"
+                className="h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]"
               />
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${100 - creditUsage.usedPercentage}%` }}
+                animate={{ width: `${creditUsage.availablePercentage}%` }}
                 transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
-                className="absolute right-0 top-0 h-full bg-[var(--brand-mint)]/40 rounded-full"
+                className="h-full bg-[var(--brand-mint)]/60"
               />
             </div>
 
