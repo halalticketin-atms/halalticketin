@@ -13,6 +13,7 @@ import { useOrganizers } from '@/context/organizer-context';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import api from '@/lib/api';
+import { getCreditAccounting } from '@/lib/credit-accounting';
 import { getCreditBalance, CreditBalanceResponse } from '@/lib/credits-api';
 import { MIN_CREDITS } from '@/lib/fees';
 
@@ -181,7 +182,15 @@ export default function DashboardPage() {
       .catch((error) => {
         console.error('Failed to fetch credit balance:', error);
         if (!cancelled) {
-          setCreditData({ balance: 0, totalPurchased: 0, lastPurchaseAt: null, history: [] });
+          setCreditData({
+            balance: 0,
+            availableBalance: 0,
+            heldCredits: 0,
+            usedCredits: 0,
+            totalPurchased: 0,
+            lastPurchaseAt: null,
+            history: [],
+          });
         }
       })
       .finally(() => {
@@ -256,18 +265,14 @@ export default function DashboardPage() {
     creditData !== null &&
     !isCreditsLoading &&
     activeOrganizer?.feeTier === 'token' &&
-    creditData.balance < MIN_CREDITS;
+    (creditData.availableBalance ?? creditData.balance) < MIN_CREDITS;
 
   // Credit usage calculations for the bar - show when there's credit data with positive balance OR purchases
   const creditUsage = useMemo(() => {
     if (!creditData) return null;
     // Only show if they have purchased credits or have a balance
-    if (creditData.totalPurchased === 0 && creditData.balance === 0) return null;
-    const total = creditData.totalPurchased > 0 ? creditData.totalPurchased : creditData.balance;
-    const used = Math.max(0, creditData.totalPurchased - creditData.balance);
-    const available = creditData.balance;
-    const usedPercentage = total > 0 ? (used / total) * 100 : 0;
-    return { total, used, available, usedPercentage };
+    const accounting = getCreditAccounting(creditData);
+    return accounting.hasActivity ? accounting : null;
   }, [creditData]);
 
   return (
@@ -303,7 +308,7 @@ export default function DashboardPage() {
               <div>
                 <p className="font-semibold">Credits running low</p>
                 <p className="text-amber-900/80">
-                  You have {creditData.balance.toLocaleString()} credits left. Add more credits to
+                  You have {(creditData.availableBalance ?? creditData.balance).toLocaleString()} credits left. Add more credits to
                   keep organiser fees active.
                 </p>
               </div>
@@ -350,18 +355,26 @@ export default function DashboardPage() {
             </div>
 
             {/* Minimal Progress Bar */}
-            <div className="relative h-2 w-full bg-muted/40 rounded-full overflow-hidden">
+            <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/40">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${creditUsage.usedPercentage}%` }}
                 transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
-                className="absolute left-0 top-0 h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)] rounded-full"
+                className="h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]"
               />
+              {creditUsage.held > 0 && (
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${creditUsage.heldPercentage}%` }}
+                  transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
+                  className="h-full bg-amber-300"
+                />
+              )}
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${100 - creditUsage.usedPercentage}%` }}
+                animate={{ width: `${creditUsage.availablePercentage}%` }}
                 transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
-                className="absolute right-0 top-0 h-full bg-[var(--brand-mint)]/40 rounded-full"
+                className="h-full bg-[var(--brand-mint)]/60"
               />
             </div>
 
@@ -376,6 +389,17 @@ export default function DashboardPage() {
                   </span>
                 </span>
               </div>
+              {creditUsage.held > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-amber-300" />
+                  <span className="text-muted-foreground">
+                    Held:{' '}
+                    <span className="font-medium text-foreground">
+                      {creditUsage.held.toLocaleString()}
+                    </span>
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5">
                 <div className="h-2 w-2 rounded-full bg-[var(--brand-mint)]/60" />
                 <span className="text-muted-foreground">

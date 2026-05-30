@@ -18,6 +18,9 @@ export interface CreditHistoryItem {
 
 export interface CreditBalanceResponse {
     balance: number;
+    availableBalance?: number;
+    heldCredits?: number;
+    usedCredits?: number;
     totalPurchased: number;
     lastPurchaseAt: string | null;
     history: CreditHistoryItem[];
@@ -60,6 +63,9 @@ export async function getCreditBalance(
         console.error('Failed to get credit balance:', error);
         return {
             balance: 0,
+            availableBalance: 0,
+            heldCredits: 0,
+            usedCredits: 0,
             totalPurchased: 0,
             lastPurchaseAt: null,
             history: []
