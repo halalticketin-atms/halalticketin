@@ -36,6 +36,12 @@ This is the Halal Ticketin frontend: a Next.js App Router app using TypeScript, 
 - `npm run test:smoke`: Run Playwright smoke tests.
 - `npm run storybook`: Start Storybook on port 6006.
 
+## Git Author and Vercel Deployment
+- Before creating frontend commits, verify `git config user.name` and `git config user.email`.
+- Use `halalticketin-atms <halalticketin@gmail.com>` unless Abdel explicitly instructs otherwise.
+- Do not use `2480904692+halalticketin-atms@users.noreply.github.com`; GitHub does not map that malformed noreply address to the `halalticketin-atms` account and Vercel blocks deployments from it.
+- After pushing commits that should auto-deploy, confirm the GitHub author maps to `halalticketin-atms` and check the Vercel commit status. Do not manually trigger or redeploy in Vercel unless Abdel explicitly asks.
+
 ## Coding Guidelines
 - Keep App Router server/client boundaries explicit. Use client components only for browser state, effects, or interactivity.
 - Use existing Radix UI and shared components before adding new primitives.
