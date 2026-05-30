@@ -66,6 +66,35 @@ async function mockAuthenticatedOwner(page: Page) {
   );
 }
 
+async function mockDashboardData(page: Page) {
+  await page.route('**/api/v1/analytics/overview**', route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        stats: {
+          totalRevenue: 0,
+          netRevenue: 0,
+          ticketRevenue: 0,
+          donationRevenue: 0,
+          ticketsSold: 0,
+          paidOrders: 0,
+          totalEvents: 0,
+          currency: 'GBP',
+        },
+      }),
+    }),
+  );
+
+  await page.route('**/api/v1/analytics/events-performance**', route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ events: [] }),
+    }),
+  );
+}
+
 test('organiser billing shows available and used credits, keeping held credits internal', async ({ page }) => {
   await mockAuthenticatedOwner(page);
 
@@ -100,4 +129,45 @@ test('organiser billing shows available and used credits, keeping held credits i
     viewportWidth: window.innerWidth,
   }));
   expect(overflow.bodyWidth).toBeLessThanOrEqual(overflow.viewportWidth + 2);
+});
+
+test('organiser billing shows a retryable error when credits fail to load', async ({ page }) => {
+  await mockAuthenticatedOwner(page);
+
+  await page.route(`**/api/v1/organizers/${organizerId}/credits`, route =>
+    route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'Unable to load credits' }),
+    }),
+  );
+
+  await page.goto(`/dashboard/o/${organizerId}/billing`);
+  await page.waitForLoadState('networkidle');
+
+  await expect(page.getByRole('heading', { name: /We couldn’t load your credits/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Try again/i })).toBeVisible();
+  await expect(page.getByText('Available Credits')).toHaveCount(0);
+  await expect(page.getByText(/Held/)).toHaveCount(0);
+});
+
+test('organiser dashboard suppresses low-credit warning when credits fail to load', async ({ page }) => {
+  await mockAuthenticatedOwner(page);
+  await mockDashboardData(page);
+
+  await page.route(`**/api/v1/organizers/${organizerId}/credits`, route =>
+    route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'Unable to load credits' }),
+    }),
+  );
+
+  await page.goto(`/dashboard/o/${organizerId}`);
+  await page.waitForLoadState('networkidle');
+
+  await expect(page.getByText('Couldn’t load your credit balance')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Retry/i })).toBeVisible();
+  await expect(page.getByText('Credits running low')).toHaveCount(0);
+  await expect(page.getByText(/Held/)).toHaveCount(0);
 });

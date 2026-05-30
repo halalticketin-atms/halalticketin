@@ -48,25 +48,16 @@ export async function createCreditPurchaseSession(
 }
 
 /**
- * Get organizer credit balance and history
+ * Get organizer credit balance and history.
+ *
+ * Throws on failure so callers can distinguish a genuine zero balance from a
+ * failed request. Returning zeros here previously made an outage look identical
+ * to "out of credits", which misled organisers — callers must handle the error.
  */
 export async function getCreditBalance(
     organizerId: string
 ): Promise<CreditBalanceResponse> {
-    try {
-        const result = await api.get<CreditBalanceResponse>(
-            `/api/v1/organizers/${organizerId}/credits`
-        );
-        return result;
-    } catch (error) {
-        console.error('Failed to get credit balance:', error);
-        return {
-            balance: 0,
-            availableBalance: 0,
-            usedCredits: 0,
-            totalPurchased: 0,
-            lastPurchaseAt: null,
-            history: []
-        };
-    }
+    return api.get<CreditBalanceResponse>(
+        `/api/v1/organizers/${organizerId}/credits`
+    );
 }

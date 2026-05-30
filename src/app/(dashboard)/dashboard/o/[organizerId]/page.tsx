@@ -4,7 +4,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
-import { Calendar, Ticket, DollarSign, Plus } from 'lucide-react';
+import { Calendar, Ticket, DollarSign, Plus, AlertCircle, RefreshCw } from 'lucide-react';
 
 import { StatCard, EventPerformanceCards } from '@/components/dashboard';
 
@@ -98,6 +98,8 @@ export default function DashboardPage() {
   const [hasLoadedEvents, setHasLoadedEvents] = useState(false);
   const [creditData, setCreditData] = useState<CreditBalanceResponse | null>(null);
   const [isCreditsLoading, setIsCreditsLoading] = useState(false);
+  const [creditError, setCreditError] = useState(false);
+  const [creditReload, setCreditReload] = useState(0);
 
   // Get the current user's role for this organizer
   const activeOrganizer = organizers.find((org) => org.id === organizerId);
@@ -177,19 +179,16 @@ export default function DashboardPage() {
       .then((credits) => {
         if (!cancelled) {
           setCreditData(credits);
+          setCreditError(false);
         }
       })
       .catch((error) => {
         console.error('Failed to fetch credit balance:', error);
         if (!cancelled) {
-          setCreditData({
-            balance: 0,
-            availableBalance: 0,
-            usedCredits: 0,
-            totalPurchased: 0,
-            lastPurchaseAt: null,
-            history: [],
-          });
+          // Clear stale data and flag the error so we never render a misleading
+          // zero balance or "running low" banner during an outage.
+          setCreditData(null);
+          setCreditError(true);
         }
       })
       .finally(() => {
@@ -201,7 +200,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizerId]);
+  }, [organizerId, creditReload]);
 
   const greetingName = user?.name || user?.email?.split('@')[0] || '';
   const prefersReducedMotion = useReducedMotion();
@@ -299,6 +298,35 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {creditError && !isCreditsLoading && organizerId && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 rounded-xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900"
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+                <div>
+                  <p className="font-semibold">Couldn&rsquo;t load your credit balance</p>
+                  <p className="text-amber-900/80">
+                    Your credits are safe &mdash; this is a temporary connection issue, not a change
+                    to your balance.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreditReload((count) => count + 1)}
+                className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-amber-300/70 bg-white/70 px-3 py-1.5 text-xs font-semibold text-amber-900 transition-colors hover:bg-white"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Retry
+              </button>
+            </div>
+          </motion.div>
         )}
 
         {showLowCredits && organizerId && (

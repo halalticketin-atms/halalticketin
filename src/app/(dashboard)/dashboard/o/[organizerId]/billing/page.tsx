@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Plus, ArrowDownLeft, ArrowUpRight, Clock } from 'lucide-react';
+import { Plus, ArrowDownLeft, ArrowUpRight, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { getCreditAccounting } from '@/lib/credit-accounting';
 import { getCreditBalance, CreditBalanceResponse } from '@/lib/credits-api';
@@ -13,21 +13,27 @@ export default function BillingPage() {
     const organizerId = useOrganizerFromParams();
     const [data, setData] = useState<CreditBalanceResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [hasError, setHasError] = useState(false);
+
+    const loadCredits = useCallback(async () => {
+        if (!organizerId) return;
+        setIsLoading(true);
+        try {
+            const result = await getCreditBalance(organizerId);
+            setData(result);
+            setHasError(false);
+        } catch (error) {
+            // Surface a real error instead of rendering a misleading zero balance.
+            console.error('Failed to fetch credit data:', error);
+            setHasError(true);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [organizerId]);
 
     useEffect(() => {
-        async function fetchData() {
-            if (!organizerId) return;
-            try {
-                const result = await getCreditBalance(organizerId);
-                setData(result);
-            } catch (error) {
-                console.error('Failed to fetch credit data:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        void fetchData();
-    }, [organizerId]);
+        void loadCredits();
+    }, [loadCredits]);
 
     const formatDate = (dateString: string) => {
         return new Intl.DateTimeFormat('en-GB', {
@@ -55,6 +61,41 @@ export default function BillingPage() {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+            </div>
+        );
+    }
+
+    if (hasError) {
+        return (
+            <div className="container py-8 overflow-x-hidden">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="relative overflow-hidden rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50/80 via-background to-amber-50/30 p-8 sm:p-12 text-center"
+                >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-amber-200/20 to-transparent rounded-bl-full" />
+                    <div className="relative">
+                        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                            <AlertCircle className="h-7 w-7" />
+                        </div>
+                        <h2 className="font-display text-xl font-bold tracking-tight">
+                            We couldn&rsquo;t load your credits
+                        </h2>
+                        <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+                            Your balance is safe &mdash; this looks like a temporary connection issue, not a
+                            change to your credits. Please try again.
+                        </p>
+                        <Button
+                            onClick={() => void loadCredits()}
+                            variant="outline"
+                            className="group mt-6 rounded-full border-[var(--brand-teal)]/40 hover:border-[var(--brand-teal)] hover:bg-[var(--brand-teal)]/5 transition-all duration-300 gap-2 h-11 px-6"
+                        >
+                            <RefreshCw className="h-4 w-4 text-[var(--brand-teal)] group-hover:rotate-180 transition-transform duration-500" />
+                            <span className="font-medium">Try again</span>
+                        </Button>
+                    </div>
+                </motion.div>
             </div>
         );
     }
