@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // =============================================================================
 // REAL EVENT CONFIGURATION
@@ -20,6 +20,128 @@ const viewports = {
     mobile: { width: 390, height: 844 },
     tablet: { width: 768, height: 1024 },
     desktop: { width: 1920, height: 1080 }
+};
+
+const routeCheckoutEvent = async ({
+    page,
+    eventId,
+    slug,
+    attendeeInfoMode,
+    customQuestions,
+}: {
+    page: Page;
+    eventId: string;
+    slug: string;
+    attendeeInfoMode: 'buyer_choice' | 'per_ticket';
+    customQuestions: Array<{
+        id: string;
+        label: string;
+        type: 'text' | 'select' | 'checkbox';
+        required: boolean;
+        options?: string[];
+    }>;
+}) => {
+    await page.route(`**/api/v1/public/events/${slug}**`, (route) => {
+        route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                event: {
+                    id: eventId,
+                    organizerId: 'org_checkout_prefill_001',
+                    slug,
+                    title: 'Checkout Prefill Test Event',
+                    description: 'Stable mocked event for checkout attendee prefill tests.',
+                    bannerImageUrl: null,
+                    startDatetime: '2030-03-15T19:30:00.000Z',
+                    endDatetime: '2030-03-15T22:00:00.000Z',
+                    timezone: 'Europe/London',
+                    isMultiDay: false,
+                    locationType: 'in_person',
+                    venue: 'Mock Community Hall',
+                    address: '123 Test Street',
+                    city: 'London',
+                    country: 'UK',
+                    onlineUrl: null,
+                    latitude: null,
+                    longitude: null,
+                    currency: 'GBP',
+                    organizerName: 'Test Organizer',
+                    organizerAvatarUrl: null,
+                    category: null,
+                    absorbFee: false,
+                    feeTier: 'payg',
+                    customBookingFee: null,
+                    metaPixelId: null,
+                    attendeeInfoMode,
+                    customQuestions,
+                    status: 'published',
+                },
+                tickets: [
+                    {
+                        id: 'ticket_checkout_prefill_001',
+                        name: 'General Admission',
+                        description: null,
+                        price: '5.00',
+                        currency: 'GBP',
+                        maxQuantity: 100,
+                        minPerOrder: 1,
+                        maxPerOrder: 10,
+                        type: 'paid',
+                        visibility: 'public',
+                        salesStart: null,
+                        salesEnd: null,
+                        customFee: null,
+                        absorbFee: false,
+                        earlyBirdPrice: null,
+                        earlyBirdEndDate: null,
+                    },
+                ],
+            }),
+        });
+    });
+
+    await page.route(`**/api/v1/events/${eventId}/checkout/quote`, (route) => {
+        route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                success: true,
+                currency: 'GBP',
+                subtotal: 5.0,
+                discount: 0,
+                organizerFee: 0,
+                platformFee: 0.63,
+                processingFee: 0.34,
+                total: 5.97,
+                useCreditsApplied: false,
+                creditsApplied: 0,
+                paidTicketCount: 1,
+                promoCodeApplied: false,
+                lineAllocations: [],
+            }),
+        });
+    });
+};
+
+const openCheckoutAndFillBuyerDetails = async (page: Page) => {
+    await page.goto(`/events/${REAL_EVENTS.paidEvent}`);
+    await page.waitForLoadState('networkidle');
+
+    const plusButton = page.locator('button:has(svg.lucide-plus)').first();
+    await expect(plusButton).toBeVisible();
+    await plusButton.click();
+
+    const openCheckoutButton = page.getByRole('button', { name: /proceed to checkout/i }).first();
+    await expect(openCheckoutButton).toBeVisible();
+    await openCheckoutButton.click();
+
+    await page.locator('#buyerName').fill('Buyer Name');
+    await page.locator('#buyerEmail').fill('buyer@example.com');
+    await page.locator('#buyerAge').fill('29');
+
+    await page.getByRole('combobox').first().click();
+    await page.getByRole('option', { name: /^female$/i }).click();
 };
 
 // =============================================================================
@@ -163,6 +285,59 @@ test.describe('Checkout Journey - Attendee Form', () => {
 
             await expect(page.getByText(/male|female|gender|brother|sister/i).first()).toBeVisible();
         }
+    });
+
+    test('custom question checkout prefills ticket 1 core details from buyer details', async ({ page }) => {
+        await routeCheckoutEvent({
+            page,
+            eventId: '22222222-2222-4222-8222-222222222222',
+            slug: REAL_EVENTS.paidEvent,
+            attendeeInfoMode: 'buyer_choice',
+            customQuestions: [
+                {
+                    id: 'diet',
+                    label: 'Dietary notes',
+                    type: 'text',
+                    required: true,
+                },
+            ],
+        });
+
+        await openCheckoutAndFillBuyerDetails(page);
+        await page.getByRole('button', { name: /continue/i }).click();
+
+        await expect(page.getByRole('heading', { name: /ticket 1 details/i })).toBeVisible();
+        await expect(page.locator('#ticketAttendeeName-0')).toHaveValue('Buyer Name');
+        await expect(page.locator('#ticketAttendeeAge-0')).toHaveValue('29');
+        await expect(page.getByRole('combobox', { name: /ticket 1 attendee gender/i })).toContainText('Female');
+
+        await page.getByRole('button', { name: /continue/i }).click();
+        await expect(page.getByText('Ticket 1: please answer "Dietary notes".')).toBeVisible();
+
+        await page.locator('#ticketAttendeeName-0').fill('Guest Name');
+        await expect(page.locator('#ticketAttendeeName-0')).toHaveValue('Guest Name');
+    });
+
+    test('buyer choice checkout prefills ticket 1 when buyer opts out of shared info', async ({ page }) => {
+        await routeCheckoutEvent({
+            page,
+            eventId: '33333333-3333-4333-8333-333333333333',
+            slug: REAL_EVENTS.paidEvent,
+            attendeeInfoMode: 'buyer_choice',
+            customQuestions: [],
+        });
+
+        await openCheckoutAndFillBuyerDetails(page);
+        await page.locator('#useSharedInfo').uncheck();
+        await page.getByRole('button', { name: /continue/i }).click();
+
+        await expect(page.getByRole('heading', { name: /ticket 1 details/i })).toBeVisible();
+        await expect(page.locator('#ticketAttendeeName-0')).toHaveValue('Buyer Name');
+        await expect(page.locator('#ticketAttendeeAge-0')).toHaveValue('29');
+        await expect(page.getByRole('combobox', { name: /ticket 1 attendee gender/i })).toContainText('Female');
+
+        await page.locator('#ticketAttendeeName-0').fill('Guest Name');
+        await expect(page.locator('#ticketAttendeeName-0')).toHaveValue('Guest Name');
     });
 });
 

@@ -65,9 +65,11 @@ import { toast } from '@/lib/notifications';
 import { getSupabase } from '@/lib/supabase';
 import { getAuthToken } from '@/lib/api';
 import {
+    buildTicketAttendeesWithBuyerAsFirst,
     normalizeCheckoutTicketAttendee,
     serializeCheckoutTicketAttendee,
     validateCheckoutTicketAttendee,
+    type CheckoutBuyerAttendeeCoreDetails,
     type CheckoutTicketAttendeeForm,
 } from '@/lib/checkout-ticket-attendees';
 import {
@@ -460,6 +462,7 @@ export function PublicEventPageContent({
     const promoValidationSignatureRef = useRef<string | null>(null);
     const donationDebounceRef = useRef<number | null>(null);
     const initiateCheckoutTimeoutRef = useRef<number | null>(null);
+    const previousBuyerAsFirstAttendeeRef = useRef<CheckoutBuyerAttendeeCoreDetails | null>(null);
     const [pendingInitiateCheckout, setPendingInitiateCheckout] = useState<{
         signature: string;
         fallbackValue: number;
@@ -1722,6 +1725,22 @@ export function PublicEventPageContent({
         }
         setCheckoutError(null);
         setHasAttemptedSubmit(false);
+        if (stepType === 'buyer' && requiresPerTicket) {
+            const buyerDetails: CheckoutBuyerAttendeeCoreDetails = {
+                name: attendeeName.trim(),
+                gender: attendeeGender as 'male' | 'female',
+                age: attendeeAge.trim(),
+            };
+            setTicketAttendees((prev) =>
+                buildTicketAttendeesWithBuyerAsFirst({
+                    attendees: prev,
+                    totalTickets,
+                    buyer: buyerDetails,
+                    previousBuyer: previousBuyerAsFirstAttendeeRef.current,
+                }),
+            );
+            previousBuyerAsFirstAttendeeRef.current = buyerDetails;
+        }
         setCheckoutStep(s => Math.min(s + 1, totalCheckoutSteps - 1));
     };
 
@@ -3083,8 +3102,14 @@ export function PublicEventPageContent({
                                             <>
                                                     <>
                                                         <div className="space-y-1.5">
-                                                            <Label className="text-xs font-medium text-muted-foreground">Attendee Name</Label>
+                                                            <Label
+                                                                htmlFor={`ticketAttendeeName-${currentTicketIndex}`}
+                                                                className="text-xs font-medium text-muted-foreground"
+                                                            >
+                                                                Attendee Name
+                                                            </Label>
                                                             <Input
+                                                                id={`ticketAttendeeName-${currentTicketIndex}`}
                                                                 value={currentTicketAttendee.name}
                                                                 onChange={(e) => {
                                                                     const updated = [...ticketAttendees];
@@ -3099,8 +3124,14 @@ export function PublicEventPageContent({
                                                         </div>
                                                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                                             <div className="space-y-1.5">
-                                                                <Label className="text-xs font-medium text-muted-foreground">Age</Label>
+                                                                <Label
+                                                                    htmlFor={`ticketAttendeeAge-${currentTicketIndex}`}
+                                                                    className="text-xs font-medium text-muted-foreground"
+                                                                >
+                                                                    Age
+                                                                </Label>
                                                                 <Input
+                                                                    id={`ticketAttendeeAge-${currentTicketIndex}`}
                                                                     type="number"
                                                                     value={currentTicketAttendee.age}
                                                                     onChange={(e) => {
@@ -3115,7 +3146,12 @@ export function PublicEventPageContent({
                                                                 />
                                                             </div>
                                                             <div className="space-y-1.5">
-                                                                <Label className="text-xs font-medium text-muted-foreground">Gender</Label>
+                                                                <Label
+                                                                    htmlFor={`ticketAttendeeGender-${currentTicketIndex}`}
+                                                                    className="text-xs font-medium text-muted-foreground"
+                                                                >
+                                                                    Gender
+                                                                </Label>
                                                                 <Select
                                                                     value={currentTicketAttendee.gender}
                                                                     onValueChange={(value) => {
@@ -3125,7 +3161,11 @@ export function PublicEventPageContent({
                                                                     }}
                                                                     disabled={isProcessing}
                                                                 >
-                                                                    <SelectTrigger className="h-10 bg-muted/30">
+                                                                    <SelectTrigger
+                                                                        id={`ticketAttendeeGender-${currentTicketIndex}`}
+                                                                        aria-label={`Ticket ${currentTicketIndex + 1} attendee gender`}
+                                                                        className="h-10 bg-muted/30"
+                                                                    >
                                                                         <SelectValue />
                                                                     </SelectTrigger>
                                                                     <SelectContent>

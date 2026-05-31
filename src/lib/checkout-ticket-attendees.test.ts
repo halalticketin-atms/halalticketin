@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildTicketAttendeesWithBuyerAsFirst,
   normalizeCheckoutTicketAttendee,
   serializeCheckoutTicketAttendee,
   validateCheckoutTicketAttendee,
@@ -113,5 +114,84 @@ describe('serializeCheckoutTicketAttendee', () => {
       age: 34,
       customAnswers: { q1: 'Halal meal' },
     });
+  });
+});
+
+describe('buildTicketAttendeesWithBuyerAsFirst', () => {
+  it('prefills the first ticket with buyer core details and leaves later tickets blank', () => {
+    const attendees = buildTicketAttendeesWithBuyerAsFirst({
+      attendees: [],
+      totalTickets: 2,
+      buyer: {
+        name: 'Buyer Name',
+        gender: 'female',
+        age: '29',
+      },
+    });
+
+    expect(attendees).toEqual([
+      normalizeCheckoutTicketAttendee({
+        name: 'Buyer Name',
+        gender: 'female',
+        age: '29',
+      }),
+      normalizeCheckoutTicketAttendee(),
+    ]);
+  });
+
+  it('preserves first ticket custom answers when prefilling core details', () => {
+    const attendees = buildTicketAttendeesWithBuyerAsFirst({
+      attendees: [
+        normalizeCheckoutTicketAttendee({
+          customAnswers: { diet: 'Vegetarian' },
+        }),
+      ],
+      totalTickets: 1,
+      buyer: {
+        name: 'Buyer Name',
+        gender: 'male',
+        age: '41',
+      },
+    });
+
+    expect(attendees[0]).toEqual(
+      normalizeCheckoutTicketAttendee({
+        name: 'Buyer Name',
+        gender: 'male',
+        age: '41',
+        customAnswers: { diet: 'Vegetarian' },
+      }),
+    );
+  });
+
+  it('updates a previous silent prefill but does not overwrite manual attendee edits', () => {
+    const attendees = buildTicketAttendeesWithBuyerAsFirst({
+      attendees: [
+        normalizeCheckoutTicketAttendee({
+          name: 'Manual Attendee',
+          gender: 'female',
+          age: '30',
+        }),
+      ],
+      totalTickets: 1,
+      buyer: {
+        name: 'Updated Buyer',
+        gender: 'male',
+        age: '31',
+      },
+      previousBuyer: {
+        name: 'Original Buyer',
+        gender: 'female',
+        age: '30',
+      },
+    });
+
+    expect(attendees[0]).toEqual(
+      normalizeCheckoutTicketAttendee({
+        name: 'Manual Attendee',
+        gender: 'male',
+        age: '31',
+      }),
+    );
   });
 });

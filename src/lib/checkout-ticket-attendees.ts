@@ -17,6 +17,11 @@ export interface CheckoutTicketAttendeeForm {
   giftDeliveryMode?: 'email' | 'link';
 }
 
+export type CheckoutBuyerAttendeeCoreDetails = Pick<
+  CheckoutTicketAttendeeForm,
+  'name' | 'gender' | 'age'
+>;
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const normalizeCheckoutTicketAttendee = (
@@ -32,6 +37,47 @@ export const normalizeCheckoutTicketAttendee = (
 
 export const isGiftCheckoutTicketAttendee = (attendee: CheckoutTicketAttendeeForm) =>
   attendee.giftDeliveryMode === 'email' || attendee.giftDeliveryMode === 'link';
+
+const shouldReplaceWithBuyerValue = (
+  currentValue: string,
+  previousBuyerValue: string | undefined,
+) => !currentValue.trim() || (previousBuyerValue !== undefined && currentValue === previousBuyerValue);
+
+export const buildTicketAttendeesWithBuyerAsFirst = ({
+  attendees,
+  totalTickets,
+  buyer,
+  previousBuyer,
+}: {
+  attendees: Partial<CheckoutTicketAttendeeForm>[];
+  totalTickets: number;
+  buyer: CheckoutBuyerAttendeeCoreDetails;
+  previousBuyer?: CheckoutBuyerAttendeeCoreDetails | null;
+}): CheckoutTicketAttendeeForm[] => {
+  const normalizedAttendees = Array.from({ length: totalTickets }, (_, index) =>
+    normalizeCheckoutTicketAttendee(attendees[index]),
+  );
+  const firstAttendee = normalizedAttendees[0];
+
+  if (!firstAttendee) {
+    return normalizedAttendees;
+  }
+
+  normalizedAttendees[0] = {
+    ...firstAttendee,
+    name: shouldReplaceWithBuyerValue(firstAttendee.name, previousBuyer?.name)
+      ? buyer.name
+      : firstAttendee.name,
+    gender: shouldReplaceWithBuyerValue(firstAttendee.gender, previousBuyer?.gender)
+      ? buyer.gender
+      : firstAttendee.gender,
+    age: shouldReplaceWithBuyerValue(firstAttendee.age, previousBuyer?.age)
+      ? buyer.age
+      : firstAttendee.age,
+  };
+
+  return normalizedAttendees;
+};
 
 const hasRequiredAnswer = (question: CheckoutCustomQuestion, answer?: string) => {
   if (question.type === 'checkbox' && question.options && question.options.length > 0) {
