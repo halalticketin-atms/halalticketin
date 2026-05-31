@@ -1,14 +1,14 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState, useCallback } from 'react';
+import { Suspense, useEffect, useMemo, useState, useCallback, type ComponentType } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { motion } from 'motion/react';
 import {
   ArrowRight,
   Copy,
   NotebookPen,
-  Sparkles,
   Wand2,
 } from 'lucide-react';
 import {
@@ -35,6 +35,7 @@ import { useAuth } from '@/context/auth-context';
 import { fetchEventDetails, listOrganizerEvents, type EventRecord } from '@/lib/events-api';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
 import { getUserFriendlyMessage } from '@/lib/notifications';
+import { cn } from '@/lib/utils';
 
 // Lazy load the dialog to reduce initial bundle size
 const CreateOrganizerDialog = dynamic(
@@ -47,14 +48,30 @@ type DraftSource = 'ai' | 'clone' | 'draft';
 interface ActionTileProps {
   title: string;
   description: string;
-  icon: typeof Sparkles;
+  icon: ComponentType<{ className?: string }>;
+  iconClassName?: string;
+  /** Render the icon as a free-floating illustration instead of inside the frosted chip. */
+  iconBare?: boolean;
   badge?: string;
   actionLabel: string;
   gradient: string;
   onClick: () => void;
 }
 
-function ActionTile({ title, description, icon: Icon, badge, actionLabel, gradient, onClick }: ActionTileProps) {
+function CreateAiAssistantIcon({ className }: { className?: string }) {
+  return (
+    <Image
+      src="/assets/icons/create-ai-assistant-icon.png"
+      alt=""
+      width={128}
+      height={128}
+      className={cn('object-contain', className)}
+      aria-hidden="true"
+    />
+  );
+}
+
+function ActionTile({ title, description, icon: Icon, iconClassName, iconBare, badge, actionLabel, gradient, onClick }: ActionTileProps) {
   return (
     <div
       onClick={onClick}
@@ -63,9 +80,15 @@ function ActionTile({ title, description, icon: Icon, badge, actionLabel, gradie
       {/* Background Texture/Noise (Optional, keeping it clean for now) */}
 
       <div className="relative z-10 flex items-start justify-between">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md">
-          <Icon className="h-6 w-6 text-white" />
-        </div>
+        {iconBare ? (
+          <div className="flex h-12 w-20 items-center justify-center overflow-visible">
+            <Icon className={cn('h-20 w-20', iconClassName)} />
+          </div>
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md">
+            <Icon className={cn('h-6 w-6 text-white', iconClassName)} />
+          </div>
+        )}
         {badge ? (
           <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur-md">
             {badge}
@@ -166,7 +189,9 @@ function NewEventChooserPageContent() {
       {
         title: 'Create with AI',
         description: 'Chat with our assistant, paste details or upload a poster for instant drafts.',
-        icon: Sparkles,
+        icon: CreateAiAssistantIcon,
+        iconClassName: 'drop-shadow-[0_6px_12px_rgba(0,0,0,0.18)]',
+        iconBare: true,
         badge: 'Beta',
         actionLabel: 'Start with AI',
         gradient: 'bg-gradient-to-br from-[#0CCDA3] to-[#00B4D8]', // Mint to Cyan
@@ -378,7 +403,7 @@ function NewEventChooserPageContent() {
               How would you like to <span className="text-[#14b8a6]">create</span>?
             </h1>
             <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto flex items-center justify-center gap-2">
-              AI assistance, blank canvas, or pick up where you left off <Sparkles className="h-5 w-5 text-[#FFD700]" />
+              AI assistance, blank canvas, or pick up where you left off
             </p>
 
             {/* Org Badge - shows which org will own the event */}
