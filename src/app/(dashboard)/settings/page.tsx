@@ -35,8 +35,10 @@ import {
     Youtube,
     Upload,
     Lock,
-    Target
+    Target,
+    Bell
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { SUPPORTED_CURRENCIES } from '@/lib/fees';
 import { COUNTRIES } from '@/lib/organizer-options';
 import { uploadAvatar, uploadOrganizerAvatar, fileToDataUrl } from '@/lib/upload-api';
@@ -83,6 +85,7 @@ interface OrganizerProfileFormData {
     tiktok: string;
     linkedin: string;
     youtube: string;
+    sendFollowerEventNotifications: boolean;
 }
 
 const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
@@ -162,6 +165,7 @@ export default function SettingsPage() {
         tiktok: '',
         linkedin: '',
         youtube: '',
+        sendFollowerEventNotifications: true,
     });
     const [isSavingOrganizerProfile, setIsSavingOrganizerProfile] = useState(false);
     const [organizerProfileSaveStatus, setOrganizerProfileSaveStatus] = useState<'success' | 'error' | null>(null);
@@ -292,6 +296,8 @@ export default function SettingsPage() {
                 tiktok: socialLinks.tiktok || '',
                 linkedin: socialLinks.linkedin || '',
                 youtube: socialLinks.youtube || '',
+                sendFollowerEventNotifications:
+                    currentOrganizer.sendFollowerEventNotifications ?? true,
             });
         }
     }, [currentOrganizer]);
@@ -560,6 +566,9 @@ export default function SettingsPage() {
 
             payload.socialLinks = Object.keys(socialLinks).length > 0 ? socialLinks : null;
 
+            payload.sendFollowerEventNotifications =
+                organizerProfileForm.sendFollowerEventNotifications;
+
             await api.patch(`/api/v1/organizers/${activeOrganizerId}`, payload);
             setOrganizerProfileSaveStatus('success');
             await refresh();
@@ -603,7 +612,9 @@ export default function SettingsPage() {
             (organizerProfileForm.instagram || '') !== (currentSocialLinks.instagram || '') ||
             (organizerProfileForm.tiktok || '') !== (currentSocialLinks.tiktok || '') ||
             (organizerProfileForm.linkedin || '') !== (currentSocialLinks.linkedin || '') ||
-            (organizerProfileForm.youtube || '') !== (currentSocialLinks.youtube || '')
+            (organizerProfileForm.youtube || '') !== (currentSocialLinks.youtube || '') ||
+            organizerProfileForm.sendFollowerEventNotifications !==
+                (currentOrganizer.sendFollowerEventNotifications ?? true)
         );
     })();
 
@@ -1102,6 +1113,36 @@ export default function SettingsPage() {
                                                             placeholder="https://youtube.com/@yourchannel"
                                                             value={organizerProfileForm.youtube}
                                                             onChange={(e) => setOrganizerProfileForm(prev => ({ ...prev, youtube: e.target.value }))}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Follower Notifications Card */}
+                                            <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+                                                <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
+                                                    <h3 className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                                                        <Bell className="h-3.5 w-3.5" /> Follower Notifications
+                                                    </h3>
+                                                </div>
+                                                <div className="p-4">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="space-y-1 min-w-0">
+                                                            <Label htmlFor="org-follower-notifications" className="text-sm font-medium text-foreground">
+                                                                Notify followers about new public events
+                                                            </Label>
+                                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                                                Followers are emailed when this organiser publishes a public event. They can stop updates by unfollowing.
+                                                            </p>
+                                                        </div>
+                                                        <Switch
+                                                            id="org-follower-notifications"
+                                                            className="mt-0.5 shrink-0"
+                                                            checked={organizerProfileForm.sendFollowerEventNotifications}
+                                                            disabled={!canEditOrgSettings}
+                                                            onCheckedChange={(checked) =>
+                                                                setOrganizerProfileForm(prev => ({ ...prev, sendFollowerEventNotifications: checked }))
+                                                            }
                                                         />
                                                     </div>
                                                 </div>

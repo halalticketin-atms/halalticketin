@@ -33,6 +33,7 @@ export interface OrganizerSummary {
     feeTier: 'payg' | 'token' | 'charity';
     charityNumber: string | null;
     isCharityVerified: boolean;
+    sendFollowerEventNotifications: boolean;
     role: string;
     status: string;
     membershipId: string;

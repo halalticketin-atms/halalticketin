@@ -417,6 +417,13 @@ export default function OrganizerProfilePage() {
 
                             </div>
 
+                            {/* Follow updates helper copy */}
+                            <p className="mt-2 text-xs sm:text-sm text-muted-foreground max-w-prose">
+                                {isFollowing
+                                    ? 'You may receive emails for new public events. Unfollow to stop updates.'
+                                    : 'Follow this organiser and you may receive emails when they publish public events.'}
+                            </p>
+
                             {/* Social Links */}
                             {(socialLinks.length > 0 || organizer.website) && (
                                 <div className="flex flex-wrap items-center gap-2 mt-3 sm:mt-4">
