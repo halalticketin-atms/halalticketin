@@ -1,19 +1,18 @@
 'use client';
 
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
-import { Calendar, Ticket, DollarSign, Plus, AlertCircle, RefreshCw } from 'lucide-react';
+import { Calendar, Ticket, DollarSign, AlertCircle, RefreshCw } from 'lucide-react';
 
-import { StatCard, EventPerformanceCards } from '@/components/dashboard';
+import { StatCard, EventPerformanceCards, CreditBalancePanel } from '@/components/dashboard';
 
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import api from '@/lib/api';
-import { getCreditAccounting } from '@/lib/credit-accounting';
+import { getCreditAccounting, getCreditStatus } from '@/lib/credit-accounting';
 import { getCreditBalance, CreditBalanceResponse } from '@/lib/credits-api';
 import { MIN_CREDITS } from '@/lib/fees';
 
@@ -259,19 +258,26 @@ export default function DashboardPage() {
     ];
   }, [analyticsStats, eventsPerformance]);
 
-  const showLowCredits =
-    creditData !== null &&
-    !isCreditsLoading &&
-    activeOrganizer?.feeTier === 'token' &&
-    (creditData.availableBalance ?? creditData.balance) < MIN_CREDITS;
+  // Single source of truth for the credits module: available/used accounting
+  // plus a health status that drives the bar colour and copy.
+  const creditAccounting = useMemo(
+    () => (creditData ? getCreditAccounting(creditData) : null),
+    [creditData]
+  );
+  const creditStatus = creditAccounting
+    ? getCreditStatus(creditAccounting.available, MIN_CREDITS)
+    : null;
 
-  // Credit usage calculations for the bar - show when there's credit data with positive balance OR purchases
-  const creditUsage = useMemo(() => {
-    if (!creditData) return null;
-    // Only show if they have purchased credits or have a balance
-    const accounting = getCreditAccounting(creditData);
-    return accounting.hasActivity ? accounting : null;
-  }, [creditData]);
+  const isTokenTier = activeOrganizer?.feeTier === 'token';
+  // Token-tier organisers always see their balance (so a zero state prompts a
+  // top-up); other tiers only see it if they have historical credit activity.
+  const showCreditsModule =
+    Boolean(organizerId) &&
+    !isCreditsLoading &&
+    !creditError &&
+    creditAccounting !== null &&
+    creditStatus !== null &&
+    (isTokenTier || creditAccounting.hasActivity);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -286,19 +292,6 @@ export default function DashboardPage() {
           <h1 className="font-display text-2xl sm:text-3xl font-bold">{welcomeTitle}</h1>
           <p className="text-muted-foreground mt-1">{welcomeSubtitle}</p>
         </motion.div>
-
-        {showCharityBanner && (
-          <div className="mb-6 rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-semibold">Charity discounts active</p>
-                <p className="text-emerald-900/80">
-                  50% off platform fees and 25% off credits are applied automatically.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {creditError && !isCreditsLoading && organizerId && (
           <motion.div
@@ -329,22 +322,27 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
-        {showLowCredits && organizerId && (
-          <div className="mb-6 rounded-xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
+        {/* Credit Balance: moved to the top so balance, low and zero states are
+            communicated in one module instead of a separate banner + bar. */}
+        {showCreditsModule && creditAccounting && creditStatus && organizerId && (
+          <div className="mb-6">
+            <CreditBalancePanel
+              accounting={creditAccounting}
+              status={creditStatus}
+              purchaseHref={`${buildDashboardPath(organizerId)}/billing/purchase`}
+            />
+          </div>
+        )}
+
+        {showCharityBanner && (
+          <div className="mb-6 rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-semibold">Credits running low</p>
-                <p className="text-amber-900/80">
-                  You have {(creditData.availableBalance ?? creditData.balance).toLocaleString()} credits left. Add more credits to
-                  keep organiser fees active.
+                <p className="font-semibold">Charity discounts active</p>
+                <p className="text-emerald-900/80">
+                  50% off platform fees and 25% off credits are applied automatically.
                 </p>
               </div>
-              <Link
-                href={`${buildDashboardPath(organizerId)}/billing/purchase`}
-                className="inline-flex items-center justify-center rounded-md bg-amber-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
-              >
-                Top up credits
-              </Link>
             </div>
           </div>
         )}
@@ -355,71 +353,6 @@ export default function DashboardPage() {
             <StatCard key={stat.title} {...stat} delay={i * 0.1} />
           ))}
         </div>
-
-        {/* Credit Usage Bar - Only for token-based organisers with credits */}
-        {creditUsage && !isCreditsLoading && organizerId && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
-            className="mb-8"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-foreground">Credit Balance</span>
-                <span className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)] bg-clip-text text-transparent">
-                  {creditUsage.available.toLocaleString()}
-                </span>
-                <span className="text-sm text-muted-foreground">available</span>
-              </div>
-              <Link
-                href={`${buildDashboardPath(organizerId)}/billing/purchase`}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--brand-teal)] hover:text-[var(--brand-cyan)] transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                Add Credits
-              </Link>
-            </div>
-
-            {/* Minimal Progress Bar */}
-            <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/40">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${creditUsage.usedPercentage}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
-                className="h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]"
-              />
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${creditUsage.availablePercentage}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 }}
-                className="h-full bg-[var(--brand-mint)]/60"
-              />
-            </div>
-
-            {/* Legend */}
-            <div className="flex items-center gap-6 mt-2.5 text-xs">
-              <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]" />
-                <span className="text-muted-foreground">
-                  Used:{' '}
-                  <span className="font-medium text-foreground">
-                    {creditUsage.used.toLocaleString()}
-                  </span>
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-[var(--brand-mint)]/60" />
-                <span className="text-muted-foreground">
-                  Available:{' '}
-                  <span className="font-medium text-foreground">
-                    {creditUsage.available.toLocaleString()}
-                  </span>
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        )}
 
         {/* Event Performance Cards */}
         <div>
