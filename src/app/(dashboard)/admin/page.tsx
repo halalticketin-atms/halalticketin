@@ -790,7 +790,7 @@ function OrganizersTable() {
                                     {organizers.map((org) => (
                                         <tr key={org.id} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
                                             <td className="px-4 py-3">
-                                                <p className="font-medium truncate max-w-[180px]">{org.name}</p>
+                                                <p className="font-medium truncate max-w-[120px] sm:max-w-[180px]">{org.name}</p>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <Badge
@@ -825,11 +825,12 @@ function OrganizersTable() {
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-8"
+                                                    className="h-8 px-2 sm:px-3"
                                                     onClick={() => openGrantDialog(org)}
+                                                    aria-label={`Add credits to ${org.name}`}
                                                 >
-                                                    <CirclePlus className="h-3.5 w-3.5 mr-1.5" />
-                                                    Add Credits
+                                                    <CirclePlus className="h-3.5 w-3.5 sm:mr-1.5" />
+                                                    <span className="hidden sm:inline">Add Credits</span>
                                                 </Button>
                                             </td>
                                         </tr>
@@ -981,7 +982,7 @@ function EventsTable() {
                         className="cursor-pointer border-b border-border/40 transition-colors hover:bg-muted/20"
                         onClick={() => setExpandedId(expandedId === event.id ? null : event.id)}
                     >
-                        <td className="px-3 py-3 sm:px-4">
+                        <td className="px-2 py-3 sm:px-4">
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -999,19 +1000,19 @@ function EventsTable() {
                                 )}
                             </Button>
                         </td>
-                        <td className="px-3 py-3 sm:px-4">
-                            <div className="min-w-[180px]">
-                                <p className="max-w-[260px] truncate font-medium">{event.title}</p>
-                                <p className="text-xs text-muted-foreground">
+                        <td className="px-2 py-3 sm:px-4">
+                            <div className="max-w-[150px] sm:max-w-none sm:min-w-[180px]">
+                                <p className="truncate font-medium sm:max-w-[260px]">{event.title}</p>
+                                <p className="truncate text-xs text-muted-foreground">
                                     {formatDate(event.startDatetime)}
                                     {event.publishedAt ? ` - Published ${formatDate(event.publishedAt)}` : ''}
                                 </p>
-                                <p className="text-xs text-muted-foreground sm:hidden">
+                                <p className="truncate text-xs text-muted-foreground sm:hidden">
                                     {event.organizer.name}
                                 </p>
                             </div>
                         </td>
-                        <td className="px-3 py-3 sm:px-4">
+                        <td className="px-2 py-3 sm:px-4">
                             <Badge variant="secondary" className={`gap-1.5 whitespace-nowrap border text-xs ${meta.badge}`}>
                                 <StateIcon className="h-3.5 w-3.5" />
                                 <span className="sm:hidden">{getCompactSalesStateLabel(event.salesState)}</span>
@@ -1157,9 +1158,9 @@ function EventsTable() {
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-border/60 bg-muted/30">
-                                        <th className="w-8 px-3 py-3 text-left font-medium text-muted-foreground sm:px-4"></th>
-                                        <th className="px-3 py-3 text-left font-medium text-muted-foreground sm:px-4">Event</th>
-                                        <th className="px-3 py-3 text-left font-medium text-muted-foreground sm:px-4">State</th>
+                                        <th className="w-8 px-2 py-3 text-left font-medium text-muted-foreground sm:px-4"></th>
+                                        <th className="px-2 py-3 text-left font-medium text-muted-foreground sm:px-4">Event</th>
+                                        <th className="px-2 py-3 text-left font-medium text-muted-foreground sm:px-4">State</th>
                                         <th className="hidden px-3 py-3 text-left font-medium text-muted-foreground sm:table-cell sm:px-4">Visibility</th>
                                         <th className="hidden px-3 py-3 text-left font-medium text-muted-foreground md:table-cell sm:px-4">Organiser</th>
                                         <th className="hidden px-3 py-3 text-center font-medium text-muted-foreground md:table-cell sm:px-4">Tickets</th>
