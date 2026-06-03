@@ -1185,7 +1185,7 @@ function EventsTable() {
                                                                 <div className="flex items-center gap-2">
                                                                     <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
                                                                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                                                        {group.state === 'live' ? 'Live events' : meta.label}
+                                                                        {meta.label}
                                                                     </span>
                                                                 </div>
                                                                 <span className="text-xs text-muted-foreground">
@@ -1364,7 +1364,7 @@ export default function AdminDashboardPage() {
         return [
             {
                 title: 'Live events',
-                subtitle: 'Public & on sale now',
+                subtitle: 'Public & upcoming on Browse',
                 value: totals?.liveEvents ?? 0,
                 icon: Radio,
                 gradient: 'from-emerald-500 to-teal-500',
@@ -1373,7 +1373,7 @@ export default function AdminDashboardPage() {
             },
             {
                 title: 'Published events',
-                subtitle: 'Listed publicly',
+                subtitle: 'Published status',
                 value: totals?.publishedEvents ?? 0,
                 icon: Globe,
                 gradient: 'from-[var(--brand-teal)] to-[var(--brand-cyan)]',
