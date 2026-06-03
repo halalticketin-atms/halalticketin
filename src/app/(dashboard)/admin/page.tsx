@@ -11,7 +11,18 @@ import {
     UserPlus,
     TrendingUp,
     Shield,
-    Sparkles,
+    Radar,
+    Radio,
+    Globe,
+    Lock,
+    ShoppingCart,
+    History,
+    Hourglass,
+    CircleSlash,
+    PenLine,
+    Ban,
+    Archive,
+    Heart,
     Users,
     Building2,
     Calendar,
@@ -22,6 +33,7 @@ import {
     ChevronRight,
     CirclePlus,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
     AreaChart,
     Area,
@@ -74,6 +86,18 @@ type ActivityItem = {
     createdAt: string;
 };
 
+type EventBreakdown = {
+    live: number;
+    published: number;
+    private: number;
+    previous: number;
+    notOnSale: number;
+    soldOut: number;
+    draft: number;
+    cancelled: number;
+    archived: number;
+};
+
 type AdminOverviewResponse = {
     windowDays: number;
     windowStart: string;
@@ -81,12 +105,18 @@ type AdminOverviewResponse = {
         users: number;
         events: number;
         tickets: number;
+        orders: number;
+        liveEvents: number;
+        publishedEvents: number;
+        privateEvents: number;
     };
     window: {
         users: number;
         events: number;
         tickets: number;
+        orders: number;
     };
+    eventBreakdown: EventBreakdown;
     activity: ActivityItem[];
 };
 
@@ -159,6 +189,105 @@ const formatPrice = (amount: number, currency: string) => {
 };
 
 const shortId = (value: string) => value.slice(0, 8);
+
+// =====================
+// Sales-state presentation
+// =====================
+
+type SalesState = AdminEvent['salesState'];
+
+type SalesStateMeta = {
+    label: string;
+    icon: LucideIcon;
+    badge: string;
+    dot: string;
+};
+
+const SALES_STATE_META: Record<SalesState, SalesStateMeta> = {
+    live: {
+        label: 'Live - on sale',
+        icon: Radio,
+        badge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25',
+        dot: 'bg-emerald-500',
+    },
+    not_on_sale: {
+        label: 'Not on sale yet',
+        icon: Hourglass,
+        badge: 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/25',
+        dot: 'bg-sky-500',
+    },
+    sold_out: {
+        label: 'Sold out',
+        icon: CircleSlash,
+        badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25',
+        dot: 'bg-amber-500',
+    },
+    private: {
+        label: 'Private - link only',
+        icon: Lock,
+        badge: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/25',
+        dot: 'bg-violet-500',
+    },
+    previous: {
+        label: 'Previous',
+        icon: History,
+        badge: 'bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/25',
+        dot: 'bg-slate-400',
+    },
+    draft: {
+        label: 'Draft',
+        icon: PenLine,
+        badge: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300 border-zinc-500/25',
+        dot: 'bg-zinc-400',
+    },
+    cancelled: {
+        label: 'Cancelled',
+        icon: Ban,
+        badge: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/25',
+        dot: 'bg-rose-500',
+    },
+    archived: {
+        label: 'Archived',
+        icon: Archive,
+        badge: 'bg-stone-500/10 text-stone-600 dark:text-stone-300 border-stone-500/25',
+        dot: 'bg-stone-400',
+    },
+};
+
+const SALES_STATE_ORDER: SalesState[] = [
+    'live',
+    'not_on_sale',
+    'sold_out',
+    'private',
+    'previous',
+    'draft',
+    'cancelled',
+    'archived',
+];
+
+const compactNumber = (value: number) =>
+    new Intl.NumberFormat('en-GB', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+
+const getCompactSalesStateLabel = (state: SalesState) => {
+    switch (state) {
+        case 'live':
+            return 'Live';
+        case 'not_on_sale':
+            return 'Paused';
+        case 'sold_out':
+            return 'Sold out';
+        case 'private':
+            return 'Private';
+        case 'previous':
+            return 'Previous';
+        case 'draft':
+            return 'Draft';
+        case 'cancelled':
+            return 'Cancelled';
+        case 'archived':
+            return 'Archived';
+    }
+};
 
 // =====================
 // Chart Component
@@ -464,6 +593,9 @@ function UsersTable() {
                                                 <div>
                                                     <p className="font-medium truncate max-w-[150px]">{user.name || 'Unnamed'}</p>
                                                     <p className="text-xs text-muted-foreground sm:hidden truncate max-w-[150px]">{user.email}</p>
+                                                    <p className="text-xs text-muted-foreground lg:hidden">
+                                                        Joined {formatDate(user.createdAt)}
+                                                    </p>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground truncate max-w-[200px]">{user.email}</td>
@@ -772,17 +904,22 @@ function EventsTable() {
     const [pagination, setPagination] = useState({ limit: 25, offset: 0, total: 0 });
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<AdminEvent['status'] | 'all'>('all');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const hasLoadedInitialEventsRef = useRef(false);
 
-    const fetchEvents = useCallback(async (params: { offset?: number; search?: string }) => {
+    const fetchEvents = useCallback(async (params: {
+        offset?: number;
+        search?: string;
+        status?: AdminEvent['status'] | 'all';
+    }) => {
         setIsLoading(true);
         try {
             const result = await getEventsList({
                 limit: 25,
                 offset: params.offset ?? pagination.offset,
                 search: params.search ?? search,
-                status: 'published',
+                status: params.status ?? statusFilter,
             });
             setEvents(result.data);
             setPagination(result.pagination);
@@ -791,7 +928,7 @@ function EventsTable() {
         } finally {
             setIsLoading(false);
         }
-    }, [pagination.offset, search]);
+    }, [pagination.offset, search, statusFilter]);
 
     useEffect(() => {
         if (hasLoadedInitialEventsRef.current) {
@@ -803,34 +940,208 @@ function EventsTable() {
 
     const handleSearch = (value: string) => {
         setSearch(value);
+        setExpandedId(null);
         fetchEvents({ offset: 0, search: value });
     };
 
-    const statusColors: Record<string, string> = {
-        draft: 'bg-gray-500/10 text-gray-600',
-        published: 'bg-emerald-500/10 text-emerald-600',
-        cancelled: 'bg-red-500/10 text-red-600',
-        archived: 'bg-amber-500/10 text-amber-600',
+    const handleStatusFilterChange = (value: AdminEvent['status'] | 'all') => {
+        setStatusFilter(value);
+        setExpandedId(null);
+        fetchEvents({ offset: 0, status: value });
     };
+
+    const groupedEvents = useMemo(
+        () => SALES_STATE_ORDER
+            .map((state) => ({
+                state,
+                events: events.filter((event) => event.salesState === state),
+            }))
+            .filter((group) => group.events.length > 0),
+        [events]
+    );
+
+    const statusFilters: { value: AdminEvent['status'] | 'all'; label: string }[] = [
+        { value: 'all', label: 'All' },
+        { value: 'published', label: 'Published' },
+        { value: 'draft', label: 'Drafts' },
+        { value: 'cancelled', label: 'Cancelled' },
+        { value: 'archived', label: 'Archived' },
+    ];
+
+    const renderEventRows = (sectionEvents: AdminEvent[]) =>
+        sectionEvents.map((event) => {
+            const meta = SALES_STATE_META[event.salesState];
+            const StateIcon = meta.icon;
+            const isPublic = event.visibility === 'public';
+            const VisibilityIcon = isPublic ? Globe : Lock;
+
+            return (
+                <Fragment key={event.id}>
+                    <tr
+                        className="cursor-pointer border-b border-border/40 transition-colors hover:bg-muted/20"
+                        onClick={() => setExpandedId(expandedId === event.id ? null : event.id)}
+                    >
+                        <td className="px-3 py-3 sm:px-4">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label={expandedId === event.id ? 'Collapse event details' : 'Expand event details'}
+                                onClick={(clickEvent) => {
+                                    clickEvent.stopPropagation();
+                                    setExpandedId(expandedId === event.id ? null : event.id);
+                                }}
+                            >
+                                {expandedId === event.id ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                )}
+                            </Button>
+                        </td>
+                        <td className="px-3 py-3 sm:px-4">
+                            <div className="min-w-[180px]">
+                                <p className="max-w-[260px] truncate font-medium">{event.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {formatDate(event.startDatetime)}
+                                    {event.publishedAt ? ` - Published ${formatDate(event.publishedAt)}` : ''}
+                                </p>
+                                <p className="text-xs text-muted-foreground sm:hidden">
+                                    {event.organizer.name}
+                                </p>
+                            </div>
+                        </td>
+                        <td className="px-3 py-3 sm:px-4">
+                            <Badge variant="secondary" className={`gap-1.5 whitespace-nowrap border text-xs ${meta.badge}`}>
+                                <StateIcon className="h-3.5 w-3.5" />
+                                <span className="sm:hidden">{getCompactSalesStateLabel(event.salesState)}</span>
+                                <span className="hidden sm:inline">{meta.label}</span>
+                            </Badge>
+                        </td>
+                        <td className="hidden px-3 py-3 sm:table-cell sm:px-4">
+                            <Badge
+                                variant="secondary"
+                                className={`gap-1.5 whitespace-nowrap border text-xs ${isPublic
+                                    ? 'border-teal-500/20 bg-teal-500/10 text-teal-700 dark:text-teal-300'
+                                    : 'border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-300'
+                                    }`}
+                            >
+                                <VisibilityIcon className="h-3.5 w-3.5" />
+                                {isPublic ? 'Public' : 'Private'}
+                            </Badge>
+                        </td>
+                        <td className="hidden max-w-[150px] truncate px-3 py-3 text-muted-foreground md:table-cell sm:px-4">
+                            {event.organizer.name}
+                        </td>
+                        <td className="hidden px-3 py-3 text-center md:table-cell sm:px-4">
+                            <span className="font-medium">{event.totalSold}</span>
+                            <span className="text-muted-foreground">/{event.totalCapacity}</span>
+                            {event.donationCount > 0 && (
+                                <span className="ml-1 text-muted-foreground">+{event.donationCount}</span>
+                            )}
+                        </td>
+                        <td className="hidden px-3 py-3 text-center font-medium lg:table-cell sm:px-4">
+                            {event.ordersCount}
+                        </td>
+                    </tr>
+                    <AnimatePresence>
+                        {expandedId === event.id && (
+                            <motion.tr
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                key={`${event.id}-expand`}
+                            >
+                                <td colSpan={7} className="bg-muted/20 px-4 py-4">
+                                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(280px,2fr)]">
+                                        <div className="grid grid-cols-2 gap-2 text-sm">
+                                            <div className="rounded-lg border border-border/60 bg-background p-3">
+                                                <p className="text-xs text-muted-foreground">Available</p>
+                                                <p className="font-semibold">{event.ticketsAvailable.toLocaleString()}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-border/60 bg-background p-3">
+                                                <p className="text-xs text-muted-foreground">Orders</p>
+                                                <p className="font-semibold">{event.ordersCount.toLocaleString()}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-border/60 bg-background p-3">
+                                                <p className="text-xs text-muted-foreground">Venue</p>
+                                                <p className="truncate font-semibold">{event.venue || event.city || '-'}</p>
+                                            </div>
+                                            <div className="rounded-lg border border-border/60 bg-background p-3">
+                                                <p className="text-xs text-muted-foreground">Price</p>
+                                                <p className="truncate font-semibold">
+                                                    {event.priceRange.min === event.priceRange.max
+                                                        ? formatPrice(event.priceRange.min, event.currency)
+                                                        : `${formatPrice(event.priceRange.min, event.currency)} - ${formatPrice(event.priceRange.max, event.currency)}`}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                            {event.ticketTypes.length === 0 ? (
+                                                <div className="rounded-lg border border-border/60 bg-background p-3 text-sm text-muted-foreground">
+                                                    No active ticket types.
+                                                </div>
+                                            ) : (
+                                                event.ticketTypes.map((tt) => (
+                                                    <div key={tt.id} className="rounded-lg border border-border/60 bg-background p-3">
+                                                        <p className="truncate text-sm font-medium">{tt.name}</p>
+                                                        <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+                                                            <span className="text-muted-foreground">{formatPrice(tt.price, tt.currency)}</span>
+                                                            <span>
+                                                                <span className="font-medium">{tt.sold}</span>
+                                                                <span className="text-muted-foreground">/{tt.total} sold</span>
+                                                            </span>
+                                                        </div>
+                                                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                                                            <div
+                                                                className="h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]"
+                                                                style={{ width: `${tt.total > 0 ? Math.min((tt.sold / tt.total) * 100, 100) : 0}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </td>
+                            </motion.tr>
+                        )}
+                    </AnimatePresence>
+                </Fragment>
+            );
+        });
 
     return (
         <Card className="border-border/60">
             <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
                         <Calendar className="h-5 w-5 text-amber-500" />
                         Events
                         <Badge variant="secondary" className="ml-2">{pagination.total}</Badge>
                     </CardTitle>
-                    <div className="flex gap-2 flex-wrap">
-                        <div className="relative flex-1 sm:flex-none">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
+                        <div className="relative min-w-[220px] flex-1 sm:flex-none">
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search events..."
-                                className="pl-8 h-9 w-full sm:w-[200px]"
+                                className="h-9 w-full pl-8 sm:w-[240px]"
                                 value={search}
                                 onChange={(e) => handleSearch(e.target.value)}
                             />
+                        </div>
+                        <div className="flex flex-wrap gap-1 rounded-lg border border-border/60 bg-muted/40 p-1">
+                            {statusFilters.map((option) => (
+                                <Button
+                                    key={option.value}
+                                    variant={statusFilter === option.value ? 'default' : 'ghost'}
+                                    size="sm"
+                                    className="h-7 px-2.5 text-xs"
+                                    onClick={() => handleStatusFilterChange(option.value)}
+                                >
+                                    {option.label}
+                                </Button>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -846,98 +1157,47 @@ function EventsTable() {
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-border/60 bg-muted/30">
-                                        <th className="px-4 py-3 text-left font-medium text-muted-foreground w-8"></th>
-                                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">Event</th>
-                                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                                        <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden sm:table-cell">Organizer</th>
-                                        <th className="px-4 py-3 text-center font-medium text-muted-foreground hidden md:table-cell">Tickets</th>
-                                        <th className="px-4 py-3 text-center font-medium text-muted-foreground hidden md:table-cell">Orders</th>
-                                        <th className="px-4 py-3 text-left font-medium text-muted-foreground hidden lg:table-cell">Price Range</th>
+                                        <th className="w-8 px-3 py-3 text-left font-medium text-muted-foreground sm:px-4"></th>
+                                        <th className="px-3 py-3 text-left font-medium text-muted-foreground sm:px-4">Event</th>
+                                        <th className="px-3 py-3 text-left font-medium text-muted-foreground sm:px-4">State</th>
+                                        <th className="hidden px-3 py-3 text-left font-medium text-muted-foreground sm:table-cell sm:px-4">Visibility</th>
+                                        <th className="hidden px-3 py-3 text-left font-medium text-muted-foreground md:table-cell sm:px-4">Organiser</th>
+                                        <th className="hidden px-3 py-3 text-center font-medium text-muted-foreground md:table-cell sm:px-4">Tickets</th>
+                                        <th className="hidden px-3 py-3 text-center font-medium text-muted-foreground lg:table-cell sm:px-4">Orders</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {events.map((event) => (
-                                        <Fragment key={event.id}>
-                                            <tr
-                                                className="border-b border-border/40 hover:bg-muted/20 transition-colors cursor-pointer"
-                                                onClick={() => setExpandedId(expandedId === event.id ? null : event.id)}
-                                            >
-                                                <td className="px-4 py-3">
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                                                        {expandedId === event.id ? (
-                                                            <ChevronUp className="h-4 w-4" />
-                                                        ) : (
-                                                            <ChevronDown className="h-4 w-4" />
-                                                        )}
-                                                    </Button>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div>
-                                                        <p className="font-medium truncate max-w-[200px]">{event.title}</p>
-                                                        <p className="text-xs text-muted-foreground">{formatDate(event.startDatetime)}</p>
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <Badge variant="secondary" className={`text-xs capitalize ${statusColors[event.status]}`}>
-                                                        {event.status}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground truncate max-w-[120px]">
-                                                    {event.organizer.name}
-                                                </td>
-                                                <td className="px-4 py-3 text-center hidden md:table-cell">
-                                                    <span className="font-medium">{event.totalSold}</span>
-                                                    <span className="text-muted-foreground">/{event.totalCapacity}</span>
-                                                    {event.donationCount > 0 && (
-                                                        <span className="text-muted-foreground ml-1">
-                                                            +{event.donationCount}
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-center hidden md:table-cell font-medium">
-                                                    {event.ordersCount}
-                                                </td>
-                                                <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground text-xs">
-                                                    {event.priceRange.min === event.priceRange.max
-                                                        ? formatPrice(event.priceRange.min, event.currency)
-                                                        : `${formatPrice(event.priceRange.min, event.currency)} - ${formatPrice(event.priceRange.max, event.currency)}`}
-                                                </td>
-                                            </tr>
-                                            <AnimatePresence>
-                                                {expandedId === event.id && (
-                                                    <motion.tr
-                                                        initial={{ opacity: 0, height: 0 }}
-                                                        animate={{ opacity: 1, height: 'auto' }}
-                                                        exit={{ opacity: 0, height: 0 }}
-                                                        key={`${event.id}-expand`}
-                                                    >
-                                                        <td colSpan={7} className="px-4 py-3 bg-muted/20">
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                                                                {event.ticketTypes.map((tt) => (
-                                                                    <div key={tt.id} className="rounded-lg bg-background border border-border/60 p-3">
-                                                                        <p className="font-medium text-sm">{tt.name}</p>
-                                                                        <div className="mt-2 flex items-center justify-between text-xs">
-                                                                            <span className="text-muted-foreground">{formatPrice(tt.price, tt.currency)}</span>
-                                                                            <span>
-                                                                                <span className="font-medium">{tt.sold}</span>
-                                                                                <span className="text-muted-foreground">/{tt.total} sold</span>
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
-                                                                            <div
-                                                                                className="h-full bg-gradient-to-r from-[var(--brand-teal)] to-[var(--brand-cyan)]"
-                                                                                style={{ width: `${tt.total > 0 ? (tt.sold / tt.total) * 100 : 0}%` }}
-                                                                            />
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
+                                    {groupedEvents.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                                                No events match this view.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        groupedEvents.map((group) => {
+                                            const meta = SALES_STATE_META[group.state];
+                                            return (
+                                                <Fragment key={group.state}>
+                                                    <tr className="border-y border-border/60 bg-muted/40">
+                                                        <td colSpan={7} className="px-4 py-2">
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
+                                                                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                                                        {group.state === 'live' ? 'Live events' : meta.label}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {group.events.length.toLocaleString()}
+                                                                </span>
                                                             </div>
                                                         </td>
-                                                    </motion.tr>
-                                                )}
-                                            </AnimatePresence>
-                                        </Fragment>
-                                    ))}
+                                                    </tr>
+                                                    {renderEventRows(group.events)}
+                                                </Fragment>
+                                            );
+                                        })
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -1095,34 +1355,83 @@ export default function AdminDashboardPage() {
         };
     }, [timeSeriesPeriod]);
 
-    const stats = useMemo(() => {
-        const totals = overview?.totals ?? { users: 0, events: 0, tickets: 0 };
+    const windowDays = overview?.windowDays ?? 30;
+
+    // Event-state cards: emphasise what is live on the platform right now.
+    const eventStateCards = useMemo(() => {
+        const totals = overview?.totals;
+        return [
+            {
+                title: 'Live events',
+                subtitle: 'Public & on sale now',
+                value: totals?.liveEvents ?? 0,
+                icon: Radio,
+                gradient: 'from-emerald-500 to-teal-500',
+                bgGradient: 'from-emerald-500/10 to-teal-500/10',
+                live: true,
+            },
+            {
+                title: 'Published events',
+                subtitle: 'Listed publicly',
+                value: totals?.publishedEvents ?? 0,
+                icon: Globe,
+                gradient: 'from-[var(--brand-teal)] to-[var(--brand-cyan)]',
+                bgGradient: 'from-[var(--brand-mint)]/10 to-[var(--brand-cyan)]/10',
+                live: false,
+            },
+            {
+                title: 'Private events',
+                subtitle: 'Unlisted, link only',
+                value: totals?.privateEvents ?? 0,
+                icon: Lock,
+                gradient: 'from-violet-500 to-purple-500',
+                bgGradient: 'from-violet-500/10 to-purple-500/10',
+                live: false,
+            },
+        ];
+    }, [overview]);
+
+    // Platform totals with rolling-window deltas.
+    const platformStatCards = useMemo(() => {
+        const totals = overview?.totals;
+        const win = overview?.window;
         return [
             {
                 title: 'Users',
-                subtitle: 'All time',
-                value: totals.users,
-                icon: UserPlus,
+                value: totals?.users ?? 0,
+                windowValue: win?.users ?? 0,
+                icon: Users,
                 gradient: 'from-[var(--brand-teal)] to-[var(--brand-cyan)]',
-                bgGradient: 'from-[var(--brand-mint)]/10 to-[var(--brand-cyan)]/10',
             },
             {
-                title: 'Events',
-                subtitle: 'All time',
-                value: totals.events,
-                icon: CalendarPlus,
-                gradient: 'from-purple-500 to-violet-500',
-                bgGradient: 'from-purple-500/10 to-violet-500/10',
-            },
-            {
-                title: 'Tickets Sold',
-                subtitle: 'All time',
-                value: totals.tickets,
-                icon: Ticket,
+                title: 'Orders',
+                value: totals?.orders ?? 0,
+                windowValue: win?.orders ?? 0,
+                icon: ShoppingCart,
                 gradient: 'from-amber-500 to-orange-500',
-                bgGradient: 'from-amber-500/10 to-orange-500/10',
+            },
+            {
+                title: 'Tickets sold',
+                value: totals?.tickets ?? 0,
+                windowValue: win?.tickets ?? 0,
+                icon: Ticket,
+                gradient: 'from-rose-500 to-pink-500',
             },
         ];
+    }, [overview]);
+
+    // Secondary event states for the breakdown strip.
+    const breakdownItems = useMemo(() => {
+        const b = overview?.eventBreakdown;
+        const items: { state: SalesState; value: number }[] = [
+            { state: 'previous', value: b?.previous ?? 0 },
+            { state: 'not_on_sale', value: b?.notOnSale ?? 0 },
+            { state: 'sold_out', value: b?.soldOut ?? 0 },
+            { state: 'draft', value: b?.draft ?? 0 },
+            { state: 'cancelled', value: b?.cancelled ?? 0 },
+            { state: 'archived', value: b?.archived ?? 0 },
+        ];
+        return items;
     }, [overview]);
 
     const { eventActivity, userActivity } = useMemo(() => {
@@ -1184,33 +1493,75 @@ export default function AdminDashboardPage() {
     return (
         <div className="min-h-screen bg-muted/30">
             <div className="container py-6 sm:py-8 space-y-6">
-                {/* Hero Header */}
+                {/* Operations snapshot header */}
                 <motion.div
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
-                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--brand-teal)] via-[var(--brand-cyan)] to-[var(--brand-mint)] p-5 sm:p-6 md:p-8"
+                    className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[var(--brand-teal)] via-[var(--brand-cyan)] to-[var(--brand-mint)] p-5 sm:p-6 md:p-7"
                 >
                     <div className="absolute inset-0 overflow-hidden">
-                        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-                        <div className="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+                        <div
+                            className="absolute inset-0 opacity-[0.08]"
+                            style={{
+                                backgroundImage:
+                                    'linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)',
+                                backgroundSize: '28px 28px',
+                            }}
+                        />
                     </div>
 
-                    <div className="relative z-10 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                                <Sparkles className="h-5 w-5 text-white/90" />
-                                <p className="text-sm font-semibold text-white/90 uppercase tracking-widest">Admin Dashboard</p>
+                    <div className="relative z-10 space-y-5">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/25">
+                                        <Radar className="h-4 w-4 text-white" />
+                                    </span>
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
+                                        Platform operations
+                                    </p>
+                                </div>
+                                <h1 className="text-xl font-bold text-white sm:text-2xl md:text-3xl">
+                                    What&rsquo;s live right now
+                                </h1>
                             </div>
-                            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Platform Overview</h1>
-                            <p className="text-white/80 text-sm sm:text-base max-w-md">
-                                Monitor signups, events, and ticket activity across Halal Ticketin.
-                            </p>
+                            <Badge className="w-fit gap-1.5 border-white/30 bg-white/15 text-white hover:bg-white/25">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+                                </span>
+                                Live - last {windowDays}d
+                            </Badge>
                         </div>
-                        <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30 w-fit">
-                            <TrendingUp className="h-3.5 w-3.5 mr-1.5" />
-                            Live Data
-                        </Badge>
+
+                        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/15 sm:grid-cols-4">
+                            {[
+                                { label: 'Live events', value: overview?.totals.liveEvents ?? 0, icon: Radio },
+                                { label: 'Published', value: overview?.totals.publishedEvents ?? 0, icon: Globe },
+                                { label: 'Private', value: overview?.totals.privateEvents ?? 0, icon: Lock },
+                                {
+                                    label: `Orders - ${windowDays}d`,
+                                    value: overview?.window.orders ?? 0,
+                                    icon: ShoppingCart,
+                                },
+                            ].map((item) => {
+                                const Icon = item.icon;
+                                return (
+                                    <div key={item.label} className="bg-white/5 px-3.5 py-3 backdrop-blur-sm">
+                                        <div className="flex items-center gap-1.5 text-white/80">
+                                            <Icon className="h-3.5 w-3.5" />
+                                            <span className="text-[11px] font-medium uppercase tracking-wide">
+                                                {item.label}
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-2xl font-bold leading-none text-white">
+                                            {Number(item.value).toLocaleString()}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </motion.div>
 
@@ -1237,33 +1588,107 @@ export default function AdminDashboardPage() {
 
                     {/* Overview Tab */}
                     <TabsContent value="overview" className="space-y-6">
-                        {/* Stats Grid */}
+                        <div>
+                            <div className="mb-3 flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <h2 className="text-sm font-semibold text-foreground">Events by state</h2>
+                                <span className="text-xs text-muted-foreground">
+                                    {Number(overview?.totals.events ?? 0).toLocaleString()} total
+                                </span>
+                            </div>
+                            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+                                {eventStateCards.map((stat, index) => {
+                                    const Icon = stat.icon;
+                                    return (
+                                        <motion.div
+                                            key={stat.title}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.4, delay: index * 0.08 }}
+                                        >
+                                            <Card className={`relative overflow-hidden border-border/60 bg-gradient-to-br ${stat.bgGradient}`}>
+                                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                                    <div className="space-y-0.5">
+                                                        <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                                                            {stat.title}
+                                                            {stat.live && (
+                                                                <span className="relative flex h-2 w-2" aria-hidden>
+                                                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                                                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                                                                </span>
+                                                            )}
+                                                        </CardTitle>
+                                                        <p className="text-xs text-muted-foreground">{stat.subtitle}</p>
+                                                    </div>
+                                                    <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-lg`}>
+                                                        <Icon className="h-5 w-5 text-white" />
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}>
+                                                        {Number(stat.value).toLocaleString()}
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                            <motion.div
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.4, delay: 0.24 }}
+                                className="mt-3 flex flex-wrap items-stretch gap-2"
+                            >
+                                {breakdownItems.map((item) => {
+                                    const meta = SALES_STATE_META[item.state];
+                                    const Icon = meta.icon;
+                                    return (
+                                        <div
+                                            key={item.state}
+                                            className="flex flex-1 items-center gap-2.5 rounded-lg border border-border/60 bg-card px-3 py-2 min-w-[140px]"
+                                        >
+                                            <span className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border ${meta.badge}`}>
+                                                <Icon className="h-3.5 w-3.5" />
+                                            </span>
+                                            <div className="min-w-0">
+                                                <p className="text-base font-semibold leading-none">{item.value.toLocaleString()}</p>
+                                                <p className="truncate text-xs text-muted-foreground">{meta.label}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </motion.div>
+                        </div>
+
                         <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-                            {stats.map((stat, index) => {
+                            {platformStatCards.map((stat, index) => {
                                 const Icon = stat.icon;
                                 return (
                                     <motion.div
                                         key={stat.title}
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.4, delay: index * 0.1 }}
+                                        transition={{ duration: 0.4, delay: 0.28 + index * 0.08 }}
                                     >
-                                        <Card className={`relative overflow-hidden border-border/60 bg-gradient-to-br ${stat.bgGradient}`}>
+                                        <Card className="relative overflow-hidden border-border/60">
                                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                                 <div>
                                                     <CardTitle className="text-sm font-medium text-foreground">{stat.title}</CardTitle>
-                                                    <p className="text-xs text-muted-foreground">{stat.subtitle}</p>
+                                                    <p className="text-xs text-muted-foreground">All time</p>
                                                 </div>
-                                                <div
-                                                    className={`h-10 w-10 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-lg`}
-                                                >
+                                                <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-lg`}>
                                                     <Icon className="h-5 w-5 text-white" />
                                                 </div>
                                             </CardHeader>
-                                            <CardContent>
+                                            <CardContent className="flex items-end justify-between gap-2">
                                                 <div className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}>
                                                     {Number(stat.value).toLocaleString()}
                                                 </div>
+                                                <Badge variant="secondary" className="mb-1 gap-1 font-medium text-muted-foreground">
+                                                    <TrendingUp className="h-3 w-3" />
+                                                    +{compactNumber(stat.windowValue)} - {windowDays}d
+                                                </Badge>
                                             </CardContent>
                                         </Card>
                                     </motion.div>
@@ -1481,7 +1906,7 @@ export default function AdminDashboardPage() {
                                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                                     <div className="flex items-center gap-3">
                                         <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
-                                            <Sparkles className="h-4 w-4 text-white" />
+                                            <Heart className="h-4 w-4 text-white" />
                                         </div>
                                         <div>
                                             <CardTitle className="text-lg">Charity Signups</CardTitle>

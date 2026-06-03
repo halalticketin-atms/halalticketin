@@ -78,10 +78,27 @@ export interface AdminEventTicketType {
     total: number;
 }
 
+export type AdminEventVisibility = 'public' | 'private' | 'draft' | 'cancelled' | 'archived';
+
+export type AdminEventSalesState =
+    | 'live'
+    | 'previous'
+    | 'private'
+    | 'not_on_sale'
+    | 'sold_out'
+    | 'draft'
+    | 'cancelled'
+    | 'archived';
+
 export interface AdminEvent {
     id: string;
     title: string;
     status: 'draft' | 'published' | 'cancelled' | 'archived';
+    visibility: AdminEventVisibility;
+    salesState: AdminEventSalesState;
+    isListedPublicly: boolean;
+    isPubliclyAccessible: boolean;
+    publishedAt: string | null;
     startDatetime: string | null;
     endDatetime: string | null;
     venue: string | null;
