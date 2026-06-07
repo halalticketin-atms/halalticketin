@@ -101,7 +101,6 @@ const BUYER_STEPS = [
 const ORGANIZER_STEPS = [
     { id: 'intent', title: 'Welcome', description: 'Choose your path', icon: Sparkles },
     { id: 'credentials', title: 'Account', description: 'Create your account', icon: User },
-    { id: 'about-you', title: 'About You', description: 'Personal info', icon: User },
     { id: 'organization', title: 'Organization', description: 'Your brand', icon: Building2 },
     { id: 'location', title: 'Location', description: 'Where you are', icon: Globe },
     { id: 'currency', title: 'Currency', description: 'Get paid', icon: Coins },
@@ -145,7 +144,7 @@ interface RegisterResponse {
     requiresEmailConfirmation?: boolean;
 }
 
-type Step = 'intent' | 'credentials' | 'profile' | 'about-you' | 'organization' | 'location' | 'currency' | 'stripe' | 'complete';
+type Step = 'intent' | 'credentials' | 'profile' | 'organization' | 'location' | 'currency' | 'stripe' | 'complete';
 
 interface FormData {
     role: 'buyer' | 'organizer';
@@ -169,6 +168,8 @@ interface FormData {
 const initialFormData: FormData = {
     role: 'organizer',
     ...createOrganizerSignupForm(),
+    gender: '',
+    dateOfBirth: '',
     homeCountry: '',
     homeCity: '',
 };
@@ -197,7 +198,6 @@ const STEP_CONTENT: Record<Step, { headline: string; subtext: string }> = {
     intent: { headline: 'Get Started', subtext: "Connect with your community by ticketin' the right way" },
     credentials: { headline: 'Create Account', subtext: 'Set up your login details' },
     profile: { headline: 'About You', subtext: 'Help us personalize your experience' },
-    'about-you': { headline: 'Tell us about you', subtext: 'A bit more about yourself' },
     organization: { headline: 'Your Brand', subtext: 'Set up your organiser profile' },
     location: { headline: 'Where are you?', subtext: 'Set your default location preferences' },
     currency: { headline: 'Default Currency', subtext: "We'll use this as your default analytics currency but each event can have its own." },
@@ -305,6 +305,7 @@ export function SignupOnboardingDialog({
     const isEmailLocked = isInviteFlow
         || (isAuthenticatedOnboarding && Boolean(prefill?.email) && !emailEditedRef.current);
     const showSignInEmailHint = isAuthenticatedOnboarding && !isInviteFlow && Boolean(prefill?.email) && !emailEditedRef.current;
+    const shouldCollectBuyerDemographics = formData.role === 'buyer';
 
     const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
@@ -525,24 +526,10 @@ export function SignupOnboardingDialog({
                     break;
                 }
 
-                // Organizers go through granular steps, buyers go to profile
-                setStep(formData.role === 'organizer' ? 'about-you' : 'profile');
+                // Organizers continue directly to their organisation details.
+                setStep(formData.role === 'organizer' ? 'organization' : 'profile');
                 break;
             }
-            case 'about-you':
-                {
-                    const result = validateOrganizerSignupStep('about-you', formData, {
-                        authenticated: isAuthenticatedOnboarding,
-                        acceptedTerms,
-                    });
-                    if ('error' in result) {
-                        setErrorMessage(result.error);
-                        return;
-                    }
-                    setFormData((current) => ({ ...current, ...result.form }));
-                }
-                setStep('organization');
-                break;
             case 'organization': {
                 const validation = validateOrganizerSignupStep('organization', formData, {
                     authenticated: isAuthenticatedOnboarding,
@@ -625,7 +612,7 @@ export function SignupOnboardingDialog({
                 break;
             case 'profile': {
                 // Buyer profile
-                if (!formData.gender || !formData.dateOfBirth) {
+                if (shouldCollectBuyerDemographics && (!formData.gender || !formData.dateOfBirth)) {
                     setErrorMessage('All fields are required');
                     return;
                 }
@@ -663,9 +650,6 @@ export function SignupOnboardingDialog({
                 setStep('organization');
                 return;
             case 'organization':
-                setStep('about-you');
-                return;
-            case 'about-you':
                 setStep('credentials');
                 return;
         }
@@ -752,8 +736,10 @@ export function SignupOnboardingDialog({
                 payload.inviteToken = inviteToken;
             }
 
-            if (formData.gender) payload.gender = formData.gender;
-            if (formData.dateOfBirth) payload.dateOfBirth = formData.dateOfBirth;
+            if (shouldCollectBuyerDemographics) {
+                if (formData.gender) payload.gender = formData.gender;
+                if (formData.dateOfBirth) payload.dateOfBirth = formData.dateOfBirth;
+            }
             if (resolvedHomeCountry) payload.homeCountry = resolvedHomeCountry;
             if (resolvedHomeCity) payload.homeCity = resolvedHomeCity;
 
@@ -1496,40 +1482,42 @@ export function SignupOnboardingDialog({
                                 >
                                     <motion.div variants={staggerContainer} initial="hidden" animate="show">
                                         <div className="space-y-4">
-                                            <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label>
-                                                        Gender
-                                                    </Label>
-                                                    <Select
-                                                        value={formData.gender}
-                                                        onValueChange={(value) => updateField('gender', value as 'male' | 'female')}
-                                                    >
-                                                        <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
-                                                            <SelectValue placeholder="Select gender" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="male">Male</SelectItem>
-                                                            <SelectItem value="female">Female</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
+                                            {shouldCollectBuyerDemographics && (
+                                                <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <Label>
+                                                            Gender
+                                                        </Label>
+                                                        <Select
+                                                            value={formData.gender}
+                                                            onValueChange={(value) => updateField('gender', value as 'male' | 'female')}
+                                                        >
+                                                            <SelectTrigger className="h-12 bg-white/70 dark:bg-slate-800/70">
+                                                                <SelectValue placeholder="Select gender" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="male">Male</SelectItem>
+                                                                <SelectItem value="female">Female</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
 
-                                                <div className="space-y-2">
-                                                    <Label className="flex items-center gap-2">
-                                                        <Calendar className="h-4 w-4 text-slate-400" />
-                                                        Date of Birth
-                                                    </Label>
-                                                    <DatePicker
-                                                        value={formData.dateOfBirth}
-                                                        onChange={(value) => updateField('dateOfBirth', value)}
-                                                        placeholder="Select date of birth"
-                                                        className="h-12 bg-white/70 dark:bg-slate-800/70"
-                                                        maxDate={new Date()}
-                                                        showYearMonthDropdowns
-                                                    />
-                                                </div>
-                                            </motion.div>
+                                                    <div className="space-y-2">
+                                                        <Label className="flex items-center gap-2">
+                                                            <Calendar className="h-4 w-4 text-slate-400" />
+                                                            Date of Birth
+                                                        </Label>
+                                                        <DatePicker
+                                                            value={formData.dateOfBirth}
+                                                            onChange={(value) => updateField('dateOfBirth', value)}
+                                                            placeholder="Select date of birth"
+                                                            className="h-12 bg-white/70 dark:bg-slate-800/70"
+                                                            maxDate={new Date()}
+                                                            showYearMonthDropdowns
+                                                        />
+                                                    </div>
+                                                </motion.div>
+                                            )}
 
                                             <motion.div variants={staggerItem} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div className="space-y-2">
@@ -1623,79 +1611,6 @@ export function SignupOnboardingDialog({
                                                     <ArrowRight className="ml-2 h-5 w-5" />
                                                 </>
                                             )}
-                                        </Button>
-                                    </div>
-                                </motion.div>
-                            )}
-
-                            {/* Step: About You (Organizer) */}
-                            {step === 'about-you' && (
-                                <motion.div
-                                    key="about-you"
-                                    custom={direction}
-                                    variants={slideVariants}
-                                    initial="enter"
-                                    animate="center"
-                                    exit="exit"
-                                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                                    className="space-y-6"
-                                >
-                                    <div>
-                                        <h2 className="text-2xl lg:text-3xl font-display font-bold text-slate-800 dark:text-white">
-                                            Tell us about you
-                                        </h2>
-                                    </div>
-
-                                    <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-4">
-                                        <div className="space-y-2">
-                                            <Label>Gender</Label>
-                                            <Select
-                                                value={formData.gender}
-                                                onValueChange={(value) => updateField('gender', value as 'male' | 'female')}
-                                            >
-                                                <SelectTrigger className="h-11 bg-white dark:bg-slate-800">
-                                                    <SelectValue placeholder="Select gender" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="male">Male</SelectItem>
-                                                    <SelectItem value="female">Female</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label>Date of Birth</Label>
-                                            <DatePicker
-                                                value={formData.dateOfBirth}
-                                                onChange={(value) => updateField('dateOfBirth', value)}
-                                                placeholder="Select date of birth"
-                                                className="h-11 bg-white dark:bg-slate-800"
-                                                maxDate={new Date()}
-                                                showYearMonthDropdowns
-                                            />
-                                        </div>
-                                    </motion.div>
-
-                                    {error && (
-                                        <motion.p
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
-                                        >
-                                            {renderErrorMessage(error)}
-                                        </motion.p>
-                                    )}
-
-                                    <div className="flex gap-3 pt-2">
-                                        <Button variant="outline" onClick={handleBack} disabled={isLoading} className="h-12 px-6 border-2">
-                                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-                                        </Button>
-                                        <Button
-                                            onClick={handleNext}
-                                            disabled={isLoading}
-                                            className="flex-1 h-12 font-semibold bg-linear-to-r from-(--brand-cyan) to-(--brand-teal)"
-                                        >
-                                            Next Step <ArrowRight className="ml-2 h-5 w-5" />
                                         </Button>
                                     </div>
                                 </motion.div>

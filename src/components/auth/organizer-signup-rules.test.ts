@@ -32,8 +32,6 @@ describe('organiser signup rules', () => {
             email: 'person@example.com',
             password: '',
             name: 'Person Name',
-            gender: '',
-            dateOfBirth: '',
             organizerName: '',
             organizerType: 'individual',
             organizerCharityNumber: '',
@@ -134,6 +132,8 @@ describe('organiser signup rules', () => {
                 timezone: 'Europe/London',
             },
         });
+        expect(referralPayload).not.toHaveProperty('gender');
+        expect(referralPayload).not.toHaveProperty('dateOfBirth');
     });
 
     it('omits passwords from authenticated onboarding payloads', () => {

@@ -6,7 +6,6 @@ export const PENDING_ORGANIZER_AVATAR_KEY = 'halal-ticketin:pending-organizer-av
 
 export type OrganizerSignupStep =
     | 'credentials'
-    | 'about-you'
     | 'organization'
     | 'location'
     | 'currency';
@@ -15,8 +14,6 @@ export interface OrganizerSignupForm {
     email: string;
     password: string;
     name: string;
-    gender: 'male' | 'female' | '';
-    dateOfBirth: string;
     organizerName: string;
     organizerType: 'individual' | 'organization' | 'charity';
     organizerCharityNumber: string;
@@ -35,8 +32,6 @@ export interface OrganizerSignupPayload {
     termsAccepted: boolean;
     termsVersion: string;
     heightsprReferral?: true;
-    gender?: 'male' | 'female';
-    dateOfBirth?: string;
     homeCountry?: string;
     homeCity?: string;
     organizer: {
@@ -55,8 +50,6 @@ const INITIAL_ORGANIZER_SIGNUP_FORM: OrganizerSignupForm = {
     email: '',
     password: '',
     name: '',
-    gender: '',
-    dateOfBirth: '',
     organizerName: '',
     organizerType: 'individual',
     organizerCharityNumber: '',
@@ -120,11 +113,6 @@ export function validateOrganizerSignupStep(
             }
             return { form: normalizedForm };
         }
-        case 'about-you':
-            if (!form.gender || !form.dateOfBirth) {
-                return { error: 'All fields are required' };
-            }
-            return { form: normalizedForm };
         case 'organization': {
             if (form.organizerType === 'charity' && !normalizedForm.organizerCharityNumber) {
                 return { error: 'Charity number is required' };
@@ -185,8 +173,6 @@ export function buildOrganizerSignupPayload(
         termsAccepted: options.acceptedTerms,
         termsVersion: ORGANIZER_SIGNUP_TERMS_VERSION,
         ...(options.heightsprReferral ? { heightsprReferral: true as const } : {}),
-        ...(form.gender ? { gender: form.gender } : {}),
-        ...(form.dateOfBirth ? { dateOfBirth: form.dateOfBirth } : {}),
         ...(form.organizerCountry ? { homeCountry: form.organizerCountry } : {}),
         ...(organizerCity ? { homeCity: organizerCity } : {}),
         organizer: {

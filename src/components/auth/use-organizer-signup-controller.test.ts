@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOrganizerSignupForm } from './organizer-signup-rules';
 import {
     getOrganizerAvatarError,
+    ORGANIZER_SIGNUP_STEPS,
     requestOrganizerStripeConnect,
     resendOrganizerVerificationEmail,
     submitOrganizerSignup,
@@ -133,6 +134,15 @@ describe('organiser signup controller submission', () => {
 });
 
 describe('organiser signup controller continuations', () => {
+    it('uses four organiser setup steps without personal demographic details', () => {
+        expect(ORGANIZER_SIGNUP_STEPS).toEqual([
+            'credentials',
+            'organization',
+            'location',
+            'currency',
+        ]);
+    });
+
     it('shares logo validation rules across signup presentations', () => {
         expect(
             getOrganizerAvatarError(new File(['logo'], 'logo.svg', { type: 'image/svg+xml' })),

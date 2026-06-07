@@ -144,21 +144,111 @@ test.describe('Authentication Flow - Signup', () => {
     });
 
     test('organizer signup includes organization fields', async ({ page }) => {
-        await page.goto('/');
-        await page.waitForLoadState('networkidle');
+        await page.route('**/api/v1/auth/check-email', route => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ available: true }),
+        }));
+        await page.goto('/register?role=organizer');
 
-        const signUpButton = page.getByRole('button', { name: /sign up|get started/i }).first();
-        if (await signUpButton.isVisible()) {
-            await signUpButton.click();
-            await page.waitForTimeout(500);
+        const dialog = page.getByRole('dialog');
+        await expect(dialog.getByText('Sell Tickets', { exact: true })).toBeVisible();
+        await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
 
-            // Look for organizer option
-            const organizerCheckbox = page.locator('input[type="checkbox"]').first();
-            if (await organizerCheckbox.isVisible()) {
-                await organizerCheckbox.check();
-                // Should reveal organization name field
-            }
-        }
+        await dialog.getByLabel('Full Name').fill('Amina Khan');
+        await dialog.getByLabel('Email Address').fill('amina@example.com');
+        await dialog.getByLabel('Choose a password').fill('ValidPassword123!');
+        await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+
+        await expect(dialog.getByRole('textbox', {
+            name: 'Brand or organization name',
+        })).toBeVisible();
+        await expect(dialog.getByText('Tell us about you', { exact: true })).toHaveCount(0);
+        await expect(dialog.getByLabel('Gender')).toHaveCount(0);
+        await expect(dialog.getByText('Date of Birth', { exact: true })).toHaveCount(0);
+    });
+
+    test('buyer signup keeps personal profile fields', async ({ page }) => {
+        await page.route('**/api/v1/auth/check-email', route => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ available: true }),
+        }));
+        await page.goto('/register?role=buyer');
+
+        const dialog = page.getByRole('dialog');
+        await expect(dialog.getByText('Buy Tickets', { exact: true })).toBeVisible();
+        await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+
+        await dialog.getByLabel('Full Name').fill('Amina Khan');
+        await dialog.getByLabel('Email Address').fill('amina@example.com');
+        await dialog.getByLabel('Choose a password').fill('ValidPassword123!');
+        await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+
+        await expect(dialog.getByRole('combobox')).toHaveCount(2);
+        await expect(dialog.getByRole('button', {
+            name: 'Select date of birth',
+        })).toBeVisible();
+    });
+
+    test('organizer invitation signup omits personal demographics', async ({ page }) => {
+        let registrationPayload: Record<string, unknown> | null = null;
+
+        await page.route('**/api/v1/invitations/invite-token-123/info', route => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                email: 'invited.organizer@example.com',
+                role: 'admin',
+                organizerName: 'Inviting Org',
+                expiresAt: '2026-12-31T23:59:59.000Z',
+                alreadyAccepted: false,
+            }),
+        }));
+        await page.route('**/api/v1/auth/check-email', route => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ available: true }),
+        }));
+        await page.route('**/api/v1/auth/register', async route => {
+            registrationPayload = route.request().postDataJSON() as Record<string, unknown>;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    userId: 'invited_user_123',
+                    email: 'invited.organizer@example.com',
+                    isOrganizer: true,
+                }),
+            });
+        });
+
+        await page.goto('/register?inviteToken=invite-token-123');
+
+        const dialog = page.getByRole('dialog');
+        await expect(dialog.getByLabel('Email Address')).toHaveValue('invited.organizer@example.com');
+        await dialog.getByLabel('Full Name').fill('Invited Organizer');
+        await dialog.getByLabel('Choose a password').fill('ValidPassword123!');
+        await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+
+        await expect(dialog.getByLabel('Gender')).toHaveCount(0);
+        await expect(dialog.getByText('Date of Birth', { exact: true })).toHaveCount(0);
+
+        await dialog.getByRole('combobox').click();
+        await page.getByRole('option', { name: 'United Kingdom' }).click();
+        await dialog.getByRole('textbox', { name: 'Your city' }).fill('London');
+        await dialog.getByLabel(/I agree to the Terms of Use/i).click();
+        await dialog.getByRole('button', { name: 'Create Account', exact: true }).click();
+
+        await expect.poll(() => registrationPayload).not.toBeNull();
+        expect(registrationPayload).toEqual(expect.objectContaining({
+            email: 'invited.organizer@example.com',
+            inviteToken: 'invite-token-123',
+            isOrganizer: true,
+            termsAccepted: true,
+        }));
+        expect(registrationPayload).not.toHaveProperty('gender');
+        expect(registrationPayload).not.toHaveProperty('dateOfBirth');
     });
 });
 

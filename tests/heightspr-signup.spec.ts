@@ -50,6 +50,7 @@ test.describe('HeightsPR organiser signup', () => {
         await expect(page.getByRole('img', { name: 'HeightsPR' }).first()).toBeVisible();
         await expect(page.getByTestId('heightspr-fullscreen-shell')).toBeVisible();
         await expect(page.getByTestId('heightspr-brand-strip')).toBeVisible();
+        await expect(page.getByLabel(/^Go to /)).toHaveCount(4);
         await expect(page.getByTestId('heightspr-signup-card')).toHaveCount(0);
         await expect(page.getByLabel('Halal Ticketin and HeightsPR partnership')).toBeVisible();
         await expect(page.getByRole('heading', {
@@ -60,6 +61,8 @@ test.describe('HeightsPR organiser signup', () => {
         await expect(page.getByLabel('Email address')).toBeVisible();
         await expect(page.getByLabel('Password')).toBeVisible();
         await expect(page.getByRole('button', { name: 'Continue with Google' })).toHaveCount(0);
+        await expect(page.getByLabel('Gender')).toHaveCount(0);
+        await expect(page.getByText('Date of birth', { exact: true })).toHaveCount(0);
         await expect(page.getByText('For Attendees')).toHaveCount(0);
         await expect.poll(async () => page.evaluate(
             () => document.documentElement.scrollHeight <= window.innerHeight,
@@ -89,10 +92,10 @@ test.describe('HeightsPR organiser signup', () => {
         await page.goto('/heightspr');
 
         await expect(page.getByRole('heading', {
-            name: 'Your account already belongs to an organiser.',
+            name: 'You already have an organiser account.',
         })).toBeVisible();
         await expect(page.getByLabel('Organisation name')).toHaveCount(0);
-        await expect(page.getByText('has not been changed or tagged')).toBeVisible();
+        await expect(page.getByText('The HeightsPR route is reserved')).toHaveCount(0);
     });
 
     test('keeps the regular signup presentation available', async ({ page }) => {

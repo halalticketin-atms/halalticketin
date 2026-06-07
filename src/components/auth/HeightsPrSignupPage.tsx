@@ -15,7 +15,6 @@ import {
     LockKeyhole,
     Mail,
     MapPin,
-    ShieldCheck,
     UserRound,
     X,
 } from 'lucide-react';
@@ -23,7 +22,6 @@ import { useRef, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -67,10 +65,6 @@ const STEP_DETAILS: Record<OrganizerSignupStep, {
     credentials: {
         eyebrow: 'Account',
         title: 'First, the person behind the events.',
-    },
-    'about-you': {
-        eyebrow: 'About you',
-        title: 'A few details about you.',
     },
     organization: {
         eyebrow: 'Your organisation',
@@ -135,22 +129,15 @@ function BlockedPanel() {
     return (
         <main className="relative -mt-[var(--nav-safe-offset)] h-dvh overflow-hidden bg-[linear-gradient(105deg,oklch(0.78_0.14_165/0.30)_0%,oklch(0.72_0.15_185/0.22)_45%,oklch(0.99_0.005_180/0.84)_52%,#fff0e0_100%)] px-5 pb-16 pt-[calc(var(--nav-safe-offset)+4rem)]">
             <div className="absolute inset-0 bg-noise opacity-30" />
-            <section className="relative mx-auto flex h-full w-full max-w-6xl flex-col justify-between">
+            <section className="relative mx-auto flex h-full w-full max-w-6xl flex-col">
                 <BrandStrip />
-                <div className="max-w-xl py-16">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-lg shadow-[var(--brand-teal)]/20">
-                        <ShieldCheck className="h-7 w-7" />
-                    </div>
-                    <h1 className="mt-6 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                        Your account already belongs to an organiser.
+                <div className="flex flex-1 flex-col items-center justify-center pb-[var(--nav-safe-offset)] text-center">
+                    <h1 className="max-w-xl font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                        You already have an organiser account.
                     </h1>
-                    <p className="mt-4 max-w-md text-base leading-7 text-muted-foreground">
-                        The HeightsPR route is reserved for creating a new organiser. Your existing organiser has not been changed or tagged.
-                    </p>
-                    <Button asChild className="mt-8 h-12 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] px-6 font-bold text-white hover:opacity-90">
+                    <Button asChild className="mt-8 h-12 rounded-full bg-[var(--brand-teal)] px-6 font-bold text-white hover:bg-[var(--brand-teal)]/90">
                         <Link href="/dashboard">
                             Return to dashboard
-                            <ArrowRight className="ml-2 h-4 w-4" />
                         </Link>
                     </Button>
                 </div>
@@ -176,6 +163,7 @@ function HeightsPrSignupForm({
         prefill,
         redirectAfterComplete: '/dashboard',
         refresh,
+        refreshAfterAuthenticatedSubmit: false,
     });
     const currentIndex = ORGANIZER_SIGNUP_STEPS.indexOf(
         controller.step as OrganizerSignupStep,
@@ -189,7 +177,8 @@ function HeightsPrSignupForm({
         await controller.advance();
     };
 
-    const complete = () => {
+    const complete = async () => {
+        await refresh();
         if (controller.pendingEmailConfirmation) {
             router.push('/login?next=%2Fdashboard');
             return;
@@ -259,37 +248,6 @@ function HeightsPrSignupForm({
                                 </div>
                             </div>
                         ) : null}
-                    </div>
-                );
-            case 'about-you':
-                return (
-                    <div className="space-y-5" data-testid="heightspr-step-about-you">
-                        <div className="space-y-2">
-                            <Label>Gender</Label>
-                            <Select
-                                value={controller.form.gender}
-                                onValueChange={(value) => controller.updateField('gender', value as 'male' | 'female')}
-                            >
-                                <SelectTrigger className="h-12 rounded-xl border-border bg-white/80">
-                                    <SelectValue placeholder="Select gender" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="male">Male</SelectItem>
-                                    <SelectItem value="female">Female</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Date of birth</Label>
-                            <DatePicker
-                                value={controller.form.dateOfBirth}
-                                onChange={(value) => controller.updateField('dateOfBirth', value)}
-                                placeholder="Select date of birth"
-                                className="h-12 rounded-xl border-border bg-white/80"
-                                maxDate={new Date()}
-                                showYearMonthDropdowns
-                            />
-                        </div>
                     </div>
                 );
             case 'organization':
@@ -603,7 +561,7 @@ function HeightsPrSignupForm({
             <div className="relative z-10 flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-5 pb-7 pt-[calc(var(--nav-safe-offset)+1.75rem)] sm:px-8 sm:pb-9 sm:pt-[calc(var(--nav-safe-offset)+2.25rem)] lg:px-14 lg:pb-12 lg:pt-[calc(var(--nav-safe-offset)+3rem)]">
                 <BrandStrip />
 
-                <section className="flex flex-1 items-start justify-center py-10 sm:items-center sm:py-10 lg:py-8">
+                <section className="flex flex-1 items-start justify-center py-8 sm:py-10 lg:py-8">
                     <div className="w-full max-w-[620px]">
                         {isCoreStep ? (
                             <>

@@ -167,7 +167,6 @@ const defaultSubmissionDependencies = (refresh: () => Promise<void>): Submission
 
 export const ORGANIZER_SIGNUP_STEPS: OrganizerSignupStep[] = [
     'credentials',
-    'about-you',
     'organization',
     'location',
     'currency',
@@ -182,6 +181,7 @@ interface UseOrganizerSignupControllerOptions {
     };
     redirectAfterComplete?: string;
     refresh: () => Promise<void>;
+    refreshAfterAuthenticatedSubmit?: boolean;
 }
 
 export function useOrganizerSignupController({
@@ -190,6 +190,7 @@ export function useOrganizerSignupController({
     prefill,
     redirectAfterComplete,
     refresh,
+    refreshAfterAuthenticatedSubmit = true,
 }: UseOrganizerSignupControllerOptions) {
     const [form, setForm] = useState(() => createOrganizerSignupForm(prefill));
     const [step, setStep] = useState<OrganizerSignupStep | 'stripe' | 'complete'>('credentials');
@@ -256,7 +257,11 @@ export function useOrganizerSignupController({
                 heightsprReferral,
                 avatarFile,
                 avatarPreview,
-            }, defaultSubmissionDependencies(refresh));
+            }, defaultSubmissionDependencies(
+                authenticated && !refreshAfterAuthenticatedSubmit
+                    ? async () => undefined
+                    : refresh,
+            ));
             setOrganizerId(result.organizerId);
             setPendingEmailConfirmation(result.requiresEmailConfirmation);
             setStep(result.requiresEmailConfirmation ? 'complete' : 'stripe');
@@ -285,6 +290,7 @@ export function useOrganizerSignupController({
         form,
         heightsprReferral,
         refresh,
+        refreshAfterAuthenticatedSubmit,
     ]);
 
     const advance = useCallback(async () => {
