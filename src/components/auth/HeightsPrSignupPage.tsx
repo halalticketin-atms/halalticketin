@@ -676,9 +676,6 @@ function HeightsPrSignupForm({
                                     <h1 className="mt-3 max-w-xl font-display text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
                                         Create your organiser account.
                                     </h1>
-                                    <h2 className="sr-only">
-                                        {activeDetails.title}
-                                    </h2>
                                 </div>
                             </>
                         ) : null}
