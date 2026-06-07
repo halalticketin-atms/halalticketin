@@ -61,10 +61,17 @@ import { COUNTRIES, TIMEZONES } from '@/lib/organizer-options';
 import { getPasswordValidationError } from '@/lib/password';
 import { getLastAuthMethod, setLastAuthMethod, type LastAuthMethod } from '@/lib/last-auth-method';
 import { getDefaultInviteNextPath } from '@/lib/pending-invite';
+import { normalizeOrganizerContactEmail } from '@/lib/organizer-contact-email';
 import {
-    getOrganizerContactEmailError,
-    normalizeOrganizerContactEmail,
-} from '@/lib/organizer-contact-email';
+    createOrganizerSignupForm,
+    validateOrganizerSignupStep,
+} from './organizer-signup-rules';
+import {
+    getOrganizerAvatarError,
+    requestOrganizerStripeConnect,
+    resendOrganizerVerificationEmail,
+    submitOrganizerSignup,
+} from './use-organizer-signup-controller';
 
 const TERMS_VERSION = '2024-12-20';
 const SUPPORT_URL = '/contact';
@@ -161,21 +168,9 @@ interface FormData {
 
 const initialFormData: FormData = {
     role: 'organizer',
-    email: '',
-    password: '',
-    name: '',
-    gender: '',
-    dateOfBirth: '',
+    ...createOrganizerSignupForm(),
     homeCountry: '',
     homeCity: '',
-    organizerName: '',
-    organizerType: 'individual',
-    organizerCharityNumber: '',
-    organizerContactEmail: '',
-    organizerCountry: '',
-    organizerCity: '',
-    organizerCurrency: 'GBP',
-    organizerTimezone: 'Europe/London',
 };
 
 const slideVariants = {
@@ -377,15 +372,9 @@ export function SignupOnboardingDialog({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file type
-        if (!ALLOWED_AVATAR_MIME_TYPES.includes(file.type as (typeof ALLOWED_AVATAR_MIME_TYPES)[number])) {
-            setErrorMessage('Please upload a JPG, PNG, GIF, or WebP image');
-            return;
-        }
-
-        // Validate file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            setErrorMessage('Image must be 5MB or less');
+        const avatarError = getOrganizerAvatarError(file);
+        if (avatarError) {
+            setErrorMessage(avatarError);
             return;
         }
 
@@ -471,6 +460,17 @@ export function SignupOnboardingDialog({
                 setStep('credentials');
                 break;
             case 'credentials': {
+                if (formData.role === 'organizer' && !isInviteFlow) {
+                    const result = validateOrganizerSignupStep('credentials', formData, {
+                        authenticated: isAuthenticatedOnboarding,
+                        acceptedTerms,
+                    });
+                    if ('error' in result) {
+                        setErrorMessage(result.error);
+                        return;
+                    }
+                    setFormData((current) => ({ ...current, ...result.form }));
+                }
                 const trimmedName = formData.name.trim();
                 if (!trimmedName) {
                     setErrorMessage('Full name is required');
@@ -530,36 +530,32 @@ export function SignupOnboardingDialog({
                 break;
             }
             case 'about-you':
-                if (!formData.gender || !formData.dateOfBirth) {
-                    setErrorMessage('All fields are required');
-                    return;
+                {
+                    const result = validateOrganizerSignupStep('about-you', formData, {
+                        authenticated: isAuthenticatedOnboarding,
+                        acceptedTerms,
+                    });
+                    if ('error' in result) {
+                        setErrorMessage(result.error);
+                        return;
+                    }
+                    setFormData((current) => ({ ...current, ...result.form }));
                 }
                 setStep('organization');
                 break;
             case 'organization': {
+                const validation = validateOrganizerSignupStep('organization', formData, {
+                    authenticated: isAuthenticatedOnboarding,
+                    acceptedTerms,
+                });
+                if ('error' in validation) {
+                    setErrorMessage(validation.error);
+                    return;
+                }
+                setFormData((current) => ({ ...current, ...validation.form }));
                 const trimmedOrganizerName = formData.organizerName.trim();
                 const trimmedOrganizerCharityNumber = formData.organizerCharityNumber.trim();
                 const trimmedOrganizerContactEmail = normalizeOrganizerContactEmail(formData.organizerContactEmail);
-                if (formData.organizerType === 'charity' && !trimmedOrganizerCharityNumber) {
-                    setErrorMessage('Charity number is required');
-                    return;
-                }
-                if (!trimmedOrganizerName) {
-                    setErrorMessage('Organization name is required');
-                    return;
-                }
-                const organizerContactEmailError = getOrganizerContactEmailError(trimmedOrganizerContactEmail, {
-                    requiredMessage: 'Organizer contact email is required',
-                    invalidMessage: 'Please enter a valid organizer contact email',
-                });
-                if (organizerContactEmailError) {
-                    setErrorMessage(organizerContactEmailError);
-                    return;
-                }
-                if (!formData.organizerType) {
-                    setErrorMessage('Organization type is required');
-                    return;
-                }
                 if (trimmedOrganizerName !== formData.organizerName) {
                     updateField('organizerName', trimmedOrganizerName);
                 }
@@ -597,11 +593,16 @@ export function SignupOnboardingDialog({
                 break;
             }
             case 'location': {
-                const trimmedOrganizerCity = formData.organizerCity.trim();
-                if (!formData.organizerCountry || !trimmedOrganizerCity || !formData.organizerTimezone) {
-                    setErrorMessage('All fields are required');
+                const validation = validateOrganizerSignupStep('location', formData, {
+                    authenticated: isAuthenticatedOnboarding,
+                    acceptedTerms,
+                });
+                if ('error' in validation) {
+                    setErrorMessage(validation.error);
                     return;
                 }
+                setFormData((current) => ({ ...current, ...validation.form }));
+                const trimmedOrganizerCity = formData.organizerCity.trim();
                 if (trimmedOrganizerCity !== formData.organizerCity) {
                     updateField('organizerCity', trimmedOrganizerCity);
                 }
@@ -609,13 +610,16 @@ export function SignupOnboardingDialog({
                 break;
             }
             case 'currency':
-                if (!formData.organizerCurrency) {
-                    setErrorMessage('Please select a currency');
-                    return;
-                }
-                if (!acceptedTerms) {
-                    setErrorMessage('You must accept the Terms of Use to create an account');
-                    return;
+                {
+                    const validation = validateOrganizerSignupStep('currency', formData, {
+                        authenticated: isAuthenticatedOnboarding,
+                        acceptedTerms,
+                    });
+                    if ('error' in validation) {
+                        setErrorMessage(validation.error);
+                        return;
+                    }
+                    setFormData((current) => ({ ...current, ...validation.form }));
                 }
                 await handleRegister();
                 break;
@@ -692,6 +696,46 @@ export function SignupOnboardingDialog({
 
         try {
             const isOrganizer = formData.role === 'organizer';
+
+            if (isOrganizer && !isInviteFlow) {
+                const result = await submitOrganizerSignup({
+                    form: formData,
+                    acceptedTerms,
+                    authenticated: isAuthenticatedOnboarding,
+                    heightsprReferral: false,
+                    avatarFile,
+                    avatarPreview,
+                }, {
+                    post: <T,>(path: string, body: unknown) => api.post<T>(path, body),
+                    refresh,
+                    setAuthToken,
+                    setLastAuthMethod,
+                    uploadOrganizerAvatar,
+                    fileToDataUrl,
+                    storePendingAvatar: (pendingAvatar) => {
+                        window.localStorage.setItem(
+                            PENDING_ORG_AVATAR_KEY,
+                            JSON.stringify(pendingAvatar),
+                        );
+                    },
+                });
+
+                setOrganizerId(result.organizerId);
+                if (result.requiresEmailConfirmation) {
+                    setPendingEmailConfirmation(true);
+                    setDirection(1);
+                    setStep('complete');
+                    return;
+                }
+
+                if (!isAuthenticatedOnboarding) {
+                    setLastUsed('password');
+                }
+                setDirection(1);
+                setStep('stripe');
+                return;
+            }
+
             const organizerName = formData.organizerName.trim();
             const organizerContactEmail = normalizeOrganizerContactEmail(formData.organizerContactEmail);
             const resolvedHomeCountry = formData.homeCountry || (isOrganizer ? formData.organizerCountry : '');
@@ -856,14 +900,11 @@ export function SignupOnboardingDialog({
         try {
             setIsLoading(true);
             setError(null);
-            const response = await api.post<{ connectUrl: string }>(
-                `/api/v1/organizers/${organizerId}/stripe/connect-link`
+            const connectUrl = await requestOrganizerStripeConnect(
+                organizerId,
+                <T,>(path: string, payload?: unknown) => api.post<T>(path, payload),
             );
-            if (response.connectUrl) {
-                window.location.href = response.connectUrl;
-            } else {
-                setErrorMessage('Unable to get Stripe connect URL');
-            }
+            window.location.href = connectUrl;
         } catch (err) {
             console.error('Stripe connect error:', err);
             setError(getAuthUiError(err, { fallbackMessage: 'Unable to connect Stripe. You can set this up later.' }));
@@ -878,16 +919,11 @@ export function SignupOnboardingDialog({
             setError(null);
 
             const callbackContinuationPath = isInviteFlow ? inviteContinuationPath : redirectAfterComplete;
-            const emailRedirectTo = `${window.location.origin}/auth/callback${callbackContinuationPath ? `?next=${encodeURIComponent(callbackContinuationPath)}` : ''}`;
-            const { error } = await getSupabase().auth.resend({
-                type: 'signup',
+            await resendOrganizerVerificationEmail({
                 email: formData.email,
-                options: { emailRedirectTo },
-            });
-
-            if (error) {
-                throw error;
-            }
+                redirectAfterComplete: callbackContinuationPath ?? undefined,
+                origin: window.location.origin,
+            }, (request) => getSupabase().auth.resend(request));
 
             toast.success('Verification email sent', { description: 'Check your inbox and spam folder.' });
         } catch (err) {

@@ -8,8 +8,9 @@ export function ConditionalFooter() {
     const isDashboard = pathname.startsWith('/dashboard');
     const isPreviewShell = /^\/events\/[^/]+\/preview$/.test(pathname);
     const isEmbedRoute = pathname.startsWith('/embed');
+    const isDedicatedSignup = pathname === '/heightspr';
 
-    if (isDashboard || isPreviewShell || isEmbedRoute) {
+    if (isDashboard || isPreviewShell || isEmbedRoute || isDedicatedSignup) {
         return null;
     }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/dialog';
 import {
     DropdownMenu,
+    DropdownMenuCheckboxItem,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
@@ -66,6 +67,15 @@ import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { useOrganizers } from '@/context/organizer-context';
 import { OrderCard, type OrderResponse, type OrderItem, type OrderStatus } from '@/components/orders/OrderCard';
 import { ticketTypeColors } from '@/components/dashboard/CircularProgress';
+import {
+    buildAttendeesQueryParams,
+    clearAnswerFiltersForEventSelection,
+    ORDER_PAGE_TABS,
+    getAttendeeAnswerDisplayMode,
+    type OrderDetailTab,
+    type OrderPageTab,
+    type AttendeeAnswerFilters,
+} from '@/lib/orders-attendees-ui';
 
 const progressColorMap: Record<string, string> = {
     primary: 'bg-linear-to-r from-violet-500 to-purple-500',
@@ -77,6 +87,8 @@ const progressColorMap: Record<string, string> = {
     lime: 'bg-linear-to-r from-lime-500 to-green-500',
     fuchsia: 'bg-linear-to-r from-fuchsia-500 to-pink-500',
 };
+
+const ATTENDEE_PAGE_SIZE = 500;
 
 interface OrdersResponse {
     orders: OrderResponse[];
@@ -123,6 +135,7 @@ interface OrderTicket {
     paidAmount?: number;
     refundBasePrice?: number;
     refundableAmount?: number;
+    registrationAnswers?: RegistrationAnswer[];
 }
 
 interface OrderDetailResponse extends Omit<OrderResponse, 'attendee'> {
@@ -143,6 +156,61 @@ interface OrderDetailResponse extends Omit<OrderResponse, 'attendee'> {
         };
     };
     tickets: OrderTicket[];
+}
+
+interface RegistrationAnswer {
+    questionId: string;
+    label: string;
+    type: string;
+    options: string[] | null;
+    value: string;
+}
+
+interface AttendeeRecord {
+    ticketId: string;
+    ticketCode: string;
+    ticketTypeId: string;
+    ticketType: string | null;
+    ticketStatus: 'valid' | 'checked_in' | 'cancelled' | 'refunded';
+    checkInStatus: 'checked_in' | 'not_checked_in';
+    orderId: string;
+    orderNumber: string;
+    orderStatus: OrderStatus;
+    orderCreatedAt: string | null;
+    buyer: {
+        name: string | null;
+        email: string;
+    };
+    ticketHolder: {
+        name: string | null;
+        email: string | null;
+        gender?: string | null;
+        age?: number | null;
+    };
+    event: {
+        id: string;
+        name: string | null;
+        startsAt: string | null;
+    };
+    registrationAnswers: RegistrationAnswer[];
+}
+
+interface AttendeesResponse {
+    attendees: AttendeeRecord[];
+    total: number;
+    limit: number;
+    offset: number;
+    answerFilterQuestions?: AnswerFilterQuestion[];
+}
+
+interface AnswerFilterQuestion {
+    questionId: string;
+    label: string;
+    type: 'select' | 'checkbox';
+    options: Array<{
+        value: string;
+        count: number;
+    }>;
 }
 
 const statusBadges: Record<OrderStatus, string> = {
@@ -174,6 +242,9 @@ const getTicketPaidAmount = (ticket: OrderTicket) =>
 const getRefundableTicketPrice = (ticket: OrderTicket) =>
     Math.max(0, ticket.refundableAmount ?? 0);
 
+const getAnswerValue = (answers: RegistrationAnswer[], questionId: string) =>
+    answers.find((answer) => answer.questionId === questionId)?.value ?? '-';
+
 const getPromoUsageBadges = (promoCodes: EventBreakdown['promoCodes']) =>
     [...promoCodes].sort((a, b) => {
         if (a.usageCount !== b.usageCount) {
@@ -186,18 +257,26 @@ export default function OrdersPage() {
     const organizerId = useOrganizerFromParams();
     const { organizers } = useOrganizers();
     const [orders, setOrders] = useState<OrderResponse[]>([]);
+    const [attendees, setAttendees] = useState<AttendeeRecord[]>([]);
+    const [attendeeTotal, setAttendeeTotal] = useState(0);
+    const [knownAttendeeEvents, setKnownAttendeeEvents] = useState<Array<{ id: string; name: string }>>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [eventFilter, setEventFilter] = useState<string[]>([]); // Multi-select event filter
+    const [answerFilters, setAnswerFilters] = useState<AttendeeAnswerFilters>({});
+    const [answerFilterQuestions, setAnswerFilterQuestions] = useState<AnswerFilterQuestion[]>([]);
     const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
     const [selectedOrderDetail, setSelectedOrderDetail] = useState<OrderDetailResponse | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingAttendees, setIsLoadingAttendees] = useState(false);
+    const [isLoadingMoreAttendees, setIsLoadingMoreAttendees] = useState(false);
     const [isLoadingOrderDetail, setIsLoadingOrderDetail] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [attendeesError, setAttendeesError] = useState<string | null>(null);
 
     // Dialog state
-    const [activeTab, setActiveTab] = useState<'details' | 'refund'>('details');
+    const [activeTab, setActiveTab] = useState<OrderDetailTab>('details');
     const [refundType, setRefundType] = useState<'full' | 'partial' | 'tickets'>('full');
     const [partialAmount, setPartialAmount] = useState('');
     const [selectedTicketIds, setSelectedTicketIds] = useState<Set<string>>(new Set());
@@ -218,11 +297,40 @@ export default function OrdersPage() {
     const [eventBreakdowns, setEventBreakdowns] = useState<EventBreakdown[]>([]);
     const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
     const [showAllBreakdown, setShowAllBreakdown] = useState(false);
+    const attendeeRequestVersionRef = useRef(0);
 
-    // Page tab state - Orders or Tickets view
-    const [pageTab, setPageTab] = useState<'orders' | 'tickets'>('orders');
+    const [pageTab, setPageTab] = useState<OrderPageTab>('orders');
 
     const EMAIL_COOLDOWN_SECONDS = 60;
+
+    const updateEventFilter = (nextEventIds: string[]) => {
+        const currentSingleEventId = eventFilter.length === 1 ? eventFilter[0] : null;
+        const nextSingleEventId = nextEventIds.length === 1 ? nextEventIds[0] : null;
+        setEventFilter(nextEventIds);
+        if (currentSingleEventId !== nextSingleEventId) {
+            setAnswerFilters({});
+            setAnswerFilterQuestions([]);
+        } else {
+            setAnswerFilters((current) =>
+                clearAnswerFiltersForEventSelection(nextEventIds, current)
+            );
+        }
+    };
+
+    const toggleAnswerFilter = (questionId: string, choice: string) => {
+        setAnswerFilters((current) => {
+            const selectedChoices = current[questionId] ?? [];
+            const nextChoices = selectedChoices.includes(choice)
+                ? selectedChoices.filter((entry) => entry !== choice)
+                : [...selectedChoices, choice];
+            if (nextChoices.length === 0) {
+                return Object.fromEntries(
+                    Object.entries(current).filter(([key]) => key !== questionId)
+                );
+            }
+            return { ...current, [questionId]: nextChoices };
+        });
+    };
 
     const canResendEmail = (orderId: string) => {
         const lastSent = emailCooldowns.get(orderId);
@@ -374,6 +482,12 @@ export default function OrdersPage() {
 
     useEffect(() => {
         let isMounted = true;
+        setEventFilter([]);
+        setAnswerFilters({});
+        setAnswerFilterQuestions([]);
+        setAttendees([]);
+        setAttendeeTotal(0);
+        setKnownAttendeeEvents([]);
         const fetchOrders = async () => {
             if (!organizerId) {
                 setOrders([]);
@@ -408,6 +522,115 @@ export default function OrdersPage() {
             isMounted = false;
         };
     }, [organizerId]);
+
+    useEffect(() => {
+        let isMounted = true;
+        const requestVersion = ++attendeeRequestVersionRef.current;
+        const fetchAttendees = async () => {
+            if (!organizerId || pageTab !== 'attendees') {
+                return;
+            }
+
+            setIsLoadingAttendees(true);
+            try {
+                const params = buildAttendeesQueryParams({
+                    organizerId,
+                    eventIds: eventFilter,
+                    status: statusFilter,
+                    search: searchQuery,
+                    answerFilters,
+                    limit: ATTENDEE_PAGE_SIZE,
+                    offset: 0,
+                });
+
+                const response = await api.get<AttendeesResponse>('/api/v1/orders/attendees', {
+                    params,
+                });
+                if (!isMounted || requestVersion !== attendeeRequestVersionRef.current) {
+                    return;
+                }
+                setAttendees(response.attendees);
+                setAttendeeTotal(response.total);
+                setKnownAttendeeEvents((current) => {
+                    const next = new Map(current.map((event) => [event.id, event.name]));
+                    for (const attendee of response.attendees) {
+                        next.set(attendee.event.id, attendee.event.name || 'Unnamed Event');
+                    }
+                    return [...next.entries()].map(([id, name]) => ({ id, name }));
+                });
+                setAnswerFilterQuestions(response.answerFilterQuestions ?? []);
+                setAttendeesError(null);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'Unable to load attendees';
+                if (!isMounted || requestVersion !== attendeeRequestVersionRef.current) {
+                    return;
+                }
+                setAttendees([]);
+                setAttendeeTotal(0);
+                setAnswerFilterQuestions([]);
+                setAttendeesError(message);
+            } finally {
+                if (isMounted && requestVersion === attendeeRequestVersionRef.current) {
+                    setIsLoadingAttendees(false);
+                }
+            }
+        };
+
+        void fetchAttendees();
+        return () => {
+            isMounted = false;
+        };
+    }, [organizerId, pageTab, searchQuery, statusFilter, eventFilter, answerFilters]);
+
+    const handleLoadMoreAttendees = async () => {
+        if (!organizerId || isLoadingMoreAttendees) {
+            return;
+        }
+
+        const requestVersion = attendeeRequestVersionRef.current;
+        setIsLoadingMoreAttendees(true);
+        try {
+            const params = buildAttendeesQueryParams({
+                organizerId,
+                eventIds: eventFilter,
+                status: statusFilter,
+                search: searchQuery,
+                answerFilters,
+                limit: ATTENDEE_PAGE_SIZE,
+                offset: attendees.length,
+            });
+            const response = await api.get<AttendeesResponse>('/api/v1/orders/attendees', {
+                params,
+            });
+            if (requestVersion !== attendeeRequestVersionRef.current) {
+                return;
+            }
+            setAttendees((current) => {
+                const existingTicketIds = new Set(current.map((attendee) => attendee.ticketId));
+                const nextAttendees = response.attendees.filter(
+                    (attendee) => !existingTicketIds.has(attendee.ticketId),
+                );
+                return [...current, ...nextAttendees];
+            });
+            setAttendeeTotal(response.total);
+            setKnownAttendeeEvents((current) => {
+                const next = new Map(current.map((event) => [event.id, event.name]));
+                for (const attendee of response.attendees) {
+                    next.set(attendee.event.id, attendee.event.name || 'Unnamed Event');
+                }
+                return [...next.entries()].map(([id, name]) => ({ id, name }));
+            });
+            setAttendeesError(null);
+        } catch (err) {
+            if (requestVersion !== attendeeRequestVersionRef.current) {
+                return;
+            }
+            const message = err instanceof Error ? err.message : 'Unable to load more attendees';
+            setAttendeesError(message);
+        } finally {
+            setIsLoadingMoreAttendees(false);
+        }
+    };
 
     // Fetch ticket breakdown
     useEffect(() => {
@@ -484,6 +707,36 @@ export default function OrdersPage() {
         const matchesEvent = eventFilter.length === 0 || eventFilter.includes(order.event.id);
         return matchesSearch && matchesStatus && matchesEvent;
     });
+
+    const filteredAttendees = attendees.filter((attendee) => {
+        return eventFilter.length === 0 || eventFilter.includes(attendee.event.id);
+    });
+    const hasMoreAttendees = attendees.length < attendeeTotal;
+    const eventOptions = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const order of orders) {
+            map.set(order.event.id, order.event.name || 'Unnamed Event');
+        }
+        for (const event of knownAttendeeEvents) {
+            map.set(event.id, event.name);
+        }
+        return [...map.entries()].map(([id, name]) => ({ id, name }));
+    }, [knownAttendeeEvents, orders]);
+    const attendeeAnswerDisplayMode = getAttendeeAnswerDisplayMode(eventFilter);
+    const selectedEventQuestionLabels = useMemo(() => {
+        if (attendeeAnswerDisplayMode !== 'visible') {
+            return [];
+        }
+        const labels = new Map<string, string>();
+        for (const attendee of filteredAttendees) {
+            for (const answer of attendee.registrationAnswers) {
+                if (!labels.has(answer.questionId)) {
+                    labels.set(answer.questionId, answer.label);
+                }
+            }
+        }
+        return [...labels.entries()].map(([questionId, label]) => ({ questionId, label }));
+    }, [attendeeAnswerDisplayMode, filteredAttendees]);
 
     const openOrderDetails = (order: OrderResponse) => {
         setSelectedOrder(order);
@@ -577,26 +830,22 @@ export default function OrdersPage() {
                 {/* Orders / Tickets Toggle */}
                 <div className="mb-6">
                     <div className="inline-flex p-1 bg-muted/80 rounded-xl">
-                        <button
-                            onClick={() => setPageTab('orders')}
-                            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pageTab === 'orders'
-                                ? 'bg-background text-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            <Receipt className="inline-block h-4 w-4 mr-2" />
-                            Orders
-                        </button>
-                        <button
-                            onClick={() => setPageTab('tickets')}
-                            className={`px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${pageTab === 'tickets'
-                                ? 'bg-background text-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                        >
-                            <Ticket className="inline-block h-4 w-4 mr-2" />
-                            Tickets
-                        </button>
+                        {ORDER_PAGE_TABS.map((tab) => {
+                            const Icon = tab.id === 'orders' ? Receipt : tab.id === 'tickets' ? Ticket : Users;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setPageTab(tab.id)}
+                                    className={`px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 sm:px-6 ${pageTab === tab.id
+                                        ? 'bg-background text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                >
+                                    <Icon className="inline-block h-4 w-4 mr-2" />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -903,6 +1152,354 @@ export default function OrdersPage() {
                     </motion.div>
                 )}
 
+                {pageTab === 'attendees' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-6"
+                    >
+                        <Card className="bg-linear-to-br from-indigo-50/50 via-purple-50/30 to-pink-50/50 dark:from-indigo-950/20 dark:via-purple-950/10 dark:to-pink-950/20 border-indigo-100/50 dark:border-indigo-900/50">
+                            <CardContent className="py-4">
+                                <div className="flex flex-col gap-4">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Search attendees, buyers, ticket codes, or events..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="pl-9 h-10 bg-background/80 backdrop-blur"
+                                        />
+                                        {searchQuery && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                                                onClick={() => setSearchQuery('')}
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                            <SelectTrigger className="w-[150px] h-10 bg-background/80 backdrop-blur">
+                                                <Filter className="h-4 w-4 mr-2" />
+                                                <SelectValue placeholder="Status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Status</SelectItem>
+                                                <SelectItem value="completed">Paid</SelectItem>
+                                                <SelectItem value="refunded">Refunded</SelectItem>
+                                                <SelectItem value="partially_refunded">Partial Refund</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" className="h-10 bg-background/80 backdrop-blur">
+                                                    <Ticket className="h-4 w-4 mr-2" />
+                                                    Events {eventFilter.length > 0 && `(${eventFilter.length})`}
+                                                    <ChevronDown className="h-4 w-4 ml-2" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="start" className="w-56">
+                                                <div className="p-2 space-y-2 max-h-64 overflow-y-auto">
+                                                    <div
+                                                        className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer border-b pb-2 mb-2"
+                                                        onClick={() => updateEventFilter([])}
+                                                    >
+                                                        <Checkbox
+                                                            id="attendee-filter-event-all"
+                                                            checked={eventFilter.length === 0}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                        <Label
+                                                            htmlFor="attendee-filter-event-all"
+                                                            className="flex-1 cursor-pointer font-medium text-sm"
+                                                        >
+                                                            All Events
+                                                        </Label>
+                                                    </div>
+
+                                                    {eventOptions.map((event) => (
+                                                        <div
+                                                            key={event.id}
+                                                            className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer"
+                                                            onClick={() => {
+                                                                if (eventFilter.includes(event.id)) {
+                                                                    updateEventFilter(eventFilter.filter(id => id !== event.id));
+                                                                } else {
+                                                                    updateEventFilter([...eventFilter, event.id]);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Checkbox
+                                                                id={`attendee-filter-event-${event.id}`}
+                                                                checked={eventFilter.includes(event.id)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                            <Label
+                                                                htmlFor={`attendee-filter-event-${event.id}`}
+                                                                className="flex-1 cursor-pointer font-normal text-sm"
+                                                            >
+                                                                {event.name}
+                                                            </Label>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+
+                                        {eventFilter.length === 1 && answerFilterQuestions.map((question) => {
+                                            const selectedCount = answerFilters[question.questionId]?.length ?? 0;
+                                            return (
+                                                <DropdownMenu key={question.questionId}>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            className="h-10 max-w-full bg-background/80 backdrop-blur"
+                                                        >
+                                                            <Filter className="h-4 w-4 mr-2 shrink-0" />
+                                                            <span className="max-w-48 truncate">{question.label}</span>
+                                                            {selectedCount > 0 && (
+                                                                <Badge variant="secondary" className="ml-2 h-5 min-w-5 px-1.5">
+                                                                    {selectedCount}
+                                                                </Badge>
+                                                            )}
+                                                            <ChevronDown className="h-4 w-4 ml-2 shrink-0" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="start" className="w-64">
+                                                        {question.options.map((option) => (
+                                                            <DropdownMenuCheckboxItem
+                                                                key={option.value}
+                                                                checked={answerFilters[question.questionId]?.includes(option.value) ?? false}
+                                                                onCheckedChange={() => toggleAnswerFilter(question.questionId, option.value)}
+                                                                onSelect={(event) => event.preventDefault()}
+                                                            >
+                                                                <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                                                                    <span className="truncate">{option.value}</span>
+                                                                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                                                                        ({option.count})
+                                                                    </span>
+                                                                </span>
+                                                            </DropdownMenuCheckboxItem>
+                                                        ))}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {eventFilter.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {eventFilter.map(eventId => {
+                                    const event = eventOptions.find((entry) => entry.id === eventId);
+                                    return (
+                                        <Badge
+                                            key={eventId}
+                                            variant="secondary"
+                                            className="px-3 py-1.5 cursor-pointer hover:bg-secondary/80"
+                                            onClick={() => updateEventFilter(eventFilter.filter(id => id !== eventId))}
+                                        >
+                                            {event?.name || 'Event'}
+                                            <X className="h-3 w-3 ml-1.5" />
+                                        </Badge>
+                                    );
+                                })}
+                                {eventFilter.length > 1 && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-2 text-xs"
+                                        onClick={() => updateEventFilter([])}
+                                    >
+                                        Clear all
+                                    </Button>
+                                )}
+                            </div>
+                        )}
+
+                        {isLoadingAttendees ? (
+                            <div className="flex items-center justify-center py-24">
+                                <div className="text-center">
+                                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent mb-4"></div>
+                                    <p className="text-muted-foreground">Loading attendees...</p>
+                                </div>
+                            </div>
+                        ) : attendeesError ? (
+                            <Card className="p-12 text-center">
+                                <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                                <p className="text-muted-foreground">{attendeesError}</p>
+                            </Card>
+                        ) : filteredAttendees.length === 0 ? (
+                            <Card className="p-12 text-center">
+                                <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                                <p className="text-lg font-medium mb-1">No attendees found</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {searchQuery || statusFilter !== 'all' || eventFilter.length > 0
+                                        ? 'Try adjusting your filters'
+                                        : 'Attendees will appear here once tickets are issued'}
+                                </p>
+                            </Card>
+                        ) : (
+                            <>
+                                <Card className="hidden overflow-hidden md:block">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left font-medium">Attendee</th>
+                                                    <th className="px-4 py-3 text-left font-medium">Ticket</th>
+                                                    <th className="px-4 py-3 text-left font-medium">Event</th>
+                                                    <th className="px-4 py-3 text-left font-medium">Buyer</th>
+                                                    <th className="px-4 py-3 text-left font-medium">Status</th>
+                                                    {attendeeAnswerDisplayMode === 'visible'
+                                                        ? selectedEventQuestionLabels.map((question) => (
+                                                            <th key={question.questionId} className="px-4 py-3 text-left font-medium">
+                                                                {question.label}
+                                                            </th>
+                                                        ))
+                                                        : (
+                                                            <th className="px-4 py-3 text-left font-medium">Answers</th>
+                                                        )}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {filteredAttendees.map((attendee) => (
+                                                    <tr key={attendee.ticketId} className="bg-card/80 align-top">
+                                                        <td className="px-4 py-4">
+                                                            <p className="font-medium">{attendee.ticketHolder.name || 'Unnamed attendee'}</p>
+                                                            <p className="text-xs text-muted-foreground">{attendee.ticketHolder.email || 'No email'}</p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {[attendee.ticketHolder.gender, attendee.ticketHolder.age ? `${attendee.ticketHolder.age} yrs` : null].filter(Boolean).join(' • ')}
+                                                            </p>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <p className="font-medium">{attendee.ticketType || 'Ticket'}</p>
+                                                            <p className="font-mono text-xs text-muted-foreground">{attendee.ticketCode}</p>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <p className="font-medium">{attendee.event.name || 'Event'}</p>
+                                                            <p className="text-xs text-muted-foreground">{attendee.orderNumber.slice(0, 8)}</p>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <p className="font-medium">{attendee.buyer.name || 'Buyer'}</p>
+                                                            <p className="text-xs text-muted-foreground">{attendee.buyer.email}</p>
+                                                        </td>
+                                                        <td className="px-4 py-4">
+                                                            <div className="space-y-2">
+                                                                <Badge className={statusBadges[attendee.orderStatus]}>
+                                                                    {statusLabels[attendee.orderStatus]}
+                                                                </Badge>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {attendee.checkInStatus === 'checked_in' ? 'Checked in' : 'Not checked in'}
+                                                                </p>
+                                                            </div>
+                                                        </td>
+                                                        {attendeeAnswerDisplayMode === 'visible'
+                                                            ? selectedEventQuestionLabels.map((question) => (
+                                                                <td key={question.questionId} className="max-w-[220px] px-4 py-4">
+                                                                    <p className="break-words text-sm">{getAnswerValue(attendee.registrationAnswers, question.questionId)}</p>
+                                                                </td>
+                                                            ))
+                                                            : (
+                                                                <td className="px-4 py-4">
+                                                                    {attendee.registrationAnswers.length === 0 ? (
+                                                                        <span className="text-xs text-muted-foreground">No answers</span>
+                                                                    ) : (
+                                                                        <details className="group">
+                                                                            <summary className="cursor-pointer text-xs font-medium text-violet-700 dark:text-violet-300">
+                                                                                {attendee.registrationAnswers.length} answer{attendee.registrationAnswers.length === 1 ? '' : 's'}
+                                                                            </summary>
+                                                                            <div className="mt-2 space-y-2">
+                                                                                {attendee.registrationAnswers.map((answer) => (
+                                                                                    <div key={answer.questionId} className="rounded-md bg-muted/50 p-2">
+                                                                                        <p className="text-xs font-medium text-muted-foreground">{answer.label}</p>
+                                                                                        <p className="break-words text-sm">{answer.value}</p>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </details>
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </Card>
+
+                                <div className="space-y-3 md:hidden">
+                                    {filteredAttendees.map((attendee) => (
+                                        <Card key={attendee.ticketId}>
+                                            <CardContent className="p-4">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="font-semibold truncate">{attendee.ticketHolder.name || 'Unnamed attendee'}</p>
+                                                        <p className="text-xs text-muted-foreground truncate">{attendee.ticketHolder.email || attendee.buyer.email}</p>
+                                                    </div>
+                                                    <Badge className={`${statusBadges[attendee.orderStatus]} shrink-0`}>
+                                                        {statusLabels[attendee.orderStatus]}
+                                                    </Badge>
+                                                </div>
+                                                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                                                    <div>
+                                                        <p className="text-xs text-muted-foreground">Ticket</p>
+                                                        <p className="font-medium">{attendee.ticketType || 'Ticket'}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-muted-foreground">Check-in</p>
+                                                        <p className="font-medium">{attendee.checkInStatus === 'checked_in' ? 'Checked in' : 'Not checked in'}</p>
+                                                    </div>
+                                                    <div className="col-span-2">
+                                                        <p className="text-xs text-muted-foreground">Event</p>
+                                                        <p className="font-medium">{attendee.event.name || 'Event'}</p>
+                                                    </div>
+                                                </div>
+                                                {attendee.registrationAnswers.length > 0 && (
+                                                    <details className="mt-4 rounded-lg bg-muted/50 p-3">
+                                                        <summary className="cursor-pointer text-sm font-medium">
+                                                            Answers
+                                                        </summary>
+                                                        <div className="mt-3 space-y-3">
+                                                            {attendee.registrationAnswers.map((answer) => (
+                                                                <div key={answer.questionId}>
+                                                                    <p className="text-xs font-medium text-muted-foreground">{answer.label}</p>
+                                                                    <p className="break-words text-sm">{answer.value}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </details>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+
+                                {hasMoreAttendees && (
+                                    <div className="flex justify-center">
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleLoadMoreAttendees}
+                                            disabled={isLoadingMoreAttendees}
+                                        >
+                                            {isLoadingMoreAttendees
+                                                ? 'Loading attendees...'
+                                                : `Load more (${attendees.length} of ${attendeeTotal})`}
+                                        </Button>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </motion.div>
+                )}
+
                 {/* Orders Tab Content */}
                 {pageTab === 'orders' && (
                     <>
@@ -957,7 +1554,7 @@ export default function OrdersPage() {
                                                     {/* All Events Option */}
                                                     <div
                                                         className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer border-b pb-2 mb-2"
-                                                        onClick={() => setEventFilter([])}
+                                                        onClick={() => updateEventFilter([])}
                                                     >
                                                         <Checkbox
                                                             id="filter-event-all"
@@ -972,19 +1569,15 @@ export default function OrdersPage() {
                                                         </Label>
                                                     </div>
 
-                                                    {Array.from(new Set(orders.map(o => ({ id: o.event.id, name: o.event.name }))))
-                                                        .filter((event, index, self) =>
-                                                            index === self.findIndex(e => e.id === event.id)
-                                                        )
-                                                        .map((event) => (
+                                                    {eventOptions.map((event) => (
                                                             <div
                                                                 key={event.id}
                                                                 className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer"
                                                                 onClick={() => {
                                                                     if (eventFilter.includes(event.id)) {
-                                                                        setEventFilter(eventFilter.filter(id => id !== event.id));
+                                                                        updateEventFilter(eventFilter.filter(id => id !== event.id));
                                                                     } else {
-                                                                        setEventFilter([...eventFilter, event.id]);
+                                                                        updateEventFilter([...eventFilter, event.id]);
                                                                     }
                                                                 }}
                                                             >
@@ -1040,7 +1633,7 @@ export default function OrdersPage() {
                                             key={eventId}
                                             variant="secondary"
                                             className="px-3 py-1.5 cursor-pointer hover:bg-secondary/80"
-                                            onClick={() => setEventFilter(eventFilter.filter(id => id !== eventId))}
+                                            onClick={() => updateEventFilter(eventFilter.filter(id => id !== eventId))}
                                         >
                                             {event?.name || "Event"}
                                             <X className="h-3 w-3 ml-1.5" />
@@ -1052,7 +1645,7 @@ export default function OrdersPage() {
                                         variant="ghost"
                                         size="sm"
                                         className="h-7 px-2 text-xs"
-                                        onClick={() => setEventFilter([])}
+                                        onClick={() => updateEventFilter([])}
                                     >
                                         Clear all
                                     </Button>
@@ -1149,9 +1742,10 @@ export default function OrdersPage() {
                                     </DialogTitle>
                                 </DialogHeader>
 
-                                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'details' | 'refund')} className="mt-4">
-                                    <TabsList className="grid w-full grid-cols-2">
+                                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as OrderDetailTab)} className="mt-4">
+                                    <TabsList className="grid w-full grid-cols-3">
                                         <TabsTrigger value="details">Details</TabsTrigger>
+                                        <TabsTrigger value="answers">Answers</TabsTrigger>
                                         <TabsTrigger
                                             value="refund"
                                             disabled={isRefundActionDisabled}
@@ -1345,6 +1939,56 @@ export default function OrdersPage() {
                                                             </Button>
                                                         )}
                                                     </div>
+                                                </TabsContent>
+                                            </motion.div>
+                                        ) : activeTab === 'answers' ? (
+                                            <motion.div
+                                                layout
+                                                key="answers"
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                transition={{ duration: 0.2 }}
+                                            >
+                                                <TabsContent value="answers" forceMount className="mt-0 space-y-4 p-1">
+                                                    {isLoadingOrderDetail ? (
+                                                        <div className="rounded-lg bg-muted/50 p-6 text-center text-sm text-muted-foreground">
+                                                            Loading answers...
+                                                        </div>
+                                                    ) : detailTickets.length === 0 ? (
+                                                        <div className="rounded-lg bg-muted/50 p-6 text-center text-sm text-muted-foreground">
+                                                            No ticket answers found for this order.
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-3">
+                                                            {detailTickets.map((ticket) => (
+                                                                <div key={ticket.id} className="rounded-lg bg-muted/50 p-3">
+                                                                    <div className="mb-3 flex items-start justify-between gap-3">
+                                                                        <div className="min-w-0">
+                                                                            <p className="font-medium">{ticket.attendeeName || ticket.ticketCode}</p>
+                                                                            <p className="text-xs text-muted-foreground truncate">
+                                                                                {ticket.ticketType || 'Ticket'} - {ticket.attendeeEmail || 'No email'}
+                                                                            </p>
+                                                                        </div>
+                                                                        <Badge variant="outline" className="font-mono text-[10px]">
+                                                                            {ticket.ticketCode.slice(0, 8)}
+                                                                        </Badge>
+                                                                    </div>
+                                                                    {ticket.registrationAnswers && ticket.registrationAnswers.length > 0 ? (
+                                                                        <div className="space-y-3">
+                                                                            {ticket.registrationAnswers.map((answer) => (
+                                                                                <div key={answer.questionId} className="rounded-md bg-background/80 p-3">
+                                                                                    <p className="text-xs font-medium text-muted-foreground">{answer.label}</p>
+                                                                                    <p className="mt-1 break-words text-sm">{answer.value}</p>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <p className="text-sm text-muted-foreground">No answers for this ticket.</p>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </TabsContent>
                                             </motion.div>
                                         ) : (

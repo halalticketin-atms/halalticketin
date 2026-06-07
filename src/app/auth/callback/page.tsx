@@ -9,6 +9,7 @@ import { setAuthToken, setRefreshToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { setLastAuthMethod } from '@/lib/last-auth-method';
 import { getPendingInviteContext, resolveContinuationPath } from '@/lib/pending-invite';
+import { resolveAuthOnboardingPath } from '@/lib/auth-onboarding-continuation';
 
 function CallbackContent() {
     const router = useRouter();
@@ -84,12 +85,11 @@ function CallbackContent() {
                 }
             }
             const inviteToken = pendingInvite?.token ?? inviteTokenFromNext;
-            const params = new URLSearchParams();
-            if (safeRoleParam) params.set('role', safeRoleParam);
-            if (continuationPath) params.set('next', continuationPath);
-            if (inviteToken) params.set('inviteToken', inviteToken);
-            const onboardingPath = params.size > 0 ? `/register?${params.toString()}` : '/register';
-            router.push(onboardingPath);
+            router.push(resolveAuthOnboardingPath({
+                role: safeRoleParam,
+                continuationPath,
+                inviteToken,
+            }));
             return;
         }
 
