@@ -13,11 +13,11 @@ import {
     ChevronRight,
     CircleDollarSign,
     Globe2,
+    Handshake,
     Loader2,
     LockKeyhole,
     Mail,
     MapPin,
-    Newspaper,
     ShieldCheck,
     Sparkles,
     UserRound,
@@ -62,6 +62,9 @@ const CURRENCIES = [
     { code: 'BDT', name: 'Bangladeshi Taka', symbol: '৳' },
 ];
 
+const HT_LOGO_SRC = '/logos/HTlogocr.png';
+const HEIGHTSPR_LOGO_SRC = '/logos/heightspr-full-logo-black.png';
+
 const STEP_DETAILS: Record<OrganizerSignupStep, {
     eyebrow: string;
     title: string;
@@ -94,25 +97,66 @@ const STEP_DETAILS: Record<OrganizerSignupStep, {
     },
 };
 
-function BrandMark({ inverse = false }: { inverse?: boolean }) {
+function HeightsPrLogo({ className = '', priority = false }: { className?: string; priority?: boolean }) {
     return (
-        <div className="flex items-center gap-3" aria-label="HeightsPR in partnership with Halal Ticketin">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#1d342f]/15 bg-[#f04f3f] text-sm font-black tracking-[-0.08em] text-white shadow-[0_8px_24px_rgba(240,79,63,0.25)]">
-                HPR
+        <div className={cn('relative h-8 w-28 shrink-0', className)}>
+            <Image
+                src={HEIGHTSPR_LOGO_SRC}
+                alt="HeightsPR"
+                fill
+                sizes="128px"
+                priority={priority}
+                className="object-contain"
+            />
+        </div>
+    );
+}
+
+function PartnershipLockup({
+    inverse = false,
+    compact = false,
+}: {
+    inverse?: boolean;
+    compact?: boolean;
+}) {
+    return (
+        <div
+            className={cn(
+                'inline-flex items-center gap-3',
+                compact ? 'gap-2' : 'gap-3',
+            )}
+            aria-label="Halal Ticketin and HeightsPR partnership"
+        >
+            <div className={cn(
+                'relative shrink-0',
+                compact ? 'h-8 w-24' : 'h-9 w-28',
+            )}>
+                <Image
+                    src={HT_LOGO_SRC}
+                    alt="Halal Ticketin"
+                    fill
+                    sizes={compact ? '96px' : '112px'}
+                    priority
+                    className="object-contain object-left"
+                />
             </div>
-            <div className="leading-none">
-                <p className={cn(
-                    'font-display text-[17px] font-extrabold tracking-[-0.04em]',
-                    inverse ? 'text-[#f7f0df]' : 'text-[#172b27]',
-                )}>
-                    HeightsPR
-                </p>
-                <p className={cn(
-                    'mt-1 text-[9px] font-bold uppercase tracking-[0.22em]',
-                    inverse ? 'text-[#cbd3cf]' : 'text-[#6c7a75]',
-                )}>
-                    Organiser access
-                </p>
+            <span className={cn(
+                'font-display text-sm font-black uppercase',
+                inverse ? 'text-[#f7f0df]/75' : 'text-[#48605a]',
+            )}>
+                x
+            </span>
+            <div className={cn(
+                'flex shrink-0 items-center border',
+                compact ? 'h-8 px-2' : 'h-10 px-3',
+                inverse
+                    ? 'border-white/15 bg-[#f7f3e9]'
+                    : 'border-[#d7d1c5] bg-white/70',
+            )}>
+                <HeightsPrLogo
+                    priority
+                    className={compact ? 'h-5 w-20' : 'h-6 w-24'}
+                />
             </div>
         </div>
     );
@@ -131,7 +175,7 @@ function BlockedPanel() {
         <main className="relative flex min-h-[calc(100dvh-var(--nav-safe-offset))] items-center justify-center overflow-hidden bg-[#17322c] px-5 py-16">
             <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(#f7f0df_0.7px,transparent_0.7px)] [background-size:9px_9px]" />
             <section className="relative w-full max-w-xl border border-white/15 bg-[#f7f0df] p-7 shadow-[18px_18px_0_#f04f3f] sm:p-10">
-                <BrandMark />
+                <PartnershipLockup />
                 <div className="mt-10 flex h-14 w-14 items-center justify-center rounded-full bg-[#17322c] text-[#f7f0df]">
                     <ShieldCheck className="h-7 w-7" />
                 </div>
@@ -633,58 +677,65 @@ function HeightsPrSignupForm({
         <main className="relative min-h-[calc(100dvh-var(--nav-safe-offset))] overflow-hidden bg-[#f3efe5] text-[#172b27]">
             <div className="pointer-events-none absolute inset-0 opacity-[0.32] [background-image:radial-gradient(#586660_0.55px,transparent_0.55px)] [background-size:8px_8px]" />
             <div className="relative mx-auto grid min-h-[calc(100dvh-var(--nav-safe-offset))] max-w-[1520px] lg:grid-cols-[minmax(330px,0.82fr)_minmax(520px,1.18fr)]">
-                <aside className="relative overflow-hidden bg-[#17322c] px-6 py-8 text-[#f7f0df] sm:px-10 lg:flex lg:min-h-full lg:flex-col lg:px-12 lg:py-12">
-                    <div className="absolute -right-28 top-32 h-72 w-72 rounded-full border border-[#f7f0df]/15" />
-                    <div className="absolute -right-10 top-52 h-44 w-44 rounded-full bg-[#f04f3f]" />
-                    <div className="absolute bottom-0 left-0 h-44 w-full opacity-20 [background-image:linear-gradient(135deg,transparent_46%,#f7f0df_47%,#f7f0df_49%,transparent_50%)] [background-size:18px_18px]" />
+                <aside className="relative overflow-hidden bg-[#17322c] px-5 py-6 text-[#f7f0df] sm:px-10 sm:py-8 lg:flex lg:min-h-full lg:flex-col lg:px-12 lg:py-12">
+                    <div className="absolute inset-y-0 right-0 w-1 bg-[#f57c00] lg:w-1.5" />
+                    <div className="absolute left-0 top-0 h-full w-full opacity-[0.11] [background-image:linear-gradient(90deg,#f7f0df_1px,transparent_1px),linear-gradient(0deg,#f7f0df_1px,transparent_1px)] [background-size:42px_42px]" />
+                    <div className="absolute bottom-0 left-0 h-44 w-full opacity-15 [background-image:linear-gradient(135deg,transparent_46%,#f7f0df_47%,#f7f0df_49%,transparent_50%)] [background-size:18px_18px]" />
 
-                    <div className="relative flex items-center justify-between">
-                        <BrandMark inverse />
-                        <div className="hidden items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#d8d4c8] sm:flex">
-                            <span>Powered by</span>
-                            <div className="relative h-7 w-24">
-                                <Image
-                                    src="/logos/HTlogocr.png"
-                                    alt="Halal Ticketin"
-                                    fill
-                                    sizes="96px"
-                                    priority
-                                    className="object-contain object-right brightness-0 invert"
-                                />
-                            </div>
+                    <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between lg:block">
+                        <PartnershipLockup inverse compact />
+                        <div className="inline-flex w-fit items-center gap-2 border border-[#f7f0df]/15 bg-[#f7f0df]/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#d8d4c8] lg:mt-8">
+                            <span className="h-2 w-2 bg-[#f57c00]" />
+                            Partner organiser access
                         </div>
                     </div>
 
-                    <div className="relative mt-12 max-w-xl lg:my-auto lg:mt-20">
-                        <div className="inline-flex items-center gap-2 border border-[#f7f0df]/20 px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#f4b048]">
-                            <Newspaper className="h-3.5 w-3.5" />
-                            HeightsPR partner access
+                    <div className="relative mt-8 max-w-xl sm:mt-10 lg:my-auto lg:mt-16">
+                        <div className="inline-flex items-center gap-2 border border-[#f7f0df]/20 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#f57c00]">
+                            <Handshake className="h-3.5 w-3.5" />
+                            HeightsPR x Halal Ticketin
                         </div>
-                        <h1 className="mt-7 max-w-lg font-display text-[clamp(2.4rem,5vw,5rem)] font-black leading-[0.94] tracking-[-0.065em]">
+                        <h1 className="mt-5 max-w-lg font-display text-[2.6rem] font-black leading-[0.96] tracking-[-0.055em] sm:mt-7 sm:text-[clamp(3rem,5vw,5rem)] sm:tracking-[-0.065em]">
                             Your next event deserves a full house.
                         </h1>
-                        <p className="mt-6 max-w-md text-base leading-7 text-[#d1d8d4] sm:text-lg">
-                            Create your organiser account, publish tickets and build an audience with Halal Ticketin.
+                        <p className="mt-4 max-w-md text-base leading-7 text-[#d1d8d4] sm:mt-6 sm:text-lg">
+                            A dedicated organiser signup for HeightsPR partners, powered by Halal Ticketin ticketing.
                         </p>
-                        <div className="mt-8 hidden gap-5 border-t border-[#f7f0df]/15 pt-6 text-sm text-[#d1d8d4] lg:grid">
+                        <div className="mt-8 hidden gap-5 border-t border-[#f7f0df]/15 pt-6 text-sm text-[#d1d8d4] sm:grid sm:grid-cols-3 lg:grid-cols-1">
                             {[
-                                'Keep control of your organiser profile',
-                                'Secure attendee payments through Stripe',
-                                'Create and manage events from one dashboard',
+                                'Build the audience with HeightsPR',
+                                'Sell tickets through Halal Ticketin',
+                                'Manage events from one dashboard',
                             ].map((benefit) => (
                                 <div key={benefit} className="flex items-center gap-3">
-                                    <CheckCircle2 className="h-5 w-5 shrink-0 text-[#f4b048]" />
+                                    <CheckCircle2 className="h-5 w-5 shrink-0 text-[#f57c00]" />
                                     {benefit}
                                 </div>
                             ))}
                         </div>
                     </div>
+
+                    <div className="relative mt-10 hidden border-t border-[#f7f0df]/15 pt-5 text-xs leading-6 text-[#bac6c1] lg:block">
+                        Half growth partner, half ticketing platform. One clean setup flow for organisers.
+                    </div>
                 </aside>
 
                 <section className="relative flex min-h-[680px] items-center px-5 py-10 sm:px-10 lg:px-16 lg:py-14">
+                    <div className="absolute left-0 top-0 hidden h-full w-px bg-[#d7d1c5] lg:block" />
                     <div className="mx-auto w-full max-w-[620px]">
                         {isCoreStep ? (
                             <>
+                                <div className="mb-8 flex items-center justify-between gap-4 border-b border-[#d1cbc0] pb-5">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7a8782]">
+                                            Organiser onboarding
+                                        </p>
+                                        <p className="mt-1 text-sm font-bold text-[#17322c]">
+                                            HeightsPR referral route
+                                        </p>
+                                    </div>
+                                    <HeightsPrLogo className="hidden h-7 w-24 sm:block" />
+                                </div>
                                 <div className="mb-8 flex items-center justify-between gap-4">
                                     <div className="flex items-center gap-2" aria-label={`Step ${currentIndex + 1} of ${ORGANIZER_SIGNUP_STEPS.length}`}>
                                         {ORGANIZER_SIGNUP_STEPS.map((signupStep, index) => {
@@ -700,7 +751,7 @@ function HeightsPrSignupForm({
                                                     aria-label={`Go to ${STEP_DETAILS[signupStep].eyebrow}`}
                                                     className={cn(
                                                         'flex h-8 w-8 items-center justify-center rounded-full border text-xs font-black transition-all',
-                                                        isActive && 'border-[#f04f3f] bg-[#f04f3f] text-white shadow-[0_5px_0_#17322c]',
+                                                        isActive && 'border-[#f57c00] bg-[#f57c00] text-white shadow-[0_5px_0_#17322c]',
                                                         isComplete && 'border-[#17322c] bg-[#17322c] text-white',
                                                         !isActive && !isComplete && 'border-[#bcb7ab] bg-transparent text-[#78847f]',
                                                         isAvailable && 'cursor-pointer',
@@ -793,8 +844,8 @@ function HeightsPrSignupForm({
 
                         <div className="mt-10 flex items-center justify-between border-t border-[#d1cbc0] pt-5 text-xs text-[#6d7974]">
                             <span className="flex items-center gap-2">
-                                <Sparkles className="h-3.5 w-3.5 text-[#f04f3f]" />
-                                Dedicated HeightsPR signup
+                                <Sparkles className="h-3.5 w-3.5 text-[#f57c00]" />
+                                Co-branded partner signup
                             </span>
                             <span className="flex items-center gap-2">
                                 <Globe2 className="h-3.5 w-3.5" />

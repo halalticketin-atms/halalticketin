@@ -48,6 +48,8 @@ test.describe('HeightsPR organiser signup', () => {
         await expect(page.getByRole('heading', {
             name: 'Your next event deserves a full house.',
         })).toBeVisible();
+        await expect(page.getByRole('img', { name: 'HeightsPR' }).first()).toBeVisible();
+        await expect(page.getByLabel('Halal Ticketin and HeightsPR partnership')).toBeVisible();
         await expect(page.getByTestId('heightspr-step-credentials')).toBeVisible();
         await expect(page.getByLabel('Full name')).toBeVisible();
         await expect(page.getByLabel('Email address')).toBeVisible();
