@@ -45,11 +45,14 @@ test.describe('HeightsPR organiser signup', () => {
         });
         await page.goto('/heightspr');
 
-        await expect(page.getByRole('heading', {
-            name: 'Your next event deserves a full house.',
-        })).toBeVisible();
+        await expect(page.getByText('Your next event deserves a full house.')).toHaveCount(0);
+        await expect(page.getByText('A dedicated organiser signup for HeightsPR partners')).toHaveCount(0);
         await expect(page.getByRole('img', { name: 'HeightsPR' }).first()).toBeVisible();
+        await expect(page.getByTestId('heightspr-brand-strip')).toBeVisible();
         await expect(page.getByLabel('Halal Ticketin and HeightsPR partnership')).toBeVisible();
+        await expect(page.getByRole('heading', {
+            name: 'Create your organiser account.',
+        })).toBeVisible();
         await expect(page.getByTestId('heightspr-step-credentials')).toBeVisible();
         await expect(page.getByLabel('Full name')).toBeVisible();
         await expect(page.getByLabel('Email address')).toBeVisible();

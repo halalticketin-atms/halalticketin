@@ -9,17 +9,13 @@ import {
     ArrowRight,
     Camera,
     Check,
-    CheckCircle2,
     ChevronRight,
     CircleDollarSign,
-    Globe2,
-    Handshake,
     Loader2,
     LockKeyhole,
     Mail,
     MapPin,
     ShieldCheck,
-    Sparkles,
     UserRound,
     X,
 } from 'lucide-react';
@@ -68,32 +64,26 @@ const HEIGHTSPR_LOGO_SRC = '/logos/heightspr-full-logo-black.png';
 const STEP_DETAILS: Record<OrganizerSignupStep, {
     eyebrow: string;
     title: string;
-    description: string;
 }> = {
     credentials: {
         eyebrow: 'Account',
         title: 'First, the person behind the events.',
-        description: 'Create your secure login. We will use these details for your organiser account.',
     },
     'about-you': {
         eyebrow: 'About you',
         title: 'A few details about you.',
-        description: 'This information belongs to your account and is not shown on your public organiser page.',
     },
     organization: {
         eyebrow: 'Your organisation',
         title: 'Give your events a recognisable home.',
-        description: 'Add the name and contact details attendees should associate with your events.',
     },
     location: {
         eyebrow: 'Location',
         title: 'Set your home base.',
-        description: 'These defaults make event creation faster. You can still run events anywhere.',
     },
     currency: {
         eyebrow: 'Currency',
         title: 'Choose how you want to report.',
-        description: 'This becomes your default analytics currency. Individual events can use another currency.',
     },
 };
 
@@ -112,80 +102,55 @@ function HeightsPrLogo({ className = '', priority = false }: { className?: strin
     );
 }
 
-function PartnershipLockup({
-    inverse = false,
-    compact = false,
-}: {
-    inverse?: boolean;
-    compact?: boolean;
-}) {
+function BrandStrip() {
     return (
         <div
-            className={cn(
-                'inline-flex items-center gap-3',
-                compact ? 'gap-2' : 'gap-3',
-            )}
+            data-testid="heightspr-brand-strip"
+            className="flex items-center justify-between gap-4"
             aria-label="Halal Ticketin and HeightsPR partnership"
         >
-            <div className={cn(
-                'relative shrink-0',
-                compact ? 'h-8 w-24' : 'h-9 w-28',
-            )}>
+            <div className="relative h-10 w-32 shrink-0 sm:h-12 sm:w-40">
                 <Image
                     src={HT_LOGO_SRC}
                     alt="Halal Ticketin"
                     fill
-                    sizes={compact ? '96px' : '112px'}
+                    sizes="160px"
                     priority
                     className="object-contain object-left"
                 />
             </div>
-            <span className={cn(
-                'font-display text-sm font-black uppercase',
-                inverse ? 'text-[#f7f0df]/75' : 'text-[#48605a]',
-            )}>
+            <span className="font-display text-sm font-black uppercase text-muted-foreground/70" aria-hidden="true">
                 x
             </span>
-            <div className={cn(
-                'flex shrink-0 items-center border',
-                compact ? 'h-8 px-2' : 'h-10 px-3',
-                inverse
-                    ? 'border-white/15 bg-[#f7f3e9]'
-                    : 'border-[#d7d1c5] bg-white/70',
-            )}>
-                <HeightsPrLogo
-                    priority
-                    className={compact ? 'h-5 w-20' : 'h-6 w-24'}
-                />
-            </div>
+            <HeightsPrLogo priority className="h-8 w-28 sm:h-10 sm:w-36" />
         </div>
     );
 }
 
 function LoadingPanel() {
     return (
-        <div className="flex min-h-[calc(100dvh-var(--nav-safe-offset))] items-center justify-center bg-[#f3efe5]">
-            <Loader2 className="h-7 w-7 animate-spin text-[#f04f3f]" aria-label="Loading signup" />
+        <div className="gradient-mesh flex min-h-[calc(100dvh-var(--nav-safe-offset))] items-center justify-center">
+            <Loader2 className="h-7 w-7 animate-spin text-[var(--brand-teal)]" aria-label="Loading signup" />
         </div>
     );
 }
 
 function BlockedPanel() {
     return (
-        <main className="relative flex min-h-[calc(100dvh-var(--nav-safe-offset))] items-center justify-center overflow-hidden bg-[#17322c] px-5 py-16">
-            <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(#f7f0df_0.7px,transparent_0.7px)] [background-size:9px_9px]" />
-            <section className="relative w-full max-w-xl border border-white/15 bg-[#f7f0df] p-7 shadow-[18px_18px_0_#f04f3f] sm:p-10">
-                <PartnershipLockup />
-                <div className="mt-10 flex h-14 w-14 items-center justify-center rounded-full bg-[#17322c] text-[#f7f0df]">
+        <main className="gradient-mesh relative flex min-h-[calc(100dvh-var(--nav-safe-offset))] items-center justify-center overflow-hidden px-5 py-16">
+            <div className="absolute inset-0 bg-noise opacity-30" />
+            <section className="relative w-full max-w-xl rounded-[2rem] border border-white/70 bg-white/85 p-7 shadow-xl backdrop-blur-md sm:p-10">
+                <BrandStrip />
+                <div className="mt-10 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-lg shadow-[var(--brand-teal)]/20">
                     <ShieldCheck className="h-7 w-7" />
                 </div>
-                <h1 className="mt-6 font-display text-3xl font-black tracking-[-0.05em] text-[#172b27] sm:text-4xl">
+                <h1 className="mt-6 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                     Your account already belongs to an organiser.
                 </h1>
-                <p className="mt-4 max-w-md text-base leading-7 text-[#54645f]">
+                <p className="mt-4 max-w-md text-base leading-7 text-muted-foreground">
                     The HeightsPR route is reserved for creating a new organiser. Your existing organiser has not been changed or tagged.
                 </p>
-                <Button asChild className="mt-8 h-12 rounded-none bg-[#f04f3f] px-6 font-bold text-white hover:bg-[#d94133]">
+                <Button asChild className="mt-8 h-12 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] px-6 font-bold text-white hover:opacity-90">
                     <Link href="/dashboard">
                         Return to dashboard
                         <ArrowRight className="ml-2 h-4 w-4" />
@@ -265,7 +230,7 @@ function HeightsPrSignupForm({
                                     value={controller.form.name}
                                     onChange={(event) => controller.updateField('name', event.target.value)}
                                     placeholder="Your full name"
-                                    className="h-12 rounded-none border-[#c9c4b8] bg-white/75 pl-10 focus-visible:ring-[#f04f3f]"
+                                    className="h-12 rounded-xl border-border bg-white/80 pl-10 focus-visible:ring-[var(--brand-cyan)]"
                                 />
                             </div>
                         </div>
@@ -281,7 +246,7 @@ function HeightsPrSignupForm({
                                     onChange={(event) => controller.updateField('email', event.target.value)}
                                     readOnly={authenticated && Boolean(prefill.email)}
                                     placeholder="you@example.com"
-                                    className="h-12 rounded-none border-[#c9c4b8] bg-white/75 pl-10 focus-visible:ring-[#f04f3f] read-only:bg-[#eae5da]"
+                                    className="h-12 rounded-xl border-border bg-white/80 pl-10 focus-visible:ring-[var(--brand-cyan)] read-only:bg-muted"
                                 />
                             </div>
                             {authenticated && prefill.email ? (
@@ -300,8 +265,8 @@ function HeightsPrSignupForm({
                                             autoComplete="new-password"
                                             value={controller.form.password}
                                             onChange={(event) => controller.updateField('password', event.target.value)}
-                                            placeholder="8+ characters with a number and symbol"
-                                            className="h-12 rounded-none border-[#c9c4b8] bg-white/75 px-10 focus-visible:ring-[#f04f3f]"
+                                            placeholder="8+ characters"
+                                            className="h-12 rounded-xl border-border bg-white/80 pl-10 pr-16 focus-visible:ring-[var(--brand-cyan)]"
                                         />
                                         <button
                                             type="button"
@@ -326,7 +291,7 @@ function HeightsPrSignupForm({
                                     type="button"
                                     variant="outline"
                                     onClick={handleGoogleLogin}
-                                    className="h-12 w-full rounded-none border-[#17322c] bg-transparent font-bold text-[#17322c] hover:bg-[#17322c] hover:text-white"
+                                    className="h-12 w-full rounded-full border-border bg-white/60 font-bold text-foreground hover:bg-muted"
                                 >
                                     Continue with Google
                                 </Button>
@@ -343,7 +308,7 @@ function HeightsPrSignupForm({
                                 value={controller.form.gender}
                                 onValueChange={(value) => controller.updateField('gender', value as 'male' | 'female')}
                             >
-                                <SelectTrigger className="h-12 rounded-none border-[#c9c4b8] bg-white/75">
+                                <SelectTrigger className="h-12 rounded-xl border-border bg-white/80">
                                     <SelectValue placeholder="Select gender" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -358,13 +323,10 @@ function HeightsPrSignupForm({
                                 value={controller.form.dateOfBirth}
                                 onChange={(value) => controller.updateField('dateOfBirth', value)}
                                 placeholder="Select date of birth"
-                                className="h-12 rounded-none border-[#c9c4b8] bg-white/75"
+                                className="h-12 rounded-xl border-border bg-white/80"
                                 maxDate={new Date()}
                                 showYearMonthDropdowns
                             />
-                        </div>
-                        <div className="border-l-2 border-[#f04f3f] bg-[#eee8dc] px-4 py-3 text-sm leading-6 text-[#52615c]">
-                            These details help keep your account accurate and are not displayed publicly.
                         </div>
                     </div>
                 );
@@ -383,7 +345,7 @@ function HeightsPrSignupForm({
                                 />
                                 <Label
                                     htmlFor="heightspr-logo"
-                                    className="relative flex h-20 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-[#77847f] bg-white text-[#52615c] hover:border-[#f04f3f]"
+                                    className="relative flex h-20 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-white text-muted-foreground hover:border-[var(--brand-cyan)]"
                                 >
                                     {controller.avatarPreview ? (
                                         <Image
@@ -408,7 +370,7 @@ function HeightsPrSignupForm({
                                             }
                                         }}
                                         aria-label="Remove logo"
-                                        className="absolute -right-1 top-0 flex h-6 w-6 items-center justify-center rounded-full bg-[#17322c] text-white"
+                                        className="absolute -right-1 top-0 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--brand-teal)] text-white"
                                     >
                                         <X className="h-3 w-3" />
                                     </button>
@@ -426,7 +388,7 @@ function HeightsPrSignupForm({
                                 value={controller.form.organizerName}
                                 onChange={(event) => controller.updateField('organizerName', event.target.value)}
                                 placeholder="Your public organiser name"
-                                className="h-12 rounded-none border-[#c9c4b8] bg-white/75"
+                                className="h-12 rounded-xl border-border bg-white/80"
                             />
                         </div>
                         <div className="space-y-2">
@@ -442,10 +404,10 @@ function HeightsPrSignupForm({
                                         type="button"
                                         onClick={() => controller.updateField('organizerType', value)}
                                         className={cn(
-                                            'min-h-12 border px-2 text-xs font-bold transition-colors sm:text-sm',
+                                            'min-h-12 rounded-xl border px-2 text-xs font-bold transition-colors sm:text-sm',
                                             controller.form.organizerType === value
-                                                ? 'border-[#17322c] bg-[#17322c] text-white'
-                                                : 'border-[#c9c4b8] bg-white/75 text-[#52615c] hover:border-[#f04f3f]',
+                                                ? 'border-[var(--brand-teal)] bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white'
+                                                : 'border-border bg-white/70 text-muted-foreground hover:border-[var(--brand-cyan)]',
                                         )}
                                     >
                                         {label}
@@ -461,7 +423,7 @@ function HeightsPrSignupForm({
                                     value={controller.form.organizerCharityNumber}
                                     onChange={(event) => controller.updateField('organizerCharityNumber', event.target.value)}
                                     placeholder="Registered charity number"
-                                    className="h-12 rounded-none border-[#c9c4b8] bg-white/75"
+                                    className="h-12 rounded-xl border-border bg-white/80"
                                 />
                             </div>
                         ) : null}
@@ -473,7 +435,7 @@ function HeightsPrSignupForm({
                                 value={controller.form.organizerContactEmail}
                                 onChange={(event) => controller.updateField('organizerContactEmail', event.target.value)}
                                 placeholder="events@yourorganisation.com"
-                                className="h-12 rounded-none border-[#c9c4b8] bg-white/75"
+                                className="h-12 rounded-xl border-border bg-white/80"
                             />
                         </div>
                     </div>
@@ -487,7 +449,7 @@ function HeightsPrSignupForm({
                                 value={controller.form.organizerCountry}
                                 onValueChange={(value) => controller.updateField('organizerCountry', value)}
                             >
-                                <SelectTrigger className="h-12 rounded-none border-[#c9c4b8] bg-white/75">
+                                <SelectTrigger className="h-12 rounded-xl border-border bg-white/80">
                                     <SelectValue placeholder="Select country" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -508,7 +470,7 @@ function HeightsPrSignupForm({
                                     value={controller.form.organizerCity}
                                     onChange={(event) => controller.updateField('organizerCity', event.target.value)}
                                     placeholder="Your home city"
-                                    className="h-12 rounded-none border-[#c9c4b8] bg-white/75 pl-10"
+                                    className="h-12 rounded-xl border-border bg-white/80 pl-10"
                                 />
                             </div>
                         </div>
@@ -518,7 +480,7 @@ function HeightsPrSignupForm({
                                 value={controller.form.organizerTimezone}
                                 onValueChange={(value) => controller.updateField('organizerTimezone', value)}
                             >
-                                <SelectTrigger className="h-12 rounded-none border-[#c9c4b8] bg-white/75">
+                                <SelectTrigger className="h-12 rounded-xl border-border bg-white/80">
                                     <SelectValue placeholder="Select timezone" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -541,7 +503,7 @@ function HeightsPrSignupForm({
                                 value={controller.form.organizerCurrency}
                                 onValueChange={(value) => controller.updateField('organizerCurrency', value)}
                             >
-                                <SelectTrigger className="h-14 rounded-none border-[#c9c4b8] bg-white/75">
+                                <SelectTrigger className="h-14 rounded-xl border-border bg-white/80">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -556,12 +518,12 @@ function HeightsPrSignupForm({
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="flex items-start gap-3 border border-[#c9c4b8] bg-white/55 p-4">
+                        <div className="flex items-start gap-3 rounded-2xl border border-border bg-white/60 p-4">
                             <Checkbox
                                 id="heightspr-terms"
                                 checked={controller.acceptedTerms}
                                 onCheckedChange={(checked) => controller.setAcceptedTerms(checked === true)}
-                                className="mt-0.5 border-[#65736e] data-[state=checked]:border-[#f04f3f] data-[state=checked]:bg-[#f04f3f]"
+                                className="mt-0.5 border-muted-foreground data-[state=checked]:border-[var(--brand-teal)] data-[state=checked]:bg-[var(--brand-teal)]"
                             />
                             <Label htmlFor="heightspr-terms" className="cursor-pointer text-sm font-normal leading-6 text-[#52615c]">
                                 I agree to Halal Ticketin&apos;s{' '}
@@ -574,26 +536,16 @@ function HeightsPrSignupForm({
                                 </Link>.
                             </Label>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 text-xs font-bold uppercase tracking-[0.12em] text-[#62706b]">
-                            <div className="flex items-center gap-2 border-t border-[#c9c4b8] pt-3">
-                                <ShieldCheck className="h-4 w-4 text-[#f04f3f]" />
-                                Secure account
-                            </div>
-                            <div className="flex items-center gap-2 border-t border-[#c9c4b8] pt-3">
-                                <CircleDollarSign className="h-4 w-4 text-[#f04f3f]" />
-                                Stripe payouts
-                            </div>
-                        </div>
                     </div>
                 );
             case 'stripe':
                 return (
                     <div className="space-y-6" data-testid="heightspr-step-stripe">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#17322c] text-[#f7f0df]">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white">
                             <CircleDollarSign className="h-8 w-8" />
                         </div>
                         <div>
-                            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f04f3f]">Account created</p>
+                            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--brand-teal)]">Account created</p>
                             <h2 className="mt-3 font-display text-3xl font-black tracking-[-0.05em] text-[#172b27]">
                                 Connect Stripe when you are ready to sell.
                             </h2>
@@ -611,7 +563,7 @@ function HeightsPrSignupForm({
                                 type="button"
                                 onClick={controller.connectStripe}
                                 disabled={controller.isLoading}
-                                className="h-13 w-full rounded-none bg-[#f04f3f] font-bold text-white hover:bg-[#d94133]"
+                                className="h-12 w-full rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] font-bold text-white hover:opacity-90"
                             >
                                 {controller.isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Connect Stripe
@@ -621,7 +573,7 @@ function HeightsPrSignupForm({
                                 type="button"
                                 variant="ghost"
                                 onClick={complete}
-                                className="h-12 w-full rounded-none font-bold text-[#17322c]"
+                                className="h-12 w-full rounded-full font-bold text-foreground"
                             >
                                 I&apos;ll do this later
                             </Button>
@@ -631,11 +583,11 @@ function HeightsPrSignupForm({
             case 'complete':
                 return (
                     <div className="space-y-6" data-testid="heightspr-step-complete">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f04f3f] text-white">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white">
                             <Mail className="h-8 w-8" />
                         </div>
                         <div>
-                            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f04f3f]">One final step</p>
+                            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--brand-teal)]">One final step</p>
                             <h2 className="mt-3 font-display text-3xl font-black tracking-[-0.05em] text-[#172b27]">
                                 Check your inbox to verify your email.
                             </h2>
@@ -652,7 +604,7 @@ function HeightsPrSignupForm({
                             <Button
                                 type="button"
                                 onClick={complete}
-                                className="h-13 w-full rounded-none bg-[#17322c] font-bold text-white hover:bg-[#29483f]"
+                                className="h-12 w-full rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] font-bold text-white hover:opacity-90"
                             >
                                 Continue to sign in
                             </Button>
@@ -661,7 +613,7 @@ function HeightsPrSignupForm({
                                 variant="ghost"
                                 onClick={controller.resendVerificationEmail}
                                 disabled={controller.isLoading}
-                                className="h-12 w-full rounded-none font-bold text-[#17322c]"
+                                className="h-12 w-full rounded-full font-bold text-foreground"
                             >
                                 Resend verification email
                             </Button>
@@ -674,69 +626,19 @@ function HeightsPrSignupForm({
     const isCoreStep = currentIndex >= 0;
 
     return (
-        <main className="relative min-h-[calc(100dvh-var(--nav-safe-offset))] overflow-hidden bg-[#f3efe5] text-[#172b27]">
-            <div className="pointer-events-none absolute inset-0 opacity-[0.32] [background-image:radial-gradient(#586660_0.55px,transparent_0.55px)] [background-size:8px_8px]" />
-            <div className="relative mx-auto grid min-h-[calc(100dvh-var(--nav-safe-offset))] max-w-[1520px] lg:grid-cols-[minmax(330px,0.82fr)_minmax(520px,1.18fr)]">
-                <aside className="relative overflow-hidden bg-[#17322c] px-5 py-6 text-[#f7f0df] sm:px-10 sm:py-8 lg:flex lg:min-h-full lg:flex-col lg:px-12 lg:py-12">
-                    <div className="absolute inset-y-0 right-0 w-1 bg-[#f57c00] lg:w-1.5" />
-                    <div className="absolute left-0 top-0 h-full w-full opacity-[0.11] [background-image:linear-gradient(90deg,#f7f0df_1px,transparent_1px),linear-gradient(0deg,#f7f0df_1px,transparent_1px)] [background-size:42px_42px]" />
-                    <div className="absolute bottom-0 left-0 h-44 w-full opacity-15 [background-image:linear-gradient(135deg,transparent_46%,#f7f0df_47%,#f7f0df_49%,transparent_50%)] [background-size:18px_18px]" />
-
-                    <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between lg:block">
-                        <PartnershipLockup inverse compact />
-                        <div className="inline-flex w-fit items-center gap-2 border border-[#f7f0df]/15 bg-[#f7f0df]/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#d8d4c8] lg:mt-8">
-                            <span className="h-2 w-2 bg-[#f57c00]" />
-                            Partner organiser access
-                        </div>
+        <main className="gradient-mesh relative min-h-[calc(100dvh-var(--nav-safe-offset))] overflow-hidden bg-background text-foreground">
+            <div className="pointer-events-none absolute inset-0 bg-noise opacity-30" />
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(105deg,oklch(0.78_0.14_165/0.20)_0%,oklch(0.72_0.15_185/0.13)_43%,oklch(0.99_0.005_180/0.94)_54%,#fff0e0_100%)]" />
+            <div className="container relative z-10 py-8 sm:py-10 lg:py-14">
+                <section className="mx-auto max-w-4xl overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-xl shadow-[var(--brand-teal)]/10 backdrop-blur-md">
+                    <div className="border-b border-border/50 bg-white/55 px-5 py-5 sm:px-8 sm:py-6">
+                        <BrandStrip />
                     </div>
 
-                    <div className="relative mt-8 max-w-xl sm:mt-10 lg:my-auto lg:mt-16">
-                        <div className="inline-flex items-center gap-2 border border-[#f7f0df]/20 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#f57c00]">
-                            <Handshake className="h-3.5 w-3.5" />
-                            HeightsPR x Halal Ticketin
-                        </div>
-                        <h1 className="mt-5 max-w-lg font-display text-[2.6rem] font-black leading-[0.96] tracking-[-0.055em] sm:mt-7 sm:text-[clamp(3rem,5vw,5rem)] sm:tracking-[-0.065em]">
-                            Your next event deserves a full house.
-                        </h1>
-                        <p className="mt-4 max-w-md text-base leading-7 text-[#d1d8d4] sm:mt-6 sm:text-lg">
-                            A dedicated organiser signup for HeightsPR partners, powered by Halal Ticketin ticketing.
-                        </p>
-                        <div className="mt-8 hidden gap-5 border-t border-[#f7f0df]/15 pt-6 text-sm text-[#d1d8d4] sm:grid sm:grid-cols-3 lg:grid-cols-1">
-                            {[
-                                'Build the audience with HeightsPR',
-                                'Sell tickets through Halal Ticketin',
-                                'Manage events from one dashboard',
-                            ].map((benefit) => (
-                                <div key={benefit} className="flex items-center gap-3">
-                                    <CheckCircle2 className="h-5 w-5 shrink-0 text-[#f57c00]" />
-                                    {benefit}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="relative mt-10 hidden border-t border-[#f7f0df]/15 pt-5 text-xs leading-6 text-[#bac6c1] lg:block">
-                        Half growth partner, half ticketing platform. One clean setup flow for organisers.
-                    </div>
-                </aside>
-
-                <section className="relative flex min-h-[680px] items-center px-5 py-10 sm:px-10 lg:px-16 lg:py-14">
-                    <div className="absolute left-0 top-0 hidden h-full w-px bg-[#d7d1c5] lg:block" />
-                    <div className="mx-auto w-full max-w-[620px]">
+                    <div className="mx-auto w-full max-w-[620px] px-5 py-8 sm:px-8 sm:py-10 lg:px-0 lg:py-12">
                         {isCoreStep ? (
                             <>
-                                <div className="mb-8 flex items-center justify-between gap-4 border-b border-[#d1cbc0] pb-5">
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7a8782]">
-                                            Organiser onboarding
-                                        </p>
-                                        <p className="mt-1 text-sm font-bold text-[#17322c]">
-                                            HeightsPR referral route
-                                        </p>
-                                    </div>
-                                    <HeightsPrLogo className="hidden h-7 w-24 sm:block" />
-                                </div>
-                                <div className="mb-8 flex items-center justify-between gap-4">
+                                <div className="mb-7 flex items-center justify-between gap-4">
                                     <div className="flex items-center gap-2" aria-label={`Step ${currentIndex + 1} of ${ORGANIZER_SIGNUP_STEPS.length}`}>
                                         {ORGANIZER_SIGNUP_STEPS.map((signupStep, index) => {
                                             const isActive = index === currentIndex;
@@ -751,9 +653,9 @@ function HeightsPrSignupForm({
                                                     aria-label={`Go to ${STEP_DETAILS[signupStep].eyebrow}`}
                                                     className={cn(
                                                         'flex h-8 w-8 items-center justify-center rounded-full border text-xs font-black transition-all',
-                                                        isActive && 'border-[#f57c00] bg-[#f57c00] text-white shadow-[0_5px_0_#17322c]',
-                                                        isComplete && 'border-[#17322c] bg-[#17322c] text-white',
-                                                        !isActive && !isComplete && 'border-[#bcb7ab] bg-transparent text-[#78847f]',
+                                                        isActive && 'border-[var(--brand-cyan)] bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-sm',
+                                                        isComplete && 'border-[var(--brand-teal)] bg-[var(--brand-teal)] text-white',
+                                                        !isActive && !isComplete && 'border-border bg-white/60 text-muted-foreground',
                                                         isAvailable && 'cursor-pointer',
                                                     )}
                                                 >
@@ -762,21 +664,21 @@ function HeightsPrSignupForm({
                                             );
                                         })}
                                     </div>
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7a8782]">
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                                         {currentIndex + 1} / {ORGANIZER_SIGNUP_STEPS.length}
                                     </span>
                                 </div>
 
-                                <div className="mb-8">
-                                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#f04f3f]">
+                                <div className="mb-7">
+                                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--brand-teal)]">
                                         {activeDetails.eyebrow}
                                     </p>
-                                    <h2 className="mt-3 max-w-xl font-display text-3xl font-black leading-[1.03] tracking-[-0.05em] text-[#172b27] sm:text-4xl">
+                                    <h1 className="mt-3 max-w-xl font-display text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl">
+                                        Create your organiser account.
+                                    </h1>
+                                    <h2 className="sr-only">
                                         {activeDetails.title}
                                     </h2>
-                                    <p className="mt-4 max-w-lg leading-7 text-[#5d6b66]">
-                                        {activeDetails.description}
-                                    </p>
                                 </div>
                             </>
                         ) : null}
@@ -817,7 +719,7 @@ function HeightsPrSignupForm({
                                                 variant="outline"
                                                 onClick={controller.back}
                                                 disabled={controller.isLoading}
-                                                className="h-13 rounded-none border-[#17322c] bg-transparent px-5 text-[#17322c] hover:bg-[#e4dfd3]"
+                                                className="h-12 rounded-full border-border bg-white/60 px-5 text-foreground hover:bg-muted"
                                             >
                                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                                 Back
@@ -827,7 +729,7 @@ function HeightsPrSignupForm({
                                             type="button"
                                             onClick={() => void controller.advance()}
                                             disabled={controller.isLoading}
-                                            className="h-13 flex-1 rounded-none bg-[#f04f3f] px-6 font-bold text-white shadow-[7px_7px_0_#17322c] transition-transform hover:-translate-y-0.5 hover:bg-[#d94133]"
+                                            className="h-12 flex-1 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] px-6 font-bold text-white shadow-md shadow-[var(--brand-teal)]/20 transition-transform hover:-translate-y-0.5 hover:opacity-90"
                                         >
                                             {controller.isLoading ? (
                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -841,17 +743,6 @@ function HeightsPrSignupForm({
                                 ) : null}
                             </motion.form>
                         </AnimatePresence>
-
-                        <div className="mt-10 flex items-center justify-between border-t border-[#d1cbc0] pt-5 text-xs text-[#6d7974]">
-                            <span className="flex items-center gap-2">
-                                <Sparkles className="h-3.5 w-3.5 text-[#f57c00]" />
-                                Co-branded partner signup
-                            </span>
-                            <span className="flex items-center gap-2">
-                                <Globe2 className="h-3.5 w-3.5" />
-                                Organisers only
-                            </span>
-                        </div>
                     </div>
                 </section>
             </div>
