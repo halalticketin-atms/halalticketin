@@ -59,7 +59,11 @@ test.describe('HeightsPR organiser signup', () => {
         await expect(page.getByLabel('Full name')).toBeVisible();
         await expect(page.getByLabel('Email address')).toBeVisible();
         await expect(page.getByLabel('Password')).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Continue with Google' })).toHaveCount(0);
         await expect(page.getByText('For Attendees')).toHaveCount(0);
+        await expect.poll(async () => page.evaluate(
+            () => document.documentElement.scrollHeight <= window.innerHeight,
+        )).toBe(true);
 
         await page.getByRole('button', { name: 'Continue', exact: true }).click();
         expect(clientErrors).toEqual([]);

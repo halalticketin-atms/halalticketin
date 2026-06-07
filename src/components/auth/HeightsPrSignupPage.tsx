@@ -36,7 +36,6 @@ import {
 import { useAuth } from '@/context/auth-context';
 import { getHeightsPrAccess } from '@/lib/heightspr-access';
 import { COUNTRIES, TIMEZONES } from '@/lib/organizer-options';
-import { getSupabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 
 import {
@@ -106,30 +105,27 @@ function BrandStrip() {
     return (
         <div
             data-testid="heightspr-brand-strip"
-            className="flex items-center justify-between gap-4"
+            className="mx-auto flex w-full max-w-[620px] items-center justify-center gap-6 sm:gap-10"
             aria-label="Halal Ticketin and HeightsPR partnership"
         >
-            <div className="relative h-10 w-32 shrink-0 sm:h-12 sm:w-40">
+            <div className="relative h-9 w-28 shrink-0 sm:h-12 sm:w-40">
                 <Image
                     src={HT_LOGO_SRC}
                     alt="Halal Ticketin"
                     fill
                     sizes="160px"
                     priority
-                    className="object-contain object-left"
+                    className="object-contain"
                 />
             </div>
-            <span className="font-display text-sm font-black uppercase text-muted-foreground/70" aria-hidden="true">
-                x
-            </span>
-            <HeightsPrLogo priority className="h-8 w-28 sm:h-10 sm:w-36" />
+            <HeightsPrLogo priority className="h-8 w-24 sm:h-10 sm:w-36" />
         </div>
     );
 }
 
 function LoadingPanel() {
     return (
-        <div className="gradient-mesh flex min-h-[calc(100dvh-var(--nav-safe-offset))] items-center justify-center">
+        <div className="gradient-mesh -mt-[var(--nav-safe-offset)] flex h-dvh items-center justify-center pt-[var(--nav-safe-offset)]">
             <Loader2 className="h-7 w-7 animate-spin text-[var(--brand-teal)]" aria-label="Loading signup" />
         </div>
     );
@@ -137,9 +133,9 @@ function LoadingPanel() {
 
 function BlockedPanel() {
     return (
-        <main className="relative min-h-[calc(100dvh-var(--nav-safe-offset))] overflow-hidden bg-[linear-gradient(105deg,oklch(0.78_0.14_165/0.30)_0%,oklch(0.72_0.15_185/0.22)_45%,oklch(0.99_0.005_180/0.84)_52%,#fff0e0_100%)] px-5 py-16">
+        <main className="relative -mt-[var(--nav-safe-offset)] h-dvh overflow-hidden bg-[linear-gradient(105deg,oklch(0.78_0.14_165/0.30)_0%,oklch(0.72_0.15_185/0.22)_45%,oklch(0.99_0.005_180/0.84)_52%,#fff0e0_100%)] px-5 pb-16 pt-[calc(var(--nav-safe-offset)+4rem)]">
             <div className="absolute inset-0 bg-noise opacity-30" />
-            <section className="relative mx-auto flex min-h-[calc(100dvh-var(--nav-safe-offset)-8rem)] w-full max-w-6xl flex-col justify-between">
+            <section className="relative mx-auto flex h-full w-full max-w-6xl flex-col justify-between">
                 <BrandStrip />
                 <div className="max-w-xl py-16">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-lg shadow-[var(--brand-teal)]/20">
@@ -193,22 +189,6 @@ function HeightsPrSignupForm({
         await controller.advance();
     };
 
-    const handleGoogleLogin = async () => {
-        controller.setError(null);
-        const callbackUrl = new URL('/auth/callback', window.location.origin);
-        callbackUrl.searchParams.set('role', 'organizer');
-        callbackUrl.searchParams.set('next', '/heightspr');
-        const { error } = await getSupabase().auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: callbackUrl.toString(),
-            },
-        });
-        if (error) {
-            controller.setErrorMessage('Unable to continue with Google. Please try again.');
-        }
-    };
-
     const complete = () => {
         if (controller.pendingEmailConfirmation) {
             router.push('/login?next=%2Fdashboard');
@@ -256,48 +236,28 @@ function HeightsPrSignupForm({
                             ) : null}
                         </div>
                         {!authenticated ? (
-                            <>
-                                <div className="space-y-2">
-                                    <Label htmlFor="heightspr-password">Password</Label>
-                                    <div className="relative">
-                                        <LockKeyhole className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#82908b]" />
-                                        <Input
-                                            id="heightspr-password"
-                                            type={showPassword ? 'text' : 'password'}
-                                            autoComplete="new-password"
-                                            value={controller.form.password}
-                                            onChange={(event) => controller.updateField('password', event.target.value)}
-                                            placeholder="8+ characters"
-                                            className="h-12 rounded-xl border-border bg-white/80 pl-10 pr-16 focus-visible:ring-[var(--brand-cyan)]"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword((value) => !value)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#40514b] underline-offset-4 hover:underline"
-                                        >
-                                            {showPassword ? 'Hide' : 'Show'}
-                                        </button>
-                                    </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="heightspr-password">Password</Label>
+                                <div className="relative">
+                                    <LockKeyhole className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#82908b]" />
+                                    <Input
+                                        id="heightspr-password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        autoComplete="new-password"
+                                        value={controller.form.password}
+                                        onChange={(event) => controller.updateField('password', event.target.value)}
+                                        placeholder="8+ characters"
+                                        className="h-12 rounded-xl border-border bg-white/80 pl-10 pr-16 focus-visible:ring-[var(--brand-cyan)]"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword((value) => !value)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#40514b] underline-offset-4 hover:underline"
+                                    >
+                                        {showPassword ? 'Hide' : 'Show'}
+                                    </button>
                                 </div>
-                                <div className="relative py-1">
-                                    <div className="absolute inset-0 flex items-center">
-                                        <span className="w-full border-t border-[#d7d1c5]" />
-                                    </div>
-                                    <div className="relative flex justify-center">
-                                        <span className="bg-[#f7f3e9] px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#7e8a85]">
-                                            or
-                                        </span>
-                                    </div>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={handleGoogleLogin}
-                                    className="h-12 w-full rounded-full border-border bg-white/60 font-bold text-foreground hover:bg-muted"
-                                >
-                                    Continue with Google
-                                </Button>
-                            </>
+                            </div>
                         ) : null}
                     </div>
                 );
@@ -437,8 +397,15 @@ function HeightsPrSignupForm({
                                 value={controller.form.organizerContactEmail}
                                 onChange={(event) => controller.updateField('organizerContactEmail', event.target.value)}
                                 placeholder="events@yourorganisation.com"
+                                aria-describedby="heightspr-contact-email-help"
                                 className="h-12 rounded-xl border-border bg-white/80"
                             />
+                            <p
+                                id="heightspr-contact-email-help"
+                                className="text-xs leading-5 text-[#6c7a75]"
+                            >
+                                Attendees will see this address on event pages, booking confirmations, and ticket emails so they can contact your organisation.
+                            </p>
                         </div>
                     </div>
                 );
@@ -630,19 +597,17 @@ function HeightsPrSignupForm({
     return (
         <main
             data-testid="heightspr-fullscreen-shell"
-            className="relative min-h-[calc(100dvh-var(--nav-safe-offset))] overflow-hidden bg-[linear-gradient(105deg,oklch(0.78_0.14_165/0.30)_0%,oklch(0.72_0.15_185/0.22)_45%,oklch(0.99_0.005_180/0.84)_52%,#fff0e0_100%)] text-foreground"
+            className="relative -mt-[var(--nav-safe-offset)] h-dvh min-h-0 overflow-hidden overscroll-none bg-[linear-gradient(105deg,oklch(0.78_0.14_165/0.30)_0%,oklch(0.72_0.15_185/0.22)_45%,oklch(0.99_0.005_180/0.84)_52%,#fff0e0_100%)] text-foreground"
         >
             <div className="pointer-events-none absolute inset-0 bg-noise opacity-30" />
-            <div className="relative z-10 flex min-h-[calc(100dvh-var(--nav-safe-offset))] flex-col px-5 py-7 sm:px-8 sm:py-9 lg:px-14 lg:py-12">
+            <div className="relative z-10 flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-5 pb-7 pt-[calc(var(--nav-safe-offset)+1.75rem)] sm:px-8 sm:pb-9 sm:pt-[calc(var(--nav-safe-offset)+2.25rem)] lg:px-14 lg:pb-12 lg:pt-[calc(var(--nav-safe-offset)+3rem)]">
                 <BrandStrip />
 
-                <section className="grid flex-1 items-center gap-10 py-10 lg:grid-cols-[minmax(260px,0.86fr)_minmax(440px,620px)] lg:gap-16 lg:py-8">
-                    <div className="hidden lg:block" aria-hidden="true" />
-
-                    <div className="w-full max-w-[620px] justify-self-center lg:justify-self-start">
+                <section className="flex flex-1 items-start justify-center py-10 sm:items-center sm:py-10 lg:py-8">
+                    <div className="w-full max-w-[620px]">
                         {isCoreStep ? (
                             <>
-                                <div className="mb-7 flex items-center justify-between gap-4">
+                                <div className="mb-7 flex items-center justify-center">
                                     <div className="flex items-center gap-2" aria-label={`Step ${currentIndex + 1} of ${ORGANIZER_SIGNUP_STEPS.length}`}>
                                         {ORGANIZER_SIGNUP_STEPS.map((signupStep, index) => {
                                             const isActive = index === currentIndex;
@@ -668,9 +633,6 @@ function HeightsPrSignupForm({
                                             );
                                         })}
                                     </div>
-                                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                                        {currentIndex + 1} / {ORGANIZER_SIGNUP_STEPS.length}
-                                    </span>
                                 </div>
 
                                 <div className="mb-7">
