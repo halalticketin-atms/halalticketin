@@ -137,25 +137,27 @@ function LoadingPanel() {
 
 function BlockedPanel() {
     return (
-        <main className="gradient-mesh relative flex min-h-[calc(100dvh-var(--nav-safe-offset))] items-center justify-center overflow-hidden px-5 py-16">
+        <main className="relative min-h-[calc(100dvh-var(--nav-safe-offset))] overflow-hidden bg-[linear-gradient(105deg,oklch(0.78_0.14_165/0.30)_0%,oklch(0.72_0.15_185/0.22)_45%,oklch(0.99_0.005_180/0.84)_52%,#fff0e0_100%)] px-5 py-16">
             <div className="absolute inset-0 bg-noise opacity-30" />
-            <section className="relative w-full max-w-xl rounded-[2rem] border border-white/70 bg-white/85 p-7 shadow-xl backdrop-blur-md sm:p-10">
+            <section className="relative mx-auto flex min-h-[calc(100dvh-var(--nav-safe-offset)-8rem)] w-full max-w-6xl flex-col justify-between">
                 <BrandStrip />
-                <div className="mt-10 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-lg shadow-[var(--brand-teal)]/20">
-                    <ShieldCheck className="h-7 w-7" />
+                <div className="max-w-xl py-16">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand-cyan)] to-[var(--brand-teal)] text-white shadow-lg shadow-[var(--brand-teal)]/20">
+                        <ShieldCheck className="h-7 w-7" />
+                    </div>
+                    <h1 className="mt-6 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                        Your account already belongs to an organiser.
+                    </h1>
+                    <p className="mt-4 max-w-md text-base leading-7 text-muted-foreground">
+                        The HeightsPR route is reserved for creating a new organiser. Your existing organiser has not been changed or tagged.
+                    </p>
+                    <Button asChild className="mt-8 h-12 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] px-6 font-bold text-white hover:opacity-90">
+                        <Link href="/dashboard">
+                            Return to dashboard
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
+                    </Button>
                 </div>
-                <h1 className="mt-6 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                    Your account already belongs to an organiser.
-                </h1>
-                <p className="mt-4 max-w-md text-base leading-7 text-muted-foreground">
-                    The HeightsPR route is reserved for creating a new organiser. Your existing organiser has not been changed or tagged.
-                </p>
-                <Button asChild className="mt-8 h-12 rounded-full bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] px-6 font-bold text-white hover:opacity-90">
-                    <Link href="/dashboard">
-                        Return to dashboard
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                </Button>
             </section>
         </main>
     );
@@ -626,16 +628,18 @@ function HeightsPrSignupForm({
     const isCoreStep = currentIndex >= 0;
 
     return (
-        <main className="gradient-mesh relative min-h-[calc(100dvh-var(--nav-safe-offset))] overflow-hidden bg-background text-foreground">
+        <main
+            data-testid="heightspr-fullscreen-shell"
+            className="relative min-h-[calc(100dvh-var(--nav-safe-offset))] overflow-hidden bg-[linear-gradient(105deg,oklch(0.78_0.14_165/0.30)_0%,oklch(0.72_0.15_185/0.22)_45%,oklch(0.99_0.005_180/0.84)_52%,#fff0e0_100%)] text-foreground"
+        >
             <div className="pointer-events-none absolute inset-0 bg-noise opacity-30" />
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(105deg,oklch(0.78_0.14_165/0.20)_0%,oklch(0.72_0.15_185/0.13)_43%,oklch(0.99_0.005_180/0.94)_54%,#fff0e0_100%)]" />
-            <div className="container relative z-10 py-8 sm:py-10 lg:py-14">
-                <section className="mx-auto max-w-4xl overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-xl shadow-[var(--brand-teal)]/10 backdrop-blur-md">
-                    <div className="border-b border-border/50 bg-white/55 px-5 py-5 sm:px-8 sm:py-6">
-                        <BrandStrip />
-                    </div>
+            <div className="relative z-10 flex min-h-[calc(100dvh-var(--nav-safe-offset))] flex-col px-5 py-7 sm:px-8 sm:py-9 lg:px-14 lg:py-12">
+                <BrandStrip />
 
-                    <div className="mx-auto w-full max-w-[620px] px-5 py-8 sm:px-8 sm:py-10 lg:px-0 lg:py-12">
+                <section className="grid flex-1 items-center gap-10 py-10 lg:grid-cols-[minmax(260px,0.86fr)_minmax(440px,620px)] lg:gap-16 lg:py-8">
+                    <div className="hidden lg:block" aria-hidden="true" />
+
+                    <div className="w-full max-w-[620px] justify-self-center lg:justify-self-start">
                         {isCoreStep ? (
                             <>
                                 <div className="mb-7 flex items-center justify-between gap-4">
