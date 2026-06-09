@@ -14,6 +14,7 @@ import { useAuth } from '@/context/auth-context';
 import { toast } from '@/lib/notifications';
 import { parseBackendError } from '@/lib/api-errors';
 import { getLastAuthMethod, setLastAuthMethod, type LastAuthMethod } from '@/lib/last-auth-method';
+import { getAuthCallbackUrl, getSafeInternalPath } from '@/lib/auth-onboarding-continuation';
 
 interface LoginResponse {
     accessToken: string;
@@ -49,7 +50,7 @@ function LoginContent() {
     const { user, isLoading: authLoading, refresh, isOrganizer, needsOnboarding } = useAuth();
     const nextParam = searchParams.get('next');
     const fallbackRedirect = isOrganizer ? '/dashboard' : '/events';
-    const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
+    const safeNextParam = getSafeInternalPath(nextParam);
     const redirectPath = safeNextParam ?? fallbackRedirect;
     const registerPath = useMemo(() => {
         if (!safeNextParam) {
@@ -203,7 +204,7 @@ function LoginContent() {
             const { error: resendError } = await getSupabase().auth.resend({
                 type: 'signup',
                 email: trimmedEmail,
-                options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+                options: { emailRedirectTo: getAuthCallbackUrl(window.location.origin, safeNextParam) },
             });
 
             if (resendError) {
@@ -228,7 +229,7 @@ function LoginContent() {
             const { error } = await getSupabase().auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback${safeNextParam ? `?next=${encodeURIComponent(safeNextParam)}` : ''}`,
+                    redirectTo: getAuthCallbackUrl(window.location.origin, safeNextParam),
                 },
             });
 

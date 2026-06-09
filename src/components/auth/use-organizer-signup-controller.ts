@@ -4,6 +4,7 @@ import { useCallback, useRef, useState, type ChangeEvent } from 'react';
 
 import api, { setAuthToken } from '@/lib/api';
 import { getAuthUiError, type AuthUiError } from '@/lib/auth-error-messages';
+import { getAuthCallbackUrl } from '@/lib/auth-onboarding-continuation';
 import { setLastAuthMethod } from '@/lib/last-auth-method';
 import { toast } from '@/lib/notifications';
 import { getSupabase } from '@/lib/supabase';
@@ -58,14 +59,11 @@ export async function resendOrganizerVerificationEmail(
     },
     resend: ResendSignup,
 ) {
-    const suffix = input.redirectAfterComplete
-        ? `?next=${encodeURIComponent(input.redirectAfterComplete)}`
-        : '';
     const { error } = await resend({
         type: 'signup',
         email: input.email,
         options: {
-            emailRedirectTo: `${input.origin}/auth/callback${suffix}`,
+            emailRedirectTo: getAuthCallbackUrl(input.origin, input.redirectAfterComplete),
         },
     });
     if (error) {
@@ -180,6 +178,7 @@ interface UseOrganizerSignupControllerOptions {
         name?: string;
     };
     redirectAfterComplete?: string;
+    getVerificationRedirectAfterComplete?: (organizerId: string | null) => string | undefined;
     refresh: () => Promise<void>;
     refreshAfterAuthenticatedSubmit?: boolean;
 }
@@ -189,6 +188,7 @@ export function useOrganizerSignupController({
     heightsprReferral = false,
     prefill,
     redirectAfterComplete,
+    getVerificationRedirectAfterComplete,
     refresh,
     refreshAfterAuthenticatedSubmit = true,
 }: UseOrganizerSignupControllerOptions) {
@@ -389,7 +389,8 @@ export function useOrganizerSignupController({
         try {
             await resendOrganizerVerificationEmail({
                 email: form.email,
-                redirectAfterComplete,
+                redirectAfterComplete: getVerificationRedirectAfterComplete?.(organizerId)
+                    ?? redirectAfterComplete,
                 origin: window.location.origin,
             }, (request) => getSupabase().auth.resend(request));
             toast.success('Verification email sent', {
@@ -403,7 +404,7 @@ export function useOrganizerSignupController({
         } finally {
             setIsLoading(false);
         }
-    }, [form.email, redirectAfterComplete]);
+    }, [form.email, getVerificationRedirectAfterComplete, organizerId, redirectAfterComplete]);
 
     return {
         form,

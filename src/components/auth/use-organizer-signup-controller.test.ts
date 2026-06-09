@@ -197,4 +197,25 @@ describe('organiser signup controller continuations', () => {
             },
         });
     });
+
+    it('drops unsafe verification callback continuations', async () => {
+        const resend = vi.fn().mockResolvedValue({ error: null });
+
+        await resendOrganizerVerificationEmail(
+            {
+                email: 'organiser@example.com',
+                redirectAfterComplete: '//evil.example',
+                origin: 'https://halalticketin.test',
+            },
+            resend,
+        );
+
+        expect(resend).toHaveBeenCalledWith({
+            type: 'signup',
+            email: 'organiser@example.com',
+            options: {
+                emailRedirectTo: 'https://halalticketin.test/auth/callback',
+            },
+        });
+    });
 });

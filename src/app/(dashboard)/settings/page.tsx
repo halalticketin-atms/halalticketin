@@ -51,6 +51,7 @@ import {
     normalizeOrganizerContactEmail,
 } from '@/lib/organizer-contact-email';
 import { getMetaTrackingStatus, type MetaTrackingStatusTone } from '@/lib/meta-tracking-status';
+import { resolveSingleOrganizerPaymentSetupSelection } from '@/lib/auth-onboarding-continuation';
 
 type SettingsTab = 'profile' | 'organizer-profile' | 'currency' | 'marketing' | 'payments';
 
@@ -209,6 +210,19 @@ export default function SettingsPage() {
 
         setActiveTab(nextTab);
     }, [hasActiveOrganizer, searchParams]);
+
+    useEffect(() => {
+        const nextOrganizerId = resolveSingleOrganizerPaymentSetupSelection({
+            requestedTab: searchParams.get('tab'),
+            requestedOrganizerId: searchParams.get('organizerId'),
+            activeOrganizerId,
+            activeOrganizerIds: activeOrganizers.map((organizer) => organizer.id),
+        });
+
+        if (nextOrganizerId) {
+            setActiveOrganizerId(nextOrganizerId);
+        }
+    }, [activeOrganizerId, activeOrganizers, searchParams, setActiveOrganizerId]);
 
     useEffect(() => {
         const requestedOrganizerId = searchParams.get('organizerId');

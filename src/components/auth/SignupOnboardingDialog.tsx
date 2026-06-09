@@ -61,6 +61,10 @@ import { COUNTRIES, TIMEZONES } from '@/lib/organizer-options';
 import { getPasswordValidationError } from '@/lib/password';
 import { getLastAuthMethod, setLastAuthMethod, type LastAuthMethod } from '@/lib/last-auth-method';
 import { getDefaultInviteNextPath } from '@/lib/pending-invite';
+import {
+    getSafeInternalPath,
+    resolveOrganizerEmailVerificationContinuation,
+} from '@/lib/auth-onboarding-continuation';
 import { normalizeOrganizerContactEmail } from '@/lib/organizer-contact-email';
 import {
     createOrganizerSignupForm,
@@ -218,9 +222,10 @@ export function SignupOnboardingDialog({
 }: SignupOnboardingDialogProps) {
     // Invite mode: user is joining an existing org via invitation
     const isInviteFlow = Boolean(inviteToken || inviteEmail);
+    const safeRedirectAfterComplete = getSafeInternalPath(redirectAfterComplete);
     const inviteContinuationPath = isInviteFlow
         ? (
-            (redirectAfterComplete && redirectAfterComplete.startsWith('/') ? redirectAfterComplete : undefined)
+            safeRedirectAfterComplete
             ?? getDefaultInviteNextPath(inviteToken)
             ?? '/dashboard'
         )
@@ -428,8 +433,9 @@ export function SignupOnboardingDialog({
         try {
             const callbackUrl = new URL('/auth/callback', window.location.origin);
             callbackUrl.searchParams.set('role', formData.role);
-            if (redirectAfterComplete) {
-                callbackUrl.searchParams.set('next', redirectAfterComplete);
+            const callbackContinuationPath = isInviteFlow ? inviteContinuationPath : safeRedirectAfterComplete;
+            if (callbackContinuationPath) {
+                callbackUrl.searchParams.set('next', callbackContinuationPath);
             }
 
             const { error } = await getSupabase().auth.signInWithOAuth({
@@ -856,9 +862,15 @@ export function SignupOnboardingDialog({
 
     const handleComplete = () => {
         if (pendingEmailConfirmation) {
-            const loginContinuationPath = isInviteFlow ? inviteContinuationPath : redirectAfterComplete;
-            if (loginContinuationPath && loginContinuationPath.startsWith('/')) {
-                router.push(`/login?next=${encodeURIComponent(loginContinuationPath)}`);
+            const loginContinuationPath = resolveOrganizerEmailVerificationContinuation({
+                role: formData.role,
+                isInviteFlow,
+                organizerId,
+                fallbackPath: isInviteFlow ? inviteContinuationPath : safeRedirectAfterComplete,
+            });
+            const safeLoginContinuationPath = getSafeInternalPath(loginContinuationPath);
+            if (safeLoginContinuationPath) {
+                router.push(`/login?next=${encodeURIComponent(safeLoginContinuationPath)}`);
             } else {
                 router.push('/login');
             }
@@ -868,7 +880,7 @@ export function SignupOnboardingDialog({
 
         const redirectTo = isInviteFlow
             ? (inviteContinuationPath ?? '/dashboard')
-            : (redirectAfterComplete ?? (formData.role === 'organizer' ? '/dashboard' : '/events'));
+            : (safeRedirectAfterComplete ?? (formData.role === 'organizer' ? '/dashboard' : '/events'));
         if (onComplete) {
             onComplete(redirectTo);
         } else {
@@ -904,7 +916,12 @@ export function SignupOnboardingDialog({
             setIsLoading(true);
             setError(null);
 
-            const callbackContinuationPath = isInviteFlow ? inviteContinuationPath : redirectAfterComplete;
+            const callbackContinuationPath = resolveOrganizerEmailVerificationContinuation({
+                role: formData.role,
+                isInviteFlow,
+                organizerId,
+                fallbackPath: isInviteFlow ? inviteContinuationPath : safeRedirectAfterComplete,
+            });
             await resendOrganizerVerificationEmail({
                 email: formData.email,
                 redirectAfterComplete: callbackContinuationPath ?? undefined,

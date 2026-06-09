@@ -87,6 +87,43 @@ describe('pending invite context', () => {
         expect(resolveContinuationPath(null, pending)).toBe('/invitations/accept?token=invite-token-1234567890');
     });
 
+    it('preserves internal continuation paths with query and hash', () => {
+        expect(resolveContinuationPath('/settings?tab=payments&organizerId=org_123')).toBe(
+            '/settings?tab=payments&organizerId=org_123',
+        );
+        expect(resolveContinuationPath('/dashboard#top')).toBe('/dashboard#top');
+    });
+
+    it('rejects protocol-relative and slash-backslash explicit continuation paths', () => {
+        const pending = {
+            token: 'invite-token-1234567890',
+            invitedEmail: 'invitee@example.com',
+            nextPath: '/invitations/accept?token=invite-token-1234567890',
+            createdAt: Date.now(),
+        };
+
+        expect(resolveContinuationPath('//evil.example', pending)).toBe(
+            '/invitations/accept?token=invite-token-1234567890',
+        );
+        expect(resolveContinuationPath('/\\evil.example', pending)).toBe(
+            '/invitations/accept?token=invite-token-1234567890',
+        );
+    });
+
+    it('rejects protocol-relative and slash-backslash pending continuation paths', () => {
+        expect(resolveContinuationPath(null, {
+            token: 'invite-token-1234567890',
+            nextPath: '//evil.example',
+            createdAt: Date.now(),
+        })).toBe('/invitations/accept?token=invite-token-1234567890');
+
+        expect(resolveContinuationPath(null, {
+            token: 'invite-token-1234567890',
+            nextPath: '/\\evil.example',
+            createdAt: Date.now(),
+        })).toBe('/invitations/accept?token=invite-token-1234567890');
+    });
+
     it('clears stored context', () => {
         savePendingInviteContext({
             token: 'invite-token-1234567890',

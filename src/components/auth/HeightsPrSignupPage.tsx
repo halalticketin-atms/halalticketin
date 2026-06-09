@@ -32,6 +32,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
+import { getOrganizerPaymentSetupPath } from '@/lib/auth-onboarding-continuation';
 import { getHeightsPrAccess } from '@/lib/heightspr-access';
 import { COUNTRIES, TIMEZONES } from '@/lib/organizer-options';
 import { cn } from '@/lib/utils';
@@ -161,7 +162,8 @@ function HeightsPrSignupForm({
         authenticated,
         heightsprReferral: true,
         prefill,
-        redirectAfterComplete: '/dashboard',
+        redirectAfterComplete: getOrganizerPaymentSetupPath(),
+        getVerificationRedirectAfterComplete: getOrganizerPaymentSetupPath,
         refresh,
         refreshAfterAuthenticatedSubmit: false,
     });
@@ -180,7 +182,7 @@ function HeightsPrSignupForm({
     const complete = async () => {
         await refresh();
         if (controller.pendingEmailConfirmation) {
-            router.push('/login?next=%2Fdashboard');
+            router.push(`/login?next=${encodeURIComponent(getOrganizerPaymentSetupPath(controller.organizerId))}`);
             return;
         }
         router.push('/dashboard');

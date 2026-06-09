@@ -15,6 +15,7 @@ import {
     resolveContinuationPath,
     savePendingInviteContext,
 } from '@/lib/pending-invite';
+import { getSafeInternalPath } from '@/lib/auth-onboarding-continuation';
 
 // Lazy load the dialog to reduce initial bundle size
 const SignupOnboardingDialog = dynamic(
@@ -45,7 +46,7 @@ function RegisterPageContent() {
     const queryInviteToken = searchParams.get('inviteToken');
     const nextParam = searchParams.get('next');
     const inviteToken = queryInviteToken ?? pendingInvite?.token ?? null;
-    const safeNextParam = nextParam && nextParam.startsWith('/') ? nextParam : null;
+    const safeNextParam = getSafeInternalPath(nextParam);
     const inviteDefaultNextPath = getDefaultInviteNextPath(inviteToken);
     const pendingNextPath = queryInviteToken && pendingInvite?.token !== queryInviteToken
         ? null

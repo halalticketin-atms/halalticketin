@@ -9,7 +9,7 @@ import { setAuthToken, setRefreshToken } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { setLastAuthMethod } from '@/lib/last-auth-method';
 import { getPendingInviteContext, resolveContinuationPath } from '@/lib/pending-invite';
-import { resolveAuthOnboardingPath } from '@/lib/auth-onboarding-continuation';
+import { getSafeInternalPath, resolveAuthOnboardingPath } from '@/lib/auth-onboarding-continuation';
 
 function CallbackContent() {
     const router = useRouter();
@@ -67,7 +67,7 @@ function CallbackContent() {
             return;
         }
 
-        const nextParam = searchParams.get('next');
+        const nextParam = getSafeInternalPath(searchParams.get('next'));
         const pendingInvite = getPendingInviteContext();
         const continuationPath = resolveContinuationPath(nextParam, pendingInvite);
         if (needsOnboarding) {

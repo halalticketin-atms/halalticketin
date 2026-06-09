@@ -1,3 +1,5 @@
+import { getSafeInternalPath } from './auth-onboarding-continuation';
+
 const PENDING_INVITE_STORAGE_KEY = 'halal-ticketin:pending-invite';
 const PENDING_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -8,15 +10,13 @@ export interface PendingInviteContext {
     createdAt: number;
 }
 
-const isSafePath = (value?: string | null) => Boolean(value && value.startsWith('/'));
-
 const normalizeEmail = (email?: string) => {
     const trimmed = email?.trim().toLowerCase();
     return trimmed && trimmed.length > 0 ? trimmed : undefined;
 };
 
 const normalizeNextPath = (path?: string) => {
-    return isSafePath(path) ? path : undefined;
+    return getSafeInternalPath(path) ?? undefined;
 };
 
 const isExpired = (createdAt: number) => Date.now() - createdAt > PENDING_INVITE_TTL_MS;
@@ -101,11 +101,13 @@ export const getDefaultInviteNextPath = (token?: string | null) => {
 };
 
 export const resolveContinuationPath = (explicitNextPath?: string | null, pending?: PendingInviteContext | null) => {
-    if (isSafePath(explicitNextPath)) {
-        return explicitNextPath as string;
+    const safeExplicitNextPath = getSafeInternalPath(explicitNextPath);
+    if (safeExplicitNextPath) {
+        return safeExplicitNextPath;
     }
-    if (pending?.nextPath && isSafePath(pending.nextPath)) {
-        return pending.nextPath;
+    const safePendingNextPath = getSafeInternalPath(pending?.nextPath);
+    if (safePendingNextPath) {
+        return safePendingNextPath;
     }
     return getDefaultInviteNextPath(pending?.token);
 };
