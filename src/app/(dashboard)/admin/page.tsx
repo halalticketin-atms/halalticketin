@@ -1358,7 +1358,7 @@ export default function AdminDashboardPage() {
 
     const windowDays = overview?.windowDays ?? 30;
 
-    // Event-state cards: emphasise what is live on the platform right now.
+    // Event-state cards: keep the overview compact for quick admin scanning.
     const eventStateCards = useMemo(() => {
         const totals = overview?.totals;
         return [
@@ -1367,8 +1367,8 @@ export default function AdminDashboardPage() {
                 subtitle: 'Public & upcoming on Browse',
                 value: totals?.liveEvents ?? 0,
                 icon: Radio,
-                gradient: 'from-emerald-500 to-teal-500',
-                bgGradient: 'from-emerald-500/10 to-teal-500/10',
+                accent: 'text-emerald-600 dark:text-emerald-400',
+                bg: 'bg-emerald-500/10',
                 live: true,
             },
             {
@@ -1376,8 +1376,8 @@ export default function AdminDashboardPage() {
                 subtitle: 'Published status',
                 value: totals?.publishedEvents ?? 0,
                 icon: Globe,
-                gradient: 'from-[var(--brand-teal)] to-[var(--brand-cyan)]',
-                bgGradient: 'from-[var(--brand-mint)]/10 to-[var(--brand-cyan)]/10',
+                accent: 'text-[var(--brand-teal)]',
+                bg: 'bg-[var(--brand-cyan)]/10',
                 live: false,
             },
             {
@@ -1385,8 +1385,8 @@ export default function AdminDashboardPage() {
                 subtitle: 'Unlisted, link only',
                 value: totals?.privateEvents ?? 0,
                 icon: Lock,
-                gradient: 'from-violet-500 to-purple-500',
-                bgGradient: 'from-violet-500/10 to-purple-500/10',
+                accent: 'text-slate-600 dark:text-slate-300',
+                bg: 'bg-slate-500/10',
                 live: false,
             },
         ];
@@ -1402,21 +1402,24 @@ export default function AdminDashboardPage() {
                 value: totals?.users ?? 0,
                 windowValue: win?.users ?? 0,
                 icon: Users,
-                gradient: 'from-[var(--brand-teal)] to-[var(--brand-cyan)]',
+                accent: 'text-[var(--brand-teal)]',
+                bg: 'bg-[var(--brand-cyan)]/10',
             },
             {
                 title: 'Orders',
                 value: totals?.orders ?? 0,
                 windowValue: win?.orders ?? 0,
                 icon: ShoppingCart,
-                gradient: 'from-amber-500 to-orange-500',
+                accent: 'text-amber-600 dark:text-amber-400',
+                bg: 'bg-amber-500/10',
             },
             {
                 title: 'Tickets sold',
                 value: totals?.tickets ?? 0,
                 windowValue: win?.tickets ?? 0,
                 icon: Ticket,
-                gradient: 'from-rose-500 to-pink-500',
+                accent: 'text-rose-600 dark:text-rose-400',
+                bg: 'bg-rose-500/10',
             },
         ];
     }, [overview]);
@@ -1492,73 +1495,69 @@ export default function AdminDashboardPage() {
     }
 
     return (
-        <div className="min-h-screen bg-muted/30">
-            <div className="container py-6 sm:py-8 space-y-6">
+        <div className="min-h-screen overflow-x-hidden bg-muted/30">
+            <div className="container py-4 sm:py-8 space-y-5 sm:space-y-6">
                 {/* Operations snapshot header */}
                 <motion.div
                     initial={{ opacity: 0, y: -12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
-                    className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[var(--brand-teal)] via-[var(--brand-cyan)] to-[var(--brand-mint)] p-5 sm:p-6 md:p-7"
+                    className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
                 >
-                    <div className="absolute inset-0 overflow-hidden">
-                        <div
-                            className="absolute inset-0 opacity-[0.08]"
-                            style={{
-                                backgroundImage:
-                                    'linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)',
-                                backgroundSize: '28px 28px',
-                            }}
-                        />
-                    </div>
-
-                    <div className="relative z-10 space-y-5">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="space-y-1.5">
-                                <div className="flex items-center gap-2">
-                                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/25">
-                                        <Radar className="h-4 w-4 text-white" />
+                    <div className="space-y-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand-cyan)]/10 text-[var(--brand-teal)]">
+                                        <Radar className="h-4 w-4" />
                                     </span>
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em]">
                                         Platform operations
                                     </p>
                                 </div>
-                                <h1 className="text-xl font-bold text-white sm:text-2xl md:text-3xl">
-                                    What&rsquo;s live right now
+                                <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                                    Admin dashboard
                                 </h1>
                             </div>
-                            <Badge className="w-fit gap-1.5 border-white/30 bg-white/15 text-white hover:bg-white/25">
-                                <span className="relative flex h-2 w-2">
-                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
-                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
-                                </span>
-                                Live - last {windowDays}d
+                            <Badge
+                                variant="secondary"
+                                className="w-fit gap-1.5 border-[var(--brand-teal)]/20 bg-[var(--brand-cyan)]/10 text-[var(--brand-teal)]"
+                            >
+                                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                Last {windowDays}d
                             </Badge>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/15 sm:grid-cols-4">
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                             {[
                                 { label: 'Live events', value: overview?.totals.liveEvents ?? 0, icon: Radio },
                                 { label: 'Published', value: overview?.totals.publishedEvents ?? 0, icon: Globe },
                                 { label: 'Private', value: overview?.totals.privateEvents ?? 0, icon: Lock },
                                 {
-                                    label: `Orders - ${windowDays}d`,
+                                    label: 'Orders',
                                     value: overview?.window.orders ?? 0,
                                     icon: ShoppingCart,
+                                    helper: `${windowDays}d`,
                                 },
                             ].map((item) => {
                                 const Icon = item.icon;
                                 return (
-                                    <div key={item.label} className="bg-white/5 px-3.5 py-3 backdrop-blur-sm">
-                                        <div className="flex items-center gap-1.5 text-white/80">
-                                            <Icon className="h-3.5 w-3.5" />
-                                            <span className="text-[11px] font-medium uppercase tracking-wide">
-                                                {item.label}
-                                            </span>
+                                    <div
+                                        key={item.label}
+                                        className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5"
+                                    >
+                                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                            <span className="truncate">{item.label}</span>
+                                            <Icon className="h-3.5 w-3.5 flex-shrink-0" />
                                         </div>
-                                        <p className="mt-1 text-2xl font-bold leading-none text-white">
-                                            {Number(item.value).toLocaleString()}
-                                        </p>
+                                        <div className="mt-1 flex items-baseline gap-1.5">
+                                            <p className="text-xl font-semibold leading-none text-foreground">
+                                                {Number(item.value).toLocaleString()}
+                                            </p>
+                                            {item.helper && (
+                                                <span className="text-[11px] text-muted-foreground">{item.helper}</span>
+                                            )}
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -1567,28 +1566,28 @@ export default function AdminDashboardPage() {
                 </motion.div>
 
                 {/* Tabs Navigation */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-4 sm:w-auto sm:inline-flex">
-                        <TabsTrigger value="overview" className="gap-2">
-                            <TrendingUp className="h-4 w-4 hidden sm:block" />
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5 sm:space-y-6">
+                    <TabsList className="grid h-auto w-full grid-cols-4 p-1 sm:w-auto sm:inline-flex">
+                        <TabsTrigger value="overview" className="min-h-9 gap-2 px-2">
+                            <TrendingUp className="hidden h-4 w-4 sm:block" />
                             Overview
                         </TabsTrigger>
-                        <TabsTrigger value="users" className="gap-2">
-                            <Users className="h-4 w-4 hidden sm:block" />
+                        <TabsTrigger value="users" className="min-h-9 gap-2 px-2">
+                            <Users className="hidden h-4 w-4 sm:block" />
                             Users
                         </TabsTrigger>
-                        <TabsTrigger value="organizers" className="gap-2">
-                            <Building2 className="h-4 w-4 hidden sm:block" />
+                        <TabsTrigger value="organizers" className="min-h-9 gap-2 px-2">
+                            <Building2 className="hidden h-4 w-4 sm:block" />
                             Orgs
                         </TabsTrigger>
-                        <TabsTrigger value="events" className="gap-2">
-                            <Calendar className="h-4 w-4 hidden sm:block" />
+                        <TabsTrigger value="events" className="min-h-9 gap-2 px-2">
+                            <Calendar className="hidden h-4 w-4 sm:block" />
                             Events
                         </TabsTrigger>
                     </TabsList>
 
                     {/* Overview Tab */}
-                    <TabsContent value="overview" className="space-y-6">
+                    <TabsContent value="overview" className="space-y-5 sm:space-y-6">
                         <div>
                             <div className="mb-3 flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -1597,7 +1596,7 @@ export default function AdminDashboardPage() {
                                     {Number(overview?.totals.events ?? 0).toLocaleString()} total
                                 </span>
                             </div>
-                            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+                            <div className="grid gap-3 sm:grid-cols-3">
                                 {eventStateCards.map((stat, index) => {
                                     const Icon = stat.icon;
                                     return (
@@ -1607,26 +1606,28 @@ export default function AdminDashboardPage() {
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ duration: 0.4, delay: index * 0.08 }}
                                         >
-                                            <Card className={`relative overflow-hidden border-border/60 bg-gradient-to-br ${stat.bgGradient}`}>
-                                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                                    <div className="space-y-0.5">
-                                                        <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                                                            {stat.title}
-                                                            {stat.live && (
-                                                                <span className="relative flex h-2 w-2" aria-hidden>
-                                                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                                                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                                                                </span>
-                                                            )}
-                                                        </CardTitle>
-                                                        <p className="text-xs text-muted-foreground">{stat.subtitle}</p>
+                                            <Card className="border-border/60 shadow-sm">
+                                                <CardContent className="flex items-center justify-between gap-3 p-4">
+                                                    <div className="flex min-w-0 items-center gap-3">
+                                                        <span
+                                                            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${stat.bg} ${stat.accent}`}
+                                                        >
+                                                            <Icon className="h-4 w-4" />
+                                                        </span>
+                                                        <div className="min-w-0">
+                                                            <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                                                                {stat.title}
+                                                                {stat.live && (
+                                                                    <span className="relative flex h-2 w-2" aria-hidden>
+                                                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                                                                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                                                                    </span>
+                                                                )}
+                                                            </CardTitle>
+                                                            <p className="truncate text-xs text-muted-foreground">{stat.subtitle}</p>
+                                                        </div>
                                                     </div>
-                                                    <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-lg`}>
-                                                        <Icon className="h-5 w-5 text-white" />
-                                                    </div>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    <div className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}>
+                                                    <div className={`text-2xl font-semibold leading-none ${stat.accent}`}>
                                                         {Number(stat.value).toLocaleString()}
                                                     </div>
                                                 </CardContent>
@@ -1662,7 +1663,7 @@ export default function AdminDashboardPage() {
                             </motion.div>
                         </div>
 
-                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+                        <div className="grid gap-3 sm:grid-cols-3">
                             {platformStatCards.map((stat, index) => {
                                 const Icon = stat.icon;
                                 return (
@@ -1672,24 +1673,28 @@ export default function AdminDashboardPage() {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.4, delay: 0.28 + index * 0.08 }}
                                     >
-                                        <Card className="relative overflow-hidden border-border/60">
-                                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                                <div>
-                                                    <CardTitle className="text-sm font-medium text-foreground">{stat.title}</CardTitle>
-                                                    <p className="text-xs text-muted-foreground">All time</p>
+                                        <Card className="border-border/60 shadow-sm">
+                                            <CardContent className="flex items-center justify-between gap-3 p-4">
+                                                <div className="flex min-w-0 items-center gap-3">
+                                                    <span
+                                                        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${stat.bg} ${stat.accent}`}
+                                                    >
+                                                        <Icon className="h-4 w-4" />
+                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <CardTitle className="text-sm font-medium text-foreground">{stat.title}</CardTitle>
+                                                        <p className="text-xs text-muted-foreground">All time</p>
+                                                    </div>
                                                 </div>
-                                                <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-lg`}>
-                                                    <Icon className="h-5 w-5 text-white" />
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <div className={`text-2xl font-semibold leading-none ${stat.accent}`}>
+                                                        {Number(stat.value).toLocaleString()}
+                                                    </div>
+                                                    <Badge variant="secondary" className="gap-1 font-medium text-muted-foreground">
+                                                        <TrendingUp className="h-3 w-3" />
+                                                        +{compactNumber(stat.windowValue)} - {windowDays}d
+                                                    </Badge>
                                                 </div>
-                                            </CardHeader>
-                                            <CardContent className="flex items-end justify-between gap-2">
-                                                <div className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`}>
-                                                    {Number(stat.value).toLocaleString()}
-                                                </div>
-                                                <Badge variant="secondary" className="mb-1 gap-1 font-medium text-muted-foreground">
-                                                    <TrendingUp className="h-3 w-3" />
-                                                    +{compactNumber(stat.windowValue)} - {windowDays}d
-                                                </Badge>
                                             </CardContent>
                                         </Card>
                                     </motion.div>
