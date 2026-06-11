@@ -27,6 +27,9 @@ describe('HeightsPrPartnerAdminView', () => {
         expect(html).toContain('Green Crescent Events');
         expect(html).toContain('events@example.com');
         expect(html).toContain('London');
+        expect(html).toContain('alt="HeightsPR"');
+        expect(html).toContain('HeightsPR signups');
+        expect(html).toContain('Total signups');
         expect(html).not.toContain('commission');
         expect(html).not.toContain('orders');
         expect(html).not.toContain('attendees');

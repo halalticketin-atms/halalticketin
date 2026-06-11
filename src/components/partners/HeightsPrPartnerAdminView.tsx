@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { Building2, ExternalLink, Lock, RefreshCw } from 'lucide-react';
 
@@ -25,6 +26,21 @@ const formatOrganizerType = (value: HeightsPrPartnerOrganizer['organizerType']) 
     return 'Individual';
 };
 
+const HEIGHTSPR_LOGO_SRC = '/logos/heightspr-full-logo-black.png';
+
+const HeightsPrLogo = () => (
+    <div className="relative h-9 w-32 shrink-0 sm:h-11 sm:w-40">
+        <Image
+            src={HEIGHTSPR_LOGO_SRC}
+            alt="HeightsPR"
+            fill
+            sizes="160px"
+            priority
+            className="object-contain"
+        />
+    </div>
+);
+
 const StatePanel = ({
     title,
     body,
@@ -34,12 +50,12 @@ const StatePanel = ({
     body: string;
     action?: React.ReactNode;
 }) => (
-    <div className="rounded-lg border border-[#d9dedb] bg-white p-8 text-center shadow-sm">
-        <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-[#e7f0ea] text-[#1d5f44]">
+    <div className="rounded-lg border border-[#d7d1c5] bg-white/80 p-8 text-center shadow-sm backdrop-blur">
+        <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--brand-cyan)]/12 text-[var(--brand-teal)]">
             <Lock className="h-5 w-5" aria-hidden="true" />
         </div>
-        <h2 className="text-lg font-semibold text-[#14221c]">{title}</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52615c]">{body}</p>
+        <h2 className="text-lg font-semibold text-[#172b27]">{title}</h2>
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#5d6b66]">{body}</p>
         {action ? <div className="mt-5">{action}</div> : null}
     </div>
 );
@@ -53,28 +69,26 @@ export function HeightsPrPartnerAdminView({
     const total = organizers.length;
 
     return (
-        <main className="min-h-screen bg-[#f4f6f2] text-[#14221c]">
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
-                <header className="flex flex-col gap-5 border-b border-[#d8ddd7] pb-6 md:flex-row md:items-end md:justify-between">
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#4d6b5f]">
-                            HeightsPR partner admin
-                        </p>
-                        <h1 className="mt-2 text-3xl font-semibold tracking-normal text-[#14221c] md:text-4xl">
-                            Referred organisation signups
+        <main className="relative min-h-screen overflow-hidden bg-[linear-gradient(105deg,oklch(0.78_0.14_165/0.24)_0%,oklch(0.72_0.15_185/0.16)_42%,oklch(0.99_0.005_180/0.88)_54%,#fff0e0_100%)] text-[#172b27]">
+            <div className="pointer-events-none absolute inset-0 bg-noise opacity-30" />
+            <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-7 px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-12">
+                <header className="flex flex-col gap-6 border-b border-[#d7d1c5] pb-7 md:flex-row md:items-end md:justify-between">
+                    <div className="max-w-2xl">
+                        <HeightsPrLogo />
+                        <h1 className="mt-7 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                            HeightsPR signups
                         </h1>
-                        <p className="mt-3 max-w-2xl text-sm leading-6 text-[#52615c]">
-                            A read-only view of organisations that registered through the HeightsPR
-                            signup portal.
-                        </p>
                     </div>
-                    <div className="grid min-w-36 grid-cols-2 gap-2 rounded-lg border border-[#cdd5cf] bg-white p-3 shadow-sm md:grid-cols-1">
-                        <span className="text-xs font-medium uppercase tracking-[0.14em] text-[#68746f]">
-                            Signups
+                    <div className="w-full rounded-lg border border-[#d7d1c5] bg-white/65 px-5 py-4 shadow-sm backdrop-blur md:w-auto md:min-w-44">
+                        <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6c7a75]">
+                            Total signups
                         </span>
-                        <strong className="text-3xl font-semibold leading-none text-[#1d5f44]">
+                        <strong className="mt-2 block font-display text-5xl font-bold leading-none text-[var(--brand-teal)]">
                             {state === 'loading' ? '-' : total}
                         </strong>
+                        <span className="mt-2 block text-xs font-medium text-[#5d6b66]">
+                            organisers
+                        </span>
                     </div>
                 </header>
 
@@ -109,7 +123,7 @@ export function HeightsPrPartnerAdminView({
                                 <button
                                     type="button"
                                     onClick={onRetry}
-                                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[#14221c] px-4 text-sm font-semibold text-white transition hover:bg-[#263a31]"
+                                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#172b27] px-4 text-sm font-semibold text-white transition hover:bg-[#263a31]"
                                 >
                                     <RefreshCw className="h-4 w-4" aria-hidden="true" />
                                     Retry
@@ -120,27 +134,28 @@ export function HeightsPrPartnerAdminView({
                 ) : null}
 
                 {state === 'loading' ? (
-                    <div className="overflow-hidden rounded-lg border border-[#d9dedb] bg-white shadow-sm">
+                    <div className="overflow-hidden rounded-lg border border-[#d7d1c5] bg-white/75 shadow-sm backdrop-blur">
                         {[0, 1, 2].map((item) => (
                             <div
                                 key={item}
-                                className="grid gap-4 border-b border-[#edf0ed] p-5 last:border-b-0 md:grid-cols-[1.4fr_0.9fr_0.7fr]"
+                                className="grid gap-4 border-b border-[#ede7dc] p-5 last:border-b-0 md:grid-cols-[1.45fr_0.55fr_0.75fr_0.6fr]"
                             >
-                                <div className="h-5 rounded bg-[#e8ece8]" />
-                                <div className="h-5 rounded bg-[#edf1ee]" />
-                                <div className="h-5 rounded bg-[#edf1ee]" />
+                                <div className="h-5 rounded bg-[#e5e2d8]" />
+                                <div className="h-5 rounded bg-[#ece8df]" />
+                                <div className="h-5 rounded bg-[#ece8df]" />
+                                <div className="h-5 rounded bg-[#ece8df]" />
                             </div>
                         ))}
                     </div>
                 ) : null}
 
                 {state === 'loaded' && organizers.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-[#bac6be] bg-white p-10 text-center">
-                        <Building2 className="mx-auto h-9 w-9 text-[#6f8077]" aria-hidden="true" />
-                        <h2 className="mt-4 text-lg font-semibold text-[#14221c]">
+                    <div className="rounded-lg border border-dashed border-[#c8c0b3] bg-white/75 p-10 text-center backdrop-blur">
+                        <Building2 className="mx-auto h-9 w-9 text-[#6c7a75]" aria-hidden="true" />
+                        <h2 className="mt-4 text-lg font-semibold text-[#172b27]">
                             No HeightsPR signups yet
                         </h2>
-                        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#52615c]">
+                        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#5d6b66]">
                             Organisations will appear here after they complete organiser signup
                             through the HeightsPR portal.
                         </p>
@@ -148,30 +163,30 @@ export function HeightsPrPartnerAdminView({
                 ) : null}
 
                 {state === 'loaded' && organizers.length > 0 ? (
-                    <section className="overflow-hidden rounded-lg border border-[#d9dedb] bg-white shadow-sm">
-                        <div className="hidden grid-cols-[1.3fr_0.7fr_0.8fr_0.8fr] gap-4 border-b border-[#dfe5e0] bg-[#edf2ee] px-5 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#53645d] md:grid">
+                    <section className="overflow-hidden rounded-lg border border-[#d7d1c5] bg-white/80 shadow-sm backdrop-blur">
+                        <div className="hidden grid-cols-[1.45fr_0.55fr_0.75fr_0.6fr] gap-4 border-b border-[#e4ded4] bg-white/60 px-5 py-3 text-xs font-bold uppercase tracking-[0.14em] text-[#697671] md:grid">
                             <span>Organisation</span>
                             <span>Type</span>
                             <span>Location</span>
                             <span>Signed up</span>
                         </div>
-                        <div className="divide-y divide-[#edf0ed]">
+                        <div className="divide-y divide-[#ede7dc]">
                             {organizers.map((organizer) => (
                                 <article
                                     key={organizer.id}
-                                    className="grid gap-4 px-5 py-5 md:grid-cols-[1.3fr_0.7fr_0.8fr_0.8fr] md:items-center"
+                                    className="grid gap-4 px-5 py-5 transition-colors hover:bg-white/50 md:grid-cols-[1.45fr_0.55fr_0.75fr_0.6fr] md:items-center"
                                 >
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-3">
-                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#e7f0ea] text-[#1d5f44]">
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-cyan)]/12 text-[var(--brand-teal)]">
                                                 <Building2 className="h-5 w-5" aria-hidden="true" />
                                             </div>
                                             <div className="min-w-0">
-                                                <h2 className="truncate text-base font-semibold text-[#14221c]">
+                                                <h2 className="truncate text-base font-semibold text-[#172b27]">
                                                     {organizer.name}
                                                 </h2>
                                                 {organizer.replyToEmail ? (
-                                                    <p className="truncate text-sm text-[#5f6d68]">
+                                                    <p className="truncate text-sm text-[#6c7a75]">
                                                         {organizer.replyToEmail}
                                                     </p>
                                                 ) : null}
@@ -180,7 +195,7 @@ export function HeightsPrPartnerAdminView({
                                         {organizer.website ? (
                                             <a
                                                 href={organizer.website}
-                                                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-[#1d5f44] hover:text-[#123b2b]"
+                                                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-teal)] hover:text-[#123b2b]"
                                                 target="_blank"
                                                 rel="noreferrer"
                                             >
@@ -189,18 +204,30 @@ export function HeightsPrPartnerAdminView({
                                             </a>
                                         ) : null}
                                     </div>
-                                    <div className="text-sm text-[#34443d]">
-                                        <span className="md:hidden">Type: </span>
-                                        {formatOrganizerType(organizer.organizerType)}
+                                    <div className="space-y-1 md:space-y-0">
+                                        <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-[#7a8580] md:hidden">
+                                            Type
+                                        </span>
+                                        <span className="block text-base font-medium text-[#263a31] md:text-sm md:font-normal md:text-[#40514b]">
+                                            {formatOrganizerType(organizer.organizerType)}
+                                        </span>
                                     </div>
-                                    <div className="text-sm text-[#34443d]">
-                                        <span className="md:hidden">Location: </span>
-                                        {[organizer.city, organizer.country].filter(Boolean).join(', ') ||
-                                            'Not provided'}
+                                    <div className="space-y-1 md:space-y-0">
+                                        <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-[#7a8580] md:hidden">
+                                            Location
+                                        </span>
+                                        <span className="block text-base font-medium text-[#263a31] md:text-sm md:font-normal md:text-[#40514b]">
+                                            {[organizer.city, organizer.country].filter(Boolean).join(', ') ||
+                                                'Not provided'}
+                                        </span>
                                     </div>
-                                    <div className="text-sm font-medium text-[#34443d]">
-                                        <span className="md:hidden">Signed up: </span>
-                                        {formatDate(organizer.heightsprReferredAt)}
+                                    <div className="space-y-1 md:space-y-0">
+                                        <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-[#7a8580] md:hidden">
+                                            Signed up
+                                        </span>
+                                        <span className="block text-base font-semibold text-[#263a31] md:text-sm md:font-medium md:text-[#40514b]">
+                                            {formatDate(organizer.heightsprReferredAt)}
+                                        </span>
                                     </div>
                                 </article>
                             ))}
