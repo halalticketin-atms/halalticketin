@@ -51,7 +51,7 @@ export interface AdminOrganizer {
     isCharityVerified: boolean;
     charityNumber: string | null;
     heightsprReferredAt: string | null;
-    referralTag: 'HeightsPR' | null;
+    referralTag: 'heightsPR' | null;
     country: string | null;
     city: string | null;
     createdAt: string;
