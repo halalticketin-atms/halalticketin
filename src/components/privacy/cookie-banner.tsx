@@ -20,6 +20,7 @@ export function CookieBanner() {
     const {
         isBannerVisible,
         showDetailedPreferences,
+        consentSource,
         marketingAllowed,
         acceptAll,
         rejectMarketing,
@@ -30,6 +31,15 @@ export function CookieBanner() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [pendingMarketing, setPendingMarketing] = useState(marketingAllowed);
     const [, startTransition] = useTransition();
+    const bannerCopy = consentSource === 'checkout'
+        ? {
+            description:
+                'Optional marketing cookies help the organiser measure event ad performance, including checkout starts and purchases. They only run after you opt in.'
+        }
+        : {
+            description:
+                'Essential storage keeps the site running. Optional marketing cookies help organisers understand how people find their events and only run after you opt in.'
+        };
 
     useEffect(() => {
         if (isBannerVisible && showDetailedPreferences) {
@@ -47,7 +57,7 @@ export function CookieBanner() {
     }, [isBannerVisible, startTransition]);
 
     const handleOpenPreferences = () => {
-        openPreferences();
+        openPreferences(consentSource);
         setPendingMarketing(marketingAllowed);
         setIsDialogOpen(true);
     };
@@ -77,8 +87,7 @@ export function CookieBanner() {
                     <div className="space-y-2">
                         <p className="text-sm font-semibold">We use cookies</p>
                         <p className="text-xs text-muted-foreground">
-                            Essential storage keeps the site running. Optional marketing cookies help organisers
-                            understand how people find their events and only run after you opt in.
+                            {bannerCopy.description}
                         </p>
                     </div>
                     <div className="mt-3 flex items-center gap-2">
@@ -110,8 +119,7 @@ export function CookieBanner() {
                         <div>
                             <h3 className="text-base font-semibold">We use cookies</h3>
                             <p className="text-sm text-muted-foreground">
-                                Essential storage keeps the site running. Optional marketing cookies help organisers
-                                understand how people find their events and only run after you opt in.
+                                {bannerCopy.description}
                             </p>
                         </div>
                         <div className="flex items-center gap-3">

@@ -377,8 +377,6 @@ export function PublicEventPageContent({
     const canContactOrganizer =
         !isPreview && event && 'canContactOrganizer' in event ? Boolean(event.canContactOrganizer) : false;
 
-    useMarketingConsentRequirement(Boolean(eventPixelId));
-
     const auth = useOptionalAuth();
     const user = auth?.user;
     const [previewToken, setPreviewToken] = useState<string | null>(null);
@@ -428,6 +426,8 @@ export function PublicEventPageContent({
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [isPosterViewerOpen, setIsPosterViewerOpen] = useState(false);
     const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+
+    useMarketingConsentRequirement(Boolean(eventPixelId), isCheckoutOpen ? 'checkout' : 'event_page');
     const [contactName, setContactName] = useState('');
     const [contactEmail, setContactEmail] = useState('');
     const [contactMessage, setContactMessage] = useState('');

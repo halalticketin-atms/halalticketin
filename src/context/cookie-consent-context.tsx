@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { usePathname } from 'next/navigation';
 import { readConsentPreferences, writeConsentPreferences, type ConsentPreferences } from '@/lib/consent';
+import { CONSENT_EVENT_VERSION, logConsentEvent, type ConsentEventSource } from '@/lib/consent-events';
 import { useOptionalAuth } from '@/context/auth-context';
 import api from '@/lib/api';
 
@@ -11,11 +12,12 @@ interface CookieConsentContextValue {
     hasResponded: boolean;
     isBannerVisible: boolean;
     showDetailedPreferences: boolean;
-    setMarketingNeeded: (needed: boolean) => void;
+    consentSource: ConsentEventSource;
+    setMarketingNeeded: (needed: boolean, source?: ConsentEventSource) => void;
     acceptAll: () => void;
     rejectMarketing: () => void;
     savePreferences: (marketing: boolean) => void;
-    openPreferences: () => void;
+    openPreferences: (source?: ConsentEventSource) => void;
     closeBanner: () => void;
 }
 
@@ -81,6 +83,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
     const [hasResponded, setHasResponded] = useState(false);
     const [isBannerVisible, setIsBannerVisible] = useState(false);
     const [showDetailedPreferences, setShowDetailedPreferences] = useState(false);
+    const [consentSource, setConsentSource] = useState<ConsentEventSource>('event_page');
     const [, startTransition] = useTransition();
     const hasSyncedCookieToDbRef = useRef(false);
 
@@ -102,12 +105,13 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         });
     }, [isEmbedRoute, startTransition]);
 
-    const setMarketingNeeded = useCallback((needed: boolean) => {
+    const setMarketingNeeded = useCallback((needed: boolean, source: ConsentEventSource = 'event_page') => {
         if (!needed) {
             setIsBannerVisible(false);
             setShowDetailedPreferences(false);
             return;
         }
+        setConsentSource(source);
         if (!hasResponded) {
             setIsBannerVisible(true);
         }
@@ -146,8 +150,9 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         syncFromDb();
     }, [isEmbedRoute, isLoggedIn, hasResponded, preferences.marketing]);
 
-    const persistPreferences = useCallback((marketing: boolean) => {
+    const persistPreferences = useCallback((marketing: boolean, source: ConsentEventSource = consentSource) => {
         const next = { marketing };
+        const action = hasResponded ? 'updated' : marketing ? 'accepted' : 'rejected';
         setPreferences(next);
         setHasResponded(true);
         setIsBannerVisible(false);
@@ -164,7 +169,13 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                 // Silently fail - cookie consent still works as fallback
             });
         }
-    }, [isEmbedRoute, isLoggedIn]);
+        void logConsentEvent({
+            action,
+            marketing,
+            source: isEmbedRoute ? 'embed' : source,
+            version: CONSENT_EVENT_VERSION
+        });
+    }, [consentSource, hasResponded, isEmbedRoute, isLoggedIn]);
 
     const acceptAll = useCallback(() => {
         persistPreferences(true);
@@ -174,7 +185,8 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         persistPreferences(false);
     }, [persistPreferences]);
 
-    const openPreferences = useCallback(() => {
+    const openPreferences = useCallback((source: ConsentEventSource = 'footer') => {
+        setConsentSource(source);
         setShowDetailedPreferences(true);
         setIsBannerVisible(true);
     }, []);
@@ -199,6 +211,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
             hasResponded,
             isBannerVisible,
             showDetailedPreferences,
+            consentSource,
             setMarketingNeeded,
             acceptAll,
             rejectMarketing,
@@ -211,6 +224,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
             hasResponded,
             isBannerVisible,
             showDetailedPreferences,
+            consentSource,
             setMarketingNeeded,
             acceptAll,
             rejectMarketing,

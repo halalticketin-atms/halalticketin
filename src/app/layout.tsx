@@ -94,9 +94,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${sora.variable} antialiased`}
       >
-        <CookieConsentProvider>
-          <MetaPixelScript />
-          <AuthProvider>
+        <AuthProvider>
+          <CookieConsentProvider>
+            <MetaPixelScript />
             <ExchangeRatesProvider>
               <div className="flex min-h-screen flex-col">
                 <Header />
@@ -106,8 +106,8 @@ export default function RootLayout({
               <Toaster />
               <CookieBanner />
             </ExchangeRatesProvider>
-          </AuthProvider>
-        </CookieConsentProvider>
+          </CookieConsentProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -58,7 +58,7 @@ function CheckoutSuccessContent() {
     const purchaseTrackedRef = useRef(false);
     const purchaseEventIdRef = useRef<string | null>(null);
 
-    useMarketingConsentRequirement(Boolean(orderStatus?.metaPixelId));
+    useMarketingConsentRequirement(Boolean(orderStatus?.metaPixelId), 'checkout');
 
     // Fetch order status with polling for pending orders
     useEffect(() => {
