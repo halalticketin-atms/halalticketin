@@ -628,12 +628,20 @@ function UsersTable() {
     );
 }
 
+const getOrganizerTypeLabel = (organizer: AdminOrganizer) => {
+    if (organizer.referralTag) return organizer.referralTag;
+
+    if (organizer.organizerType === 'organization') return 'Organization';
+    if (organizer.organizerType === 'charity') return 'Charity';
+    return 'Individual';
+};
+
 function OrganizersTable() {
     const [organizers, setOrganizers] = useState<AdminOrganizer[]>([]);
     const [pagination, setPagination] = useState({ limit: 25, offset: 0, total: 0 });
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [filter, setFilter] = useState<'all' | 'individual' | 'organization' | 'charity'>('all');
+    const [filter, setFilter] = useState<'all' | 'individual' | 'organization' | 'charity' | 'heightspr'>('all');
     const [isGrantDialogOpen, setIsGrantDialogOpen] = useState(false);
     const [selectedOrganizer, setSelectedOrganizer] = useState<AdminOrganizer | null>(null);
     const [grantCredits, setGrantCredits] = useState('100');
@@ -758,6 +766,7 @@ function OrganizersTable() {
                             <option value="individual">Individual</option>
                             <option value="organization">Organization</option>
                             <option value="charity">Charity</option>
+                            <option value="heightspr">HeightsPR</option>
                         </select>
                     </div>
                 </div>
@@ -795,15 +804,17 @@ function OrganizersTable() {
                                             <td className="px-4 py-3">
                                                 <Badge
                                                     variant="secondary"
-                                                    className={`text-xs capitalize ${org.organizerType === 'charity'
+                                                    className={`text-xs ${org.referralTag
+                                                        ? 'bg-sky-500/10 text-sky-700'
+                                                        : org.organizerType === 'charity'
                                                         ? 'bg-emerald-500/10 text-emerald-600'
                                                         : org.organizerType === 'organization'
                                                             ? 'bg-purple-500/10 text-purple-600'
                                                             : ''
                                                         }`}
                                                 >
-                                                    {org.organizerType}
-                                                    {org.isCharityVerified && ' ✓'}
+                                                    {getOrganizerTypeLabel(org)}
+                                                    {!org.referralTag && org.isCharityVerified && ' ✓'}
                                                 </Badge>
                                             </td>
                                             <td className="px-4 py-3 text-center hidden sm:table-cell">

@@ -50,6 +50,8 @@ export interface AdminOrganizer {
     organizerType: 'individual' | 'organization' | 'charity';
     isCharityVerified: boolean;
     charityNumber: string | null;
+    heightsprReferredAt: string | null;
+    referralTag: 'HeightsPR' | null;
     country: string | null;
     city: string | null;
     createdAt: string;
@@ -220,7 +222,7 @@ export async function getOrganizersList(params: {
     limit?: number;
     offset?: number;
     search?: string;
-    type?: 'individual' | 'organization' | 'charity' | 'all';
+    type?: 'individual' | 'organization' | 'charity' | 'heightspr' | 'all';
 } = {}): Promise<OrganizersListResponse> {
     return api.get<OrganizersListResponse>('/api/v1/admin/organizers/list', {
         params: {
