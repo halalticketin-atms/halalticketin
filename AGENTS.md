@@ -41,6 +41,7 @@ This is the Halal Ticketin frontend: a Next.js App Router app using TypeScript, 
 - Use `halalticketin-atms <halalticketin@gmail.com>` unless Abdel explicitly instructs otherwise.
 - Do not use `2480904692+halalticketin-atms@users.noreply.github.com`; GitHub does not map that malformed noreply address to the `halalticketin-atms` account and Vercel blocks deployments from it.
 - After pushing commits that should auto-deploy, confirm the GitHub author maps to `halalticketin-atms` and check the Vercel commit status. Do not manually trigger or redeploy in Vercel unless Abdel explicitly asks.
+- If Abdel clearly asks in the current request to push, deploy, redeploy, or publish this frontend, treat that as approval for the requested GitHub or Vercel action. Do not ask for an extra approval round unless the target project, account, environment, visibility, or action is ambiguous or materially different from the request.
 
 ## Coding Guidelines
 - Keep App Router server/client boundaries explicit. Use client components only for browser state, effects, or interactivity.
