@@ -2,10 +2,18 @@ import type { DraftEventInitial } from '@/hooks/useEventDraft';
 
 export type DraftEntrySource = 'ai' | 'clone' | 'draft';
 
+export type AiDraftReview = {
+  confidence?: 'low' | 'medium' | 'high';
+  extractedFrom?: Array<'prompt' | 'image'>;
+  needsReview?: string[];
+  missingImportantFields?: string[];
+};
+
 interface PendingDraftMeta {
   label?: string;
   description?: string;
   key?: string;
+  aiReview?: AiDraftReview;
 }
 
 export interface PendingDraftPayload {

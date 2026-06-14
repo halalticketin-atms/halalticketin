@@ -9,12 +9,63 @@ import type {
 } from '@/hooks/useEventDraft';
 
 type AiVisibility = 'public' | 'private' | 'unlisted' | null;
-type AiDraftFormData = Omit<DraftFormData, 'visibility'> & { visibility?: AiVisibility };
+type AiNullable<T> = T | null | undefined;
+type AiNullableFields<T> = {
+  [K in keyof T]?: T[K] | null;
+};
+type AiDraftFormData = AiNullableFields<Omit<DraftFormData, 'visibility' | 'customQuestions'>> & {
+  visibility?: AiVisibility;
+  customQuestions?: Array<{
+    id?: string | null;
+    label?: string | null;
+    type?: 'text' | 'select' | 'checkbox' | null;
+    required?: boolean | null;
+    options?: string[] | null;
+  }> | null;
+};
+type AiTicket = {
+  id?: AiNullable<string>;
+  name?: AiNullable<string>;
+  price?: AiNullable<string>;
+  customFee?: AiNullable<string>;
+  isFree?: AiNullable<boolean>;
+  type?: AiNullable<'paid' | 'free' | 'donation'>;
+  quantity?: AiNullable<number>;
+  minPerOrder?: AiNullable<number>;
+  maxPerOrder?: AiNullable<number>;
+  description?: AiNullable<string>;
+  salesStart?: AiNullable<string>;
+  salesStartTime?: AiNullable<string>;
+  salesEnd?: AiNullable<string>;
+  salesEndTime?: AiNullable<string>;
+  hasEarlyBird?: AiNullable<boolean>;
+  earlyBirdPrice?: AiNullable<string>;
+  earlyBirdEndDate?: AiNullable<string>;
+  visibility?: AiNullable<'public' | 'hidden'>;
+};
+type AiPromoCode = {
+  id?: AiNullable<string>;
+  code?: AiNullable<string>;
+  discountType?: AiNullable<'percentage' | 'fixed'>;
+  discountValue?: AiNullable<string>;
+  usageLimit?: AiNullable<number>;
+  validFrom?: AiNullable<string>;
+  validFromTime?: AiNullable<string>;
+  validUntil?: AiNullable<string>;
+  validUntilTime?: AiNullable<string>;
+};
+type AiReview = {
+  confidence?: 'low' | 'medium' | 'high';
+  extractedFrom?: Array<'prompt' | 'image'>;
+  needsReview?: string[];
+  missingImportantFields?: string[];
+};
 
 type AiDraftResponse = {
   formData?: Partial<AiDraftFormData> | null;
-  tickets?: Partial<DraftTicketType>[] | null;
-  promoCodes?: Partial<DraftPromoCode>[] | null;
+  tickets?: AiTicket[] | null;
+  promoCodes?: AiPromoCode[] | null;
+  review?: AiReview | null;
 };
 
 type BackendAiResponse = {
@@ -23,23 +74,31 @@ type BackendAiResponse = {
 };
 
 type GenerateEventDraftParams = {
+  organizerId: string;
   prompt: string;
   imageFile?: File;
   titleHint?: string;
 };
 
+export type AiDraftEventInitial = DraftEventInitial & {
+  aiReview?: AiReview;
+};
+
 export async function generateEventDraft({
+  organizerId,
   prompt,
   imageFile,
   titleHint,
-}: GenerateEventDraftParams): Promise<DraftEventInitial> {
+}: GenerateEventDraftParams): Promise<AiDraftEventInitial> {
   // Prepare request body
   const body: {
+    organizerId: string;
     prompt: string;
     imageBase64?: string;
     mimeType?: string;
     titleHint?: string;
   } = {
+    organizerId,
     prompt: prompt.trim(),
     titleHint,
   };
@@ -80,21 +139,27 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-function buildDraftFromAiPayload(
+export function buildDraftFromAiPayload(
   payload: AiDraftResponse,
   titleHint: string,
-): DraftEventInitial {
+): AiDraftEventInitial {
   const now = Date.now();
   const formData = normalizeFormData(payload.formData ?? {}, titleHint);
 
   const tickets: DraftTicketType[] =
     payload.tickets && payload.tickets.length
-      ? payload.tickets.map((ticket, index) => normalizeTicket(ticket, index, now))
+      ? payload.tickets.flatMap((ticket, index) => {
+        const normalized = normalizeTicket(ticket, index, now);
+        return normalized ? [normalized] : [];
+      })
       : [];
 
   const promoCodes: DraftPromoCode[] =
     payload.promoCodes && payload.promoCodes.length
-      ? payload.promoCodes.map((promo, index) => normalizePromoCode(promo, index, now))
+      ? payload.promoCodes.flatMap((promo, index) => {
+        const normalized = normalizePromoCode(promo, index, now);
+        return normalized ? [normalized] : [];
+      })
       : [];
 
   return {
@@ -102,13 +167,15 @@ function buildDraftFromAiPayload(
     tickets,
     promoCodes,
     currentStep: 1,
+    aiReview: payload.review ?? undefined,
+    preserveEmptyTickets: true,
   };
 }
 
 function normalizeFormData(
   raw: Partial<AiDraftFormData>,
   titleHint: string,
-): DraftFormData {
+): Partial<DraftFormData> {
   const safeTitleHint = titleHint
     .replace(/\.[^/.]+$/, '')
     .replace(/[-_]/g, ' ')
@@ -118,44 +185,41 @@ function normalizeFormData(
     (raw.title ?? '').trim() ||
     (safeTitleHint ? safeTitleHint : 'New Event');
 
-  const description = (raw.description ?? '').trim();
-
-  const timezone = (raw.timezone ?? '').trim() || 'Europe/London';
-
-  let locationType: DraftFormData['locationType'] = 'physical';
-  if (raw.locationType === 'online' || raw.locationType === 'hybrid') {
-    locationType = raw.locationType;
-  }
-
-  return {
-    title,
-    description,
-    bannerImageDataUrl: raw.bannerImageDataUrl ?? '',
-    categories: parseCategories(raw),
-    visibility: raw.visibility === 'private' ? 'private' : 'public',
-    accessCodeEnabled: false,
-    accessCode: '',
-    date: raw.date ?? '',
-    endDate: raw.endDate ?? '',
-    isMultiDay: Boolean(raw.isMultiDay),
-    startTime: raw.startTime ?? '',
-    endTime: raw.endTime ?? '',
-    timezone,
-    locationType,
-    venue: raw.venue ?? '',
-    address: raw.address ?? '',
-    city: raw.city ?? '',
-    country: raw.country ?? '',
-    latitude: typeof raw.latitude === 'number' ? raw.latitude : null,
-    longitude: typeof raw.longitude === 'number' ? raw.longitude : null,
-    onlineUrl: raw.onlineUrl ?? '',
-    absorbFee: raw.absorbFee ?? false,
-    currency: raw.currency ?? 'GBP',
-    refundPolicy: raw.refundPolicy ?? '',
-    attendeeInfoMode: raw.attendeeInfoMode ?? 'buyer_choice',
-    customQuestions: raw.customQuestions ?? [],
-    totalCapacity: 0,
+  const formData: Partial<DraftFormData> = { title };
+  const assignString = <K extends keyof DraftFormData>(key: K, value: unknown) => {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      formData[key] = value.trim() as DraftFormData[K];
+    }
   };
+
+  assignString('description', raw.description);
+  const categories = parseCategories(raw);
+  if (categories.length > 0) formData.categories = categories;
+  if (raw.visibility === 'public' || raw.visibility === 'private') formData.visibility = raw.visibility;
+  assignString('date', raw.date);
+  assignString('endDate', raw.endDate);
+  if (typeof raw.isMultiDay === 'boolean') formData.isMultiDay = raw.isMultiDay;
+  assignString('startTime', raw.startTime);
+  assignString('endTime', raw.endTime);
+  assignString('timezone', raw.timezone);
+  if (raw.locationType === 'physical' || raw.locationType === 'online' || raw.locationType === 'hybrid') {
+    formData.locationType = raw.locationType;
+  }
+  assignString('venue', raw.venue);
+  assignString('address', raw.address);
+  assignString('city', raw.city);
+  assignString('onlineUrl', raw.onlineUrl);
+  if (raw.currency === 'GBP' || raw.currency === 'USD' || raw.currency === 'EUR') {
+    formData.currency = raw.currency;
+  }
+  assignString('refundPolicy', raw.refundPolicy);
+  if (raw.attendeeInfoMode === 'per_ticket' || raw.attendeeInfoMode === 'buyer_choice') {
+    formData.attendeeInfoMode = raw.attendeeInfoMode;
+  }
+  const customQuestions = normalizeCustomQuestions(raw.customQuestions);
+  if (customQuestions.length > 0) formData.customQuestions = customQuestions;
+
+  return formData;
 }
 
 function parseCategories(raw: Partial<AiDraftFormData>): string[] {
@@ -166,36 +230,49 @@ function parseCategories(raw: Partial<AiDraftFormData>): string[] {
 }
 
 function normalizeTicket(
-  raw: Partial<DraftTicketType>,
+  raw: AiTicket,
   index: number,
   seed: number,
-): DraftTicketType {
+): DraftTicketType | null {
+  const price = typeof raw.price === 'string' ? raw.price.trim() : '';
+  const numericPrice = Number.parseFloat(price);
+  const hasPositivePrice = Number.isFinite(numericPrice) && numericPrice > 0;
+  const resolvedType: DraftTicketType['type'] | null =
+    raw.type === 'free' && raw.isFree === true
+      ? 'free'
+      : raw.type === 'donation'
+        ? 'donation'
+        : raw.type === 'paid' && hasPositivePrice
+          ? 'paid'
+          : hasPositivePrice
+            ? 'paid'
+            : null;
+
+  if (!resolvedType) {
+    return null;
+  }
+
   const baseId = raw.id && String(raw.id).trim().length > 0
     ? String(raw.id).trim()
     : `ai-ticket-${seed}-${index}`;
 
   const quantity =
-    typeof raw.quantity === 'number' && raw.quantity > 0 ? raw.quantity : 100;
+    typeof raw.quantity === 'number' && raw.quantity > 0 ? raw.quantity : 0;
   const maxPerOrder =
     typeof raw.maxPerOrder === 'number' && raw.maxPerOrder > 0
       ? raw.maxPerOrder
-      : 10;
+      : 0;
 
   const visibility: DraftTicketType['visibility'] =
     raw.visibility === 'hidden' ? 'hidden' : 'public';
   const customFee =
     raw.customFee !== undefined && raw.customFee !== null ? String(raw.customFee) : '';
-  const resolvedType: DraftTicketType['type'] =
-    raw.type === 'donation'
-      ? 'donation'
-      : raw.type === 'free' || raw.isFree
-        ? 'free'
-        : 'paid';
+  const earlyBirdPrice = typeof raw.earlyBirdPrice === 'string' ? raw.earlyBirdPrice.trim() : '';
 
   return {
     id: baseId,
     name: raw.name && raw.name.trim().length > 0 ? raw.name : 'Standard Ticket',
-    price: raw.price ?? '',
+    price: resolvedType === 'free' ? (price || '0') : price,
     customFee,
     isFree: resolvedType === 'free',
     type: resolvedType,
@@ -207,18 +284,24 @@ function normalizeTicket(
     salesStartTime: raw.salesStartTime ?? '',
     salesEnd: raw.salesEnd ?? '',
     salesEndTime: raw.salesEndTime ?? '',
-    hasEarlyBird: Boolean(raw.hasEarlyBird),
-    earlyBirdPrice: raw.earlyBirdPrice ?? '',
+    hasEarlyBird: raw.hasEarlyBird === true && earlyBirdPrice.length > 0,
+    earlyBirdPrice,
     earlyBirdEndDate: raw.earlyBirdEndDate ?? '',
     visibility,
   };
 }
 
 function normalizePromoCode(
-  raw: Partial<DraftPromoCode>,
+  raw: AiPromoCode,
   index: number,
   seed: number,
-): DraftPromoCode {
+): DraftPromoCode | null {
+  const code = typeof raw.code === 'string' ? raw.code.trim() : '';
+  const discountValue = typeof raw.discountValue === 'string' ? raw.discountValue.trim() : '';
+  if (!code || !discountValue) {
+    return null;
+  }
+
   const baseId = raw.id && String(raw.id).trim().length > 0
     ? String(raw.id).trim()
     : `ai-promo-${seed}-${index}`;
@@ -229,17 +312,34 @@ function normalizePromoCode(
   const usageLimit =
     typeof raw.usageLimit === 'number' && raw.usageLimit > 0
       ? raw.usageLimit
-      : 100;
+      : 0;
 
   return {
     id: baseId,
-    code: raw.code ?? '',
+    code,
     discountType,
-    discountValue: raw.discountValue ?? '',
+    discountValue,
     usageLimit,
     validFrom: raw.validFrom ?? '',
     validFromTime: raw.validFromTime ?? '',
     validUntil: raw.validUntil ?? '',
     validUntilTime: raw.validUntilTime ?? '',
   };
+}
+
+function normalizeCustomQuestions(raw: AiDraftFormData['customQuestions']): DraftFormData['customQuestions'] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((question, index) => {
+    const label = typeof question.label === 'string' ? question.label.trim() : '';
+    if (!label || !question.type) return [];
+    return [{
+      id: typeof question.id === 'string' && question.id.trim() ? question.id.trim() : `ai-question-${index}`,
+      label,
+      type: question.type,
+      required: question.required === true,
+      options: Array.isArray(question.options)
+        ? question.options.filter((option) => typeof option === 'string' && option.trim().length > 0)
+        : undefined,
+    }];
+  });
 }
