@@ -73,11 +73,17 @@ function CreateAiAssistantIcon({ className }: { className?: string }) {
 
 function ActionTile({ title, description, icon: Icon, iconClassName, iconBare, badge, actionLabel, gradient, onClick }: ActionTileProps) {
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
-      className={`group relative flex flex-col justify-between overflow-hidden rounded-[1.5rem] p-6 text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl cursor-pointer ${gradient}`}
+      className={`group relative flex h-full w-full min-h-[280px] flex-col justify-between overflow-hidden rounded-[1.5rem] p-6 text-left text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-cyan)] focus-visible:ring-offset-2 ${gradient}`}
     >
-      {/* Background Texture/Noise (Optional, keeping it clean for now) */}
+      {title === 'Create with AI' ? (
+        <>
+          <span className="pointer-events-none absolute inset-0 -translate-x-12 bg-[linear-gradient(115deg,transparent_0%,rgba(255,255,255,0.18)_45%,transparent_60%)] opacity-0 transition duration-700 group-hover:translate-x-12 group-hover:opacity-100" />
+          <span className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.06)_0px,rgba(255,255,255,0.06)_1px,transparent_1px,transparent_12px)] opacity-[0.18]" />
+        </>
+      ) : null}
 
       <div className="relative z-10 flex items-start justify-between">
         {iconBare ? (
@@ -107,7 +113,7 @@ function ActionTile({ title, description, icon: Icon, iconClassName, iconBare, b
         {actionLabel}
         <ArrowRight className="h-4 w-4" />
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -194,7 +200,7 @@ function NewEventChooserPageContent() {
         iconBare: true,
         badge: 'Beta',
         actionLabel: 'Start with AI',
-        gradient: 'bg-gradient-to-br from-[#0CCDA3] to-[#00B4D8]', // Mint to Cyan
+        gradient: 'bg-[radial-gradient(circle_at_18%_18%,rgba(12,205,163,0.36),transparent_30%),linear-gradient(135deg,#063f3b_0%,var(--brand-teal)_48%,var(--brand-cyan)_100%)]',
         onClick: () => gatedAction(() => router.push('/events/new/ai')),
       },
       {
@@ -446,10 +452,11 @@ function NewEventChooserPageContent() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 auto-rows-fr gap-6 md:gap-8">
             {tiles.map((tile, index) => (
               <motion.div
                 key={tile.title}
+                className="h-full w-full"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: index * 0.1 }}

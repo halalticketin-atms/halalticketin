@@ -89,6 +89,7 @@ export interface DraftEventInitial {
   promoCodes?: DraftPromoCode[];
   currentStep?: number;
   currentSubStep?: string;
+  preserveEmptyTickets?: boolean;
 }
 
 const stepsCountDefault = 4;
@@ -145,6 +146,25 @@ const createDefaultTicket = (): DraftTicketType => ({
   absorbFee: false, // per-ticket, no event-level default
 });
 
+const normalizeDraftTicketType = (ticket: DraftTicketType): DraftTicketType => ({
+  ...ticket,
+  salesStart: ticket.salesStart ?? '',
+  salesStartTime: ticket.salesStartTime ?? '',
+  salesEnd: ticket.salesEnd ?? '',
+  salesEndTime: ticket.salesEndTime ?? '',
+  type: ticket.type ?? (ticket.isFree ? 'free' : 'paid'),
+});
+
+export const resolveInitialTickets = (initial?: DraftEventInitial): DraftTicketType[] => {
+  if (initial?.tickets && initial.tickets.length > 0) {
+    return initial.tickets.map(normalizeDraftTicketType);
+  }
+  if (initial?.preserveEmptyTickets && initial.tickets) {
+    return [];
+  }
+  return [createDefaultTicket()];
+};
+
 const createDonationTicket = (): DraftTicketType => ({
   id: `donation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   name: 'Donation',
@@ -168,18 +188,6 @@ const createDonationTicket = (): DraftTicketType => ({
 });
 
 export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = stepsCountDefault) {
-  const normalizeTicketType = (ticket: DraftTicketType): DraftTicketType => {
-    const normalizedTicket: DraftTicketType = {
-      ...ticket,
-      salesStart: ticket.salesStart ?? '',
-      salesStartTime: ticket.salesStartTime ?? '',
-      salesEnd: ticket.salesEnd ?? '',
-      salesEndTime: ticket.salesEndTime ?? '',
-      type: ticket.type ?? (ticket.isFree ? 'free' : 'paid'),
-    };
-    return normalizedTicket;
-  };
-
   const normalizeCustomQuestions = (questions?: DraftCustomQuestion[]) => {
     if (!questions || questions.length === 0) {
       return [];
@@ -228,11 +236,7 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
     ...defaultFormData,
     ...normalizedInitialFormData,
   });
-  const [tickets, setTickets] = useState<DraftTicketType[]>(
-    initial?.tickets && initial.tickets.length > 0
-      ? initial.tickets.map(normalizeTicketType)
-      : [createDefaultTicket()],
-  );
+  const [tickets, setTickets] = useState<DraftTicketType[]>(resolveInitialTickets(initial));
   const [promoCodes, setPromoCodes] = useState<DraftPromoCode[]>(
     initial?.promoCodes?.map(normalizePromoCode) ?? [],
   );
