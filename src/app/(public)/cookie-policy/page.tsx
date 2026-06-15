@@ -8,6 +8,7 @@ import {
     BROWSER_STORAGE_ITEMS,
     FIRST_PARTY_COOKIES,
     OPTIONAL_TECHNOLOGIES,
+    SERVER_SIDE_MARKETING_TECHNOLOGIES,
     getConsentCategory,
 } from '@/lib/consent-inventory';
 
@@ -20,7 +21,7 @@ const essentialCategory = getConsentCategory('essential');
 const analyticsCategory = getConsentCategory('analytics');
 const marketingCategory = getConsentCategory('marketing');
 const essentialBrowserStorage = BROWSER_STORAGE_ITEMS.filter((item) => item.categoryId === 'essential');
-const effectiveDate = '14 June 2026';
+const effectiveDate = '15 June 2026';
 
 const sections: Section[] = [
     {
@@ -94,7 +95,32 @@ const sections: Section[] = [
         )
     },
     {
-        title: '5. Your choices',
+        title: '5. Server-side marketing conversion events',
+        content: (
+            <div className="space-y-4">
+                <p className="text-muted-foreground">
+                    Some organiser marketing tools do not place cookies from your browser. Instead, Halal Ticketin may
+                    send a completed-purchase event from our backend to the organiser&apos;s configured provider after
+                    marketing storage is accepted.
+                </p>
+                <ul className="space-y-4">
+                    {SERVER_SIDE_MARKETING_TECHNOLOGIES.map((tech) => (
+                        <li key={tech.name} className="rounded-lg border p-4">
+                            <p className="font-medium">{tech.name}</p>
+                            <p className="text-sm text-muted-foreground">{tech.purpose}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Provider: {tech.provider} &middot; Endpoint: {tech.endpoint}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">Data shared: {tech.dataShared}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{tech.runsWhen}</p>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        )
+    },
+    {
+        title: '6. Your choices',
         content: (
             <div className="space-y-3 text-muted-foreground">
                 <p>
@@ -111,7 +137,7 @@ const sections: Section[] = [
         )
     },
     {
-        title: '6. Legal basis',
+        title: '7. Legal basis',
         content: (
             <div className="space-y-3 text-muted-foreground">
                 <p>
@@ -128,7 +154,7 @@ const sections: Section[] = [
         )
     },
     {
-        title: '7. Updates & contact',
+        title: '8. Updates & contact',
         content: (
             <div className="space-y-3 text-muted-foreground">
                 <p>We update this policy whenever our storage inventory changes and will note the new effective date.</p>

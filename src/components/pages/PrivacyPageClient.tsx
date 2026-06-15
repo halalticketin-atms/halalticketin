@@ -8,6 +8,7 @@ import {
   BROWSER_STORAGE_ITEMS,
   FIRST_PARTY_COOKIES,
   MARKETING_TECHNOLOGIES,
+  SERVER_SIDE_MARKETING_TECHNOLOGIES,
 } from '@/lib/consent-inventory';
 
 type Section = {
@@ -19,7 +20,7 @@ type Section = {
 const consentCookie = FIRST_PARTY_COOKIES[0];
 const consentCookieName = consentCookie?.name ?? 'ht_consent';
 const consentCookieRetention = consentCookie?.retention ?? '180 days';
-const effectiveDate = '14 June 2026';
+const effectiveDate = '15 June 2026';
 const browserStorageSummary =
   BROWSER_STORAGE_ITEMS.length > 0
     ? `${BROWSER_STORAGE_ITEMS.length} essential browser-storage keys`
@@ -33,6 +34,14 @@ const marketingRunsWhen =
   optionalTechnologies.length > 0
     ? optionalTechnologies.map((tech) => `${tech.name}: ${tech.runsWhen}`).join(' ')
     : 'Optional scripts only load after you accept the matching analytics or marketing storage category.';
+const serverSideMarketingSummary =
+  SERVER_SIDE_MARKETING_TECHNOLOGIES.length > 0
+    ? SERVER_SIDE_MARKETING_TECHNOLOGIES.map((tech) => tech.name).join(', ')
+    : 'server-side marketing conversion tools';
+const serverSideMarketingDataSummary =
+  SERVER_SIDE_MARKETING_TECHNOLOGIES.length > 0
+    ? SERVER_SIDE_MARKETING_TECHNOLOGIES.map((tech) => `${tech.name}: ${tech.dataShared}`).join(' ')
+    : 'Purchase event details and limited technical identifiers may be shared after marketing consent.';
 
 const sections: Section[] = [
   {
@@ -50,7 +59,7 @@ const sections: Section[] = [
     body: [
       'Identity and contact data (name, email, address, phone number).',
       'Event registration details provided during checkout or RSVP.',
-      'Technical data (e.g., IP address, browser type, device information) collected automatically by hosting, analytics, or payment providers for security and functionality. Halal Ticketin’ does not collect this directly.',
+      'Technical data (e.g., IP address, browser type, device information, page URL, and event/checkout identifiers) collected automatically by hosting, analytics, marketing, or payment providers for security, functionality, measurement, and attribution.',
       'Marketing preferences and consent status.',
     ],
   },
@@ -62,6 +71,7 @@ const sections: Section[] = [
       'Meet legal or regulatory obligations.',
       'Provide customer support.',
       'Send marketing communications (only with your consent).',
+      'Measure event page, checkout, and purchase performance for organisers where optional analytics or marketing storage has been accepted.',
     ],
   },
   {
@@ -79,10 +89,11 @@ const sections: Section[] = [
       'Event organisers (to manage registrations and attendees).',
       'Payment processors such as Stripe for secure transactions.',
       'IT and infrastructure providers (hosting, support tools).',
+      'Analytics and advertising providers such as Google, Meta, and TikTok, but only for optional measurement or advertising attribution when the relevant consent has been given and an organiser has configured that provider.',
       'Regulators or authorities where required by law.',
     ],
     note:
-      'Event organisers act as independent data controllers when using attendee data outside Halal Ticketin’s scope.',
+      'Event organisers act as independent data controllers when using attendee data outside Halal Ticketin’s scope, including when they configure their own analytics or advertising destinations.',
   },
   {
     title: '7. Data Retention',
@@ -106,7 +117,8 @@ const sections: Section[] = [
     body: [
       `We directly set a single first-party cookie (${consentCookieName}) to remember whether you opted into analytics and marketing storage. It expires after ${consentCookieRetention}.`,
       `We also use ${browserStorageSummary} in localStorage/sessionStorage for secure login, invitation handling, draft recovery, organiser setup, and purchase deduplication. We do not store auth cookies.`,
-      `${marketingToolsSummary}: ${marketingRunsWhen} You can change this any time via “Manage cookies” in the site footer (or via cookie controls in embedded event/checkout views). See our Cookie Policy for the full inventory.`
+      `${marketingToolsSummary}: ${marketingRunsWhen} You can change this any time via “Manage cookies” in the site footer (or via cookie controls in embedded event/checkout views). See our Cookie Policy for the full inventory.`,
+      `If marketing storage is accepted, completed purchases may also be measured through ${serverSideMarketingSummary}. ${serverSideMarketingDataSummary}`
     ],
   },
   {

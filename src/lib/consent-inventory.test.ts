@@ -3,6 +3,7 @@ import {
     ANALYTICS_TECHNOLOGIES,
     BROWSER_STORAGE_ITEMS,
     MARKETING_TECHNOLOGIES,
+    SERVER_SIDE_MARKETING_TECHNOLOGIES,
 } from './consent-inventory';
 
 describe('consent inventory', () => {
@@ -31,5 +32,18 @@ describe('consent inventory', () => {
                 storage: 'localStorage',
             }),
         );
+    });
+
+    it('discloses server-side conversion APIs and the data shared', () => {
+        expect(SERVER_SIDE_MARKETING_TECHNOLOGIES.map((technology) => technology.name)).toEqual(
+            expect.arrayContaining(['Meta Conversions API', 'TikTok Events API']),
+        );
+
+        for (const technology of SERVER_SIDE_MARKETING_TECHNOLOGIES) {
+            expect(technology.runsWhen).toContain('marketing storage is accepted');
+            expect(technology.dataShared).toContain('hashed attendee email');
+            expect(technology.dataShared).toContain('IP address');
+            expect(technology.categoryId).toBe('marketing');
+        }
     });
 });

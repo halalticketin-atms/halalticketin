@@ -50,8 +50,10 @@ const sections: Section[] = [
   },
   {
     title: '8. Data and Privacy',
-    body:
-      'We collect and process personal data in accordance with our Privacy Policy. Consumers’ data may be shared with Organisers for event-related purposes, and Organisers are independently responsible for their handling of that data.',
+    body: [
+      'We collect and process personal data in accordance with our Privacy Policy and Cookie Policy. Consumers’ data may be shared with Organisers for event-related purposes, and Organisers are independently responsible for their handling of that data.',
+      'If an Organiser configures analytics, advertising, pixel, or server-side conversion tracking tools for their events, the Organiser is responsible for ensuring they have the rights, notices, consents, and provider terms needed to use those tools. Halal Ticketin only sends optional analytics or marketing events where the relevant consent has been given through our cookie controls.',
+    ],
   },
   {
     title: '9. Intellectual Property',
@@ -102,7 +104,7 @@ export default function TermsPage() {
           >
             <p className="text-sm uppercase tracking-wide text-muted-foreground">Halal Ticketin’</p>
             <h1 className="font-display text-4xl font-bold mt-3">Terms and Conditions</h1>
-            <p className="mt-3 text-muted-foreground">Effective Date: 18 December 2025</p>
+            <p className="mt-3 text-muted-foreground">Effective Date: 15 June 2026</p>
             <p className="mt-2 text-sm text-muted-foreground">
               Need help?{' '}
               <Link href="/contact" className="text-primary underline">

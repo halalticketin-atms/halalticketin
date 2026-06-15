@@ -34,6 +34,16 @@ export interface ThirdPartyTechnology {
     categoryId: ConsentCategoryId;
 }
 
+export interface ServerSideMarketingTechnology {
+    name: string;
+    provider: string;
+    endpoint: string;
+    purpose: string;
+    dataShared: string;
+    runsWhen: string;
+    categoryId: 'marketing';
+}
+
 export const CONSENT_COOKIE_NAME = 'ht_consent';
 export const CONSENT_COOKIE_MAX_AGE_DAYS = 180;
 
@@ -235,6 +245,33 @@ export const MARKETING_TECHNOLOGIES: ThirdPartyTechnology[] = [
 export const OPTIONAL_TECHNOLOGIES: ThirdPartyTechnology[] = [
     ...ANALYTICS_TECHNOLOGIES,
     ...MARKETING_TECHNOLOGIES
+];
+
+export const SERVER_SIDE_MARKETING_TECHNOLOGIES: ServerSideMarketingTechnology[] = [
+    {
+        name: 'Meta Conversions API',
+        provider: 'Event organisers via Meta',
+        endpoint: 'https://graph.facebook.com',
+        purpose:
+            'Allows organisers to measure completed purchases in Meta Events Manager when browser tracking is blocked or unavailable.',
+        dataShared:
+            'Purchase event details, order and ticket identifiers, purchase value and currency, hashed attendee email, browser identifiers where present, IP address, user agent, and event page URL.',
+        runsWhen:
+            'Only after marketing storage is accepted, only for completed purchases, and only where the organiser has configured a Meta Pixel ID and Conversions API token.',
+        categoryId: 'marketing'
+    },
+    {
+        name: 'TikTok Events API',
+        provider: 'Event organisers via TikTok',
+        endpoint: 'https://business-api.tiktok.com',
+        purpose:
+            'Allows organisers to measure completed purchases in TikTok Events Manager when browser tracking is blocked or unavailable.',
+        dataShared:
+            'Purchase event details, order and ticket identifiers, purchase value and currency, hashed attendee email, browser identifiers where present, IP address, user agent, and event page URL.',
+        runsWhen:
+            'Only after marketing storage is accepted, only for completed purchases, and only where the organiser has configured a TikTok Pixel ID and Events API token.',
+        categoryId: 'marketing'
+    }
 ];
 
 export const getConsentCategory = (id: ConsentCategoryId) => CONSENT_CATEGORIES.find((category) => category.id === id);

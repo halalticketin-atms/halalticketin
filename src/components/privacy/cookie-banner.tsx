@@ -36,11 +36,11 @@ export function CookieBanner() {
     const bannerCopy = consentSource === 'checkout'
         ? {
             description:
-                'Optional analytics and marketing storage help the organiser measure checkout performance, including checkout starts and purchases. They only run after you opt in.'
+                'Optional analytics and marketing tools help the organiser measure checkout performance, including checkout starts and purchases. They only run after you opt in.'
         }
         : {
             description:
-                'Essential storage keeps the site running. Optional analytics and marketing storage help organisers understand how people find their events and only run after you opt in.'
+                'Essential storage keeps the site running. Optional analytics and marketing tools help organisers understand how people find their events and only run after you opt in.'
         };
 
     useEffect(() => {
@@ -186,7 +186,7 @@ export function CookieBanner() {
                             <div>
                                 <p className="font-medium">Marketing storage</p>
                                 <p className="text-sm text-muted-foreground">
-                                    Helps organisers measure and improve ads using tools such as Meta Pixel, TikTok Pixel, and Google Ads.
+                                    Helps organisers measure and improve ads using tools such as Meta Pixel, TikTok Pixel, Google Ads, and consent-gated purchase conversion APIs.
                                 </p>
                             </div>
                             <Switch
