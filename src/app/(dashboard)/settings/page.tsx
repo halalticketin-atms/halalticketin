@@ -58,7 +58,6 @@ import {
     isValidGoogleAdsPurchaseConversionLabel,
     isValidTikTokPixelId,
 } from '@/lib/tracking-config-status';
-import { getTrackingDomainStatus } from '@/lib/tracking-domain-status';
 
 type SettingsTab = 'profile' | 'organizer-profile' | 'currency' | 'marketing' | 'payments';
 
@@ -921,11 +920,6 @@ export default function SettingsPage() {
         metaCapiTokenLast4: currentOrganizer?.metaCapiTokenLast4,
     });
     const metaTrackingStatusStyles = META_TRACKING_STATUS_STYLES[metaTrackingStatus.tone];
-    const trackingDomainStatus = getTrackingDomainStatus({
-        organizerWebsite: currentOrganizer?.website,
-        customDomain: null,
-    });
-    const trackingDomainStatusStyles = META_TRACKING_STATUS_STYLES[trackingDomainStatus.tone];
     const normalizedGa4Input = ga4MeasurementInput.trim().toUpperCase();
     const ga4Changed = normalizedGa4Input !== currentGa4MeasurementId;
     const normalizedTiktokPixelInput = tiktokPixelInput.trim();
@@ -1697,407 +1691,434 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                    <div className="space-y-5 max-w-xl">
-                                        <div className={cn('rounded-lg border p-4', trackingDomainStatusStyles.panel)}>
-                                            <div className="flex items-center gap-2">
-                                                <span className={cn('h-2.5 w-2.5 rounded-full', trackingDomainStatusStyles.dot)} />
-                                                <span className={cn('text-sm font-medium', trackingDomainStatusStyles.label)}>
-                                                    {trackingDomainStatus.label}
-                                                </span>
+                                    <div className="space-y-6 max-w-3xl">
+                                        <section className="rounded-lg border border-border/70 bg-background p-5">
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                <div>
+                                                    <h3 className="text-base font-semibold">Meta</h3>
+                                                    <p className="mt-1 text-sm text-muted-foreground">
+                                                        Meta Pixel handles browser events. Conversions API improves purchase tracking when browser events are blocked.
+                                                    </p>
+                                                </div>
+                                                {metaCapiActive && currentOrganizer?.metaCapiTokenLast4 && (
+                                                    <span className="inline-flex w-fit rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
+                                                        CAPI ••••{currentOrganizer.metaCapiTokenLast4}
+                                                    </span>
+                                                )}
                                             </div>
-                                            <p className="mt-3 text-sm text-muted-foreground">
-                                                {trackingDomainStatus.summary}
-                                            </p>
-                                        </div>
 
-                                        <div className={cn('rounded-lg border p-4', metaTrackingStatusStyles.panel)}>
-                                            <div className="flex items-center justify-between gap-3">
+                                            <div className={cn('mt-4 rounded-lg border p-4', metaTrackingStatusStyles.panel)}>
                                                 <div className="flex items-center gap-2">
                                                     <span className={cn('h-2.5 w-2.5 rounded-full', metaTrackingStatusStyles.dot)} />
                                                     <span className={cn('text-sm font-medium', metaTrackingStatusStyles.label)}>
                                                         {metaTrackingStatus.label}
                                                     </span>
                                                 </div>
-                                                {metaCapiActive && currentOrganizer?.metaCapiTokenLast4 && (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        CAPI ••••{currentOrganizer.metaCapiTokenLast4}
-                                                    </span>
-                                                )}
+                                                <p className="mt-3 text-sm text-muted-foreground">
+                                                    {metaTrackingStatus.summary}
+                                                </p>
+                                                <p className="mt-1 text-sm text-muted-foreground">
+                                                    {metaTrackingStatus.purchaseReliability}
+                                                </p>
+                                                <a
+                                                    href="https://www.facebook.com/business/help/952192354843755"
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                                                >
+                                                    Verify events in Meta Events Manager
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
                                             </div>
-                                            <p className="mt-3 text-sm text-muted-foreground">
-                                                {metaTrackingStatus.summary}
-                                            </p>
-                                            <p className="mt-1 text-sm text-muted-foreground">
-                                                {metaTrackingStatus.purchaseReliability}
-                                            </p>
-                                            <a
-                                                href="https://www.facebook.com/business/help/952192354843755"
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                                            >
-                                                Verify events in Meta Events Manager
-                                                <ExternalLink className="h-3 w-3" />
-                                            </a>
-                                        </div>
 
-                                        <div className="space-y-2">
-                                            <Label htmlFor="metaPixelId" className="text-muted-foreground">Meta Pixel ID</Label>
-                                            <Input
-                                                id="metaPixelId"
-                                                value={metaPixelInput}
-                                                onChange={(event) => setMetaPixelInput(event.target.value.replace(/\D/g, ''))}
-                                                disabled={!canEditOrgSettings}
-                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                                placeholder="e.g. 123456789012345"
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Loads on organiser event and checkout pages after marketing cookies are accepted.
-                                            </p>
-                                            {metaPixelStatus === 'success' && (
-                                                <p className="text-sm text-green-600 flex items-center gap-1">
-                                                    <Check className="h-4 w-4" />
-                                                    Pixel ID saved.
-                                                </p>
-                                            )}
-                                            {metaPixelStatus === 'error' && (
-                                                <p className="text-sm text-destructive flex items-center gap-1">
-                                                    <AlertCircle className="h-4 w-4" />
-                                                    {metaPixelError || 'Unable to save Pixel ID.'}
-                                                </p>
-                                            )}
-                                        </div>
+                                            <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                                                <div className="space-y-3">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="metaPixelId" className="text-muted-foreground">Meta Pixel ID</Label>
+                                                        <Input
+                                                            id="metaPixelId"
+                                                            value={metaPixelInput}
+                                                            onChange={(event) => setMetaPixelInput(event.target.value.replace(/\D/g, ''))}
+                                                            disabled={!canEditOrgSettings}
+                                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                            placeholder="e.g. 123456789012345"
+                                                        />
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Loads on organiser event and checkout pages after marketing cookies are accepted.
+                                                        </p>
+                                                        {metaPixelStatus === 'success' && (
+                                                            <p className="text-sm text-green-600 flex items-center gap-1">
+                                                                <Check className="h-4 w-4" />
+                                                                Pixel ID saved.
+                                                            </p>
+                                                        )}
+                                                        {metaPixelStatus === 'error' && (
+                                                            <p className="text-sm text-destructive flex items-center gap-1">
+                                                                <AlertCircle className="h-4 w-4" />
+                                                                {metaPixelError || 'Unable to save Pixel ID.'}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => setMetaPixelInput('')}
+                                                            disabled={isSavingMetaPixel || (!metaPixelInput && !currentOrganizer?.metaPixelId)}
+                                                            className="rounded-xl"
+                                                        >
+                                                            Clear
+                                                        </Button>
+                                                        <Button
+                                                            onClick={handleSaveMetaPixel}
+                                                            disabled={isSavingMetaPixel || !metaPixelChanged}
+                                                            className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                                        >
+                                                            {isSavingMetaPixel ? (
+                                                                <>
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    Saving...
+                                                                </>
+                                                            ) : (
+                                                                'Save Pixel'
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
 
-                                        <div className="flex flex-wrap gap-3 pt-2">
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => setMetaPixelInput('')}
-                                                disabled={isSavingMetaPixel || (!metaPixelInput && !currentOrganizer?.metaPixelId)}
-                                                className="rounded-xl"
-                                            >
-                                                Clear
-                                            </Button>
-                                            <Button
-                                                onClick={handleSaveMetaPixel}
-                                                disabled={isSavingMetaPixel || !metaPixelChanged}
-                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
-                                            >
-                                                {isSavingMetaPixel ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Saving...
-                                                    </>
-                                                ) : (
-                                                    'Save Pixel'
-                                                )}
-                                            </Button>
-                                        </div>
-
-                                        <div className="space-y-2 pt-6">
-                                            <Label htmlFor="ga4MeasurementId" className="text-muted-foreground">
-                                                Google Analytics 4
-                                            </Label>
-                                            <Input
-                                                id="ga4MeasurementId"
-                                                value={ga4MeasurementInput}
-                                                onChange={(event) => setGa4MeasurementInput(event.target.value.toUpperCase())}
-                                                disabled={!canEditOrgSettings}
-                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                                placeholder="G-XXXXXXXXXX"
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Loads Google Analytics events after analytics storage is accepted.
-                                            </p>
-                                            {ga4Status === 'success' && (
-                                                <p className="text-sm text-green-600 flex items-center gap-1">
-                                                    <Check className="h-4 w-4" />
-                                                    Measurement ID saved.
-                                                </p>
-                                            )}
-                                            {ga4Status === 'error' && (
-                                                <p className="text-sm text-destructive flex items-center gap-1">
-                                                    <AlertCircle className="h-4 w-4" />
-                                                    {ga4Error || 'Unable to save Measurement ID.'}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-3 pt-2">
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => setGa4MeasurementInput('')}
-                                                disabled={isSavingGa4 || (!ga4MeasurementInput && !currentGa4MeasurementId)}
-                                                className="rounded-xl"
-                                            >
-                                                Clear
-                                            </Button>
-                                            <Button
-                                                onClick={handleSaveGa4}
-                                                disabled={isSavingGa4 || !ga4Changed}
-                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
-                                            >
-                                                {isSavingGa4 ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Saving...
-                                                    </>
-                                                ) : (
-                                                    'Save GA4'
-                                                )}
-                                            </Button>
-                                        </div>
-
-                                        <div className="space-y-4 pt-6">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="googleAdsConversionId" className="text-muted-foreground">
-                                                    Google Ads purchase conversion
-                                                </Label>
-                                                <Input
-                                                    id="googleAdsConversionId"
-                                                    value={googleAdsConversionInput}
-                                                    onChange={(event) => setGoogleAdsConversionInput(event.target.value.toUpperCase())}
-                                                    disabled={!canEditOrgSettings}
-                                                    className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                                    placeholder="AW-123456789"
-                                                />
+                                                <div className="space-y-3">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="metaCapiToken" className="text-muted-foreground">
+                                                            Conversions API token
+                                                        </Label>
+                                                        <Input
+                                                            id="metaCapiToken"
+                                                            type="password"
+                                                            value={metaCapiTokenInput}
+                                                            onChange={(event) => setMetaCapiTokenInput(event.target.value)}
+                                                            disabled={!canEditOrgSettings}
+                                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                            placeholder="Paste token from Meta Events Manager"
+                                                        />
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Optional. Improves Purchase tracking when browser events are blocked.
+                                                        </p>
+                                                        {metaCapiConnected && (
+                                                            <p className="text-xs text-emerald-600">
+                                                                Connected (••••{currentOrganizer?.metaCapiTokenLast4})
+                                                            </p>
+                                                        )}
+                                                        {metaCapiStatus === 'success' && (
+                                                            <p className="text-sm text-green-600 flex items-center gap-1">
+                                                                <Check className="h-4 w-4" />
+                                                                Token saved.
+                                                            </p>
+                                                        )}
+                                                        {metaCapiStatus === 'error' && (
+                                                            <p className="text-sm text-destructive flex items-center gap-1">
+                                                                <AlertCircle className="h-4 w-4" />
+                                                                {metaCapiError || 'Unable to save token.'}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => handleSaveMetaCapiToken(true)}
+                                                            disabled={isSavingMetaCapiToken || !metaCapiConnected}
+                                                            className="rounded-xl"
+                                                        >
+                                                            Remove token
+                                                        </Button>
+                                                        <Button
+                                                            onClick={() => handleSaveMetaCapiToken(false)}
+                                                            disabled={isSavingMetaCapiToken || metaCapiTokenInput.trim() === ''}
+                                                            className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                                        >
+                                                            {isSavingMetaCapiToken ? (
+                                                                <>
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    Saving...
+                                                                </>
+                                                            ) : (
+                                                                'Save Token'
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="googleAdsPurchaseLabel" className="text-muted-foreground">
-                                                    Purchase conversion label
-                                                </Label>
-                                                <Input
-                                                    id="googleAdsPurchaseLabel"
-                                                    value={googleAdsPurchaseLabelInput}
-                                                    onChange={(event) => setGoogleAdsPurchaseLabelInput(event.target.value.trim())}
-                                                    disabled={!canEditOrgSettings}
-                                                    className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                                    placeholder="abcDEFghiJKL"
-                                                />
+                                        </section>
+
+                                        <section className="rounded-lg border border-border/70 bg-background p-5">
+                                            <div>
+                                                <h3 className="text-base font-semibold">Google</h3>
+                                                <p className="mt-1 text-sm text-muted-foreground">
+                                                    Group Google Analytics page and checkout measurement with Google Ads purchase conversions.
+                                                </p>
                                             </div>
-                                            <p className="text-xs text-muted-foreground">
-                                                Fires a Google Ads purchase conversion after marketing storage is accepted.
-                                            </p>
-                                            {googleAdsStatus === 'success' && (
-                                                <p className="text-sm text-green-600 flex items-center gap-1">
-                                                    <Check className="h-4 w-4" />
-                                                    Google Ads conversion saved.
-                                                </p>
-                                            )}
-                                            {googleAdsStatus === 'error' && (
-                                                <p className="text-sm text-destructive flex items-center gap-1">
-                                                    <AlertCircle className="h-4 w-4" />
-                                                    {googleAdsError || 'Unable to save Google Ads conversion.'}
-                                                </p>
-                                            )}
-                                        </div>
 
-                                        <div className="flex flex-wrap gap-3 pt-2">
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => {
-                                                    setGoogleAdsConversionInput('');
-                                                    setGoogleAdsPurchaseLabelInput('');
-                                                }}
-                                                disabled={
-                                                    isSavingGoogleAds ||
-                                                    (!googleAdsConversionInput &&
-                                                        !googleAdsPurchaseLabelInput &&
-                                                        !currentGoogleAdsConversionId &&
-                                                        !currentGoogleAdsPurchaseLabel)
-                                                }
-                                                className="rounded-xl"
-                                            >
-                                                Clear
-                                            </Button>
-                                            <Button
-                                                onClick={handleSaveGoogleAds}
-                                                disabled={isSavingGoogleAds || !googleAdsChanged}
-                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
-                                            >
-                                                {isSavingGoogleAds ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Saving...
-                                                    </>
-                                                ) : (
-                                                    'Save Google Ads'
-                                                )}
-                                            </Button>
-                                        </div>
+                                            <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                                                <div className="space-y-3">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="ga4MeasurementId" className="text-muted-foreground">
+                                                            Google Analytics 4
+                                                        </Label>
+                                                        <Input
+                                                            id="ga4MeasurementId"
+                                                            value={ga4MeasurementInput}
+                                                            onChange={(event) => setGa4MeasurementInput(event.target.value.toUpperCase())}
+                                                            disabled={!canEditOrgSettings}
+                                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                            placeholder="G-XXXXXXXXXX"
+                                                        />
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Loads Google Analytics events after analytics storage is accepted.
+                                                        </p>
+                                                        {ga4Status === 'success' && (
+                                                            <p className="text-sm text-green-600 flex items-center gap-1">
+                                                                <Check className="h-4 w-4" />
+                                                                Measurement ID saved.
+                                                            </p>
+                                                        )}
+                                                        {ga4Status === 'error' && (
+                                                            <p className="text-sm text-destructive flex items-center gap-1">
+                                                                <AlertCircle className="h-4 w-4" />
+                                                                {ga4Error || 'Unable to save Measurement ID.'}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => setGa4MeasurementInput('')}
+                                                            disabled={isSavingGa4 || (!ga4MeasurementInput && !currentGa4MeasurementId)}
+                                                            className="rounded-xl"
+                                                        >
+                                                            Clear
+                                                        </Button>
+                                                        <Button
+                                                            onClick={handleSaveGa4}
+                                                            disabled={isSavingGa4 || !ga4Changed}
+                                                            className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                                        >
+                                                            {isSavingGa4 ? (
+                                                                <>
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    Saving...
+                                                                </>
+                                                            ) : (
+                                                                'Save GA4'
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
 
-                                        <div className="space-y-2 pt-6">
-                                            <Label htmlFor="tiktokPixelId" className="text-muted-foreground">
-                                                TikTok Pixel
-                                            </Label>
-                                            <Input
-                                                id="tiktokPixelId"
-                                                value={tiktokPixelInput}
-                                                onChange={(event) => setTiktokPixelInput(event.target.value.trim())}
-                                                disabled={!canEditOrgSettings}
-                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                                placeholder="CXXXXXXXXXXXX"
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Loads TikTok Pixel events after marketing storage is accepted.
-                                            </p>
-                                            {tiktokPixelStatus === 'success' && (
-                                                <p className="text-sm text-green-600 flex items-center gap-1">
-                                                    <Check className="h-4 w-4" />
-                                                    TikTok Pixel ID saved.
-                                                </p>
-                                            )}
-                                            {tiktokPixelStatus === 'error' && (
-                                                <p className="text-sm text-destructive flex items-center gap-1">
-                                                    <AlertCircle className="h-4 w-4" />
-                                                    {tiktokPixelError || 'Unable to save TikTok Pixel ID.'}
-                                                </p>
-                                            )}
-                                        </div>
+                                                <div className="space-y-3">
+                                                    <div className="space-y-4">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="googleAdsConversionId" className="text-muted-foreground">
+                                                                Google Ads conversion ID
+                                                            </Label>
+                                                            <Input
+                                                                id="googleAdsConversionId"
+                                                                value={googleAdsConversionInput}
+                                                                onChange={(event) => setGoogleAdsConversionInput(event.target.value.toUpperCase())}
+                                                                disabled={!canEditOrgSettings}
+                                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                                placeholder="AW-123456789"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="googleAdsPurchaseLabel" className="text-muted-foreground">
+                                                                Purchase conversion label
+                                                            </Label>
+                                                            <Input
+                                                                id="googleAdsPurchaseLabel"
+                                                                value={googleAdsPurchaseLabelInput}
+                                                                onChange={(event) => setGoogleAdsPurchaseLabelInput(event.target.value.trim())}
+                                                                disabled={!canEditOrgSettings}
+                                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                                placeholder="abcDEFghiJKL"
+                                                            />
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Fires a Google Ads purchase conversion after marketing storage is accepted.
+                                                        </p>
+                                                        {googleAdsStatus === 'success' && (
+                                                            <p className="text-sm text-green-600 flex items-center gap-1">
+                                                                <Check className="h-4 w-4" />
+                                                                Google Ads conversion saved.
+                                                            </p>
+                                                        )}
+                                                        {googleAdsStatus === 'error' && (
+                                                            <p className="text-sm text-destructive flex items-center gap-1">
+                                                                <AlertCircle className="h-4 w-4" />
+                                                                {googleAdsError || 'Unable to save Google Ads conversion.'}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                setGoogleAdsConversionInput('');
+                                                                setGoogleAdsPurchaseLabelInput('');
+                                                            }}
+                                                            disabled={
+                                                                isSavingGoogleAds ||
+                                                                (!googleAdsConversionInput &&
+                                                                    !googleAdsPurchaseLabelInput &&
+                                                                    !currentGoogleAdsConversionId &&
+                                                                    !currentGoogleAdsPurchaseLabel)
+                                                            }
+                                                            className="rounded-xl"
+                                                        >
+                                                            Clear
+                                                        </Button>
+                                                        <Button
+                                                            onClick={handleSaveGoogleAds}
+                                                            disabled={isSavingGoogleAds || !googleAdsChanged}
+                                                            className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                                        >
+                                                            {isSavingGoogleAds ? (
+                                                                <>
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    Saving...
+                                                                </>
+                                                            ) : (
+                                                                'Save Google Ads'
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </section>
 
-                                        <div className="flex flex-wrap gap-3 pt-2">
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => setTiktokPixelInput('')}
-                                                disabled={isSavingTiktokPixel || (!tiktokPixelInput && !currentTiktokPixelId)}
-                                                className="rounded-xl"
-                                            >
-                                                Clear
-                                            </Button>
-                                            <Button
-                                                onClick={handleSaveTiktokPixel}
-                                                disabled={isSavingTiktokPixel || !tiktokPixelChanged}
-                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
-                                            >
-                                                {isSavingTiktokPixel ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Saving...
-                                                    </>
-                                                ) : (
-                                                    'Save TikTok'
-                                                )}
-                                            </Button>
-                                        </div>
+                                        <section className="rounded-lg border border-border/70 bg-background p-5">
+                                            <div>
+                                                <h3 className="text-base font-semibold">TikTok</h3>
+                                                <p className="mt-1 text-sm text-muted-foreground">
+                                                    TikTok Pixel handles browser events. Events API improves completed-purchase attribution.
+                                                </p>
+                                            </div>
 
-                                        <div className="space-y-2 pt-4">
-                                            <Label htmlFor="tiktokEventsApiToken" className="text-muted-foreground">
-                                                TikTok Events API token
-                                            </Label>
-                                            <Input
-                                                id="tiktokEventsApiToken"
-                                                type="password"
-                                                value={tiktokEventsApiTokenInput}
-                                                onChange={(event) => setTiktokEventsApiTokenInput(event.target.value)}
-                                                disabled={!canEditOrgSettings}
-                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                                placeholder="Paste token from TikTok Events Manager"
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Improves Purchase tracking reliability. Server-side Purchase only runs after marketing consent.
-                                            </p>
-                                            {currentTiktokEventsApiTokenLast4 && (
-                                                <p className="text-xs text-emerald-600">
-                                                    Connected (••••{currentTiktokEventsApiTokenLast4})
-                                                </p>
-                                            )}
-                                            {tiktokEventsApiTokenStatus === 'success' && (
-                                                <p className="text-sm text-green-600 flex items-center gap-1">
-                                                    <Check className="h-4 w-4" />
-                                                    Events API token saved.
-                                                </p>
-                                            )}
-                                            {tiktokEventsApiTokenStatus === 'error' && (
-                                                <p className="text-sm text-destructive flex items-center gap-1">
-                                                    <AlertCircle className="h-4 w-4" />
-                                                    {tiktokEventsApiTokenError || 'Unable to save Events API token.'}
-                                                </p>
-                                            )}
-                                        </div>
+                                            <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                                                <div className="space-y-3">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="tiktokPixelId" className="text-muted-foreground">
+                                                            TikTok Pixel ID
+                                                        </Label>
+                                                        <Input
+                                                            id="tiktokPixelId"
+                                                            value={tiktokPixelInput}
+                                                            onChange={(event) => setTiktokPixelInput(event.target.value.trim())}
+                                                            disabled={!canEditOrgSettings}
+                                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                            placeholder="CXXXXXXXXXXXX"
+                                                        />
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Loads TikTok Pixel events after marketing storage is accepted.
+                                                        </p>
+                                                        {tiktokPixelStatus === 'success' && (
+                                                            <p className="text-sm text-green-600 flex items-center gap-1">
+                                                                <Check className="h-4 w-4" />
+                                                                TikTok Pixel ID saved.
+                                                            </p>
+                                                        )}
+                                                        {tiktokPixelStatus === 'error' && (
+                                                            <p className="text-sm text-destructive flex items-center gap-1">
+                                                                <AlertCircle className="h-4 w-4" />
+                                                                {tiktokPixelError || 'Unable to save TikTok Pixel ID.'}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => setTiktokPixelInput('')}
+                                                            disabled={isSavingTiktokPixel || (!tiktokPixelInput && !currentTiktokPixelId)}
+                                                            className="rounded-xl"
+                                                        >
+                                                            Clear
+                                                        </Button>
+                                                        <Button
+                                                            onClick={handleSaveTiktokPixel}
+                                                            disabled={isSavingTiktokPixel || !tiktokPixelChanged}
+                                                            className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                                        >
+                                                            {isSavingTiktokPixel ? (
+                                                                <>
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    Saving...
+                                                                </>
+                                                            ) : (
+                                                                'Save TikTok'
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
 
-                                        <div className="flex flex-wrap gap-3 pt-2">
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => handleSaveTiktokEventsApiToken(true)}
-                                                disabled={isSavingTiktokEventsApiToken || !currentTiktokEventsApiTokenLast4}
-                                                className="rounded-xl"
-                                            >
-                                                Clear token
-                                            </Button>
-                                            <Button
-                                                onClick={() => handleSaveTiktokEventsApiToken(false)}
-                                                disabled={isSavingTiktokEventsApiToken || tiktokEventsApiTokenInput.trim() === ''}
-                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
-                                            >
-                                                {isSavingTiktokEventsApiToken ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Saving...
-                                                    </>
-                                                ) : (
-                                                    'Save token'
-                                                )}
-                                            </Button>
-                                        </div>
-
-                                        <div className="space-y-2 pt-4">
-                                            <Label htmlFor="metaCapiToken" className="text-muted-foreground">
-                                                Conversions API token (optional)
-                                            </Label>
-                                            <Input
-                                                id="metaCapiToken"
-                                                type="password"
-                                                value={metaCapiTokenInput}
-                                                onChange={(event) => setMetaCapiTokenInput(event.target.value)}
-                                                disabled={!canEditOrgSettings}
-                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
-                                                placeholder="Paste token from Meta Events Manager"
-                                            />
-                                            <p className="text-xs text-muted-foreground">
-                                                Optional. Improves Purchase tracking when browser events are blocked.
-                                            </p>
-                                            {metaCapiConnected && (
-                                                <p className="text-xs text-emerald-600">
-                                                    Connected (••••{currentOrganizer?.metaCapiTokenLast4})
-                                                </p>
-                                            )}
-                                            {metaCapiStatus === 'success' && (
-                                                <p className="text-sm text-green-600 flex items-center gap-1">
-                                                    <Check className="h-4 w-4" />
-                                                    Token saved.
-                                                </p>
-                                            )}
-                                            {metaCapiStatus === 'error' && (
-                                                <p className="text-sm text-destructive flex items-center gap-1">
-                                                    <AlertCircle className="h-4 w-4" />
-                                                    {metaCapiError || 'Unable to save token.'}
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-3 pt-2">
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => handleSaveMetaCapiToken(true)}
-                                                disabled={isSavingMetaCapiToken || !metaCapiConnected}
-                                                className="rounded-xl"
-                                            >
-                                                Remove token
-                                            </Button>
-                                            <Button
-                                                onClick={() => handleSaveMetaCapiToken(false)}
-                                                disabled={isSavingMetaCapiToken || metaCapiTokenInput.trim() === ''}
-                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
-                                            >
-                                                {isSavingMetaCapiToken ? (
-                                                    <>
-                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                        Saving...
-                                                    </>
-                                                ) : (
-                                                    'Save Token'
-                                                )}
-                                            </Button>
-                                        </div>
+                                                <div className="space-y-3">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="tiktokEventsApiToken" className="text-muted-foreground">
+                                                            TikTok Events API token
+                                                        </Label>
+                                                        <Input
+                                                            id="tiktokEventsApiToken"
+                                                            type="password"
+                                                            value={tiktokEventsApiTokenInput}
+                                                            onChange={(event) => setTiktokEventsApiTokenInput(event.target.value)}
+                                                            disabled={!canEditOrgSettings}
+                                                            className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                            placeholder="Paste token from TikTok Events Manager"
+                                                        />
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Improves Purchase tracking reliability. Server-side Purchase only runs after marketing consent.
+                                                        </p>
+                                                        {currentTiktokEventsApiTokenLast4 && (
+                                                            <p className="text-xs text-emerald-600">
+                                                                Connected (••••{currentTiktokEventsApiTokenLast4})
+                                                            </p>
+                                                        )}
+                                                        {tiktokEventsApiTokenStatus === 'success' && (
+                                                            <p className="text-sm text-green-600 flex items-center gap-1">
+                                                                <Check className="h-4 w-4" />
+                                                                Events API token saved.
+                                                            </p>
+                                                        )}
+                                                        {tiktokEventsApiTokenStatus === 'error' && (
+                                                            <p className="text-sm text-destructive flex items-center gap-1">
+                                                                <AlertCircle className="h-4 w-4" />
+                                                                {tiktokEventsApiTokenError || 'Unable to save Events API token.'}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => handleSaveTiktokEventsApiToken(true)}
+                                                            disabled={isSavingTiktokEventsApiToken || !currentTiktokEventsApiTokenLast4}
+                                                            className="rounded-xl"
+                                                        >
+                                                            Clear token
+                                                        </Button>
+                                                        <Button
+                                                            onClick={() => handleSaveTiktokEventsApiToken(false)}
+                                                            disabled={isSavingTiktokEventsApiToken || tiktokEventsApiTokenInput.trim() === ''}
+                                                            className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                                        >
+                                                            {isSavingTiktokEventsApiToken ? (
+                                                                <>
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    Saving...
+                                                                </>
+                                                            ) : (
+                                                                'Save token'
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </section>
                                     </div>
                                 </div>
                             )}
