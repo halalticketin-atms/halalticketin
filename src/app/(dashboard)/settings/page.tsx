@@ -25,7 +25,6 @@ import {
     User,
     Coins,
     CreditCard,
-    ExternalLink,
     Camera,
     Building,
     Globe,
@@ -50,7 +49,6 @@ import {
     getOrganizerContactEmailError,
     normalizeOrganizerContactEmail,
 } from '@/lib/organizer-contact-email';
-import { getMetaTrackingStatus, type MetaTrackingStatusTone } from '@/lib/meta-tracking-status';
 import { resolveSingleOrganizerPaymentSetupSelection } from '@/lib/auth-onboarding-continuation';
 import {
     isValidGa4MeasurementId,
@@ -105,27 +103,10 @@ interface TrackingIntegrationSummary {
 const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 const AVATAR_ACCEPT = ALLOWED_AVATAR_MIME_TYPES.join(',');
 
-const META_TRACKING_STATUS_STYLES: Record<MetaTrackingStatusTone, {
-    dot: string;
-    label: string;
-    panel: string;
-}> = {
-    muted: {
-        dot: 'bg-slate-400',
-        label: 'text-slate-700 dark:text-slate-300',
-        panel: 'border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/20',
-    },
-    warning: {
-        dot: 'bg-amber-500',
-        label: 'text-amber-800 dark:text-amber-200',
-        panel: 'border-amber-200 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-900/20',
-    },
-    success: {
-        dot: 'bg-emerald-500',
-        label: 'text-emerald-800 dark:text-emerald-200',
-        panel: 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-900/20',
-    },
-};
+const MARKETING_SECTION_CLASS =
+    'rounded-lg border border-cyan-200/70 border-l-4 border-l-(--brand-cyan) bg-cyan-50/25 p-5 dark:border-cyan-900/70 dark:border-l-(--brand-cyan) dark:bg-cyan-950/10';
+const MARKETING_FIELD_CLASS =
+    'space-y-3 rounded-lg border border-cyan-100 bg-background/85 p-4 dark:border-cyan-900/60';
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -915,11 +896,6 @@ export default function SettingsPage() {
     const metaPixelChanged = normalizedPixelInput !== normalizedCurrentPixel;
     const metaCapiConnected = Boolean(currentOrganizer?.metaCapiTokenLast4);
     const metaCapiActive = Boolean(currentOrganizer?.metaPixelId?.trim() && currentOrganizer?.metaCapiTokenLast4?.trim());
-    const metaTrackingStatus = getMetaTrackingStatus({
-        metaPixelId: currentOrganizer?.metaPixelId,
-        metaCapiTokenLast4: currentOrganizer?.metaCapiTokenLast4,
-    });
-    const metaTrackingStatusStyles = META_TRACKING_STATUS_STYLES[metaTrackingStatus.tone];
     const normalizedGa4Input = ga4MeasurementInput.trim().toUpperCase();
     const ga4Changed = normalizedGa4Input !== currentGa4MeasurementId;
     const normalizedTiktokPixelInput = tiktokPixelInput.trim();
@@ -1638,6 +1614,9 @@ export default function SettingsPage() {
                                             <p className="text-muted-foreground text-sm">
                                                 Configure the tracking signals Halal Ticketin can send for this organiser.
                                             </p>
+                                            <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
+                                                Halal Ticketin fires the configured platform pixels directly. The ht_* dataLayer events are for advanced GTM setups; do not also fire the same platform tags from GTM.
+                                            </p>
                                         </div>
                                         {activeOrganizers.length > 1 && (
                                             <Select value={activeOrganizerId} onValueChange={setActiveOrganizerId}>
@@ -1692,41 +1671,18 @@ export default function SettingsPage() {
                                     )}
 
                                     <div className="space-y-6 max-w-3xl">
-                                        <section className="rounded-lg border border-sky-200/80 border-l-4 border-l-sky-500 bg-sky-50/30 p-5 dark:border-sky-900/70 dark:border-l-sky-500 dark:bg-sky-950/10">
+                                        <section className={MARKETING_SECTION_CLASS}>
                                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="rounded-md bg-sky-100 px-2 py-1 text-[11px] font-semibold text-sky-800 dark:bg-sky-900/50 dark:text-sky-200">
-                                                        META
-                                                    </span>
-                                                    <h3 className="text-lg font-semibold">Meta</h3>
-                                                </div>
+                                                <h3 className="text-lg font-semibold">Meta</h3>
                                                 {metaCapiActive && currentOrganizer?.metaCapiTokenLast4 && (
-                                                    <span className="inline-flex w-fit rounded-full border border-sky-200 bg-background/80 px-2.5 py-1 text-xs text-muted-foreground dark:border-sky-900">
+                                                    <span className="inline-flex w-fit rounded-full border border-cyan-200 bg-background/80 px-2.5 py-1 text-xs text-muted-foreground dark:border-cyan-900">
                                                         CAPI ••••{currentOrganizer.metaCapiTokenLast4}
                                                     </span>
                                                 )}
                                             </div>
 
-                                            <div className={cn('mt-4 rounded-lg border p-4', metaTrackingStatusStyles.panel)}>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={cn('h-2.5 w-2.5 rounded-full', metaTrackingStatusStyles.dot)} />
-                                                    <span className={cn('text-sm font-medium', metaTrackingStatusStyles.label)}>
-                                                        {metaTrackingStatus.label}
-                                                    </span>
-                                                </div>
-                                                <a
-                                                    href="https://www.facebook.com/business/help/952192354843755"
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                                                >
-                                                    Verify events in Meta Events Manager
-                                                    <ExternalLink className="h-3 w-3" />
-                                                </a>
-                                            </div>
-
                                             <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                                                <div className="space-y-3 rounded-lg border border-sky-100 bg-background/85 p-4 dark:border-sky-900/60">
+                                                <div className={MARKETING_FIELD_CLASS}>
                                                     <div className="space-y-2">
                                                         <Label htmlFor="metaPixelId" className="text-muted-foreground">Meta Pixel ID</Label>
                                                         <Input
@@ -1776,7 +1732,7 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-3 rounded-lg border border-sky-100 bg-background/85 p-4 dark:border-sky-900/60">
+                                                <div className={MARKETING_FIELD_CLASS}>
                                                     <div className="space-y-2">
                                                         <Label htmlFor="metaCapiToken" className="text-muted-foreground">
                                                             Conversions API token
@@ -1836,16 +1792,13 @@ export default function SettingsPage() {
                                             </div>
                                         </section>
 
-                                        <section className="rounded-lg border border-amber-200/80 border-l-4 border-l-amber-500 bg-amber-50/30 p-5 dark:border-amber-900/70 dark:border-l-amber-500 dark:bg-amber-950/10">
-                                            <div className="flex items-center gap-3">
-                                                <span className="rounded-md bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
-                                                    GOOGLE
-                                                </span>
+                                        <section className={MARKETING_SECTION_CLASS}>
+                                            <div>
                                                 <h3 className="text-lg font-semibold">Google</h3>
                                             </div>
 
                                             <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                                                <div className="space-y-3 rounded-lg border border-amber-100 bg-background/85 p-4 dark:border-amber-900/60">
+                                                <div className={MARKETING_FIELD_CLASS}>
                                                     <div className="space-y-2">
                                                         <Label htmlFor="ga4MeasurementId" className="text-muted-foreground">
                                                             Google Analytics 4
@@ -1897,7 +1850,7 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-3 rounded-lg border border-amber-100 bg-background/85 p-4 dark:border-amber-900/60">
+                                                <div className={MARKETING_FIELD_CLASS}>
                                                     <div className="space-y-4">
                                                         <div className="space-y-2">
                                                             <Label htmlFor="googleAdsConversionId" className="text-muted-foreground">
@@ -1975,16 +1928,13 @@ export default function SettingsPage() {
                                             </div>
                                         </section>
 
-                                        <section className="rounded-lg border border-rose-200/80 border-l-4 border-l-rose-500 bg-rose-50/30 p-5 dark:border-rose-900/70 dark:border-l-rose-500 dark:bg-rose-950/10">
-                                            <div className="flex items-center gap-3">
-                                                <span className="rounded-md bg-rose-100 px-2 py-1 text-[11px] font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-200">
-                                                    TIKTOK
-                                                </span>
+                                        <section className={MARKETING_SECTION_CLASS}>
+                                            <div>
                                                 <h3 className="text-lg font-semibold">TikTok</h3>
                                             </div>
 
                                             <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                                                <div className="space-y-3 rounded-lg border border-rose-100 bg-background/85 p-4 dark:border-rose-900/60">
+                                                <div className={MARKETING_FIELD_CLASS}>
                                                     <div className="space-y-2">
                                                         <Label htmlFor="tiktokPixelId" className="text-muted-foreground">
                                                             TikTok Pixel ID
@@ -2036,7 +1986,7 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-3 rounded-lg border border-rose-100 bg-background/85 p-4 dark:border-rose-900/60">
+                                                <div className={MARKETING_FIELD_CLASS}>
                                                     <div className="space-y-2">
                                                         <Label htmlFor="tiktokEventsApiToken" className="text-muted-foreground">
                                                             TikTok Events API token
