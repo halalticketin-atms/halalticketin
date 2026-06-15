@@ -3,7 +3,12 @@
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Card, CardContent } from '@/components/ui/card';
-import { BROWSER_STORAGE_ITEMS, FIRST_PARTY_COOKIES, MARKETING_TECHNOLOGIES } from '@/lib/consent-inventory';
+import {
+  ANALYTICS_TECHNOLOGIES,
+  BROWSER_STORAGE_ITEMS,
+  FIRST_PARTY_COOKIES,
+  MARKETING_TECHNOLOGIES,
+} from '@/lib/consent-inventory';
 
 type Section = {
   title: string;
@@ -14,14 +19,20 @@ type Section = {
 const consentCookie = FIRST_PARTY_COOKIES[0];
 const consentCookieName = consentCookie?.name ?? 'ht_consent';
 const consentCookieRetention = consentCookie?.retention ?? '180 days';
-const effectiveDate = '22 February 2026';
+const effectiveDate = '14 June 2026';
 const browserStorageSummary =
   BROWSER_STORAGE_ITEMS.length > 0
     ? `${BROWSER_STORAGE_ITEMS.length} essential browser-storage keys`
     : 'our essential browser storage keys';
+const optionalTechnologies = [...ANALYTICS_TECHNOLOGIES, ...MARKETING_TECHNOLOGIES];
 const marketingToolsSummary =
-  MARKETING_TECHNOLOGIES.length > 0 ? MARKETING_TECHNOLOGIES.map((tech) => tech.name).join(', ') : 'any marketing tooling we enable';
-const marketingRunsWhen = MARKETING_TECHNOLOGIES[0]?.runsWhen ?? 'Optional scripts only load after you accept marketing storage.';
+  optionalTechnologies.length > 0
+    ? optionalTechnologies.map((tech) => tech.name).join(', ')
+    : 'any optional analytics or marketing tooling we enable';
+const marketingRunsWhen =
+  optionalTechnologies.length > 0
+    ? optionalTechnologies.map((tech) => `${tech.name}: ${tech.runsWhen}`).join(' ')
+    : 'Optional scripts only load after you accept the matching analytics or marketing storage category.';
 
 const sections: Section[] = [
   {
@@ -93,7 +104,7 @@ const sections: Section[] = [
   {
     title: '9. Cookies',
     body: [
-      `We directly set a single first-party cookie (${consentCookieName}) to remember whether you opted into marketing storage. It expires after ${consentCookieRetention}.`,
+      `We directly set a single first-party cookie (${consentCookieName}) to remember whether you opted into analytics and marketing storage. It expires after ${consentCookieRetention}.`,
       `We also use ${browserStorageSummary} in localStorage/sessionStorage for secure login, invitation handling, draft recovery, organiser setup, and purchase deduplication. We do not store auth cookies.`,
       `${marketingToolsSummary}: ${marketingRunsWhen} You can change this any time via “Manage cookies” in the site footer (or via cookie controls in embedded event/checkout views). See our Cookie Policy for the full inventory.`
     ],

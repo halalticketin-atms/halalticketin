@@ -17,6 +17,25 @@ declare global {
 }
 
 const initializedPixels = new Set<string>();
+const META_PIXEL_COOKIE_NAMES = ['_fbp', '_fbc'];
+
+const getCookieDomains = () => {
+    if (typeof window === 'undefined') {
+        return [null];
+    }
+
+    const hostname = window.location.hostname;
+    const labels = hostname.split('.').filter(Boolean);
+    const registrableDomain = labels.length >= 2 ? labels.slice(-2).join('.') : hostname;
+
+    return Array.from(new Set([
+        null,
+        hostname,
+        `.${hostname}`,
+        registrableDomain,
+        `.${registrableDomain}`,
+    ]));
+};
 
 const ensureBaseSnippet = () => {
     if (typeof window === 'undefined') {
@@ -113,15 +132,18 @@ export const teardownMetaPixel = () => {
         const secureAttribute = window.location.protocol === 'https:' ? '; Secure' : '';
         const deleteCookie = (name: string) => {
             try {
-                document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax${secureAttribute}`;
+                for (const domain of getCookieDomains()) {
+                    const domainAttribute = domain ? `; Domain=${domain}` : '';
+                    document.cookie =
+                        `${name}=; Max-Age=0; Path=/; SameSite=Lax${domainAttribute}${secureAttribute}`;
+                }
             } catch {
                 // Ignore cookie deletion errors.
             }
         };
 
         // Best-effort cleanup for Meta Pixel cookies on our domain when marketing is turned off.
-        deleteCookie('_fbp');
-        deleteCookie('_fbc');
+        META_PIXEL_COOKIE_NAMES.forEach(deleteCookie);
     }
 
 };

@@ -141,6 +141,7 @@ export default function EditEventPage() {
             mode="edit"
             initialDraft={initialDraft}
             entryContext={{
+                source: 'draft',
                 label: 'Editing existing event',
                 description: hasRecoveredDraft
                     ? 'Review restored edits before saving.'

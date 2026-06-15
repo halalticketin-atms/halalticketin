@@ -28,6 +28,18 @@ describe('AI event draft normalization', () => {
     expect(draft.formData).not.toHaveProperty('currency');
     expect(draft.formData).not.toHaveProperty('attendeeInfoMode');
     expect(draft.preserveEmptyTickets).toBe(true);
+    expect(draft.aiReview?.needsReview).toEqual(expect.arrayContaining([
+      'Confirm event visibility',
+      'Confirm event format and location',
+      'Confirm ticket currency',
+      'Confirm attendee information collection',
+    ]));
+    expect(draft.aiReview?.missingImportantFields).toEqual(expect.arrayContaining([
+      'visibility',
+      'location',
+      'currency',
+      'attendeeInfoMode',
+    ]));
   });
 
   it('skips ambiguous ticket rows rather than creating accidental free or paid tickets', () => {

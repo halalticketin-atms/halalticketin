@@ -277,6 +277,16 @@ export const deletePromoCode = async (eventId: string, promoId: string) => {
 // Public Event API (no authentication required)
 // ============================================================================
 
+export interface PublicTrackingConfig {
+  metaPixelId: string | null;
+  googleAnalyticsMeasurementId: string | null;
+  tiktokPixelId?: string | null;
+  googleAds?: {
+    conversionId: string | null;
+    purchaseConversionLabel: string | null;
+  } | null;
+}
+
 export interface PublicEventRecord {
   id: string;
   organizerId: string;
@@ -306,6 +316,7 @@ export interface PublicEventRecord {
   feeTier: BackendFeeTier | null;
   customBookingFee: string | null;
   metaPixelId: string | null;
+  tracking?: PublicTrackingConfig | null;
   status?: 'draft' | 'published' | 'cancelled' | 'archived';
   attendeeInfoMode: 'per_ticket' | 'buyer_choice' | null;
   customQuestions: CustomQuestionPayload[] | null;

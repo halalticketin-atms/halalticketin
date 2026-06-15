@@ -5,12 +5,13 @@ export type ConsentEventSource = 'event_page' | 'checkout' | 'footer' | 'embed';
 
 export interface ConsentEventPayload {
     action: ConsentEventAction;
+    analytics: boolean;
     marketing: boolean;
     source: ConsentEventSource;
-    version: number;
+    version: 2;
 }
 
-export const CONSENT_EVENT_VERSION = 1;
+export const CONSENT_EVENT_VERSION = 2;
 
 export async function logConsentEvent(payload: ConsentEventPayload): Promise<void> {
     try {

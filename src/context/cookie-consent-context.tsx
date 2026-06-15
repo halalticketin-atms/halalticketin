@@ -6,17 +6,25 @@ import { readConsentPreferences, writeConsentPreferences, type ConsentPreference
 import { CONSENT_EVENT_VERSION, logConsentEvent, type ConsentEventSource } from '@/lib/consent-events';
 import { useOptionalAuth } from '@/context/auth-context';
 import api from '@/lib/api';
+import { ConsentAccountSync } from '@/lib/consent-account-sync';
+import { applyTrackingConsent } from '@/lib/tracking-consent';
 
 interface CookieConsentContextValue {
+    analyticsAllowed: boolean;
     marketingAllowed: boolean;
     hasResponded: boolean;
     isBannerVisible: boolean;
     showDetailedPreferences: boolean;
     consentSource: ConsentEventSource;
+    setConsentNeeded: (
+        needed: { analytics?: boolean; marketing?: boolean },
+        source?: ConsentEventSource
+    ) => void;
     setMarketingNeeded: (needed: boolean, source?: ConsentEventSource) => void;
     acceptAll: () => void;
+    rejectOptional: () => void;
     rejectMarketing: () => void;
-    savePreferences: (marketing: boolean) => void;
+    savePreferences: (preferences: { analytics: boolean; marketing: boolean }) => void;
     openPreferences: (source?: ConsentEventSource) => void;
     closeBanner: () => void;
 }
@@ -24,7 +32,9 @@ interface CookieConsentContextValue {
 const CookieConsentContext = createContext<CookieConsentContextValue | undefined>(undefined);
 
 const DEFAULT_PREFERENCES: ConsentPreferences = {
-    marketing: false
+    analytics: false,
+    marketing: false,
+    version: 2
 };
 
 const EMBED_CONSENT_STORAGE_KEY = 'ht_embed_consent';
@@ -35,7 +45,11 @@ const parseStoredPreferences = (value: string | null): ConsentPreferences | null
     }
     try {
         const parsed = JSON.parse(value) as ConsentPreferences;
-        if (typeof parsed.marketing === 'boolean') {
+        if (
+            parsed.version === 2 &&
+            typeof parsed.analytics === 'boolean' &&
+            typeof parsed.marketing === 'boolean'
+        ) {
             return parsed;
         }
     } catch {
@@ -85,19 +99,21 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
     const [showDetailedPreferences, setShowDetailedPreferences] = useState(false);
     const [consentSource, setConsentSource] = useState<ConsentEventSource>('event_page');
     const [, startTransition] = useTransition();
-    const hasSyncedCookieToDbRef = useRef(false);
+    const accountSyncRef = useRef(new ConsentAccountSync());
 
     const auth = useOptionalAuth();
-    const isLoggedIn = auth?.user !== null && auth?.user !== undefined;
+    const authUserId = auth?.user?.id ?? null;
 
     // Load consent from cookie on mount
     useEffect(() => {
         const stored = isEmbedRoute ? readEmbedConsentPreferences() : readConsentPreferences();
         startTransition(() => {
             if (stored) {
+                applyTrackingConsent(stored);
                 setPreferences(stored);
                 setHasResponded(true);
             } else {
+                applyTrackingConsent(DEFAULT_PREFERENCES);
                 setPreferences(DEFAULT_PREFERENCES);
                 setHasResponded(false);
             }
@@ -105,8 +121,12 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         });
     }, [isEmbedRoute, startTransition]);
 
-    const setMarketingNeeded = useCallback((needed: boolean, source: ConsentEventSource = 'event_page') => {
-        if (!needed) {
+    const setConsentNeeded = useCallback((
+        needed: { analytics?: boolean; marketing?: boolean },
+        source: ConsentEventSource = 'event_page'
+    ) => {
+        const needsConsent = Boolean(needed.analytics || needed.marketing);
+        if (!needsConsent) {
             setIsBannerVisible(false);
             setShowDetailedPreferences(false);
             return;
@@ -117,42 +137,67 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
         }
     }, [hasResponded]);
 
+    const setMarketingNeeded = useCallback((needed: boolean, source: ConsentEventSource = 'event_page') => {
+        setConsentNeeded({ marketing: needed }, source);
+    }, [setConsentNeeded]);
+
     // Sync consent from DB when user logs in (DB takes precedence if set)
     useEffect(() => {
-        if (!isLoggedIn || isEmbedRoute) return;
-        hasSyncedCookieToDbRef.current = false;
+        const accountSync = accountSyncRef.current;
+        if (!authUserId || isEmbedRoute) {
+            accountSync.setIdentity(null);
+            return;
+        }
 
-        const syncFromDb = async () => {
-            try {
-                const response = await api.get<{ marketing: boolean; updatedAt: string | null }>('/api/v1/auth/me/consent');
-                // If DB has a consent record, use it
-                if (response.updatedAt !== null) {
-                    const dbPreferences = { marketing: response.marketing };
-                    setPreferences(dbPreferences);
-                    setHasResponded(true);
-                    setIsBannerVisible(false);
-                    writeConsentPreferences(dbPreferences); // Sync cookie with DB
-                    hasSyncedCookieToDbRef.current = true;
-                    return;
-                }
+        void accountSync.hydrate(authUserId, {
+            load: () => api.get('/api/v1/auth/me/consent'),
+            readLocal: readConsentPreferences,
+            applyRemote: (dbPreferences) => {
+                applyTrackingConsent(dbPreferences);
+                setPreferences(dbPreferences);
+                setHasResponded(true);
+                setIsBannerVisible(false);
+                writeConsentPreferences(dbPreferences); // Sync cookie with DB
+            },
+            write: (nextPreferences) => api.patch('/api/v1/auth/me/consent', {
+                analytics: nextPreferences.analytics,
+                marketing: nextPreferences.marketing,
+                version: 2
+            })
+        }).catch(() => {
+            // Silently fail - cookie consent still works
+        });
 
-                // If the user already made a cookie choice before logging in,
-                // persist that choice to the DB so it follows them across devices.
-                if (hasResponded && !hasSyncedCookieToDbRef.current) {
-                    await api.patch('/api/v1/auth/me/consent', { marketing: preferences.marketing });
-                    hasSyncedCookieToDbRef.current = true;
-                }
-            } catch {
-                // Silently fail - cookie consent still works
-            }
+        return () => accountSync.cancelHydration(authUserId);
+    }, [authUserId, isEmbedRoute]);
+
+    const persistPreferences = useCallback((
+        preferenceInput: { analytics: boolean; marketing: boolean },
+        source: ConsentEventSource = consentSource
+    ) => {
+        const next: ConsentPreferences = {
+            analytics: preferenceInput.analytics,
+            marketing: preferenceInput.marketing,
+            updatedAt: new Date().toISOString(),
+            version: 2
         };
-
-        syncFromDb();
-    }, [isEmbedRoute, isLoggedIn, hasResponded, preferences.marketing]);
-
-    const persistPreferences = useCallback((marketing: boolean, source: ConsentEventSource = consentSource) => {
-        const next = { marketing };
-        const action = hasResponded ? 'updated' : marketing ? 'accepted' : 'rejected';
+        const accountWrite = authUserId && !isEmbedRoute
+            ? accountSyncRef.current.persist(
+                authUserId,
+                next,
+                (nextPreferences) => api.patch('/api/v1/auth/me/consent', {
+                    analytics: nextPreferences.analytics,
+                    marketing: nextPreferences.marketing,
+                    version: 2
+                })
+            )
+            : null;
+        const action = hasResponded
+            ? 'updated'
+            : next.analytics || next.marketing
+                ? 'accepted'
+                : 'rejected';
+        applyTrackingConsent(next);
         setPreferences(next);
         setHasResponded(true);
         setIsBannerVisible(false);
@@ -163,27 +208,29 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
             writeConsentPreferences(next);
         }
 
-        // If logged in, also sync to database
-        if (isLoggedIn && !isEmbedRoute) {
-            api.patch('/api/v1/auth/me/consent', { marketing }).catch(() => {
+        if (accountWrite) {
+            accountWrite.catch(() => {
                 // Silently fail - cookie consent still works as fallback
             });
         }
         void logConsentEvent({
             action,
-            marketing,
+            analytics: next.analytics,
+            marketing: next.marketing,
             source: isEmbedRoute ? 'embed' : source,
             version: CONSENT_EVENT_VERSION
         });
-    }, [consentSource, hasResponded, isEmbedRoute, isLoggedIn]);
+    }, [authUserId, consentSource, hasResponded, isEmbedRoute]);
 
     const acceptAll = useCallback(() => {
-        persistPreferences(true);
+        persistPreferences({ analytics: true, marketing: true });
     }, [persistPreferences]);
 
-    const rejectMarketing = useCallback(() => {
-        persistPreferences(false);
+    const rejectOptional = useCallback(() => {
+        persistPreferences({ analytics: false, marketing: false });
     }, [persistPreferences]);
+
+    const rejectMarketing = rejectOptional;
 
     const openPreferences = useCallback((source: ConsentEventSource = 'footer') => {
         setConsentSource(source);
@@ -199,34 +246,40 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
     }, [hasResponded, showDetailedPreferences]);
 
     const savePreferences = useCallback(
-        (marketing: boolean) => {
-            persistPreferences(marketing);
+        (nextPreferences: { analytics: boolean; marketing: boolean }) => {
+            persistPreferences(nextPreferences);
         },
         [persistPreferences]
     );
 
     const contextValue = useMemo<CookieConsentContextValue>(
         () => ({
+            analyticsAllowed: preferences.analytics,
             marketingAllowed: preferences.marketing,
             hasResponded,
             isBannerVisible,
             showDetailedPreferences,
             consentSource,
+            setConsentNeeded,
             setMarketingNeeded,
             acceptAll,
+            rejectOptional,
             rejectMarketing,
             savePreferences,
             openPreferences,
             closeBanner
         }),
         [
+            preferences.analytics,
             preferences.marketing,
             hasResponded,
             isBannerVisible,
             showDetailedPreferences,
             consentSource,
+            setConsentNeeded,
             setMarketingNeeded,
             acceptAll,
+            rejectOptional,
             rejectMarketing,
             savePreferences,
             openPreferences,

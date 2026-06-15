@@ -35,6 +35,8 @@ export interface CheckoutRequest {
     fbp?: string;
     fbc?: string;
     fbclid?: string;
+    ttclid?: string;
+    ttp?: string;
     eventSourceUrl?: string;
   };
 }
@@ -267,6 +269,21 @@ export async function getOrderStatus(orderId: string): Promise<{
   organizerContactEmail: string | null;
   metaPixelId: string | null;
   metaEventId?: string | null;
+  tiktokEventId?: string | null;
+  tracking?: {
+    googleAnalyticsMeasurementId?: string | null;
+    tiktokPixelId?: string | null;
+    googleAds?: {
+      conversionId?: string | null;
+      purchaseConversionLabel?: string | null;
+    } | null;
+  } | null;
+  trackingItems?: Array<{
+    ticketTypeId: string;
+    ticketName?: string | null;
+    quantity: number;
+    unitPrice: number;
+  }>;
   tickets?: Array<{
     id: string;
     ticketCode: string;
@@ -305,6 +322,7 @@ export async function handleCheckout(
   success: boolean;
   isFreeOrder?: boolean;
   orderId?: string;
+  checkoutUrl?: string;
   tickets?: CheckoutSuccessResponse['tickets'];
   error?: string;
   adjustedItems?: Array<{ ticketTypeId: string; quantity: number }>;
@@ -349,6 +367,7 @@ export async function handleCheckout(
       success: true,
       isFreeOrder: false,
       orderId: result.orderId,
+      checkoutUrl: result.checkoutUrl,
     };
   }
 

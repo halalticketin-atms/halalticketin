@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -14,8 +14,13 @@ import {
     Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useMetaPixel } from '@/hooks/useMetaPixel';
-import { useMarketingConsentRequirement } from '@/hooks/useMarketingConsentRequirement';
+import { useTrackingConsentRequirement } from '@/hooks/useMarketingConsentRequirement';
+import { useCookieConsent } from '@/context/cookie-consent-context';
+import {
+    createMarketingTracker,
+    hasTrackedProviderPurchase,
+    markProviderPurchaseTracked,
+} from '@/lib/marketing-tracking';
 import { QRCodeCanvas } from 'qrcode.react';
 import { getBackendErrorMessage } from '@/lib/api-errors';
 import { cn } from '@/lib/utils';
@@ -30,6 +35,13 @@ interface TicketInfo {
     giftClaimUrl?: string | null;
 }
 
+interface TrackingItem {
+    ticketTypeId: string;
+    ticketName?: string | null;
+    quantity: number;
+    unitPrice: number;
+}
+
 interface OrderStatus {
     orderId: string;
     status: string;
@@ -42,6 +54,16 @@ interface OrderStatus {
     organizerContactEmail: string | null;
     metaPixelId: string | null;
     metaEventId?: string | null;
+    tracking?: {
+        googleAnalyticsMeasurementId?: string | null;
+        tiktokPixelId?: string | null;
+        googleAds?: {
+            conversionId?: string | null;
+            purchaseConversionLabel?: string | null;
+        } | null;
+    } | null;
+    tiktokEventId?: string | null;
+    trackingItems?: TrackingItem[];
     tickets?: TicketInfo[];
 }
 
@@ -54,11 +76,24 @@ function CheckoutSuccessContent() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pollCount, setPollCount] = useState(0);
-    const { track, canTrack } = useMetaPixel();
-    const purchaseTrackedRef = useRef(false);
+    const { analyticsAllowed, marketingAllowed } = useCookieConsent();
+    const marketingTracker = useMemo(
+        () => createMarketingTracker({ analyticsAllowed, marketingAllowed }),
+        [analyticsAllowed, marketingAllowed],
+    );
+    const purchaseTrackedProvidersRef = useRef(new Set<string>());
+    const draftClearedRef = useRef(false);
     const purchaseEventIdRef = useRef<string | null>(null);
 
-    useMarketingConsentRequirement(Boolean(orderStatus?.metaPixelId), 'checkout');
+    useTrackingConsentRequirement({
+        analyticsNeeded: Boolean(orderStatus?.tracking?.googleAnalyticsMeasurementId),
+        marketingNeeded: Boolean(
+            orderStatus?.metaPixelId ||
+            orderStatus?.tracking?.tiktokPixelId ||
+            orderStatus?.tracking?.googleAds,
+        ),
+        source: 'checkout',
+    });
 
     // Fetch order status with polling for pending orders
     useEffect(() => {
@@ -101,74 +136,148 @@ function CheckoutSuccessContent() {
         fetchOrderStatus();
     }, [orderId, sessionId, pollCount]);
 
-    // Meta Pixel tracking
+    // Purchase tracking
     useEffect(() => {
         if (!orderStatus) {
             return;
         }
         const pending = orderStatus.isPending ?? orderStatus.status === 'pending';
-        if (orderStatus.status !== 'completed' || pending || !orderStatus.metaPixelId || !canTrack) {
+        if (orderStatus.status !== 'completed' || pending) {
             return;
         }
 
-        const storageKey = orderStatus.orderId ? `ht_purchase_tracked:${orderStatus.orderId}` : null;
-
-        if (typeof window !== 'undefined' && storageKey) {
-            try {
-                const alreadyTracked = window.localStorage.getItem(storageKey) === '1';
-                if (alreadyTracked) {
-                    purchaseTrackedRef.current = true;
-                    return;
+        if (!draftClearedRef.current) {
+            if (orderStatus.eventId && typeof sessionStorage !== 'undefined') {
+                try {
+                    sessionStorage.removeItem(`checkout_draft_${orderStatus.eventId}`);
+                    if (orderStatus.orderId) {
+                        sessionStorage.removeItem(`checkout_email_${orderStatus.orderId}`);
+                    }
+                } catch {
+                    // Ignore storage errors
                 }
-            } catch {
-                // Ignore storage errors
             }
+            draftClearedRef.current = true;
         }
 
-        if (purchaseTrackedRef.current) {
-            return;
-        }
+        const dataLayerPurchaseEventId =
+            orderStatus.metaEventId ?? orderStatus.tiktokEventId ?? orderStatus.orderId;
 
-        if (!purchaseEventIdRef.current) {
-            purchaseEventIdRef.current = orderStatus.metaEventId ?? null;
-        }
+        if (orderStatus.metaPixelId && marketingAllowed) {
+            const legacyStorageKey = orderStatus.orderId ? `ht_purchase_tracked:${orderStatus.orderId}` : null;
 
-        const purchasePayload: Record<string, unknown> = {
-            value: Number(orderStatus.totalAmount.toFixed(2)),
-            currency: orderStatus.currency,
-            content_type: 'product',
-            num_items: orderStatus.tickets?.length ?? undefined
-        };
+            if (hasTrackedProviderPurchase('meta', orderStatus.orderId)) {
+                purchaseTrackedProvidersRef.current.add('meta');
+            }
 
-        if (orderStatus.eventId) {
-            purchasePayload.content_ids = [orderStatus.eventId];
-        }
-
-        const eventOptions = purchaseEventIdRef.current ? { eventId: purchaseEventIdRef.current } : undefined;
-
-        track(orderStatus.metaPixelId, 'Purchase', purchasePayload, eventOptions);
-        purchaseTrackedRef.current = true;
-
-        // Clear checkout draft for this event
-        if (orderStatus.eventId && typeof sessionStorage !== 'undefined') {
-            try {
-                sessionStorage.removeItem(`checkout_draft_${orderStatus.eventId}`);
-                if (orderStatus.orderId) {
-                    sessionStorage.removeItem(`checkout_email_${orderStatus.orderId}`);
+            if (typeof window !== 'undefined' && legacyStorageKey) {
+                try {
+                    const legacyAlreadyTracked = window.localStorage.getItem(legacyStorageKey) === '1';
+                    if (legacyAlreadyTracked) {
+                        markProviderPurchaseTracked('meta', orderStatus.orderId);
+                        purchaseTrackedProvidersRef.current.add('meta');
+                    }
+                } catch {
+                    // Ignore storage errors
                 }
-            } catch {
-                // Ignore storage errors
+            }
+
+            if (!purchaseTrackedProvidersRef.current.has('meta')) {
+                if (!purchaseEventIdRef.current) {
+                    purchaseEventIdRef.current = orderStatus.metaEventId ?? null;
+                }
+
+                const ticketRowCount = orderStatus.tickets?.length ?? undefined;
+
+                marketingTracker.trackMarketingEvent('purchase_completed', {
+                    providerTargets: { metaPixelId: orderStatus.metaPixelId },
+                    eventId: purchaseEventIdRef.current,
+                    organizerId: orderStatus.organizerId,
+                    publicEventId: orderStatus.eventId,
+                    value: Number(orderStatus.totalAmount.toFixed(2)),
+                    currency: orderStatus.currency,
+                    numItems: ticketRowCount,
+                    orderId: orderStatus.orderId,
+                    items: orderStatus.trackingItems ?? [],
+                });
+
+                markProviderPurchaseTracked('meta', orderStatus.orderId);
+                purchaseTrackedProvidersRef.current.add('meta');
+
+                if (typeof window !== 'undefined' && legacyStorageKey) {
+                    try {
+                        window.localStorage.setItem(legacyStorageKey, '1');
+                    } catch {
+                        // Ignore storage errors
+                    }
+                }
             }
         }
 
-        if (typeof window !== 'undefined' && storageKey) {
-            try {
-                window.localStorage.setItem(storageKey, '1');
-            } catch {
-                // Ignore storage errors
-            }
+        const ga4MeasurementId = orderStatus.tracking?.googleAnalyticsMeasurementId ?? null;
+        if (
+            ga4MeasurementId &&
+            analyticsAllowed &&
+            !hasTrackedProviderPurchase('ga4', orderStatus.orderId) &&
+            !purchaseTrackedProvidersRef.current.has('ga4')
+        ) {
+            marketingTracker.trackMarketingEvent('purchase_completed', {
+                providerTargets: { googleAnalyticsMeasurementId: ga4MeasurementId },
+                eventId: dataLayerPurchaseEventId,
+                organizerId: orderStatus.organizerId,
+                publicEventId: orderStatus.eventId,
+                value: Number(orderStatus.totalAmount.toFixed(2)),
+                currency: orderStatus.currency,
+                orderId: orderStatus.orderId,
+                items: orderStatus.trackingItems ?? [],
+            });
+            markProviderPurchaseTracked('ga4', orderStatus.orderId);
+            purchaseTrackedProvidersRef.current.add('ga4');
         }
-    }, [canTrack, orderStatus, track]);
+
+        const tiktokPixelId = orderStatus.tracking?.tiktokPixelId ?? null;
+        if (
+            tiktokPixelId &&
+            marketingAllowed &&
+            !hasTrackedProviderPurchase('tiktok', orderStatus.orderId) &&
+            !purchaseTrackedProvidersRef.current.has('tiktok')
+        ) {
+            marketingTracker.trackMarketingEvent('purchase_completed', {
+                providerTargets: { tiktokPixelId },
+                eventId: orderStatus.tiktokEventId ?? null,
+                organizerId: orderStatus.organizerId,
+                publicEventId: orderStatus.eventId,
+                value: Number(orderStatus.totalAmount.toFixed(2)),
+                currency: orderStatus.currency,
+                orderId: orderStatus.orderId,
+                items: orderStatus.trackingItems ?? [],
+            });
+            markProviderPurchaseTracked('tiktok', orderStatus.orderId);
+            purchaseTrackedProvidersRef.current.add('tiktok');
+        }
+
+        const googleAds = orderStatus.tracking?.googleAds ?? null;
+        if (
+            googleAds?.conversionId &&
+            googleAds.purchaseConversionLabel &&
+            marketingAllowed &&
+            !hasTrackedProviderPurchase('google_ads', orderStatus.orderId) &&
+            !purchaseTrackedProvidersRef.current.has('google_ads')
+        ) {
+            marketingTracker.trackMarketingEvent('purchase_completed', {
+                providerTargets: { googleAds },
+                eventId: dataLayerPurchaseEventId,
+                organizerId: orderStatus.organizerId,
+                publicEventId: orderStatus.eventId,
+                value: Number(orderStatus.totalAmount.toFixed(2)),
+                currency: orderStatus.currency,
+                orderId: orderStatus.orderId,
+                items: orderStatus.trackingItems ?? [],
+            });
+            markProviderPurchaseTracked('google_ads', orderStatus.orderId);
+            purchaseTrackedProvidersRef.current.add('google_ads');
+        }
+    }, [analyticsAllowed, marketingAllowed, marketingTracker, orderStatus]);
 
     const downloadQRCode = (ticketId: string, ticketCode: string) => {
         const canvas = document.getElementById(`qr-code-${ticketId}`) as HTMLCanvasElement;

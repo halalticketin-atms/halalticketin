@@ -52,6 +52,13 @@ import {
 } from '@/lib/organizer-contact-email';
 import { getMetaTrackingStatus, type MetaTrackingStatusTone } from '@/lib/meta-tracking-status';
 import { resolveSingleOrganizerPaymentSetupSelection } from '@/lib/auth-onboarding-continuation';
+import {
+    isValidGa4MeasurementId,
+    isValidGoogleAdsConversionId,
+    isValidGoogleAdsPurchaseConversionLabel,
+    isValidTikTokPixelId,
+} from '@/lib/tracking-config-status';
+import { getTrackingDomainStatus } from '@/lib/tracking-domain-status';
 
 type SettingsTab = 'profile' | 'organizer-profile' | 'currency' | 'marketing' | 'payments';
 
@@ -87,6 +94,13 @@ interface OrganizerProfileFormData {
     linkedin: string;
     youtube: string;
     sendFollowerEventNotifications: boolean;
+}
+
+interface TrackingIntegrationSummary {
+    provider: 'meta' | 'google_analytics' | 'tiktok' | 'google_ads';
+    enabled: boolean;
+    publicConfig: Record<string, unknown>;
+    secretLast4: string | null;
 }
 
 const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
@@ -144,6 +158,28 @@ export default function SettingsPage() {
     const [isSavingMetaCapiToken, setIsSavingMetaCapiToken] = useState(false);
     const [metaCapiStatus, setMetaCapiStatus] = useState<'success' | 'error' | null>(null);
     const [metaCapiError, setMetaCapiError] = useState<string | null>(null);
+    const [ga4MeasurementInput, setGa4MeasurementInput] = useState('');
+    const [currentGa4MeasurementId, setCurrentGa4MeasurementId] = useState('');
+    const [isSavingGa4, setIsSavingGa4] = useState(false);
+    const [ga4Status, setGa4Status] = useState<'success' | 'error' | null>(null);
+    const [ga4Error, setGa4Error] = useState<string | null>(null);
+    const [tiktokPixelInput, setTiktokPixelInput] = useState('');
+    const [currentTiktokPixelId, setCurrentTiktokPixelId] = useState('');
+    const [isSavingTiktokPixel, setIsSavingTiktokPixel] = useState(false);
+    const [tiktokPixelStatus, setTiktokPixelStatus] = useState<'success' | 'error' | null>(null);
+    const [tiktokPixelError, setTiktokPixelError] = useState<string | null>(null);
+    const [tiktokEventsApiTokenInput, setTiktokEventsApiTokenInput] = useState('');
+    const [currentTiktokEventsApiTokenLast4, setCurrentTiktokEventsApiTokenLast4] = useState<string | null>(null);
+    const [isSavingTiktokEventsApiToken, setIsSavingTiktokEventsApiToken] = useState(false);
+    const [tiktokEventsApiTokenStatus, setTiktokEventsApiTokenStatus] = useState<'success' | 'error' | null>(null);
+    const [tiktokEventsApiTokenError, setTiktokEventsApiTokenError] = useState<string | null>(null);
+    const [googleAdsConversionInput, setGoogleAdsConversionInput] = useState('');
+    const [googleAdsPurchaseLabelInput, setGoogleAdsPurchaseLabelInput] = useState('');
+    const [currentGoogleAdsConversionId, setCurrentGoogleAdsConversionId] = useState('');
+    const [currentGoogleAdsPurchaseLabel, setCurrentGoogleAdsPurchaseLabel] = useState('');
+    const [isSavingGoogleAds, setIsSavingGoogleAds] = useState(false);
+    const [googleAdsStatus, setGoogleAdsStatus] = useState<'success' | 'error' | null>(null);
+    const [googleAdsError, setGoogleAdsError] = useState<string | null>(null);
 
     // Profile form state
     const [profileForm, setProfileForm] = useState<ProfileFormData>({
@@ -297,6 +333,89 @@ export default function SettingsPage() {
     useEffect(() => {
         setMetaCapiTokenInput('');
     }, [currentOrganizer?.metaCapiTokenLast4]);
+
+    useEffect(() => {
+        if (!activeOrganizerId) {
+            setGa4MeasurementInput('');
+            setCurrentGa4MeasurementId('');
+            setTiktokPixelInput('');
+            setCurrentTiktokPixelId('');
+            setTiktokEventsApiTokenInput('');
+            setCurrentTiktokEventsApiTokenLast4(null);
+            setGoogleAdsConversionInput('');
+            setGoogleAdsPurchaseLabelInput('');
+            setCurrentGoogleAdsConversionId('');
+            setCurrentGoogleAdsPurchaseLabel('');
+            return;
+        }
+
+        let cancelled = false;
+
+        api.get<{ integrations: TrackingIntegrationSummary[] }>(
+            `/api/v1/organizers/${activeOrganizerId}/tracking-integrations`
+        )
+            .then((response) => {
+                if (cancelled) return;
+                const ga4Integration = response.integrations.find(
+                    (integration) => integration.provider === 'google_analytics'
+                );
+                const tiktokIntegration = response.integrations.find(
+                    (integration) => integration.provider === 'tiktok'
+                );
+                const googleAdsIntegration = response.integrations.find(
+                    (integration) => integration.provider === 'google_ads'
+                );
+                const measurementId =
+                    ga4Integration?.enabled && typeof ga4Integration.publicConfig.measurementId === 'string'
+                        ? ga4Integration.publicConfig.measurementId
+                        : '';
+                const tiktokPixelId =
+                    tiktokIntegration?.enabled && typeof tiktokIntegration.publicConfig.pixelId === 'string'
+                        ? tiktokIntegration.publicConfig.pixelId
+                        : '';
+                const tiktokEventsApiTokenLast4 =
+                    tiktokIntegration?.enabled && typeof tiktokIntegration.secretLast4 === 'string'
+                        ? tiktokIntegration.secretLast4
+                        : null;
+                const googleAdsConversionId =
+                    googleAdsIntegration?.enabled &&
+                    typeof googleAdsIntegration.publicConfig.conversionId === 'string'
+                        ? googleAdsIntegration.publicConfig.conversionId
+                        : '';
+                const googleAdsPurchaseLabel =
+                    googleAdsIntegration?.enabled &&
+                    typeof googleAdsIntegration.publicConfig.purchaseConversionLabel === 'string'
+                        ? googleAdsIntegration.publicConfig.purchaseConversionLabel
+                        : '';
+                setGa4MeasurementInput(measurementId);
+                setCurrentGa4MeasurementId(measurementId);
+                setTiktokPixelInput(tiktokPixelId);
+                setCurrentTiktokPixelId(tiktokPixelId);
+                setTiktokEventsApiTokenInput('');
+                setCurrentTiktokEventsApiTokenLast4(tiktokEventsApiTokenLast4);
+                setGoogleAdsConversionInput(googleAdsConversionId);
+                setGoogleAdsPurchaseLabelInput(googleAdsPurchaseLabel);
+                setCurrentGoogleAdsConversionId(googleAdsConversionId);
+                setCurrentGoogleAdsPurchaseLabel(googleAdsPurchaseLabel);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setGa4MeasurementInput('');
+                setCurrentGa4MeasurementId('');
+                setTiktokPixelInput('');
+                setCurrentTiktokPixelId('');
+                setTiktokEventsApiTokenInput('');
+                setCurrentTiktokEventsApiTokenLast4(null);
+                setGoogleAdsConversionInput('');
+                setGoogleAdsPurchaseLabelInput('');
+                setCurrentGoogleAdsConversionId('');
+                setCurrentGoogleAdsPurchaseLabel('');
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeOrganizerId]);
 
     // Initialize organizer profile form
     useEffect(() => {
@@ -538,6 +657,202 @@ export default function SettingsPage() {
         }
     };
 
+    const handleSaveGa4 = async () => {
+        if (!activeOrganizerId) return;
+
+        const measurementId = ga4MeasurementInput.trim().toUpperCase();
+        if (measurementId && !isValidGa4MeasurementId(measurementId)) {
+            setGa4Status('error');
+            setGa4Error('Enter a GA4 Measurement ID that starts with G-.');
+            return;
+        }
+
+        setIsSavingGa4(true);
+        setGa4Status(null);
+        setGa4Error(null);
+
+        try {
+            const response = await api.put<{ integration: TrackingIntegrationSummary }>(
+                `/api/v1/organizers/${activeOrganizerId}/tracking-integrations/google_analytics`,
+                {
+                    provider: 'google_analytics',
+                    enabled: measurementId !== '',
+                    publicConfig: { measurementId },
+                }
+            );
+            const savedMeasurementId =
+                response.integration.enabled && typeof response.integration.publicConfig.measurementId === 'string'
+                    ? response.integration.publicConfig.measurementId
+                    : '';
+            setGa4MeasurementInput(savedMeasurementId);
+            setCurrentGa4MeasurementId(savedMeasurementId);
+            setGa4Status('success');
+            await refresh();
+            setTimeout(() => setGa4Status(null), 2000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to update GA4 Measurement ID.';
+            setGa4Status('error');
+            setGa4Error(message);
+        } finally {
+            setIsSavingGa4(false);
+        }
+    };
+
+    const handleSaveTiktokPixel = async () => {
+        if (!activeOrganizerId) return;
+
+        const pixelId = tiktokPixelInput.trim();
+        if (pixelId && !isValidTikTokPixelId(pixelId)) {
+            setTiktokPixelStatus('error');
+            setTiktokPixelError('Enter a TikTok Pixel ID with 5-64 letters or digits.');
+            return;
+        }
+
+        setIsSavingTiktokPixel(true);
+        setTiktokPixelStatus(null);
+        setTiktokPixelError(null);
+
+        try {
+            const response = await api.put<{ integration: TrackingIntegrationSummary }>(
+                `/api/v1/organizers/${activeOrganizerId}/tracking-integrations/tiktok`,
+                {
+                    provider: 'tiktok',
+                    enabled: pixelId !== '',
+                    publicConfig: { pixelId },
+                }
+            );
+            const savedPixelId =
+                response.integration.enabled && typeof response.integration.publicConfig.pixelId === 'string'
+                    ? response.integration.publicConfig.pixelId
+                    : '';
+            setTiktokPixelInput(savedPixelId);
+            setCurrentTiktokPixelId(savedPixelId);
+            setCurrentTiktokEventsApiTokenLast4(response.integration.secretLast4 ?? null);
+            setTiktokPixelStatus('success');
+            await refresh();
+            setTimeout(() => setTiktokPixelStatus(null), 2000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to update TikTok Pixel ID.';
+            setTiktokPixelStatus('error');
+            setTiktokPixelError(message);
+        } finally {
+            setIsSavingTiktokPixel(false);
+        }
+    };
+
+    const handleSaveTiktokEventsApiToken = async (clearToken: boolean) => {
+        if (!activeOrganizerId) return;
+
+        const pixelId = tiktokPixelInput.trim();
+        if (!pixelId || !isValidTikTokPixelId(pixelId)) {
+            setTiktokEventsApiTokenStatus('error');
+            setTiktokEventsApiTokenError('Save a valid TikTok Pixel ID before adding an Events API token.');
+            return;
+        }
+
+        const token = clearToken ? '' : tiktokEventsApiTokenInput.trim();
+        if (!clearToken && !token) {
+            setTiktokEventsApiTokenStatus('error');
+            setTiktokEventsApiTokenError('Paste a TikTok Events API token before saving.');
+            return;
+        }
+
+        setIsSavingTiktokEventsApiToken(true);
+        setTiktokEventsApiTokenStatus(null);
+        setTiktokEventsApiTokenError(null);
+
+        try {
+            const response = await api.put<{ integration: TrackingIntegrationSummary }>(
+                `/api/v1/organizers/${activeOrganizerId}/tracking-integrations/tiktok`,
+                {
+                    provider: 'tiktok',
+                    enabled: pixelId !== '',
+                    publicConfig: { pixelId },
+                    secretConfig: { eventsApiToken: token },
+                }
+            );
+            const savedPixelId =
+                response.integration.enabled && typeof response.integration.publicConfig.pixelId === 'string'
+                    ? response.integration.publicConfig.pixelId
+                    : '';
+            setTiktokPixelInput(savedPixelId);
+            setCurrentTiktokPixelId(savedPixelId);
+            setTiktokEventsApiTokenInput('');
+            setCurrentTiktokEventsApiTokenLast4(response.integration.secretLast4 ?? null);
+            setTiktokEventsApiTokenStatus('success');
+            await refresh();
+            setTimeout(() => setTiktokEventsApiTokenStatus(null), 2000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to update TikTok Events API token.';
+            setTiktokEventsApiTokenStatus('error');
+            setTiktokEventsApiTokenError(message);
+        } finally {
+            setIsSavingTiktokEventsApiToken(false);
+        }
+    };
+
+    const handleSaveGoogleAds = async () => {
+        if (!activeOrganizerId) return;
+
+        const conversionId = googleAdsConversionInput.trim().toUpperCase();
+        const purchaseConversionLabel = googleAdsPurchaseLabelInput.trim();
+
+        if ((conversionId || purchaseConversionLabel) && (!conversionId || !purchaseConversionLabel)) {
+            setGoogleAdsStatus('error');
+            setGoogleAdsError('Enter both the Google Ads conversion ID and purchase conversion label.');
+            return;
+        }
+
+        if (conversionId && !isValidGoogleAdsConversionId(conversionId)) {
+            setGoogleAdsStatus('error');
+            setGoogleAdsError('Enter a Google Ads conversion ID that starts with AW-.');
+            return;
+        }
+
+        if (purchaseConversionLabel && !isValidGoogleAdsPurchaseConversionLabel(purchaseConversionLabel)) {
+            setGoogleAdsStatus('error');
+            setGoogleAdsError('Enter a purchase conversion label between 1 and 120 characters.');
+            return;
+        }
+
+        setIsSavingGoogleAds(true);
+        setGoogleAdsStatus(null);
+        setGoogleAdsError(null);
+
+        try {
+            const response = await api.put<{ integration: TrackingIntegrationSummary }>(
+                `/api/v1/organizers/${activeOrganizerId}/tracking-integrations/google_ads`,
+                {
+                    provider: 'google_ads',
+                    enabled: conversionId !== '' && purchaseConversionLabel !== '',
+                    publicConfig: { conversionId, purchaseConversionLabel },
+                }
+            );
+            const savedConversionId =
+                response.integration.enabled && typeof response.integration.publicConfig.conversionId === 'string'
+                    ? response.integration.publicConfig.conversionId
+                    : '';
+            const savedPurchaseConversionLabel =
+                response.integration.enabled &&
+                typeof response.integration.publicConfig.purchaseConversionLabel === 'string'
+                    ? response.integration.publicConfig.purchaseConversionLabel
+                    : '';
+            setGoogleAdsConversionInput(savedConversionId);
+            setGoogleAdsPurchaseLabelInput(savedPurchaseConversionLabel);
+            setCurrentGoogleAdsConversionId(savedConversionId);
+            setCurrentGoogleAdsPurchaseLabel(savedPurchaseConversionLabel);
+            setGoogleAdsStatus('success');
+            await refresh();
+            setTimeout(() => setGoogleAdsStatus(null), 2000);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to update Google Ads conversion.';
+            setGoogleAdsStatus('error');
+            setGoogleAdsError(message);
+        } finally {
+            setIsSavingGoogleAds(false);
+        }
+    };
+
     const handleSaveOrganizerProfile = async () => {
         if (!activeOrganizerId) return;
 
@@ -606,6 +921,20 @@ export default function SettingsPage() {
         metaCapiTokenLast4: currentOrganizer?.metaCapiTokenLast4,
     });
     const metaTrackingStatusStyles = META_TRACKING_STATUS_STYLES[metaTrackingStatus.tone];
+    const trackingDomainStatus = getTrackingDomainStatus({
+        organizerWebsite: currentOrganizer?.website,
+        customDomain: null,
+    });
+    const trackingDomainStatusStyles = META_TRACKING_STATUS_STYLES[trackingDomainStatus.tone];
+    const normalizedGa4Input = ga4MeasurementInput.trim().toUpperCase();
+    const ga4Changed = normalizedGa4Input !== currentGa4MeasurementId;
+    const normalizedTiktokPixelInput = tiktokPixelInput.trim();
+    const tiktokPixelChanged = normalizedTiktokPixelInput !== currentTiktokPixelId;
+    const normalizedGoogleAdsConversionInput = googleAdsConversionInput.trim().toUpperCase();
+    const normalizedGoogleAdsPurchaseLabelInput = googleAdsPurchaseLabelInput.trim();
+    const googleAdsChanged =
+        normalizedGoogleAdsConversionInput !== currentGoogleAdsConversionId ||
+        normalizedGoogleAdsPurchaseLabelInput !== currentGoogleAdsPurchaseLabel;
 
     // Check if profile has changed
     const profileHasChanges = user && (
@@ -1311,7 +1640,7 @@ export default function SettingsPage() {
                                 <div className="space-y-6 animate-fade-up" style={{ '--fade-delay': '0s' } as React.CSSProperties}>
                                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                                         <div>
-                                            <h2 className="text-xl font-semibold mb-1">Meta Pixel Tracking</h2>
+                                            <h2 className="text-xl font-semibold mb-1">Marketing Tracking</h2>
                                             <p className="text-muted-foreground text-sm">
                                                 Configure the tracking signals Halal Ticketin can send for this organiser.
                                             </p>
@@ -1369,6 +1698,18 @@ export default function SettingsPage() {
                                     )}
 
                                     <div className="space-y-5 max-w-xl">
+                                        <div className={cn('rounded-lg border p-4', trackingDomainStatusStyles.panel)}>
+                                            <div className="flex items-center gap-2">
+                                                <span className={cn('h-2.5 w-2.5 rounded-full', trackingDomainStatusStyles.dot)} />
+                                                <span className={cn('text-sm font-medium', trackingDomainStatusStyles.label)}>
+                                                    {trackingDomainStatus.label}
+                                                </span>
+                                            </div>
+                                            <p className="mt-3 text-sm text-muted-foreground">
+                                                {trackingDomainStatus.summary}
+                                            </p>
+                                        </div>
+
                                         <div className={cn('rounded-lg border p-4', metaTrackingStatusStyles.panel)}>
                                             <div className="flex items-center justify-between gap-3">
                                                 <div className="flex items-center gap-2">
@@ -1448,6 +1789,252 @@ export default function SettingsPage() {
                                                     </>
                                                 ) : (
                                                     'Save Pixel'
+                                                )}
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-2 pt-6">
+                                            <Label htmlFor="ga4MeasurementId" className="text-muted-foreground">
+                                                Google Analytics 4
+                                            </Label>
+                                            <Input
+                                                id="ga4MeasurementId"
+                                                value={ga4MeasurementInput}
+                                                onChange={(event) => setGa4MeasurementInput(event.target.value.toUpperCase())}
+                                                disabled={!canEditOrgSettings}
+                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                placeholder="G-XXXXXXXXXX"
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Loads Google Analytics events after analytics storage is accepted.
+                                            </p>
+                                            {ga4Status === 'success' && (
+                                                <p className="text-sm text-green-600 flex items-center gap-1">
+                                                    <Check className="h-4 w-4" />
+                                                    Measurement ID saved.
+                                                </p>
+                                            )}
+                                            {ga4Status === 'error' && (
+                                                <p className="text-sm text-destructive flex items-center gap-1">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    {ga4Error || 'Unable to save Measurement ID.'}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3 pt-2">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setGa4MeasurementInput('')}
+                                                disabled={isSavingGa4 || (!ga4MeasurementInput && !currentGa4MeasurementId)}
+                                                className="rounded-xl"
+                                            >
+                                                Clear
+                                            </Button>
+                                            <Button
+                                                onClick={handleSaveGa4}
+                                                disabled={isSavingGa4 || !ga4Changed}
+                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                            >
+                                                {isSavingGa4 ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Saving...
+                                                    </>
+                                                ) : (
+                                                    'Save GA4'
+                                                )}
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-4 pt-6">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="googleAdsConversionId" className="text-muted-foreground">
+                                                    Google Ads purchase conversion
+                                                </Label>
+                                                <Input
+                                                    id="googleAdsConversionId"
+                                                    value={googleAdsConversionInput}
+                                                    onChange={(event) => setGoogleAdsConversionInput(event.target.value.toUpperCase())}
+                                                    disabled={!canEditOrgSettings}
+                                                    className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                    placeholder="AW-123456789"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="googleAdsPurchaseLabel" className="text-muted-foreground">
+                                                    Purchase conversion label
+                                                </Label>
+                                                <Input
+                                                    id="googleAdsPurchaseLabel"
+                                                    value={googleAdsPurchaseLabelInput}
+                                                    onChange={(event) => setGoogleAdsPurchaseLabelInput(event.target.value.trim())}
+                                                    disabled={!canEditOrgSettings}
+                                                    className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                    placeholder="abcDEFghiJKL"
+                                                />
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Fires a Google Ads purchase conversion after marketing storage is accepted.
+                                            </p>
+                                            {googleAdsStatus === 'success' && (
+                                                <p className="text-sm text-green-600 flex items-center gap-1">
+                                                    <Check className="h-4 w-4" />
+                                                    Google Ads conversion saved.
+                                                </p>
+                                            )}
+                                            {googleAdsStatus === 'error' && (
+                                                <p className="text-sm text-destructive flex items-center gap-1">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    {googleAdsError || 'Unable to save Google Ads conversion.'}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3 pt-2">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setGoogleAdsConversionInput('');
+                                                    setGoogleAdsPurchaseLabelInput('');
+                                                }}
+                                                disabled={
+                                                    isSavingGoogleAds ||
+                                                    (!googleAdsConversionInput &&
+                                                        !googleAdsPurchaseLabelInput &&
+                                                        !currentGoogleAdsConversionId &&
+                                                        !currentGoogleAdsPurchaseLabel)
+                                                }
+                                                className="rounded-xl"
+                                            >
+                                                Clear
+                                            </Button>
+                                            <Button
+                                                onClick={handleSaveGoogleAds}
+                                                disabled={isSavingGoogleAds || !googleAdsChanged}
+                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                            >
+                                                {isSavingGoogleAds ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Saving...
+                                                    </>
+                                                ) : (
+                                                    'Save Google Ads'
+                                                )}
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-2 pt-6">
+                                            <Label htmlFor="tiktokPixelId" className="text-muted-foreground">
+                                                TikTok Pixel
+                                            </Label>
+                                            <Input
+                                                id="tiktokPixelId"
+                                                value={tiktokPixelInput}
+                                                onChange={(event) => setTiktokPixelInput(event.target.value.trim())}
+                                                disabled={!canEditOrgSettings}
+                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                placeholder="CXXXXXXXXXXXX"
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Loads TikTok Pixel events after marketing storage is accepted.
+                                            </p>
+                                            {tiktokPixelStatus === 'success' && (
+                                                <p className="text-sm text-green-600 flex items-center gap-1">
+                                                    <Check className="h-4 w-4" />
+                                                    TikTok Pixel ID saved.
+                                                </p>
+                                            )}
+                                            {tiktokPixelStatus === 'error' && (
+                                                <p className="text-sm text-destructive flex items-center gap-1">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    {tiktokPixelError || 'Unable to save TikTok Pixel ID.'}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3 pt-2">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setTiktokPixelInput('')}
+                                                disabled={isSavingTiktokPixel || (!tiktokPixelInput && !currentTiktokPixelId)}
+                                                className="rounded-xl"
+                                            >
+                                                Clear
+                                            </Button>
+                                            <Button
+                                                onClick={handleSaveTiktokPixel}
+                                                disabled={isSavingTiktokPixel || !tiktokPixelChanged}
+                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                            >
+                                                {isSavingTiktokPixel ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Saving...
+                                                    </>
+                                                ) : (
+                                                    'Save TikTok'
+                                                )}
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-2 pt-4">
+                                            <Label htmlFor="tiktokEventsApiToken" className="text-muted-foreground">
+                                                TikTok Events API token
+                                            </Label>
+                                            <Input
+                                                id="tiktokEventsApiToken"
+                                                type="password"
+                                                value={tiktokEventsApiTokenInput}
+                                                onChange={(event) => setTiktokEventsApiTokenInput(event.target.value)}
+                                                disabled={!canEditOrgSettings}
+                                                className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
+                                                placeholder="Paste token from TikTok Events Manager"
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Improves Purchase tracking reliability. Server-side Purchase only runs after marketing consent.
+                                            </p>
+                                            {currentTiktokEventsApiTokenLast4 && (
+                                                <p className="text-xs text-emerald-600">
+                                                    Connected (••••{currentTiktokEventsApiTokenLast4})
+                                                </p>
+                                            )}
+                                            {tiktokEventsApiTokenStatus === 'success' && (
+                                                <p className="text-sm text-green-600 flex items-center gap-1">
+                                                    <Check className="h-4 w-4" />
+                                                    Events API token saved.
+                                                </p>
+                                            )}
+                                            {tiktokEventsApiTokenStatus === 'error' && (
+                                                <p className="text-sm text-destructive flex items-center gap-1">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    {tiktokEventsApiTokenError || 'Unable to save Events API token.'}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3 pt-2">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => handleSaveTiktokEventsApiToken(true)}
+                                                disabled={isSavingTiktokEventsApiToken || !currentTiktokEventsApiTokenLast4}
+                                                className="rounded-xl"
+                                            >
+                                                Clear token
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleSaveTiktokEventsApiToken(false)}
+                                                disabled={isSavingTiktokEventsApiToken || tiktokEventsApiTokenInput.trim() === ''}
+                                                className="bg-linear-to-r from-(--brand-cyan) to-(--brand-teal) text-white hover:opacity-90 transition-all shadow-lg hover:shadow-xl px-8 rounded-xl disabled:opacity-50"
+                                            >
+                                                {isSavingTiktokEventsApiToken ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Saving...
+                                                    </>
+                                                ) : (
+                                                    'Save token'
                                                 )}
                                             </Button>
                                         </div>

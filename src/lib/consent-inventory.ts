@@ -1,6 +1,6 @@
  
 
-export type ConsentCategoryId = 'essential' | 'marketing';
+export type ConsentCategoryId = 'essential' | 'analytics' | 'marketing';
 
 export interface ConsentCategory {
     id: ConsentCategoryId;
@@ -46,10 +46,17 @@ export const CONSENT_CATEGORIES: ConsentCategory[] = [
         required: true
     },
     {
+        id: 'analytics',
+        label: 'Analytics storage',
+        description:
+            'Lets event organisers measure event page and checkout performance using Google Analytics. After you opt in, Google Analytics tooling may load only on public event and checkout pages where an organiser has configured a GA4 Measurement ID.',
+        required: false
+    },
+    {
         id: 'marketing',
         label: 'Marketing storage',
         description:
-            'Lets event organisers understand how people find their events using Meta Pixel. After you opt in, Meta tooling may load; we only initialise organiser pixels and send tracking events on public event and checkout pages.',
+            'Lets event organisers understand how people find their events using advertising tools such as Meta Pixel, TikTok Pixel, and Google Ads. After you opt in, we only initialise organiser destinations and send tracking events on public event and checkout pages.',
         required: false
     }
 ];
@@ -58,7 +65,7 @@ export const FIRST_PARTY_COOKIES: FirstPartyCookie[] = [
     {
         name: CONSENT_COOKIE_NAME,
         purpose:
-            'Remembers whether you opted into marketing storage so optional scripts stay on/off across visits in this browser. For signed-in users, we also sync consent to your account preferences.',
+            'Remembers whether you opted into analytics and marketing storage so optional scripts stay on/off across visits in this browser. For signed-in users, we also sync consent to your account preferences.',
         retention: `${CONSENT_COOKIE_MAX_AGE_DAYS} days`,
         categoryId: 'essential'
     }
@@ -153,9 +160,40 @@ export const BROWSER_STORAGE_ITEMS: BrowserStorageItem[] = [
     {
         key: 'ht_purchase_tracked:{orderId}',
         storage: 'localStorage',
-        purpose: 'Stops duplicate Meta Pixel “Purchase” events by remembering which orders already fired.',
+        purpose:
+            'Legacy flag that stops duplicate Meta Pixel “Purchase” events by remembering which orders already fired.',
+        retention: 'One legacy flag per order that stays until you clear browser storage.',
+        categoryId: 'essential'
+    },
+    {
+        key: 'ht_purchase_tracked:{provider}:{orderId}',
+        storage: 'localStorage',
+        purpose:
+            'Stops duplicate optional purchase events by remembering which provider already received a purchase event for an order.',
         retention: 'One flag per order that stays until you clear browser storage.',
         categoryId: 'essential'
+    },
+    {
+        key: 'ht_data_layer_purchase_tracked:{orderId}',
+        storage: 'localStorage',
+        purpose:
+            'Stops duplicate first-party data layer purchase events by remembering which orders already pushed a purchase event.',
+        retention: 'One flag per order that stays until you clear browser storage.',
+        categoryId: 'essential'
+    }
+];
+
+export const ANALYTICS_TECHNOLOGIES: ThirdPartyTechnology[] = [
+    {
+        name: 'Google Analytics 4',
+        provider: 'Event organisers via Google',
+        host: 'https://www.googletagmanager.com',
+        cookies: ['_ga', '_ga_{container-id}'],
+        purpose:
+            'Allows organisers to measure event page views, checkout starts, and purchases in their own Google Analytics property.',
+        runsWhen:
+            'The Google tag library can load after you enable analytics or marketing storage. We configure GA4 and send GA4 events only after analytics storage is enabled and only where an organiser has configured a GA4 Measurement ID.',
+        categoryId: 'analytics'
     }
 ];
 
@@ -169,7 +207,34 @@ export const MARKETING_TECHNOLOGIES: ThirdPartyTechnology[] = [
         runsWhen:
             'Loaded after you enable marketing storage; we only initialise a pixel and send Meta events on public event and checkout pages where an organiser has configured a Meta Pixel ID.',
         categoryId: 'marketing'
+    },
+    {
+        name: 'TikTok Pixel',
+        provider: 'Event organisers via TikTok',
+        host: 'https://analytics.tiktok.com',
+        cookies: ['_ttp', '_tt_enable_cookie'],
+        purpose:
+            'Allows organisers to measure event page views, checkout activity, and purchases for TikTok advertising attribution.',
+        runsWhen:
+            'Loaded after you enable marketing storage; we only initialise a pixel and send TikTok events on public event and checkout pages where an organiser has configured a TikTok Pixel ID.',
+        categoryId: 'marketing'
+    },
+    {
+        name: 'Google Ads',
+        provider: 'Event organisers via Google',
+        host: 'https://www.googletagmanager.com',
+        cookies: ['_gcl_au', '_gcl_aw'],
+        purpose:
+            'Allows organisers to measure completed ticket purchases as conversions in their own Google Ads account.',
+        runsWhen:
+            'Loaded after you enable marketing storage; we only configure and send purchase conversions where an organiser has configured a Google Ads conversion ID and purchase label.',
+        categoryId: 'marketing'
     }
+];
+
+export const OPTIONAL_TECHNOLOGIES: ThirdPartyTechnology[] = [
+    ...ANALYTICS_TECHNOLOGIES,
+    ...MARKETING_TECHNOLOGIES
 ];
 
 export const getConsentCategory = (id: ConsentCategoryId) => CONSENT_CATEGORIES.find((category) => category.id === id);

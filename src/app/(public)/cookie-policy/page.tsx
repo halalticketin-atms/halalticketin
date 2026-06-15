@@ -4,7 +4,12 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { Card, CardContent } from '@/components/ui/card';
-import { BROWSER_STORAGE_ITEMS, FIRST_PARTY_COOKIES, MARKETING_TECHNOLOGIES, getConsentCategory } from '@/lib/consent-inventory';
+import {
+    BROWSER_STORAGE_ITEMS,
+    FIRST_PARTY_COOKIES,
+    OPTIONAL_TECHNOLOGIES,
+    getConsentCategory,
+} from '@/lib/consent-inventory';
 
 type Section = {
     title: string;
@@ -12,9 +17,10 @@ type Section = {
 };
 
 const essentialCategory = getConsentCategory('essential');
+const analyticsCategory = getConsentCategory('analytics');
 const marketingCategory = getConsentCategory('marketing');
 const essentialBrowserStorage = BROWSER_STORAGE_ITEMS.filter((item) => item.categoryId === 'essential');
-const effectiveDate = '22 February 2026';
+const effectiveDate = '14 June 2026';
 
 const sections: Section[] = [
     {
@@ -22,6 +28,7 @@ const sections: Section[] = [
         content: (
             <div className="space-y-3 text-muted-foreground">
                 <p>{essentialCategory?.description ?? "Essential storage keeps Halal Ticketin' working across visits."}</p>
+                <p>{analyticsCategory?.description ?? 'Analytics storage only runs after you opt in.'}</p>
                 <p>{marketingCategory?.description ?? 'Marketing storage only runs after you opt in.'}</p>
             </div>
         )
@@ -60,10 +67,10 @@ const sections: Section[] = [
         )
     },
     {
-        title: '4. Optional marketing technology',
+        title: '4. Optional analytics and marketing technology',
         content: (
             <ul className="space-y-4">
-                {MARKETING_TECHNOLOGIES.map((tech) => (
+                {OPTIONAL_TECHNOLOGIES.map((tech) => (
                     <li key={tech.name} className="rounded-lg border p-4">
                         <p className="font-medium">{tech.name}</p>
                         <p className="text-sm text-muted-foreground">{tech.purpose}</p>
@@ -73,11 +80,14 @@ const sections: Section[] = [
                         <p className="text-xs text-muted-foreground mt-1">
                             Cookies placed: {tech.cookies.join(', ')} &middot; {tech.runsWhen}
                         </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Category: {getConsentCategory(tech.categoryId)?.label ?? tech.categoryId}
+                        </p>
                     </li>
                 ))}
-                {MARKETING_TECHNOLOGIES.length === 0 && (
+                {OPTIONAL_TECHNOLOGIES.length === 0 && (
                     <li className="text-sm text-muted-foreground">
-                        We are not loading any optional marketing scripts right now.
+                        We are not loading any optional analytics or marketing scripts right now.
                     </li>
                 )}
             </ul>
@@ -88,13 +98,14 @@ const sections: Section[] = [
         content: (
             <div className="space-y-3 text-muted-foreground">
                 <p>
-                    You can change marketing storage at any time using the “Manage cookies” control in our site footer.
-                    In embedded event/checkout views, the same controls are available in the cookie banner.
+                    You can change analytics and marketing storage at any time using the “Manage cookies” control in
+                    our site footer. In embedded event/checkout views, the same controls are available in the cookie
+                    banner.
                 </p>
                 <p>
-                    Choosing “Reject optional” (or turning marketing storage off in settings) keeps Halal Ticketin
-                    running but stops Meta Pixel tracking. Clearing cookies or browser storage in your browser settings
-                    will also sign you out and reset cached data described above.
+                    Choosing “Reject optional” keeps Halal Ticketin running but stops optional analytics and marketing
+                    tracking. Clearing cookies or browser storage in your browser settings will also sign you out and
+                    reset cached data described above.
                 </p>
             </div>
         )
@@ -111,7 +122,7 @@ const sections: Section[] = [
                 <p>
                     If you are in regions such as California where ad-related identifiers can be treated as
                     data-sharing for advertising, you can keep optional marketing storage disabled at any time through
-                    our cookie controls.
+                    our cookie controls. Analytics storage is separately controlled and can also stay disabled.
                 </p>
             </div>
         )

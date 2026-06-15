@@ -7,6 +7,7 @@ import type {
   DraftTicketType,
   DraftPromoCode,
 } from '@/hooks/useEventDraft';
+import type { AiDraftReview } from '@/utils/pending-draft-storage';
 
 type AiVisibility = 'public' | 'private' | 'unlisted' | null;
 type AiNullable<T> = T | null | undefined;
@@ -54,18 +55,11 @@ type AiPromoCode = {
   validUntil?: AiNullable<string>;
   validUntilTime?: AiNullable<string>;
 };
-type AiReview = {
-  confidence?: 'low' | 'medium' | 'high';
-  extractedFrom?: Array<'prompt' | 'image'>;
-  needsReview?: string[];
-  missingImportantFields?: string[];
-};
-
 type AiDraftResponse = {
   formData?: Partial<AiDraftFormData> | null;
   tickets?: AiTicket[] | null;
   promoCodes?: AiPromoCode[] | null;
-  review?: AiReview | null;
+  review?: AiDraftReview | null;
 };
 
 type BackendAiResponse = {
@@ -81,7 +75,7 @@ type GenerateEventDraftParams = {
 };
 
 export type AiDraftEventInitial = DraftEventInitial & {
-  aiReview?: AiReview;
+  aiReview?: AiDraftReview;
 };
 
 export async function generateEventDraft({
@@ -167,10 +161,65 @@ export function buildDraftFromAiPayload(
     tickets,
     promoCodes,
     currentStep: 1,
-    aiReview: payload.review ?? undefined,
+    aiReview: buildAiReview(payload.review, formData),
     preserveEmptyTickets: true,
   };
 }
+
+const AI_DEFAULT_REVIEW_REQUIREMENTS: Array<{
+  field: keyof Pick<
+    DraftFormData,
+    'visibility' | 'locationType' | 'currency' | 'attendeeInfoMode'
+  >;
+  missingField: string;
+  warning: string;
+}> = [
+  {
+    field: 'visibility',
+    missingField: 'visibility',
+    warning: 'Confirm event visibility',
+  },
+  {
+    field: 'locationType',
+    missingField: 'location',
+    warning: 'Confirm event format and location',
+  },
+  {
+    field: 'currency',
+    missingField: 'currency',
+    warning: 'Confirm ticket currency',
+  },
+  {
+    field: 'attendeeInfoMode',
+    missingField: 'attendeeInfoMode',
+    warning: 'Confirm attendee information collection',
+  },
+];
+
+const buildAiReview = (
+  review: AiDraftReview | null | undefined,
+  formData: Partial<DraftFormData>,
+): AiDraftReview | undefined => {
+  const needsReview = new Set(review?.needsReview ?? []);
+  const missingImportantFields = new Set(review?.missingImportantFields ?? []);
+
+  for (const requirement of AI_DEFAULT_REVIEW_REQUIREMENTS) {
+    if (formData[requirement.field] === undefined) {
+      needsReview.add(requirement.warning);
+      missingImportantFields.add(requirement.missingField);
+    }
+  }
+
+  if (!review && needsReview.size === 0 && missingImportantFields.size === 0) {
+    return undefined;
+  }
+
+  return {
+    ...review,
+    needsReview: Array.from(needsReview),
+    missingImportantFields: Array.from(missingImportantFields),
+  };
+};
 
 function normalizeFormData(
   raw: Partial<AiDraftFormData>,

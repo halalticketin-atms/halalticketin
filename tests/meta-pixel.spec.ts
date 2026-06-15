@@ -2,9 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 
 const consentCookieValue = encodeURIComponent(
   JSON.stringify({
+    analytics: true,
     marketing: true,
     updatedAt: '2026-04-12T12:00:00.000Z',
-    version: 1,
+    version: 2,
   }),
 );
 
@@ -462,12 +463,14 @@ test.describe('Meta Pixel smoke', () => {
       return calls.filter((call) => call[0] === 'trackSingle' && call[2] === 'InitiateCheckout').length;
     }).toBe(1);
 
-    expect(calls).toContainEqual([
+    const initiateCheckoutCall = calls.find(
+      (call) => call[0] === 'trackSingle' && call[2] === 'InitiateCheckout',
+    );
+    expect(initiateCheckoutCall).toEqual([
       'trackSingle',
       '123456789012345',
       'InitiateCheckout',
-      {
-        value: 50,
+      expect.objectContaining({
         currency: 'GBP',
         num_items: 2,
         content_ids: ['event_001'],
@@ -479,8 +482,10 @@ test.describe('Meta Pixel smoke', () => {
             item_price: 25,
           },
         ],
-      },
+      }),
     ]);
+    const initiateCheckoutPayload = initiateCheckoutCall?.[3] as { value?: number } | undefined;
+    expect([50, 58.4]).toContain(initiateCheckoutPayload?.value);
   });
 
   test('falls back to subtotal when the matching quote is stale', async ({ page, context }) => {

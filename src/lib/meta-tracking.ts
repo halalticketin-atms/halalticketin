@@ -5,6 +5,8 @@ export interface MetaTrackingContext {
     fbp?: string;
     fbc?: string;
     fbclid?: string;
+    ttclid?: string;
+    ttp?: string;
     eventSourceUrl?: string;
 }
 
@@ -21,14 +23,14 @@ const readCookieValue = (name: string): string | undefined => {
     return undefined;
 };
 
-const readFbclid = (): string | undefined => {
+const readUrlParam = (name: string): string | undefined => {
     if (typeof window === 'undefined') {
         return undefined;
     }
     try {
         const params = new URLSearchParams(window.location.search);
-        const fbclid = params.get('fbclid');
-        return fbclid || undefined;
+        const value = params.get(name);
+        return value || undefined;
     } catch {
         return undefined;
     }
@@ -43,7 +45,9 @@ export const getMetaTrackingContext = (marketingConsent: boolean): MetaTrackingC
         marketingConsent: true,
         fbp: readCookieValue('_fbp'),
         fbc: readCookieValue('_fbc'),
-        fbclid: readFbclid(),
+        fbclid: readUrlParam('fbclid'),
+        ttclid: readUrlParam('ttclid'),
+        ttp: readCookieValue('_ttp'),
         eventSourceUrl: typeof window !== 'undefined' ? window.location.href : undefined
     };
 };

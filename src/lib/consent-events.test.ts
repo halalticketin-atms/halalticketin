@@ -16,19 +16,32 @@ describe('logConsentEvent', () => {
     });
 
     it('posts aggregate consent events to the backend', async () => {
-        await logConsentEvent({ action: 'accepted', marketing: true, source: 'event_page', version: 1 });
+        await logConsentEvent({
+            action: 'accepted',
+            analytics: true,
+            marketing: false,
+            source: 'event_page',
+            version: 2,
+        });
 
         expect(postMock).toHaveBeenCalledWith('/api/v1/consent/events', {
             action: 'accepted',
-            marketing: true,
+            analytics: true,
+            marketing: false,
             source: 'event_page',
-            version: 1
+            version: 2
         });
     });
 
     it('does not throw when aggregate logging fails', async () => {
         postMock.mockRejectedValueOnce(new Error('network down'));
 
-        await expect(logConsentEvent({ action: 'rejected', marketing: false, source: 'checkout', version: 1 })).resolves.toBeUndefined();
+        await expect(logConsentEvent({
+            action: 'rejected',
+            analytics: false,
+            marketing: false,
+            source: 'checkout',
+            version: 2,
+        })).resolves.toBeUndefined();
     });
 });

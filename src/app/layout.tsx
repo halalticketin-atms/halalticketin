@@ -7,7 +7,9 @@ import { CookieConsentProvider } from '@/context/cookie-consent-context';
 import { AuthProvider } from '@/context/auth-context';
 import { ExchangeRatesProvider } from '@/hooks/useExchangeRates';
 import { CookieBanner } from '@/components/privacy/cookie-banner';
+import { GoogleTagScript } from '@/components/analytics/google-tag-script';
 import { MetaPixelScript } from '@/components/analytics/meta-pixel-script';
+import { TikTokPixelScript } from '@/components/analytics/tiktok-pixel-script';
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_KEYWORDS,
@@ -96,7 +98,9 @@ export default function RootLayout({
       >
         <AuthProvider>
           <CookieConsentProvider>
+            <GoogleTagScript />
             <MetaPixelScript />
+            <TikTokPixelScript />
             <ExchangeRatesProvider>
               <div className="flex min-h-screen flex-col">
                 <Header />

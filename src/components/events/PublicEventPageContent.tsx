@@ -46,10 +46,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { useMetaPixel } from '@/hooks/useMetaPixel';
-import { useMarketingConsentRequirement } from '@/hooks/useMarketingConsentRequirement';
+import { useTrackingConsentRequirement } from '@/hooks/useMarketingConsentRequirement';
 import { useCookieConsent } from '@/context/cookie-consent-context';
 import { getMetaTrackingContext } from '@/lib/meta-tracking';
+import { createMarketingTracker, type MarketingTicketItem } from '@/lib/marketing-tracking';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
 import { contactOrganizerByEventSlug } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote, type CheckoutQuoteResponse, type TicketAttendeePayload } from '@/lib/checkout-api';
@@ -159,17 +159,18 @@ function buildInitiateCheckoutSignature(
     });
 }
 
-function buildMetaContents(
+function buildMarketingTicketItems(
     cartItems: Array<{ ticket: TicketLike; quantity: number; subtotal: number }>,
     getUnitPrice: (item: { ticket: TicketLike; quantity: number; subtotal: number }) => number,
-) {
+): MarketingTicketItem[] {
     return cartItems
         .map((item) => ({
-            id: item.ticket.id,
+            ticketTypeId: item.ticket.id,
             quantity: item.quantity,
-            item_price: Number(getUnitPrice(item).toFixed(2)),
+            unitPrice: Number(getUnitPrice(item).toFixed(2)),
+            ticketName: item.ticket.name ?? null,
         }))
-        .sort((a, b) => a.id.localeCompare(b.id));
+        .sort((a, b) => a.ticketTypeId.localeCompare(b.ticketTypeId));
 }
 
 /**
@@ -368,10 +369,25 @@ export function PublicEventPageContent({
         [safeTickets],
     );
     const { rates } = useExchangeRates();
-    const { track } = useMetaPixel();
-    const { marketingAllowed } = useCookieConsent();
+    const { analyticsAllowed, marketingAllowed } = useCookieConsent();
+    const marketingTracker = useMemo(
+        () => createMarketingTracker({ analyticsAllowed, marketingAllowed }),
+        [analyticsAllowed, marketingAllowed],
+    );
     const eventPixelId =
         !isPreview && event && 'metaPixelId' in event ? event.metaPixelId : null;
+    const eventTracking = !isPreview && event && 'tracking' in event ? event.tracking : null;
+    const googleAnalyticsMeasurementId = eventTracking?.googleAnalyticsMeasurementId ?? null;
+    const tiktokPixelId = eventTracking?.tiktokPixelId ?? null;
+    const trackingProviderTargets = useMemo(
+        () => ({
+            metaPixelId: eventPixelId,
+            googleAnalyticsMeasurementId,
+            tiktokPixelId,
+        }),
+        [eventPixelId, googleAnalyticsMeasurementId, tiktokPixelId],
+    );
+    const hasTrackingProviderTarget = Boolean(eventPixelId || googleAnalyticsMeasurementId || tiktokPixelId);
     const organizerName =
         organizerNameOverride ?? (event && 'organizerName' in event ? event.organizerName : null);
     const canContactOrganizer =
@@ -427,7 +443,11 @@ export function PublicEventPageContent({
     const [isPosterViewerOpen, setIsPosterViewerOpen] = useState(false);
     const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
 
-    useMarketingConsentRequirement(Boolean(eventPixelId), isCheckoutOpen ? 'checkout' : 'event_page');
+    useTrackingConsentRequirement({
+        analyticsNeeded: Boolean(googleAnalyticsMeasurementId),
+        marketingNeeded: Boolean(eventPixelId || tiktokPixelId || eventTracking?.googleAds),
+        source: isCheckoutOpen ? 'checkout' : 'event_page',
+    });
     const [contactName, setContactName] = useState('');
     const [contactEmail, setContactEmail] = useState('');
     const [contactMessage, setContactMessage] = useState('');
@@ -1168,32 +1188,23 @@ export function PublicEventPageContent({
     }, [currencyCode, event, regularTickets, regularUnlockedTickets]);
 
     useEffect(() => {
-        if (!eventPixelId) {
+        if (!hasTrackingProviderTarget) {
             return;
         }
 
-        const pageParams =
-            typeof window !== 'undefined'
-                ? {
-                    page_path: window.location.pathname
-                }
-                : undefined;
+        marketingTracker.trackMarketingEvent('page_viewed', {
+            providerTargets: trackingProviderTargets,
+            pagePath: typeof window !== 'undefined' ? window.location.pathname : null,
+        });
 
-        track(eventPixelId, 'PageView', pageParams);
-
-        const viewContentPayload: Record<string, unknown> = {
+        marketingTracker.trackMarketingEvent('event_viewed', {
+            providerTargets: trackingProviderTargets,
+            organizerId: event?.organizerId,
+            publicEventId: event?.id,
+            publicEventTitle: event?.title,
             currency: currencyCode,
-            content_type: 'product'
-        };
-        if (event?.id) {
-            viewContentPayload.content_ids = [event.id];
-        }
-        if (event?.title) {
-            viewContentPayload.content_name = event.title;
-        }
-
-        track(eventPixelId, 'ViewContent', viewContentPayload);
-    }, [eventPixelId, event?.id, event?.title, currencyCode, track]);
+        });
+    }, [hasTrackingProviderTarget, event?.id, event?.organizerId, event?.title, currencyCode, marketingTracker, trackingProviderTargets]);
 
     useEffect(() => {
         if (!hasSelections || cartItems.length === 0) {
@@ -1201,7 +1212,7 @@ export function PublicEventPageContent({
             return;
         }
 
-        if (!eventPixelId || isDonationQuotePending) {
+        if (!hasTrackingProviderTarget || isDonationQuotePending) {
             return;
         }
 
@@ -1223,15 +1234,15 @@ export function PublicEventPageContent({
         }
 
         addToCartTimeoutRef.current = window.setTimeout(() => {
-            const contents = buildMetaContents(cartItems, getCartItemUnitPrice);
-
-            track(eventPixelId, 'AddToCart', {
+            marketingTracker.trackMarketingEvent('tickets_added', {
+                providerTargets: trackingProviderTargets,
+                organizerId: event?.organizerId,
+                publicEventId: event?.id,
+                publicEventTitle: event?.title,
                 value: Number(totalAmount.toFixed(2)),
                 currency: currencyCode,
-                num_items: itemCountForTracking,
-                content_ids: event?.id ? [event.id] : undefined,
-                content_type: 'product',
-                contents
+                numItems: itemCountForTracking,
+                items: buildMarketingTicketItems(cartItems, getCartItemUnitPrice),
             });
 
             lastAddToCartSignatureRef.current = signature;
@@ -1246,13 +1257,16 @@ export function PublicEventPageContent({
         cartItems,
         currencyCode,
         event?.id,
-        eventPixelId,
+        event?.organizerId,
+        event?.title,
         getCartItemUnitPrice,
         hasSelections,
+        hasTrackingProviderTarget,
         isDonationQuotePending,
         itemCountForTracking,
+        marketingTracker,
+        trackingProviderTargets,
         totalAmount,
-        track
     ]);
 
     const hasOrganizerFeeOverride = useMemo(() => {
@@ -1343,17 +1357,19 @@ export function PublicEventPageContent({
     }, [activeQuote, initiateCheckoutSignature, isDonationQuotePending, quoteSignature]);
 
     const sendInitiateCheckout = useCallback((signature: string, value: number) => {
-        if (!eventPixelId) {
+        if (!hasTrackingProviderTarget) {
             return;
         }
 
-        track(eventPixelId, 'InitiateCheckout', {
+        marketingTracker.trackMarketingEvent('checkout_started', {
+            providerTargets: trackingProviderTargets,
+            organizerId: event?.organizerId,
+            publicEventId: event?.id,
+            publicEventTitle: event?.title,
             value: Number(value.toFixed(2)),
             currency: currencyCode,
-            num_items: itemCountForTracking,
-            content_ids: event?.id ? [event.id] : undefined,
-            content_type: 'product',
-            contents: buildMetaContents(cartItems, getCartItemUnitPrice),
+            numItems: itemCountForTracking,
+            items: buildMarketingTicketItems(cartItems, getCartItemUnitPrice),
         });
         markInitiateCheckoutTracked(signature);
         setPendingInitiateCheckout(null);
@@ -1361,11 +1377,14 @@ export function PublicEventPageContent({
         cartItems,
         currencyCode,
         event?.id,
-        eventPixelId,
+        event?.organizerId,
+        event?.title,
         getCartItemUnitPrice,
+        hasTrackingProviderTarget,
         itemCountForTracking,
         markInitiateCheckoutTracked,
-        track,
+        marketingTracker,
+        trackingProviderTargets,
     ]);
 
     const handleOpenCheckout = useCallback(() => {
@@ -1375,7 +1394,7 @@ export function PublicEventPageContent({
         }
 
         const signature = initiateCheckoutSignature;
-        if (eventPixelId && signature && itemCountForTracking > 0 && !wasInitiateCheckoutTracked(signature)) {
+        if (hasTrackingProviderTarget && signature && itemCountForTracking > 0 && !wasInitiateCheckoutTracked(signature)) {
             const quotedTotal = getFreshInitiateCheckoutTotal(signature);
             if (quotedTotal !== null) {
                 sendInitiateCheckout(signature, quotedTotal);
@@ -1389,8 +1408,8 @@ export function PublicEventPageContent({
 
         setIsCheckoutOpen(true);
     }, [
-        eventPixelId,
         getFreshInitiateCheckoutTotal,
+        hasTrackingProviderTarget,
         initiateCheckoutSignature,
         isPreview,
         itemCountForTracking,
@@ -1400,7 +1419,7 @@ export function PublicEventPageContent({
     ]);
 
     useEffect(() => {
-        if (!pendingInitiateCheckout || !eventPixelId || itemCountForTracking <= 0) {
+        if (!pendingInitiateCheckout || !hasTrackingProviderTarget || itemCountForTracking <= 0) {
             return;
         }
 
@@ -1436,8 +1455,8 @@ export function PublicEventPageContent({
             }
         };
     }, [
-        eventPixelId,
         getFreshInitiateCheckoutTotal,
+        hasTrackingProviderTarget,
         initiateCheckoutSignature,
         itemCountForTracking,
         pendingInitiateCheckout,
@@ -1869,6 +1888,19 @@ export function PublicEventPageContent({
             toast.error(errorMessage);
             setIsProcessing(false);
             return;
+        }
+
+        if (!result.isFreeOrder && result.checkoutUrl && hasTrackingProviderTarget) {
+            marketingTracker.trackMarketingEvent('payment_info_submitted', {
+                providerTargets: trackingProviderTargets,
+                organizerId: event.organizerId,
+                publicEventId: event.id,
+                publicEventTitle: event.title,
+                value: Number((activeQuote?.total ?? totalAmount).toFixed(2)),
+                currency: currencyCode,
+                numItems: itemCountForTracking,
+                items: buildMarketingTicketItems(cartItems, getCartItemUnitPrice),
+            });
         }
 
         // If free order, redirect to success

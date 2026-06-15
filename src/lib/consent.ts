@@ -3,25 +3,31 @@
 import { CONSENT_COOKIE_MAX_AGE_DAYS, CONSENT_COOKIE_NAME } from '@/lib/consent-inventory';
 
 export interface ConsentPreferences {
+    analytics: boolean;
     marketing: boolean;
     updatedAt?: string;
-    version?: number;
+    version: 2;
 }
 
 const CONSENT_MAX_AGE_SECONDS = CONSENT_COOKIE_MAX_AGE_DAYS * 24 * 60 * 60;
-const CONSENT_SCHEMA_VERSION = 1;
+export const CONSENT_SCHEMA_VERSION = 2;
 
 const shouldUseSecureAttribute = () => typeof window !== 'undefined' && window.location.protocol === 'https:';
 
 const parseCookieValue = (cookie: string): ConsentPreferences | null => {
     try {
         const decoded = decodeURIComponent(cookie);
-        const parsed = JSON.parse(decoded) as ConsentPreferences;
-        if (typeof parsed.marketing === 'boolean') {
+        const parsed = JSON.parse(decoded) as Partial<ConsentPreferences> & { version?: number };
+        if (
+            parsed.version === CONSENT_SCHEMA_VERSION &&
+            typeof parsed.analytics === 'boolean' &&
+            typeof parsed.marketing === 'boolean'
+        ) {
             return {
+                analytics: parsed.analytics,
                 marketing: parsed.marketing,
                 updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : undefined,
-                version: typeof parsed.version === 'number' ? parsed.version : undefined
+                version: CONSENT_SCHEMA_VERSION
             };
         }
     } catch {
@@ -52,9 +58,10 @@ export const writeConsentPreferences = (preferences: ConsentPreferences) => {
     }
 
     const normalizedPreferences: ConsentPreferences = {
+        analytics: preferences.analytics,
         marketing: preferences.marketing,
         updatedAt: preferences.updatedAt ?? new Date().toISOString(),
-        version: preferences.version ?? CONSENT_SCHEMA_VERSION
+        version: CONSENT_SCHEMA_VERSION
     };
 
     const value = encodeURIComponent(JSON.stringify(normalizedPreferences));

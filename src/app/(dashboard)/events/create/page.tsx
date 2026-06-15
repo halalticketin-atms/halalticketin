@@ -59,6 +59,7 @@ import {
 import { LocationAutocomplete } from '@/components/events/LocationAutocomplete';
 import { MainStepTabs, SubStepSidebar, SubStepChips } from '@/components/events/wizard';
 import { EmbedCheckoutSnippet } from '@/components/events/EmbedCheckoutSnippet';
+import { AiDraftReviewPanel } from '@/components/events/AiDraftReviewPanel';
 
 // Dynamic import to avoid SSR issues with Leaflet
 const EventLocationMap = dynamic(
@@ -75,6 +76,10 @@ import {
 } from '@/hooks/useEventDraft';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { consumePendingDraft, type DraftEntrySource } from '@/utils/pending-draft-storage';
+import {
+    resolveDraftEntryContext,
+    type DraftEntryContext,
+} from '@/lib/ai/draft-entry-context';
 import { useAuth } from '@/context/auth-context';
 import { useOrganizers } from '@/context/organizer-context';
 import { buildDashboardPath } from '@/lib/organizer-path';
@@ -184,24 +189,6 @@ export const steps = mainSteps.map(step => ({
     icon: step.icon,
 }));
 
-const entryContextDefaults: Record<'scratch' | DraftEntrySource, EntryContext> = {
-    scratch: {
-        label: 'Start from scratch',
-    },
-    ai: {
-        label: 'AI suggestion',
-        description: 'Generated via the assistant. Double-check details before publishing.',
-    },
-    clone: {
-        label: 'Cloned from event',
-        description: 'Copied from a previous event. Update the schedule or tickets if needed.',
-    },
-    draft: {
-        label: 'Draft in progress',
-        description: 'Continue editing a saved draft without losing earlier work.',
-    },
-};
-
 const refundPolicyOptions = [
     { value: 'No refunds within a week', label: 'No refunds within a week' },
     { value: 'No refunds within two weeks of the event', label: 'No refunds within two weeks of the event' },
@@ -223,11 +210,6 @@ async function dataUrlToFile(dataUrl: string, fallbackName: string): Promise<Fil
     const extension = mimeType.split('/')[1] || 'png';
     return new File([blob], `${fallbackName}.${extension}`, { type: mimeType });
 }
-
-type EntryContext = {
-    label: string;
-    description?: string;
-};
 
 type TicketFieldErrors = {
     name?: string;
@@ -804,7 +786,7 @@ export function EventWizard({
 }: {
     mode?: 'create' | 'edit';
     initialDraft?: DraftEventInitial;
-    entryContext?: EntryContext;
+    entryContext?: DraftEntryContext;
     embedCheckout?: {
         slug: string;
         isPublic: boolean;
@@ -2612,6 +2594,14 @@ export function EventWizard({
                         transition={{ duration: 0.3, ease: 'easeOut' }}
                     />
                 </div>
+                {entryContext?.source === 'ai' && entryContext.aiReview ? (
+                    <AiDraftReviewPanel
+                        review={entryContext.aiReview}
+                        onReviewDetails={() => navigateToStepWithSubStep(1, 'title')}
+                        onReviewTickets={() => navigateToStepWithSubStep(4, 'ticketTypes')}
+                        onReviewPolicies={() => navigateToStepWithSubStep(4, 'refundPolicy')}
+                    />
+                ) : null}
                 {recoveryNotice ? (
                     <div className="border-t border-amber-200/70 bg-amber-50 text-amber-950">
                         <div className="container flex flex-col gap-2 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between">
@@ -4974,7 +4964,9 @@ function CreateEventContent() {
     const searchParams = useSearchParams();
     const sourceParam = (searchParams.get('source') as DraftEntrySource | null) ?? null;
     const [initialDraft, setInitialDraft] = useState<DraftEventInitial | undefined>(undefined);
-    const [entryContext, setEntryContext] = useState<EntryContext>(entryContextDefaults.scratch);
+    const [entryContext, setEntryContext] = useState<DraftEntryContext>(
+        () => resolveDraftEntryContext(null, null).entryContext,
+    );
     const [wizardKey, setWizardKey] = useState('scratch');
     const appliedSourceRef = useRef<string | null>(null);
 
@@ -4982,9 +4974,10 @@ function CreateEventContent() {
     useEffect(() => {
         if (!isDraftSource(sourceParam)) {
             appliedSourceRef.current = null;
-            setInitialDraft(undefined);
-            setEntryContext(entryContextDefaults.scratch);
-            setWizardKey('scratch');
+            const resolution = resolveDraftEntryContext(null, null);
+            setInitialDraft(resolution.initialDraft);
+            setEntryContext(resolution.entryContext);
+            setWizardKey(resolution.wizardKey);
             return;
         }
 
@@ -4994,22 +4987,10 @@ function CreateEventContent() {
 
         appliedSourceRef.current = sourceParam;
         const pending = consumePendingDraft();
-
-        if (pending && pending.source === sourceParam) {
-            setInitialDraft(pending.draft);
-            setEntryContext({
-                label: pending.meta?.label ?? entryContextDefaults[sourceParam].label,
-                description: pending.meta?.description ?? entryContextDefaults[sourceParam].description,
-            });
-            setWizardKey(`${sourceParam}-${pending.meta?.key ?? sourceParam}`);
-        } else {
-            setInitialDraft(undefined);
-            setEntryContext({
-                label: 'Start from scratch',
-                description: 'We could not load that draft, so you can continue manually.',
-            });
-            setWizardKey(`scratch-${sourceParam}`);
-        }
+        const resolution = resolveDraftEntryContext(sourceParam, pending);
+        setInitialDraft(resolution.initialDraft);
+        setEntryContext(resolution.entryContext);
+        setWizardKey(resolution.wizardKey);
     }, [sourceParam]);
     /* eslint-enable react-hooks/set-state-in-effect */
 
