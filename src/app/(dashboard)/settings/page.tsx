@@ -1692,16 +1692,16 @@ export default function SettingsPage() {
                                     )}
 
                                     <div className="space-y-6 max-w-3xl">
-                                        <section className="rounded-lg border border-border/70 bg-background p-5">
-                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                                <div>
-                                                    <h3 className="text-base font-semibold">Meta</h3>
-                                                    <p className="mt-1 text-sm text-muted-foreground">
-                                                        Meta Pixel handles browser events. Conversions API improves purchase tracking when browser events are blocked.
-                                                    </p>
+                                        <section className="rounded-lg border border-sky-200/80 border-l-4 border-l-sky-500 bg-sky-50/30 p-5 dark:border-sky-900/70 dark:border-l-sky-500 dark:bg-sky-950/10">
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="rounded-md bg-sky-100 px-2 py-1 text-[11px] font-semibold text-sky-800 dark:bg-sky-900/50 dark:text-sky-200">
+                                                        META
+                                                    </span>
+                                                    <h3 className="text-lg font-semibold">Meta</h3>
                                                 </div>
                                                 {metaCapiActive && currentOrganizer?.metaCapiTokenLast4 && (
-                                                    <span className="inline-flex w-fit rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
+                                                    <span className="inline-flex w-fit rounded-full border border-sky-200 bg-background/80 px-2.5 py-1 text-xs text-muted-foreground dark:border-sky-900">
                                                         CAPI ••••{currentOrganizer.metaCapiTokenLast4}
                                                     </span>
                                                 )}
@@ -1714,12 +1714,6 @@ export default function SettingsPage() {
                                                         {metaTrackingStatus.label}
                                                     </span>
                                                 </div>
-                                                <p className="mt-3 text-sm text-muted-foreground">
-                                                    {metaTrackingStatus.summary}
-                                                </p>
-                                                <p className="mt-1 text-sm text-muted-foreground">
-                                                    {metaTrackingStatus.purchaseReliability}
-                                                </p>
                                                 <a
                                                     href="https://www.facebook.com/business/help/952192354843755"
                                                     target="_blank"
@@ -1731,8 +1725,8 @@ export default function SettingsPage() {
                                                 </a>
                                             </div>
 
-                                            <div className="mt-5 grid gap-5 lg:grid-cols-2">
-                                                <div className="space-y-3">
+                                            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                                                <div className="space-y-3 rounded-lg border border-sky-100 bg-background/85 p-4 dark:border-sky-900/60">
                                                     <div className="space-y-2">
                                                         <Label htmlFor="metaPixelId" className="text-muted-foreground">Meta Pixel ID</Label>
                                                         <Input
@@ -1743,9 +1737,6 @@ export default function SettingsPage() {
                                                             className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                                             placeholder="e.g. 123456789012345"
                                                         />
-                                                        <p className="text-xs text-muted-foreground">
-                                                            Loads on organiser event and checkout pages after marketing cookies are accepted.
-                                                        </p>
                                                         {metaPixelStatus === 'success' && (
                                                             <p className="text-sm text-green-600 flex items-center gap-1">
                                                                 <Check className="h-4 w-4" />
@@ -1785,7 +1776,7 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-3">
+                                                <div className="space-y-3 rounded-lg border border-sky-100 bg-background/85 p-4 dark:border-sky-900/60">
                                                     <div className="space-y-2">
                                                         <Label htmlFor="metaCapiToken" className="text-muted-foreground">
                                                             Conversions API token
@@ -1799,9 +1790,6 @@ export default function SettingsPage() {
                                                             className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                                             placeholder="Paste token from Meta Events Manager"
                                                         />
-                                                        <p className="text-xs text-muted-foreground">
-                                                            Optional. Improves Purchase tracking when browser events are blocked.
-                                                        </p>
                                                         {metaCapiConnected && (
                                                             <p className="text-xs text-emerald-600">
                                                                 Connected (••••{currentOrganizer?.metaCapiTokenLast4})
@@ -1848,16 +1836,16 @@ export default function SettingsPage() {
                                             </div>
                                         </section>
 
-                                        <section className="rounded-lg border border-border/70 bg-background p-5">
-                                            <div>
-                                                <h3 className="text-base font-semibold">Google</h3>
-                                                <p className="mt-1 text-sm text-muted-foreground">
-                                                    Group Google Analytics page and checkout measurement with Google Ads purchase conversions.
-                                                </p>
+                                        <section className="rounded-lg border border-amber-200/80 border-l-4 border-l-amber-500 bg-amber-50/30 p-5 dark:border-amber-900/70 dark:border-l-amber-500 dark:bg-amber-950/10">
+                                            <div className="flex items-center gap-3">
+                                                <span className="rounded-md bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                                                    GOOGLE
+                                                </span>
+                                                <h3 className="text-lg font-semibold">Google</h3>
                                             </div>
 
-                                            <div className="mt-5 grid gap-5 lg:grid-cols-2">
-                                                <div className="space-y-3">
+                                            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                                                <div className="space-y-3 rounded-lg border border-amber-100 bg-background/85 p-4 dark:border-amber-900/60">
                                                     <div className="space-y-2">
                                                         <Label htmlFor="ga4MeasurementId" className="text-muted-foreground">
                                                             Google Analytics 4
@@ -1870,9 +1858,6 @@ export default function SettingsPage() {
                                                             className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                                             placeholder="G-XXXXXXXXXX"
                                                         />
-                                                        <p className="text-xs text-muted-foreground">
-                                                            Loads Google Analytics events after analytics storage is accepted.
-                                                        </p>
                                                         {ga4Status === 'success' && (
                                                             <p className="text-sm text-green-600 flex items-center gap-1">
                                                                 <Check className="h-4 w-4" />
@@ -1912,7 +1897,7 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-3">
+                                                <div className="space-y-3 rounded-lg border border-amber-100 bg-background/85 p-4 dark:border-amber-900/60">
                                                     <div className="space-y-4">
                                                         <div className="space-y-2">
                                                             <Label htmlFor="googleAdsConversionId" className="text-muted-foreground">
@@ -1940,9 +1925,6 @@ export default function SettingsPage() {
                                                                 placeholder="abcDEFghiJKL"
                                                             />
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            Fires a Google Ads purchase conversion after marketing storage is accepted.
-                                                        </p>
                                                         {googleAdsStatus === 'success' && (
                                                             <p className="text-sm text-green-600 flex items-center gap-1">
                                                                 <Check className="h-4 w-4" />
@@ -1993,16 +1975,16 @@ export default function SettingsPage() {
                                             </div>
                                         </section>
 
-                                        <section className="rounded-lg border border-border/70 bg-background p-5">
-                                            <div>
-                                                <h3 className="text-base font-semibold">TikTok</h3>
-                                                <p className="mt-1 text-sm text-muted-foreground">
-                                                    TikTok Pixel handles browser events. Events API improves completed-purchase attribution.
-                                                </p>
+                                        <section className="rounded-lg border border-rose-200/80 border-l-4 border-l-rose-500 bg-rose-50/30 p-5 dark:border-rose-900/70 dark:border-l-rose-500 dark:bg-rose-950/10">
+                                            <div className="flex items-center gap-3">
+                                                <span className="rounded-md bg-rose-100 px-2 py-1 text-[11px] font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-200">
+                                                    TIKTOK
+                                                </span>
+                                                <h3 className="text-lg font-semibold">TikTok</h3>
                                             </div>
 
-                                            <div className="mt-5 grid gap-5 lg:grid-cols-2">
-                                                <div className="space-y-3">
+                                            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                                                <div className="space-y-3 rounded-lg border border-rose-100 bg-background/85 p-4 dark:border-rose-900/60">
                                                     <div className="space-y-2">
                                                         <Label htmlFor="tiktokPixelId" className="text-muted-foreground">
                                                             TikTok Pixel ID
@@ -2015,9 +1997,6 @@ export default function SettingsPage() {
                                                             className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                                             placeholder="CXXXXXXXXXXXX"
                                                         />
-                                                        <p className="text-xs text-muted-foreground">
-                                                            Loads TikTok Pixel events after marketing storage is accepted.
-                                                        </p>
                                                         {tiktokPixelStatus === 'success' && (
                                                             <p className="text-sm text-green-600 flex items-center gap-1">
                                                                 <Check className="h-4 w-4" />
@@ -2057,7 +2036,7 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-3">
+                                                <div className="space-y-3 rounded-lg border border-rose-100 bg-background/85 p-4 dark:border-rose-900/60">
                                                     <div className="space-y-2">
                                                         <Label htmlFor="tiktokEventsApiToken" className="text-muted-foreground">
                                                             TikTok Events API token
@@ -2071,9 +2050,6 @@ export default function SettingsPage() {
                                                             className="glass-surface backdrop-blur-sm rounded-xl transition-all placeholder:text-slate-500"
                                                             placeholder="Paste token from TikTok Events Manager"
                                                         />
-                                                        <p className="text-xs text-muted-foreground">
-                                                            Improves Purchase tracking reliability. Server-side Purchase only runs after marketing consent.
-                                                        </p>
                                                         {currentTiktokEventsApiTokenLast4 && (
                                                             <p className="text-xs text-emerald-600">
                                                                 Connected (••••{currentTiktokEventsApiTokenLast4})
