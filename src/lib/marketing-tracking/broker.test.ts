@@ -237,6 +237,33 @@ describe('createMarketingTracker', () => {
         });
     });
 
+    it('sets Google Ads enhanced conversion user data before the purchase conversion when email is present', () => {
+        const tracker = createMarketingTracker({ analyticsAllowed: false, marketingAllowed: true });
+
+        tracker.trackMarketingEvent('purchase_completed', {
+            providerTargets: {
+                googleAds: {
+                    conversionId: 'AW-123456789',
+                    purchaseConversionLabel: 'abcDEFghiJKL',
+                },
+            },
+            orderId: 'order_123',
+            userEmail: ' Buyer@Example.COM ',
+            value: 29.2,
+            currency: 'GBP',
+        });
+
+        expect(gtagMock).toHaveBeenNthCalledWith(4, 'set', 'user_data', {
+            email: 'buyer@example.com',
+        });
+        expect(gtagMock).toHaveBeenNthCalledWith(5, 'event', 'conversion', {
+            send_to: 'AW-123456789/abcDEFghiJKL',
+            value: 29.2,
+            currency: 'GBP',
+            transaction_id: 'order_123',
+        });
+    });
+
     it('configures each Google tag destination only once per page', () => {
         const tracker = createMarketingTracker({ analyticsAllowed: true, marketingAllowed: true });
         const payload = {

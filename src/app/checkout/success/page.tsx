@@ -84,6 +84,7 @@ function CheckoutSuccessContent() {
     const purchaseTrackedProvidersRef = useRef(new Set<string>());
     const draftClearedRef = useRef(false);
     const purchaseEventIdRef = useRef<string | null>(null);
+    const checkoutEmailRef = useRef<{ orderId: string; email: string | null } | null>(null);
 
     useTrackingConsentRequirement({
         analyticsNeeded: Boolean(orderStatus?.tracking?.googleAnalyticsMeasurementId),
@@ -144,6 +145,25 @@ function CheckoutSuccessContent() {
         const pending = orderStatus.isPending ?? orderStatus.status === 'pending';
         if (orderStatus.status !== 'completed' || pending) {
             return;
+        }
+
+        let storedCheckoutEmail =
+            checkoutEmailRef.current?.orderId === orderStatus.orderId
+                ? checkoutEmailRef.current.email
+                : null;
+        if (!checkoutEmailRef.current || checkoutEmailRef.current.orderId !== orderStatus.orderId) {
+            try {
+                storedCheckoutEmail =
+                    typeof sessionStorage !== 'undefined' && orderStatus.orderId
+                        ? sessionStorage.getItem(`checkout_email_${orderStatus.orderId}`)?.trim() || null
+                        : null;
+            } catch {
+                storedCheckoutEmail = null;
+            }
+            checkoutEmailRef.current = {
+                orderId: orderStatus.orderId,
+                email: storedCheckoutEmail,
+            };
         }
 
         if (!draftClearedRef.current) {
@@ -272,6 +292,7 @@ function CheckoutSuccessContent() {
                 value: Number(orderStatus.totalAmount.toFixed(2)),
                 currency: orderStatus.currency,
                 orderId: orderStatus.orderId,
+                userEmail: storedCheckoutEmail,
                 items: orderStatus.trackingItems ?? [],
             });
             markProviderPurchaseTracked('google_ads', orderStatus.orderId);

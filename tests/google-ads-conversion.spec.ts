@@ -232,8 +232,11 @@ test.describe('Google Ads conversion smoke', () => {
     await expect(page.getByRole('button', { name: /accept all/i })).toBeVisible();
   });
 
-  test('fires purchase conversion after marketing consent is accepted', async ({ page, context }) => {
+  test('fires purchase conversion with enhanced conversion email after marketing consent is accepted', async ({ page, context }) => {
     await context.clearCookies();
+    await page.addInitScript(() => {
+      window.sessionStorage.setItem('checkout_email_order_123', ' Buyer@Example.COM ');
+    });
 
     await page.goto('/checkout/success?order_id=order_123');
     await page.waitForLoadState('networkidle');
@@ -252,6 +255,13 @@ test.describe('Google Ads conversion smoke', () => {
       'AW-123456789',
       {
         send_page_view: false,
+      },
+    ]);
+    expect(await getGtagCalls(page)).toContainEqual([
+      'set',
+      'user_data',
+      {
+        email: 'buyer@example.com',
       },
     ]);
     expect(await getGtagCalls(page)).toContainEqual([

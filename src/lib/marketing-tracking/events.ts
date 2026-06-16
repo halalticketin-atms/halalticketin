@@ -28,6 +28,7 @@ export interface MarketingEventPayload {
     publicEventId?: string | null;
     publicEventTitle?: string | null;
     orderId?: string | null;
+    userEmail?: string | null;
     value?: number | null;
     currency?: string | null;
     numItems?: number | null;

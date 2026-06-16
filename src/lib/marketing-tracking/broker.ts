@@ -216,6 +216,10 @@ export const createMarketingTracker = ({
             })
             : null;
         if (googleAdsEvent && googleAdsGtag) {
+            const userEmail = payload.userEmail?.trim().toLowerCase();
+            if (userEmail) {
+                googleAdsGtag('set', 'user_data', { email: userEmail });
+            }
             googleAdsGtag('event', googleAdsEvent.eventName, googleAdsEvent.params);
         }
 
