@@ -1614,9 +1614,6 @@ export default function SettingsPage() {
                                             <p className="text-muted-foreground text-sm">
                                                 Configure the tracking signals Halal Ticketin can send for this organiser.
                                             </p>
-                                            <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-                                                Halal Ticketin fires the configured platform pixels directly. The ht_* dataLayer events are for advanced GTM setups; do not also fire the same platform tags from GTM.
-                                            </p>
                                         </div>
                                         {activeOrganizers.length > 1 && (
                                             <Select value={activeOrganizerId} onValueChange={setActiveOrganizerId}>
