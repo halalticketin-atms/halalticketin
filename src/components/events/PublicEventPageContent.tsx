@@ -53,6 +53,7 @@ import { createMarketingTracker, type MarketingTicketItem } from '@/lib/marketin
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
 import { contactOrganizerByEventSlug } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote, type CheckoutQuoteResponse, type TicketAttendeePayload } from '@/lib/checkout-api';
+import { getCheckoutPresentation } from '@/lib/checkout-presentation';
 import { formatCurrency, getCurrencySymbol } from '@/lib/fees';
 import { formatCreditSplitNote } from '@/lib/credit-notes';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
@@ -1322,6 +1323,11 @@ export function PublicEventPageContent({
         ? `${currencySymbol}${processingFeeAmount.toFixed(2)} + ${currencySymbol}${processingFeeVatAmount.toFixed(2)}`
         : `${currencySymbol}${processingFeeAmount.toFixed(2)}`;
     const grandTotal = activeQuote?.total ?? 0;
+    const checkoutPresentation = getCheckoutPresentation({
+        isFreeOrder: activeQuote?.isFreeOrder === true,
+        currencySymbol,
+        total: grandTotal,
+    });
     const discountedSubtotal = Math.max(0, quoteSubtotal - quoteDiscountAmount);
     const creditsApplied = activeQuote?.creditsApplied ?? 0;
     const quotePaidTicketCount = activeQuote?.paidTicketCount ?? paidTicketCount;
@@ -2976,10 +2982,10 @@ export function PublicEventPageContent({
                             <div className="px-4 pt-4 pb-1.5 md:px-8 md:pt-6 md:pb-2">
                                 {/* Step Indicators */}
                                 <div className="flex items-center justify-between mb-4 md:mb-6">
-                                    {['Information', 'Payment', 'Complete'].map((label, idx) => {
+                                    {checkoutPresentation.stepLabels.map((label, idx) => {
                                         // Logic to map current detailed step to these 3 high level buckets
                                         // Information: Buyer & Ticket steps
-                                        // Payment: Confirm step (simulated for visual)
+                                        // Payment/Review: Confirm step, based on the fresh quote
                                         // Complete: (Future)
 
                                         const isActive =
@@ -3030,13 +3036,13 @@ export function PublicEventPageContent({
                                                 <h4 className="min-w-0 text-base md:text-lg font-bold text-foreground">
                                                     {stepType === 'buyer' && 'Contact Information'}
                                                     {stepType === 'ticket' && `Ticket ${currentTicketIndex + 1} Details`}
-                                                    {stepType === 'confirm' && 'Payment Details'}
+                                                    {stepType === 'confirm' && checkoutPresentation.confirmTitle}
                                                 </h4>
                                             </div>
                                             <p className="text-xs text-muted-foreground mt-0.5">
                                                 {stepType === 'buyer' && 'Where should we send your tickets?'}
                                                 {stepType === 'ticket' && 'Provide attendee information for this ticket.'}
-                                                {stepType === 'confirm' && 'Select your preferred payment method'}
+                                                {stepType === 'confirm' && checkoutPresentation.confirmDescription}
                                             </p>
                                         </div>
 
@@ -3448,7 +3454,7 @@ export function PublicEventPageContent({
                                         ) : isQuoteBlocked ? (
                                             'Totals unavailable'
                                         ) : (
-                                            `Pay ${currencySymbol}${grandTotal.toFixed(2)} Now`
+                                            checkoutPresentation.submitLabel
                                         )}
                                     </Button>
                                 )}

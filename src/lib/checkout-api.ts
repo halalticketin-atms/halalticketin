@@ -84,6 +84,7 @@ export interface CheckoutQuoteLineAllocation {
 
 export interface CheckoutQuoteResponse {
   success: true;
+  isFreeOrder: boolean;
   currency: string;
   subtotal: number;
   discount: number;
