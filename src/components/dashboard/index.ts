@@ -2,6 +2,7 @@ export { StatCard } from './StatCard';
 export { RecentEvents } from './RecentEvents';
 export { QuickActions } from './QuickActions';
 export { DashboardSidebar } from './DashboardSidebar';
+export { DashboardTopbar } from './DashboardTopbar';
 export { OrganizerSwitcher } from './OrganizerSwitcher';
 export { MobileBottomNav } from './MobileBottomNav';
 export { EventPerformanceCards } from './EventPerformanceCards';

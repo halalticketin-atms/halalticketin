@@ -628,7 +628,7 @@ function CheckInContent() {
 
       {/* Search Mode - Clean white background */}
       {mode === 'search' && (
-        <div className="flex-1 bg-background pt-(--nav-safe-offset) pb-32">
+        <div className="flex-1 bg-background pt-(--nav-safe-offset) lg:pt-0 pb-32">
           <div className="container pt-3 pb-6 px-4">
             <CheckInHeader
               events={activeEvents}

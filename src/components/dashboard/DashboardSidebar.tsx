@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
     LayoutDashboard,
     Calendar,
@@ -103,6 +104,7 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
     const { signOut } = useAuth();
     const { organizers, activeOrganizerId } = useOrganizers();
     const mainNavItems = buildNavItems(organizerId);
+    const logoHref = organizerId ? buildDashboardPath(organizerId) : '/dashboard';
 
     // Get the current user's role for the active organizer
     const activeOrganizer = organizers.find((org) => org.id === (organizerId || activeOrganizerId));
@@ -174,14 +176,28 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
     return (
         <>
             {/* Desktop Sidebar - Always visible on lg+ screens */}
-            <aside className="hidden lg:flex fixed top-[var(--nav-safe-offset)] left-0 h-[calc(100vh-var(--nav-safe-offset))] w-[260px] bg-card border-r border-border flex-col z-30 shadow-sm">
-                {/* Organizer Switcher */}
-                <div className="border-b border-border">
+            <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-[260px] bg-card border-r border-border/50 flex-col z-40 shadow-sm">
+                {/* Brand — bottom edge aligns with the top bar to read as one line */}
+                <div className="flex h-16 items-center border-b border-border/50 px-5">
+                    <Link href={logoHref} className="flex items-center gap-2">
+                        <Image
+                            src="/logos/HTlogocr.png"
+                            alt="HalalTicketin' Logo"
+                            width={120}
+                            height={35}
+                            className="h-8 w-auto"
+                            priority
+                        />
+                    </Link>
+                </div>
+
+                {/* Organizer Switcher (no divider — blends into the nav below) */}
+                <div>
                     <OrganizerSwitcher />
                 </div>
 
-                {/* Main Navigation - Centered vertically */}
-                <nav className="flex-1 flex flex-col justify-center px-4 space-y-2">
+                {/* Main Navigation */}
+                <nav className="flex-1 flex flex-col justify-start px-4 pt-4 space-y-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 mb-2">
                         Menu
                     </p>
@@ -191,7 +207,7 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
                 </nav>
 
                 {/* Bottom Navigation */}
-                <div className="p-4 border-t border-border space-y-1 bg-card">
+                <div className="p-4 border-t border-border/50 space-y-1 bg-card">
                     {bottomNavItems.map((item) => (
                         <NavLink key={item.href} item={item} />
                     ))}

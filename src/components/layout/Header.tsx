@@ -68,6 +68,10 @@ export function Header() {
         (/^\/events\/preview(\/|$)/.test(pathname) || /^\/events\/[^/]+\/preview$/.test(pathname))
     );
     const isEmbedRoute = pathname?.startsWith('/embed');
+    // Organizer dashboard uses its own full-height sidebar + slim app top bar on
+    // desktop, so the marketing header is hidden there on lg+ (kept on mobile,
+    // where the sidebar is hidden and the hamburger menu is needed).
+    const isOrgDashboard = pathname?.startsWith('/dashboard/o/') ?? false;
 
     if (isPreviewRoute || isEmbedRoute) {
         return null;
@@ -267,7 +271,9 @@ export function Header() {
                     // Only enable transitions after mount to prevent initial stutter
                     !hasMounted && 'motion-reduce:transition-none',
                     // CSS entrance animation using tw-animate-css
-                    hasMounted && 'animate-in fade-in duration-300 fill-mode-forwards'
+                    hasMounted && 'animate-in fade-in duration-300 fill-mode-forwards',
+                    // Hidden on desktop within the organizer dashboard shell
+                    isOrgDashboard && 'lg:hidden'
                 )}
                 onMouseEnter={() => setIsInteracting(true)}
                 onMouseLeave={() => setIsInteracting(false)}

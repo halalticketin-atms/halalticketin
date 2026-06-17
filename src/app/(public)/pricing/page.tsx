@@ -128,7 +128,7 @@ export default function PricingPage() {
         <div className="min-h-screen relative overflow-hidden gradient-mesh -mt-[var(--nav-safe-offset)]">
             <AmbientBackground />
 
-            <div className="relative z-10 container mx-auto px-4 pt-24 md:pt-32 pb-16">
+            <div className="relative z-10 container mx-auto px-4 pt-[calc(var(--nav-safe-offset)+1.5rem)] md:pt-[calc(var(--nav-safe-offset)+3rem)] pb-16">
                 {/* Header */}
                 <div className="text-center mb-12 md:mb-16 space-y-4 animate-fade-up">
                     <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900">
