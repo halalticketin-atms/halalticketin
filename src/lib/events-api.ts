@@ -101,6 +101,16 @@ export interface CustomQuestionPayload {
   options?: string[];
 }
 
+export interface CustomQuestionLibraryItem extends Omit<CustomQuestionPayload, 'id'> {
+  key: string;
+  usageCount: number;
+  mostRecentEvent: {
+    id: string;
+    title: string;
+    updatedAt: string;
+  };
+}
+
 export interface UpsertEventPayload {
   title: string;
   description?: string | null;
@@ -153,6 +163,13 @@ export interface TicketInputPayload {
 export const createEventDraft = async (organizerId: string, payload: UpsertEventPayload) => {
   assertValidOrganizerId(organizerId);
   return api.post<{ event: EventRecord }>(`/api/v1/organizers/${organizerId}/events`, payload);
+};
+
+export const fetchCustomQuestionLibrary = async (organizerId: string) => {
+  assertValidOrganizerId(organizerId);
+  return api.get<{ questions: CustomQuestionLibraryItem[] }>(
+    `/api/v1/organizers/${organizerId}/custom-questions`,
+  );
 };
 
 export const updateEventDraft = async (eventId: string, payload: UpsertEventPayload) => {

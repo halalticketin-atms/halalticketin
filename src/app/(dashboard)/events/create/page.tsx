@@ -60,6 +60,7 @@ import { LocationAutocomplete } from '@/components/events/LocationAutocomplete';
 import { MainStepTabs, SubStepSidebar, SubStepChips } from '@/components/events/wizard';
 import { EmbedCheckoutSnippet } from '@/components/events/EmbedCheckoutSnippet';
 import { AiDraftReviewPanel } from '@/components/events/AiDraftReviewPanel';
+import { CustomQuestionLibraryDialog } from '@/components/events/CustomQuestionLibraryDialog';
 
 // Dynamic import to avoid SSR issues with Leaflet
 const EventLocationMap = dynamic(
@@ -93,6 +94,7 @@ import {
     updateEventDraft,
     updatePromoCode as updatePromoCodeApi,
     type PromoCodeInput,
+    type CustomQuestionLibraryItem,
     type UpsertEventPayload,
 } from '@/lib/events-api';
 import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
@@ -106,6 +108,7 @@ import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/li
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
 import { clearEventEditRecovery, getEventEditRecoverySavedAt, writeEventEditRecovery } from '@/lib/event-edit-recovery';
+import { addLibraryQuestions, createCustomQuestionId } from '@/lib/custom-question-library';
 import {
     Dialog,
     DialogContent,
@@ -4587,34 +4590,52 @@ export function EventWizard({
 
                                                 {/* Custom Questions */}
                                                 <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                                    <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5 flex items-center justify-between">
+                                                    <div className="flex flex-col gap-3 border-b border-border/40 bg-(--brand-cyan)/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                                         <div>
                                                             <h3 className="text-sm font-medium text-foreground">Custom Questions</h3>
                                                             <p className="text-xs text-muted-foreground mt-0.5">Add additional questions for attendees (max 10)</p>
                                                         </div>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => {
-                                                                if (formData.customQuestions.length >= 10) return;
-                                                                setFormData(prev => ({
-                                                                    ...prev,
-                                                                    customQuestions: [
-                                                                        ...prev.customQuestions,
-                                                                        {
-                                                                            id: `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                                                                            label: '',
-                                                                            type: 'text',
-                                                                            required: false,
-                                                                        }
-                                                                    ]
-                                                                }));
-                                                            }}
-                                                            disabled={formData.customQuestions.length >= 10}
-                                                        >
-                                                            <Plus className="mr-1 h-3 w-3" />
-                                                            Add Question
-                                                        </Button>
+                                                        <div className="flex flex-col gap-2 min-[420px]:flex-row sm:justify-end">
+                                                            <CustomQuestionLibraryDialog
+                                                                organizerId={activeOrganizerId}
+                                                                existingQuestions={formData.customQuestions}
+                                                                onAddQuestions={(questions: CustomQuestionLibraryItem[]) => {
+                                                                    setFormData(prev => ({
+                                                                        ...prev,
+                                                                        customQuestions: addLibraryQuestions(
+                                                                            prev.customQuestions,
+                                                                            questions,
+                                                                            createCustomQuestionId,
+                                                                        ).questions,
+                                                                    }));
+                                                                }}
+                                                            />
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    if (formData.customQuestions.length >= 10) return;
+                                                                    setFormData(prev => ({
+                                                                        ...prev,
+                                                                        customQuestions: [
+                                                                            ...prev.customQuestions,
+                                                                            {
+                                                                                id: createCustomQuestionId(),
+                                                                                label: '',
+                                                                                type: 'text',
+                                                                                required: false,
+                                                                            }
+                                                                        ]
+                                                                    }));
+                                                                }}
+                                                                disabled={formData.customQuestions.length >= 10}
+                                                                className="min-h-9"
+                                                            >
+                                                                <Plus className="mr-1 h-3 w-3" />
+                                                                Add Question
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                     <div className="p-4 space-y-4">
 
