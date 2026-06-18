@@ -1,7 +1,8 @@
 import type { DraftCustomQuestion } from '@/hooks/useEventDraft';
 import type { CustomQuestionLibraryItem, CustomQuestionPayload } from './events-api';
 
-const MAX_CUSTOM_QUESTIONS = 10;
+export const MAX_CUSTOM_QUESTIONS = 20;
+export const MAX_CUSTOM_QUESTION_LABEL_LENGTH = 500;
 
 type QuestionDefinition = Pick<
   CustomQuestionPayload,

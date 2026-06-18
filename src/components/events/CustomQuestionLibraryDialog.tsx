@@ -8,7 +8,10 @@ import {
   fetchCustomQuestionLibrary,
   type CustomQuestionLibraryItem,
 } from '@/lib/events-api';
-import { isQuestionAlreadyPresent } from '@/lib/custom-question-library';
+import {
+  isQuestionAlreadyPresent,
+  MAX_CUSTOM_QUESTIONS,
+} from '@/lib/custom-question-library';
 import { getUserFriendlyMessage } from '@/lib/notifications';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,8 +25,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-const MAX_CUSTOM_QUESTIONS = 10;
 
 const questionTypeLabel: Record<CustomQuestionLibraryItem['type'], string> = {
   text: 'Text',

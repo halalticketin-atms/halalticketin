@@ -108,7 +108,12 @@ import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/li
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
 import { clearEventEditRecovery, getEventEditRecoverySavedAt, writeEventEditRecovery } from '@/lib/event-edit-recovery';
-import { addLibraryQuestions, createCustomQuestionId } from '@/lib/custom-question-library';
+import {
+    addLibraryQuestions,
+    createCustomQuestionId,
+    MAX_CUSTOM_QUESTIONS,
+    MAX_CUSTOM_QUESTION_LABEL_LENGTH,
+} from '@/lib/custom-question-library';
 import {
     Dialog,
     DialogContent,
@@ -4593,7 +4598,7 @@ export function EventWizard({
                                                     <div className="flex flex-col gap-3 border-b border-border/40 bg-(--brand-cyan)/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                                         <div>
                                                             <h3 className="text-sm font-medium text-foreground">Custom Questions</h3>
-                                                            <p className="text-xs text-muted-foreground mt-0.5">Add additional questions for attendees (max 10)</p>
+                                                            <p className="text-xs text-muted-foreground mt-0.5">Add additional questions for attendees (max {MAX_CUSTOM_QUESTIONS})</p>
                                                         </div>
                                                         <div className="flex flex-col gap-2 min-[420px]:flex-row sm:justify-end">
                                                             <CustomQuestionLibraryDialog
@@ -4615,7 +4620,7 @@ export function EventWizard({
                                                                 size="sm"
                                                                 variant="outline"
                                                                 onClick={() => {
-                                                                    if (formData.customQuestions.length >= 10) return;
+                                                                    if (formData.customQuestions.length >= MAX_CUSTOM_QUESTIONS) return;
                                                                     setFormData(prev => ({
                                                                         ...prev,
                                                                         customQuestions: [
@@ -4629,7 +4634,7 @@ export function EventWizard({
                                                                         ]
                                                                     }));
                                                                 }}
-                                                                disabled={formData.customQuestions.length >= 10}
+                                                                disabled={formData.customQuestions.length >= MAX_CUSTOM_QUESTIONS}
                                                                 className="min-h-9"
                                                             >
                                                                 <Plus className="mr-1 h-3 w-3" />
@@ -4649,16 +4654,24 @@ export function EventWizard({
                                                                 {formData.customQuestions.map((question, index) => (
                                                                     <div key={question.id} className="flex gap-3 p-3 bg-muted/30 rounded-lg">
                                                                         <div className="flex-1 space-y-2">
-                                                                            <Input
+                                                                            <Textarea
                                                                                 placeholder="Question label"
                                                                                 value={question.label}
+                                                                                maxLength={MAX_CUSTOM_QUESTION_LABEL_LENGTH}
+                                                                                rows={2}
                                                                                 onChange={(e) => {
                                                                                     const updated = [...formData.customQuestions];
-                                                                                    updated[index] = { ...updated[index], label: e.target.value };
+                                                                                    updated[index] = {
+                                                                                        ...updated[index],
+                                                                                        label: e.target.value.slice(0, MAX_CUSTOM_QUESTION_LABEL_LENGTH),
+                                                                                    };
                                                                                     setFormData(prev => ({ ...prev, customQuestions: updated }));
                                                                                 }}
-                                                                                className="h-9"
+                                                                                className="min-h-16 resize-y"
                                                                             />
+                                                                            <p className="text-right text-xs text-muted-foreground">
+                                                                                {question.label.length}/{MAX_CUSTOM_QUESTION_LABEL_LENGTH}
+                                                                            </p>
                                                                             <div className="flex items-center gap-3">
                                                                                 <Select
                                                                                     value={question.type}

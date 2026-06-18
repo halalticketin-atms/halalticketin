@@ -4,6 +4,7 @@ import {
   addLibraryQuestions,
   getCustomQuestionKey,
   isQuestionAlreadyPresent,
+  MAX_CUSTOM_QUESTIONS,
 } from './custom-question-library';
 import type { CustomQuestionLibraryItem } from './events-api';
 
@@ -68,8 +69,8 @@ describe('custom question library selection', () => {
     expect(first.options).toEqual(['Halal', 'Vegetarian']);
   });
 
-  it('skips exact duplicates and never exceeds ten questions', () => {
-    const existing = Array.from({ length: 9 }, (_, index) => ({
+  it('skips exact duplicates and never exceeds the event question limit', () => {
+    const existing = Array.from({ length: MAX_CUSTOM_QUESTIONS - 1 }, (_, index) => ({
       id: `existing-${index}`,
       label: index === 0 ? 'Dietary requirements' : `Question ${index}`,
       type: index === 0 ? ('select' as const) : ('text' as const),
@@ -94,7 +95,7 @@ describe('custom question library selection', () => {
 
     const result = addLibraryQuestions(existing, [duplicate, available, overLimit], () => 'new-id');
 
-    expect(result.questions).toHaveLength(10);
+    expect(result.questions).toHaveLength(MAX_CUSTOM_QUESTIONS);
     expect(result.questions.at(-1)?.label).toBe('Accessibility requirements');
     expect(result.addedCount).toBe(1);
     expect(result.skippedDuplicateCount).toBe(1);
