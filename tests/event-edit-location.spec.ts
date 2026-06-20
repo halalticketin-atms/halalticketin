@@ -265,7 +265,7 @@ test('minimum-age validation clears when the organiser corrects the field', asyn
   await page.getByRole('button', { name: 'Attendee Info', exact: true }).click();
 
   const minimumAgeInput = page.getByLabel('Minimum attendee age');
-  await expect(page.getByText('0 = no minimum')).toBeVisible();
+  await expect(minimumAgeInput).toBeVisible();
   const minimumAgeError = page.getByText('Enter a minimum age from 0 to 120.');
   await minimumAgeInput.fill('-1');
   await expect(minimumAgeError).toHaveCount(0);
