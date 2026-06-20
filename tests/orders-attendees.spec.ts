@@ -331,6 +331,63 @@ test('order details exposes ticket-level registration answers', async ({ page })
   await expect(page.getByText('Vegetarian')).toBeVisible();
 });
 
+test('order attendee edit preserves explicit resend opt-out while email changes', async ({ page }) => {
+  await page.route(`**/api/v1/orders/${orderId}/attendee`, async route => {
+    expect(route.request().method()).toBe('PATCH');
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        changed: true,
+        orderId,
+        attendee: {
+          name: 'Amina Buyer',
+          email: 'amina.corrected@example.com',
+          gender: null,
+          age: 29,
+        },
+        ticketsUpdatedCount: 1,
+        resend: { status: 'not_requested' },
+      }),
+    });
+  });
+
+  await page.getByText('Amina Buyer').first().click();
+
+  const dialog = page.getByRole('dialog', { name: 'Edit attendee' });
+  await page.getByRole('button', { name: 'Edit attendee' }).click();
+  await expect(dialog).toBeVisible();
+
+  const resendCheckbox = dialog.getByRole('checkbox', {
+    name: /Resend confirmation to the updated email/i,
+  });
+
+  await dialog.getByRole('textbox', { name: 'Email' }).fill('amina.updated@example.com');
+  await expect(resendCheckbox).toBeChecked();
+
+  await resendCheckbox.uncheck();
+  await expect(resendCheckbox).not.toBeChecked();
+
+  await dialog.getByRole('textbox', { name: 'Email' }).fill('amina.corrected@example.com');
+  await expect(resendCheckbox).not.toBeChecked();
+
+  await dialog.getByLabel('Age').fill('29');
+
+  const updateRequest = page.waitForRequest(request => {
+    const url = new URL(request.url());
+    return request.method() === 'PATCH' && url.pathname.endsWith(`/api/v1/orders/${orderId}/attendee`);
+  });
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+
+  expect((await updateRequest).postDataJSON()).toMatchObject({
+    attendeeEmail: 'amina.corrected@example.com',
+    attendeeAge: 29,
+    resendConfirmation: false,
+  });
+  await expect(dialog).toBeHidden();
+});
+
 test('answer filters appear for one event and are sent with pagination-safe requests', async ({ page }) => {
   await page.getByRole('button', { name: 'Attendees' }).click();
   await page.locator('[data-slot="dropdown-menu-trigger"]').filter({ hasText: 'Events' }).click();

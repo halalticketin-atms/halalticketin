@@ -35,6 +35,7 @@ import {
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
@@ -157,6 +158,25 @@ interface OrderDetailResponse extends Omit<OrderResponse, 'attendee'> {
         };
     };
     tickets: OrderTicket[];
+}
+
+interface UpdateAttendeeResponse {
+    success: true;
+    changed: boolean;
+    orderId: string;
+    attendee: {
+        name: string | null;
+        email: string;
+        gender: 'male' | 'female' | null;
+        age: number | null;
+    };
+    ticketsUpdatedCount: number;
+    resend: {
+        status: 'not_requested' | 'skipped' | 'sent' | 'failed';
+        reason?: 'email_unchanged' | 'order_not_completed';
+        to?: string;
+        error?: string;
+    };
 }
 
 interface RegistrationAnswer {
@@ -285,6 +305,15 @@ export default function OrdersPage() {
     const [refundError, setRefundError] = useState<string | null>(null);
     const [isResending, setIsResending] = useState(false);
     const [emailCooldowns, setEmailCooldowns] = useState<Map<string, number>>(new Map());
+    const [isEditAttendeeOpen, setIsEditAttendeeOpen] = useState(false);
+    const [isUpdatingAttendee, setIsUpdatingAttendee] = useState(false);
+    const [attendeeForm, setAttendeeForm] = useState({
+        name: '',
+        email: '',
+        gender: 'unspecified' as 'male' | 'female' | 'unspecified',
+        age: '',
+        resendConfirmation: false,
+    });
 
     // Export state
     const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -302,7 +331,7 @@ export default function OrdersPage() {
 
     const [pageTab, setPageTab] = useState<OrderPageTab>('orders');
 
-    const EMAIL_COOLDOWN_SECONDS = 60;
+    const EMAIL_COOLDOWN_SECONDS = 5 * 60;
 
     const updateEventFilter = (nextEventIds: string[]) => {
         const currentSingleEventId = eventFilter.length === 1 ? eventFilter[0] : null;
@@ -345,6 +374,115 @@ export default function OrdersPage() {
         const elapsed = Date.now() - lastSent;
         const remaining = Math.ceil((EMAIL_COOLDOWN_SECONDS * 1000 - elapsed) / 1000);
         return remaining > 0 ? remaining : 0;
+    };
+
+    const openEditAttendeeDialog = () => {
+        if (!detailOrder) {
+            return;
+        }
+        setAttendeeForm({
+            name: detailOrder.attendee.name ?? '',
+            email: detailOrder.attendee.email,
+            gender:
+                detailAttendee?.gender === 'male' || detailAttendee?.gender === 'female'
+                    ? detailAttendee.gender
+                    : 'unspecified',
+            age: detailAttendee?.age === null || detailAttendee?.age === undefined
+                ? ''
+                : String(detailAttendee.age),
+            resendConfirmation: false,
+        });
+        setIsEditAttendeeOpen(true);
+    };
+
+    const handleAttendeeEmailChange = (value: string) => {
+        setAttendeeForm((current) => {
+            const normalizedNext = value.trim().toLowerCase();
+            const normalizedCurrent = current.email.trim().toLowerCase();
+            const normalizedOriginal = detailOrder?.attendee.email.trim().toLowerCase() ?? '';
+            const canResendCorrection = detailOrder?.status === 'completed';
+            const isFirstEmailChange =
+                canResendCorrection &&
+                normalizedCurrent === normalizedOriginal &&
+                normalizedNext !== normalizedOriginal;
+            return {
+                ...current,
+                email: value,
+                resendConfirmation:
+                    canResendCorrection &&
+                    normalizedNext !== normalizedOriginal &&
+                    (isFirstEmailChange || current.resendConfirmation),
+            };
+        });
+    };
+
+    const handleUpdateAttendee = async () => {
+        if (!selectedOrder) {
+            return;
+        }
+        const normalizedEmail = attendeeForm.email.trim().toLowerCase();
+        if (!normalizedEmail) {
+            toast.warning('Attendee email is required.');
+            return;
+        }
+        const trimmedAge = attendeeForm.age.trim();
+        const parsedAge = trimmedAge === '' ? null : Number(trimmedAge);
+        if (
+            parsedAge !== null &&
+            (!Number.isInteger(parsedAge) || parsedAge < 0 || parsedAge > 120)
+        ) {
+            toast.warning('Age must be a whole number between 0 and 120.');
+            return;
+        }
+
+        setIsUpdatingAttendee(true);
+        try {
+            const response = await api.patch<UpdateAttendeeResponse>(
+                `/api/v1/orders/${selectedOrder.id}/attendee`,
+                {
+                    attendeeName: attendeeForm.name.trim() || null,
+                    attendeeEmail: normalizedEmail,
+                    attendeeGender: attendeeForm.gender === 'unspecified' ? null : attendeeForm.gender,
+                    attendeeAge: parsedAge,
+                    resendConfirmation: attendeeForm.resendConfirmation,
+                },
+            );
+
+            const [detail, list] = await Promise.all([
+                api.get<OrderDetailResponse>(`/api/v1/orders/${selectedOrder.id}`),
+                organizerId
+                    ? api.get<OrdersResponse>('/api/v1/orders', { params: { organizerId } })
+                    : Promise.resolve<OrdersResponse>({ orders: [] }),
+            ]);
+
+            setSelectedOrderDetail(detail);
+            setOrders(list.orders);
+            setSelectedOrder(list.orders.find((order) => order.id === selectedOrder.id) ?? selectedOrder);
+            setIsEditAttendeeOpen(false);
+            if (response.resend.status === 'sent') {
+                setEmailCooldowns((prev) => new Map(prev).set(selectedOrder.id, Date.now()));
+            }
+
+            if (!response.changed) {
+                toast.info('No changes made');
+            } else if (response.resend.status === 'failed') {
+                toast.warning('Attendee updated, but resend failed', {
+                    description: response.resend.error ?? 'The attendee details were saved.',
+                });
+            } else {
+                toast.success('Attendee updated', {
+                    description:
+                        response.resend.status === 'sent'
+                            ? `Confirmation resent to ${response.resend.to ?? normalizedEmail}.`
+                            : `${response.ticketsUpdatedCount} ticket${response.ticketsUpdatedCount === 1 ? '' : 's'} updated.`,
+                });
+            }
+        } catch (err) {
+            console.error('Failed to update attendee:', err);
+            toast.error(err, 'Unable to update attendee');
+        } finally {
+            setIsUpdatingAttendee(false);
+        }
     };
 
     const handleResendEmail = async (orderId: string) => {
@@ -751,11 +889,16 @@ export default function OrdersPage() {
     };
 
     const detailOrder = selectedOrderDetail ?? selectedOrder;
+    const detailAttendee = detailOrder?.attendee as OrderDetailResponse['attendee'] | undefined;
     const detailTickets = selectedOrderDetail?.tickets ?? [];
     const detailBreakdown = selectedOrderDetail?.totals.breakdown;
     const remainingRefundable = selectedOrderDetail?.totals.remainingRefundable ?? 0;
     const remainingTicketRefundable = selectedOrderDetail?.totals.remainingTicketRefundable ?? 0;
     const hasDonationAmount = (detailBreakdown?.donationTotal ?? 0) > 0;
+    const attendeeEmailChanged =
+        Boolean(detailOrder) &&
+        attendeeForm.email.trim().toLowerCase() !== (detailOrder?.attendee.email ?? '').trim().toLowerCase();
+    const canResendEditedConfirmation = detailOrder?.status === 'completed' && attendeeEmailChanged;
     const refundableTickets = useMemo(
         () =>
             (selectedOrderDetail?.tickets ?? []).filter(
@@ -767,6 +910,9 @@ export default function OrdersPage() {
     const isRefundActionDisabled =
         detailOrder?.status === 'refunded' ||
         (selectedOrderDetail !== null && remainingRefundable <= 0 && refundableTickets.length === 0);
+    const canShowRefundAction =
+        (detailOrder?.status === 'completed' || detailOrder?.status === 'partially_refunded') &&
+        !isRefundActionDisabled;
     const selectedRefundTotal = useMemo(
         () =>
             refundableTickets.reduce((sum, ticket) => {
@@ -1748,6 +1894,9 @@ export default function OrdersPage() {
                                             {statusLabels[detailOrder.status]}
                                         </Badge>
                                     </DialogTitle>
+                                    <DialogDescription className="sr-only">
+                                        Review order details, ticket answers, resend confirmations, or process refunds.
+                                    </DialogDescription>
                                 </DialogHeader>
 
                                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as OrderDetailTab)} className="mt-4">
@@ -1829,6 +1978,14 @@ export default function OrdersPage() {
                                                         <div className="bg-muted/50 rounded-lg p-3">
                                                             <p className="font-semibold">{detailOrder.attendee.name ?? 'Unnamed'}</p>
                                                             <p className="text-sm text-muted-foreground">{detailOrder.attendee.email}</p>
+                                                            {(detailAttendee?.gender || detailAttendee?.age != null) && (
+                                                                <p className="text-xs text-muted-foreground mt-1">
+                                                                    {detailAttendee?.gender ? detailAttendee.gender : 'Gender not set'}
+                                                                    {detailAttendee?.age !== null && detailAttendee?.age !== undefined
+                                                                        ? ` · Age ${detailAttendee.age}`
+                                                                        : ''}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     </div>
 
@@ -1927,20 +2084,28 @@ export default function OrdersPage() {
                                                     </div>
 
                                                     {/* Actions */}
-                                                    <div className="flex gap-3 pt-2">
+                                                    <div className={`grid gap-3 pt-2 ${canShowRefundAction ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
                                                         <Button
                                                             variant="outline"
-                                                            className="flex-1"
+                                                            className="w-full"
+                                                            onClick={openEditAttendeeDialog}
+                                                        >
+                                                            <User className="h-4 w-4 mr-2" />
+                                                            Edit attendee
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            className="w-full"
                                                             onClick={() => selectedOrder && handleResendEmail(selectedOrder.id)}
                                                             disabled={isResending || detailOrder.status !== 'completed'}
                                                         >
                                                             <Mail className="h-4 w-4 mr-2" />
                                                             {isResending ? 'Sending...' : 'Resend Email'}
                                                         </Button>
-                                                        {(detailOrder.status === 'completed' || detailOrder.status === 'partially_refunded') && !isRefundActionDisabled && (
+                                                        {canShowRefundAction && (
                                                             <Button
                                                                 variant="destructive"
-                                                                className="flex-1"
+                                                                className="w-full"
                                                                 onClick={() => setActiveTab('refund')}
                                                             >
                                                                 <RefreshCw className="h-4 w-4 mr-2" /> Refund
@@ -2219,6 +2384,129 @@ export default function OrdersPage() {
                     </DialogContent>
                 </Dialog>
 
+                <Dialog open={isEditAttendeeOpen} onOpenChange={setIsEditAttendeeOpen}>
+                    <DialogContent className="sm:max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle>Edit attendee</DialogTitle>
+                            <DialogDescription className="sr-only">
+                                Update the buyer details stored on this order and matching inherited ticket records.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4 py-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-attendee-name">Name</Label>
+                                <Input
+                                    id="edit-attendee-name"
+                                    value={attendeeForm.name}
+                                    onChange={(event) =>
+                                        setAttendeeForm((current) => ({ ...current, name: event.target.value }))
+                                    }
+                                    placeholder="Attendee name"
+                                    disabled={isUpdatingAttendee}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-attendee-email">Email</Label>
+                                <Input
+                                    id="edit-attendee-email"
+                                    type="email"
+                                    value={attendeeForm.email}
+                                    onChange={(event) => handleAttendeeEmailChange(event.target.value)}
+                                    placeholder="attendee@example.com"
+                                    disabled={isUpdatingAttendee}
+                                />
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-attendee-gender">Gender</Label>
+                                    <Select
+                                        value={attendeeForm.gender}
+                                        onValueChange={(value: 'male' | 'female' | 'unspecified') =>
+                                            setAttendeeForm((current) => ({ ...current, gender: value }))
+                                        }
+                                        disabled={isUpdatingAttendee}
+                                    >
+                                        <SelectTrigger id="edit-attendee-gender">
+                                            <SelectValue placeholder="Not set" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="unspecified">Not set</SelectItem>
+                                            <SelectItem value="female">Female</SelectItem>
+                                            <SelectItem value="male">Male</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-attendee-age">Age</Label>
+                                    <Input
+                                        id="edit-attendee-age"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        max={120}
+                                        value={attendeeForm.age}
+                                        onChange={(event) =>
+                                            setAttendeeForm((current) => ({ ...current, age: event.target.value }))
+                                        }
+                                        placeholder="Not set"
+                                        disabled={isUpdatingAttendee}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="rounded-lg border p-3">
+                                <div className="flex items-start gap-3">
+                                    <Checkbox
+                                        id="edit-attendee-resend"
+                                        checked={attendeeForm.resendConfirmation && canResendEditedConfirmation}
+                                        disabled={isUpdatingAttendee || !canResendEditedConfirmation}
+                                        onCheckedChange={(checked) =>
+                                            setAttendeeForm((current) => ({
+                                                ...current,
+                                                resendConfirmation: Boolean(checked),
+                                            }))
+                                        }
+                                    />
+                                    <div className="space-y-1">
+                                        <Label htmlFor="edit-attendee-resend" className="cursor-pointer">
+                                            Resend confirmation to the updated email
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            {detailOrder?.status !== 'completed'
+                                                ? 'Confirmation resend is unavailable for refunded orders.'
+                                                : attendeeEmailChanged
+                                                    ? 'This bypasses the normal resend cooldown for email corrections.'
+                                                    : 'Change the email address to enable resend.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <Button
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => setIsEditAttendeeOpen(false)}
+                                disabled={isUpdatingAttendee}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                className="w-full"
+                                onClick={handleUpdateAttendee}
+                                disabled={isUpdatingAttendee}
+                            >
+                                {isUpdatingAttendee ? 'Saving...' : 'Save changes'}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
                 {/* Export Modal */}
                 <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
                     <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -2226,6 +2514,9 @@ export default function OrdersPage() {
                             <DialogTitle>
                                 Export {exportType === 'attendees' ? 'Attendee List' : 'Email List'}
                             </DialogTitle>
+                            <DialogDescription className="sr-only">
+                                Choose which order records to include in the CSV export.
+                            </DialogDescription>
                         </DialogHeader>
 
                         <div className="space-y-6 py-4">
