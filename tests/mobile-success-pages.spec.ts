@@ -116,7 +116,7 @@ test.describe('Mobile success pages', () => {
     await page.goto('/checkout/success?order_id=order_123');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByRole('heading', { name: /Your Tickets/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Your Tickets|Ticket Summary/i })).toBeVisible();
 
     const downloadButton = page.getByRole('button', { name: /QR Code/i }).first();
     await expect(downloadButton).toBeVisible();

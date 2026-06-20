@@ -205,6 +205,8 @@ test.describe('Public Pages - Event Detail', () => {
                         address: '123 Test Street',
                         city: 'London',
                         country: 'UK',
+                        latitude: 51.5074,
+                        longitude: -0.1278,
                         currency: 'GBP',
                         organizerName: 'Test Organizer',
                         absorbFee: false
@@ -238,6 +240,47 @@ test.describe('Public Pages - Event Detail', () => {
 
         // Event title should be visible
         await expect(page.getByText('Test Event').first()).toBeVisible();
+        await expect(page.getByText('Community Hall', { exact: true })).toBeVisible();
+        await expect(page.getByRole('link', { name: /get directions/i })).toBeVisible();
+        await expect(page.locator('.leaflet-container')).toBeVisible();
+    });
+
+    test('legacy event without coordinates keeps location text and directions but omits the map', async ({ page }) => {
+        await page.unroute('**/api/v1/public/events/test-event');
+        await page.route('**/api/v1/public/events/test-event', route => {
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    event: {
+                        id: 'event_legacy',
+                        organizerId: 'org_123',
+                        title: 'Legacy Event',
+                        slug: 'test-event',
+                        description: 'Legacy location event.',
+                        startDatetime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                        endDatetime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(),
+                        timezone: 'Europe/London',
+                        locationType: 'in_person',
+                        venue: 'Legacy Hall',
+                        address: '1 Old Street',
+                        city: 'London',
+                        country: 'UK',
+                        latitude: null,
+                        longitude: null,
+                        currency: 'GBP',
+                        organizerName: 'Test Organizer',
+                        absorbFee: false,
+                    },
+                    tickets: [],
+                }),
+            });
+        });
+
+        await page.goto('/events/test-event');
+        await expect(page.getByText('Legacy Hall', { exact: true })).toBeVisible();
+        await expect(page.getByRole('link', { name: /get directions/i })).toBeVisible();
+        await expect(page.locator('.leaflet-container')).toHaveCount(0);
     });
 
     test('event detail shows ticket types', async ({ page }) => {

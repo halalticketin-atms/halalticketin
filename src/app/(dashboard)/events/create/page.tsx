@@ -109,6 +109,10 @@ import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
 import { clearEventEditRecovery, getEventEditRecoverySavedAt, writeEventEditRecovery } from '@/lib/event-edit-recovery';
 import {
+    validateEventLocation,
+    type EventLocationFields,
+} from '@/lib/event-location-validation';
+import {
     addLibraryQuestions,
     createCustomQuestionId,
     MAX_CUSTOM_QUESTIONS,
@@ -612,12 +616,8 @@ const isStepComplete = (
     stepId: number,
     formData: DraftFormData,
     tickets: DraftTicketType[],
+    persistedLocation?: EventLocationFields,
 ): boolean => {
-    const locationType = mapLocationType(formData.locationType);
-    const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
-    const isOnline = locationType === 'online' || locationType === 'hybrid';
-    const hasCoordinates = Number.isFinite(formData.latitude) && Number.isFinite(formData.longitude);
-
     switch (stepId) {
         case 1:
             // Step 1: Title is required (min 3 chars)
@@ -635,18 +635,9 @@ const isStepComplete = (
             return true;
 
         case 3:
-            // Step 3: Location requirements depend on type
-            if (isInPerson) {
-                if (!formData.venue.trim()) return false;
-                // If no coordinates from autocomplete, need manual address/city
-                if (!hasCoordinates && (!formData.address.trim() || !formData.city.trim())) {
-                    return false;
-                }
-            }
-            if (isOnline && !formData.onlineUrl.trim()) {
-                return false;
-            }
-            return true;
+            return Object.keys(validateEventLocation(formData, {
+                persistedPublishedLocation: persistedLocation,
+            })).length === 0;
 
         case 4:
             // Step 4: Currency and at least one ticket required
@@ -668,14 +659,10 @@ const validatePublishForm = (
     formData: DraftFormData,
     tickets: DraftTicketType[],
     hasExistingAccessCode: boolean,
+    persistedLocation?: EventLocationFields,
 ) => {
     const errors: Record<string, string> = {};
-    const locationType = mapLocationType(formData.locationType);
-    const isInPerson = locationType === 'in_person' || locationType === 'hybrid';
-    const isOnline = locationType === 'online' || locationType === 'hybrid';
     const isPrivate = formData.visibility === 'private';
-    const hasCoordinates =
-        Number.isFinite(formData.latitude) && Number.isFinite(formData.longitude);
 
     const trimmedTitle = formData.title.trim();
     if (!trimmedTitle) {
@@ -733,22 +720,9 @@ const validatePublishForm = (
         errors.endTime = 'End time must be after the start time.';
     }
 
-    if (isInPerson && !formData.venue.trim()) {
-        errors.venue = 'Venue is required for in-person or hybrid events.';
-    }
-
-    if (isInPerson && !hasCoordinates) {
-        if (!formData.address.trim()) {
-            errors.address = 'Address is required when entering a venue manually.';
-        }
-        if (!formData.city.trim()) {
-            errors.city = 'City is required when entering a venue manually.';
-        }
-    }
-
-    if (isOnline && !formData.onlineUrl.trim()) {
-        errors.onlineUrl = 'Online URL is required for online or hybrid events.';
-    }
+    Object.assign(errors, validateEventLocation(formData, {
+        persistedPublishedLocation: persistedLocation,
+    }));
 
     if (tickets.length < 1) {
         errors.tickets = 'At least one ticket type must be configured before publishing.';
@@ -791,6 +765,7 @@ export function EventWizard({
     entryContext,
     embedCheckout,
     recoveryNotice,
+    persistedLocation,
 }: {
     mode?: 'create' | 'edit';
     initialDraft?: DraftEventInitial;
@@ -803,6 +778,7 @@ export function EventWizard({
     recoveryNotice?: {
         onDiscard: () => void;
     };
+    persistedLocation?: EventLocationFields;
 }) {
     const {
         currentStep,
@@ -856,10 +832,10 @@ export function EventWizard({
             title: step.title,
             icon: step.icon,
             isCurrent: step.id === currentStep,
-            isComplete: step.id < currentStep && isStepComplete(step.id, formData, tickets),
+            isComplete: step.id < currentStep && isStepComplete(step.id, formData, tickets, persistedLocation),
             hasWarning: false,
         })),
-        [currentStep, formData, tickets]
+        [currentStep, formData, persistedLocation, tickets]
     );
 
     // Current step's sub-steps for sidebar
@@ -2408,7 +2384,12 @@ export function EventWizard({
             setActionError(`Please add options for: ${questionLabels}`);
             return;
         }
-        const publishFieldErrors = validatePublishForm(formData, tickets, hasExistingAccessCode);
+        const publishFieldErrors = validatePublishForm(
+            formData,
+            tickets,
+            hasExistingAccessCode,
+            persistedLocation,
+        );
         if (Object.keys(publishFieldErrors).length > 0) {
             setFieldErrors(publishFieldErrors);
             setPublishErrors([]);
@@ -2439,7 +2420,7 @@ export function EventWizard({
         }
 
         await executePublish();
-    }, [activeOrganizerId, canUseCredits, executePublish, formData, goToStepForErrors, hasExistingAccessCode, isPublishing, navigateToStepWithSubStep, tickets]);
+    }, [activeOrganizerId, canUseCredits, executePublish, formData, goToStepForErrors, hasExistingAccessCode, isPublishing, navigateToStepWithSubStep, persistedLocation, tickets]);
 
     const handlePreviewClick = useCallback(async () => {
         const previewWindow = window.open('', '_blank');
@@ -4942,6 +4923,7 @@ export function EventWizard({
                             <Button
                                 size="sm"
                                 onClick={handlePublishClick}
+                                aria-label={publishButtonLabel}
                                 disabled={disablePublishButtons}
                                 className="gap-1.5"
                             >

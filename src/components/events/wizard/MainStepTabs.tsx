@@ -30,6 +30,7 @@ export function MainStepTabs({ steps, onStepClick, className }: MainStepTabsProp
                     return (
                         <button
                             key={step.id}
+                            aria-label={step.title}
                             onClick={() => onStepClick(step.id)}
                             className={cn(
                                 'group relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all',
@@ -76,6 +77,7 @@ export function MainStepTabs({ steps, onStepClick, className }: MainStepTabsProp
                     return (
                         <button
                             key={step.id}
+                            aria-label={step.title}
                             onClick={() => onStepClick(step.id)}
                             className="flex flex-col items-center gap-1"
                         >

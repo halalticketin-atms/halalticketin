@@ -13,6 +13,7 @@ import type { DraftEventInitial } from '@/hooks/useEventDraft';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
 import { getUserFriendlyMessage } from '@/lib/notifications';
 import { clearEventEditRecovery, readEventEditRecovery } from '@/lib/event-edit-recovery';
+import type { EventLocationFields } from '@/lib/event-location-validation';
 
 export default function EditEventPage() {
     const params = useParams<{ id: string }>();
@@ -140,6 +141,11 @@ export default function EditEventPage() {
             key={wizardKey}
             mode="edit"
             initialDraft={initialDraft}
+            persistedLocation={
+                serverDraft?.eventStatus === 'published'
+                    ? serverDraft.formData as EventLocationFields
+                    : undefined
+            }
             entryContext={{
                 source: 'draft',
                 label: 'Editing existing event',

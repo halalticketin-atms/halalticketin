@@ -65,6 +65,7 @@ import { ShareDialog } from '@/components/share/ShareDialog';
 import { toast } from '@/lib/notifications';
 import { getSupabase } from '@/lib/supabase';
 import { getAuthToken } from '@/lib/api';
+import { hasCoordinatePair } from '@/lib/event-location-validation';
 import {
     buildTicketAttendeesWithBuyerAsFirst,
     normalizeCheckoutTicketAttendee,
@@ -2459,7 +2460,7 @@ export function PublicEventPageContent({
                                             </div>
 
                                             {/* Interactive Map (if coordinates available) */}
-                                            {event.latitude && event.longitude ? (
+                                            {hasCoordinatePair(event) ? (
                                                 <div className="space-y-2">
                                                     <EventLocationMap
                                                         lat={event.latitude}

@@ -1,7 +1,59 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PromoCodeRecord, TicketRecord } from './events-api';
-import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from './ticket-mappers';
+import type { EventRecord, PromoCodeRecord, TicketRecord } from './events-api';
+import { buildDraftFromEventRecord, mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from './ticket-mappers';
+
+const eventRecord = (coordinates: Pick<EventRecord, 'latitude' | 'longitude'>): EventRecord => ({
+  id: '550e8400-e29b-41d4-a716-446655440020',
+  organizerId: '550e8400-e29b-41d4-a716-446655440021',
+  title: 'Mapped event',
+  description: null,
+  bannerImageUrl: null,
+  status: 'published',
+  cancelledAt: null,
+  cancellationReason: null,
+  cancellationNotes: null,
+  startDatetime: '2026-07-01T10:00:00.000Z',
+  endDatetime: '2026-07-01T12:00:00.000Z',
+  timezone: 'Europe/Dublin',
+  isMultiDay: false,
+  locationType: 'in_person',
+  venue: 'Dublin Hall',
+  address: null,
+  city: 'Dublin',
+  country: 'Ireland',
+  onlineUrl: null,
+  currency: 'EUR',
+  refundPolicy: null,
+  isListedPublicly: true,
+  isPubliclyAccessible: true,
+  hasAccessPassword: false,
+  slug: 'mapped-event',
+  category: null,
+  feeTier: 'payg',
+  customBookingFee: null,
+  absorbFee: false,
+  attendeeInfoMode: 'buyer_choice',
+  customQuestions: null,
+  totalCapacity: 100,
+  createdAt: '2026-06-20T10:00:00.000Z',
+  updatedAt: '2026-06-20T10:00:00.000Z',
+  ...coordinates,
+});
+
+describe('buildDraftFromEventRecord', () => {
+  it('preserves saved coordinates and maps absent legacy coordinates to null', () => {
+    expect(buildDraftFromEventRecord(
+      eventRecord({ latitude: 53.3498, longitude: -6.2603 }),
+      [],
+    ).formData).toMatchObject({ latitude: 53.3498, longitude: -6.2603 });
+
+    expect(buildDraftFromEventRecord(
+      eventRecord({ latitude: null, longitude: null }),
+      [],
+    ).formData).toMatchObject({ latitude: null, longitude: null });
+  });
+});
 
 describe('mapTicketRecordsToDraft', () => {
   it('maps sales window ISO values to date and time fields in event timezone', () => {
