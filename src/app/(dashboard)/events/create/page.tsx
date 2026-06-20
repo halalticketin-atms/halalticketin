@@ -4619,17 +4619,14 @@ export function EventWizard({
                                                                 <Check className="h-4 w-4 text-primary" />
                                                                 <span className="text-sm">Gender</span>
                                                             </div>
-                                                            <div className="flex flex-col gap-2.5 rounded-lg bg-muted/30 p-3">
-                                                                <div className="flex items-center gap-2">
-                                                                    <Check className="h-4 w-4 shrink-0 text-primary" />
-                                                                    <Label htmlFor="minimumAttendeeAge" className="text-sm">Age</Label>
-                                                                </div>
-                                                                <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2.5">
-                                                                    <div className="flex flex-col">
-                                                                        <span className="text-xs font-medium text-foreground">Minimum age</span>
-                                                                        <span className="text-[11px] leading-tight text-muted-foreground">Leave 0 for no restriction</span>
+                                                            <div className="flex flex-col gap-1 rounded-lg bg-muted/30 p-3">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                                                                        <Label htmlFor="minimumAttendeeAge" className="text-sm">Age</Label>
                                                                     </div>
                                                                     <div className="flex shrink-0 items-center gap-1.5">
+                                                                        <span className="text-xs text-muted-foreground">Min</span>
                                                                         <Input
                                                                             id="minimumAttendeeAge"
                                                                             name="minimumAttendeeAge"
