@@ -28,11 +28,13 @@ const routeCheckoutEvent = async ({
     slug,
     attendeeInfoMode,
     customQuestions,
+    minimumAttendeeAge = 0,
 }: {
     page: Page;
     eventId: string;
     slug: string;
     attendeeInfoMode: 'buyer_choice' | 'per_ticket';
+    minimumAttendeeAge?: number;
     customQuestions: Array<{
         id: string;
         label: string;
@@ -41,8 +43,8 @@ const routeCheckoutEvent = async ({
         options?: string[];
     }>;
 }) => {
-    await page.route(`**/api/v1/public/events/${slug}**`, (route) => {
-        route.fulfill({
+    await page.route(`**/api/v1/public/events/${slug}**`, async (route) => {
+        await route.fulfill({
             status: 200,
             contentType: 'application/json',
             body: JSON.stringify({
@@ -74,6 +76,7 @@ const routeCheckoutEvent = async ({
                     customBookingFee: null,
                     metaPixelId: null,
                     attendeeInfoMode,
+                    minimumAttendeeAge,
                     customQuestions,
                     status: 'published',
                 },
@@ -101,8 +104,8 @@ const routeCheckoutEvent = async ({
         });
     });
 
-    await page.route(`**/api/v1/events/${eventId}/checkout/quote`, (route) => {
-        route.fulfill({
+    await page.route(`**/api/v1/events/${eventId}/checkout/quote`, async (route) => {
+        await route.fulfill({
             status: 200,
             contentType: 'application/json',
             body: JSON.stringify({
@@ -338,6 +341,57 @@ test.describe('Checkout Journey - Attendee Form', () => {
 
         await page.locator('#ticketAttendeeName-0').fill('Guest Name');
         await expect(page.locator('#ticketAttendeeName-0')).toHaveValue('Guest Name');
+    });
+
+    test('shows the configured minimum age error only after validation fails', async ({ page }) => {
+        await routeCheckoutEvent({
+            page,
+            eventId: '44444444-4444-4444-8444-444444444444',
+            slug: REAL_EVENTS.paidEvent,
+            attendeeInfoMode: 'buyer_choice',
+            minimumAttendeeAge: 18,
+            customQuestions: [],
+        });
+
+        await openCheckoutAndFillBuyerDetails(page);
+        await page.locator('#buyerAge').fill('17');
+        await expect(page.getByText('Enter age 18-120')).not.toBeVisible();
+
+        await page.getByRole('button', { name: /continue/i }).click();
+
+        await expect(page.getByText('Enter age 18-120')).toBeVisible();
+
+        await page.locator('#buyerAge').fill('18');
+        await page.getByRole('button', { name: /continue/i }).click();
+
+        await expect(page.getByText('Enter age 18-120')).not.toBeVisible();
+        await expect(page.getByText('Order Total')).toBeVisible();
+    });
+
+    test('applies the configured minimum to an ordinary per-ticket attendee', async ({ page }) => {
+        await routeCheckoutEvent({
+            page,
+            eventId: '55555555-5555-4555-8555-555555555555',
+            slug: REAL_EVENTS.paidEvent,
+            attendeeInfoMode: 'per_ticket',
+            minimumAttendeeAge: 18,
+            customQuestions: [],
+        });
+
+        await openCheckoutAndFillBuyerDetails(page);
+        await page.getByRole('button', { name: /continue/i }).click();
+        await page.locator('#ticketAttendeeAge-0').fill('17');
+
+        const ticketAgeError = page.getByText('Ticket 1: please enter a valid age (18-120).');
+        await expect(ticketAgeError).not.toBeVisible();
+        await page.getByRole('button', { name: /continue/i }).click();
+        await expect(ticketAgeError).toBeVisible();
+
+        await page.locator('#ticketAttendeeAge-0').fill('18');
+        await page.getByRole('button', { name: /continue/i }).click();
+
+        await expect(ticketAgeError).not.toBeVisible();
+        await expect(page.getByText('Order Total')).toBeVisible();
     });
 });
 

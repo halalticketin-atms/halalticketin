@@ -55,6 +55,7 @@ export interface EventRecord {
   customBookingFee: number | null;
   absorbFee: boolean;
   attendeeInfoMode: 'per_ticket' | 'buyer_choice';
+  minimumAttendeeAge?: number;
   customQuestions: CustomQuestionPayload[] | null;
   ticketsSold?: number; // Aggregate from ticket_types
   donationCount?: number; // Donation quantities (non-seat)
@@ -137,6 +138,7 @@ export interface UpsertEventPayload {
   totalCapacity?: number;
   absorbFee?: boolean;
   attendeeInfoMode?: 'per_ticket' | 'buyer_choice';
+  minimumAttendeeAge?: number;
   customQuestions?: CustomQuestionPayload[] | null;
 }
 
@@ -336,6 +338,7 @@ export interface PublicEventRecord {
   tracking?: PublicTrackingConfig | null;
   status?: 'draft' | 'published' | 'cancelled' | 'archived';
   attendeeInfoMode: 'per_ticket' | 'buyer_choice' | null;
+  minimumAttendeeAge?: number;
   customQuestions: CustomQuestionPayload[] | null;
   totalCapacity?: number | null;
   ticketsSold?: number;

@@ -1,4 +1,9 @@
-import type { DraftEventInitial } from '@/hooks/useEventDraft';
+import type { DraftEventInitial, DraftFormData } from '@/hooks/useEventDraft';
+import {
+    hasCoordinatePair,
+    isPersistedPhysicalLocationUnchanged,
+    type EventLocationFields,
+} from '@/lib/event-location-validation';
 
 const RECOVERY_VERSION = 1;
 const STORAGE_PREFIX = 'halalticketin:event-edit-recovery';
@@ -26,6 +31,68 @@ const getStorageKey = (eventId: string) => `${STORAGE_PREFIX}:${eventId}`;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null;
+
+const toEventLocationFields = (
+    formData?: Partial<DraftFormData>,
+): EventLocationFields | null => {
+    if (
+        !formData ||
+        (formData.locationType !== 'physical' &&
+            formData.locationType !== 'online' &&
+            formData.locationType !== 'hybrid') ||
+        typeof formData.venue !== 'string' ||
+        typeof formData.address !== 'string' ||
+        typeof formData.city !== 'string' ||
+        typeof formData.country !== 'string' ||
+        typeof formData.onlineUrl !== 'string'
+    ) {
+        return null;
+    }
+
+    return {
+        locationType: formData.locationType,
+        venue: formData.venue,
+        address: formData.address,
+        city: formData.city,
+        country: formData.country,
+        onlineUrl: formData.onlineUrl,
+        latitude: formData.latitude ?? null,
+        longitude: formData.longitude ?? null,
+    };
+};
+
+export const reconcileRecoveredEventLocation = (
+    recoveredDraft: DraftEventInitial,
+    serverDraft: DraftEventInitial,
+): DraftEventInitial => {
+    const recoveredForm = recoveredDraft.formData;
+    const serverForm = serverDraft.formData;
+    const recoveredLocation = toEventLocationFields(recoveredForm);
+    const serverLocation = toEventLocationFields(serverForm);
+    const recoveryCoordinatesAreAbsent =
+        recoveredForm?.latitude == null && recoveredForm?.longitude == null;
+
+    if (
+        !recoveredForm ||
+        !serverForm ||
+        !recoveredLocation ||
+        !serverLocation ||
+        !recoveryCoordinatesAreAbsent ||
+        !hasCoordinatePair(serverLocation) ||
+        !isPersistedPhysicalLocationUnchanged(recoveredLocation, serverLocation)
+    ) {
+        return recoveredDraft;
+    }
+
+    return {
+        ...recoveredDraft,
+        formData: {
+            ...recoveredForm,
+            latitude: serverLocation.latitude,
+            longitude: serverLocation.longitude,
+        },
+    };
+};
 
 export const getEventEditRecoverySavedAt = (backendUpdatedAt?: string | null) => {
     const now = Date.now();

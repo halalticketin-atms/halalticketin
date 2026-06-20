@@ -99,6 +99,7 @@ interface TicketBreakdownItem {
     name: string;
     quantity: number;
     revenue: number;
+    isArchived?: boolean;
 }
 
 interface EventBreakdown {
@@ -1037,7 +1038,14 @@ export default function OrdersPage() {
                                                             return (
                                                                 <div key={ticket.ticketTypeId || ticketIndex} className="space-y-1.5">
                                                                     <div className="flex items-center justify-between text-xs">
-                                                                        <span className="font-medium truncate flex-1 mr-2">{ticket.name}</span>
+                                                                        <span className="font-medium truncate flex-1 mr-2">
+                                                                            {ticket.name}
+                                                                            {ticket.isArchived && (
+                                                                                <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                                                                    Archived
+                                                                                </span>
+                                                                            )}
+                                                                        </span>
                                                                         <div className="flex items-center gap-2 text-right shrink-0">
                                                                             <span className="text-muted-foreground">{ticket.quantity}</span>
                                                                         </div>

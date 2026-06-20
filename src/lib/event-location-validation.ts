@@ -19,6 +19,14 @@ const isPhysical = (locationType: DraftFormData['locationType']) =>
 
 const normalize = (value: string) => value.trim();
 
+const hasNoCoordinates = (location: CoordinateFields) =>
+  location.latitude === null && location.longitude === null;
+
+const coordinateStateMatches = (
+  current: CoordinateFields,
+  persisted: CoordinateFields,
+) => current.latitude === persisted.latitude && current.longitude === persisted.longitude;
+
 export const hasCoordinatePair = (
   location: CoordinateFields,
 ): location is CoordinateFields & { latitude: number; longitude: number } =>
@@ -44,6 +52,35 @@ export const isPersistedPhysicalLocationUnchanged = (
   );
 };
 
+export const updateLocationTextField = <T extends EventLocationFields>(
+  current: T,
+  field: 'venue' | 'address' | 'city',
+  value: string,
+): T => {
+  if (current[field] === value) {
+    return current;
+  }
+
+  if (field === 'venue') {
+    return {
+      ...current,
+      venue: value,
+      address: '',
+      city: '',
+      country: '',
+      latitude: null,
+      longitude: null,
+    } as T;
+  }
+
+  return {
+    ...current,
+    [field]: value,
+    latitude: null,
+    longitude: null,
+  } as T;
+};
+
 export const validateEventLocation = (
   current: EventLocationFields,
   options?: { persistedPublishedLocation?: EventLocationFields },
@@ -56,12 +93,39 @@ export const validateEventLocation = (
     errors.venue = 'Venue is required for in-person or hybrid events.';
   }
 
+  const persisted = options?.persistedPublishedLocation;
   const hasManualLocation = Boolean(normalize(current.address) && normalize(current.city));
-  const acceptsPersistedLocation = isPersistedPhysicalLocationUnchanged(
+  const textMatchesPersisted = isPersistedPhysicalLocationUnchanged(
     current,
-    options?.persistedPublishedLocation,
+    persisted,
   );
-  if (physical && !hasCoordinatePair(current) && !hasManualLocation && !acceptsPersistedLocation) {
+  const exactPersistedPair = Boolean(
+    persisted &&
+    hasCoordinatePair(current) &&
+    hasCoordinatePair(persisted) &&
+    coordinateStateMatches(current, persisted),
+  );
+  const hasStalePersistedCoordinates = Boolean(
+    persisted &&
+    isPhysical(persisted.locationType) &&
+    exactPersistedPair &&
+    !textMatchesPersisted,
+  );
+  const hasConfirmedCoordinates = hasCoordinatePair(current) && (
+    !persisted || textMatchesPersisted || !exactPersistedPair
+  );
+  const acceptsPersistedLegacyLocation = Boolean(
+    persisted &&
+    textMatchesPersisted &&
+    hasNoCoordinates(current) &&
+    hasNoCoordinates(persisted) &&
+    coordinateStateMatches(current, persisted),
+  );
+  if (physical && hasStalePersistedCoordinates) {
+    errors.venue =
+      'Select the updated venue from search again, or clear the saved coordinates before using a manual address.';
+  }
+  if (physical && !hasConfirmedCoordinates && !hasManualLocation && !acceptsPersistedLegacyLocation) {
     if (!normalize(current.address)) {
       errors.address = 'Address is required when entering a venue manually.';
     }

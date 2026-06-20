@@ -4,6 +4,7 @@ import type { EventLocationFields } from './event-location-validation';
 import {
   hasCoordinatePair,
   isPersistedPhysicalLocationUnchanged,
+  updateLocationTextField,
   validateEventLocation,
 } from './event-location-validation';
 
@@ -51,6 +52,46 @@ describe('event location validation', () => {
     })).toEqual({});
   });
 
+  it('does not grandfather clearing a persisted coordinate pair', () => {
+    const persisted = location({ latitude: 53.3498, longitude: -6.2603 });
+
+    expect(validateEventLocation(location(), {
+      persistedPublishedLocation: persisted,
+    })).toMatchObject({ address: expect.any(String), city: expect.any(String) });
+  });
+
+  it('rejects changed text that retains the exact persisted coordinate pair', () => {
+    const persisted = location({ latitude: 53.3498, longitude: -6.2603 });
+
+    expect(validateEventLocation(location({
+      city: 'Manchester',
+      latitude: 53.3498,
+      longitude: -6.2603,
+    }), {
+      persistedPublishedLocation: persisted,
+    })).toMatchObject({ address: expect.any(String) });
+  });
+
+  it('rejects stale persisted coordinates even when the changed manual location is complete', () => {
+    const persisted = location({
+      address: '1 Main Street',
+      city: 'Dublin',
+      latitude: 53.3498,
+      longitude: -6.2603,
+    });
+
+    expect(validateEventLocation(location({
+      venue: 'Manchester Hall',
+      address: '10 Deansgate',
+      city: 'Manchester',
+      country: 'United Kingdom',
+      latitude: 53.3498,
+      longitude: -6.2603,
+    }), {
+      persistedPublishedLocation: persisted,
+    })).toMatchObject({ venue: expect.any(String) });
+  });
+
   it('ignores surrounding whitespace when comparing a published legacy location', () => {
     const persisted = location({ venue: ' Dublin Hall ', city: ' Dublin ', country: ' Ireland ' });
     expect(isPersistedPhysicalLocationUnchanged(
@@ -85,5 +126,47 @@ describe('event location validation', () => {
     expect(validateEventLocation(location({ locationType: 'hybrid', onlineUrl: 'https://example.com/live' }), {
       persistedPublishedLocation: persisted,
     })).toMatchObject({ address: expect.any(String), city: expect.any(String) });
+  });
+});
+
+describe('event location text transitions', () => {
+  const selectedLocation = location({
+    venue: 'London Hall',
+    address: '1 London Road',
+    city: 'London',
+    country: 'United Kingdom',
+    latitude: 51.5074,
+    longitude: -0.1278,
+  });
+
+  it.each(['address', 'city'] as const)(
+    'turns an autocomplete location into a manual location when %s changes',
+    (field) => {
+      const updated = updateLocationTextField(selectedLocation, field, 'Changed value');
+
+      expect(updated).toMatchObject({
+        venue: 'London Hall',
+        address: field === 'address' ? 'Changed value' : '1 London Road',
+        city: field === 'city' ? 'Changed value' : 'London',
+        country: 'United Kingdom',
+        latitude: null,
+        longitude: null,
+      });
+    },
+  );
+
+  it('clears fields derived from the previous autocomplete result when venue changes', () => {
+    expect(updateLocationTextField(selectedLocation, 'venue', 'Manchester Hall')).toMatchObject({
+      venue: 'Manchester Hall',
+      address: '',
+      city: '',
+      country: '',
+      latitude: null,
+      longitude: null,
+    });
+  });
+
+  it('preserves a confirmed location when the text value did not change', () => {
+    expect(updateLocationTextField(selectedLocation, 'venue', 'London Hall')).toBe(selectedLocation);
   });
 });

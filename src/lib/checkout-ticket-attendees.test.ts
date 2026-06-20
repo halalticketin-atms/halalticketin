@@ -22,6 +22,48 @@ describe('validateCheckoutTicketAttendee', () => {
     expect(error).toBe('Ticket 1: attendee name, gender, and age are required.');
   });
 
+  it('uses the event minimum age for ordinary attendees', () => {
+    const error = validateCheckoutTicketAttendee({
+      attendee: normalizeCheckoutTicketAttendee({
+        name: 'Young Attendee',
+        gender: 'female',
+        age: '17',
+      }),
+      ticketIndex: 0,
+      minimumAttendeeAge: 18,
+    });
+
+    expect(error).toBe('Ticket 1: please enter a valid age (18-120).');
+  });
+
+  it('rejects fractional ages instead of silently rounding them down', () => {
+    const error = validateCheckoutTicketAttendee({
+      attendee: normalizeCheckoutTicketAttendee({
+        name: 'Fractional Age',
+        gender: 'female',
+        age: '18.5',
+      }),
+      ticketIndex: 0,
+      minimumAttendeeAge: 18,
+    });
+
+    expect(error).toBe('Ticket 1: please enter a valid age (18-120).');
+  });
+
+  it('accepts the upper age boundary and rejects values above it', () => {
+    const attendee = normalizeCheckoutTicketAttendee({
+      name: 'Boundary Attendee',
+      gender: 'male',
+      age: '120',
+    });
+
+    expect(validateCheckoutTicketAttendee({ attendee, ticketIndex: 0 })).toBeNull();
+    expect(validateCheckoutTicketAttendee({
+      attendee: { ...attendee, age: '121' },
+      ticketIndex: 0,
+    })).toBe('Ticket 1: please enter a valid age (0-120).');
+  });
+
   it('allows gifted tickets to skip attendee fields and required questions when using a share link', () => {
     const error = validateCheckoutTicketAttendee({
       attendee: normalizeCheckoutTicketAttendee({

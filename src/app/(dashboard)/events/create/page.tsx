@@ -108,7 +108,9 @@ import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/li
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
 import { clearEventEditRecovery, getEventEditRecoverySavedAt, writeEventEditRecovery } from '@/lib/event-edit-recovery';
+import { validateMinimumAttendeeAge } from '@/lib/event-minimum-age';
 import {
+    updateLocationTextField,
     validateEventLocation,
     type EventLocationFields,
 } from '@/lib/event-location-validation';
@@ -126,6 +128,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isSavedTicketId = (id: string) => UUID_REGEX.test(id);
 
 type SubStepConfig = { id: string; label: string };
 type MainStepConfig = {
@@ -245,10 +250,6 @@ type PromoFieldErrors = {
     discountType?: string;
 };
 
-
-const UUID_REGEX =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 const isUuid = (value: string | undefined | null) => (value ? UUID_REGEX.test(value) : false);
 
 const mapPromoTicketTypeIds = (
@@ -344,6 +345,9 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         category: formData.categories.length > 0 ? formData.categories.join(',') : null,
         // absorbFee removed - now handled per-ticket
         attendeeInfoMode: formData.attendeeInfoMode,
+        minimumAttendeeAge: typeof formData.minimumAttendeeAge === 'number'
+            ? formData.minimumAttendeeAge
+            : undefined,
         customQuestions: formData.customQuestions.length > 0
             ? formData.customQuestions.map((question) => ({
                 ...question,
@@ -596,7 +600,7 @@ const getStepForFieldErrors = (errors: Record<string, string>) => {
         { step: 1, fields: ['title', 'description', 'bannerImageDataUrl', 'categories', 'visibility', 'accessCode'] },
         { step: 2, fields: ['date', 'startTime', 'endDate', 'endTime', 'timezone'] },
         { step: 3, fields: ['locationType', 'venue', 'address', 'city', 'onlineUrl'] },
-        { step: 4, fields: ['tickets', 'currency', 'refundPolicy', 'totalCapacity', 'attendeeInfoMode', 'customQuestions'] },
+        { step: 4, fields: ['tickets', 'currency', 'refundPolicy', 'totalCapacity', 'attendeeInfoMode', 'minimumAttendeeAge', 'customQuestions'] },
     ];
 
     for (const entry of stepFields) {
@@ -643,6 +647,7 @@ const isStepComplete = (
             // Step 4: Currency and at least one ticket required
             if (!formData.currency) return false;
             if (!formData.totalCapacity || formData.totalCapacity < 1) return false;
+            if (validateMinimumAttendeeAge(formData.minimumAttendeeAge)) return false;
             if (tickets.length < 1) return false;
             return true;
 
@@ -679,6 +684,11 @@ const validatePublishForm = (
 
     if (!formData.totalCapacity || formData.totalCapacity < 1) {
         errors.totalCapacity = 'Total event capacity is required.';
+    }
+
+    const minimumAgeError = validateMinimumAttendeeAge(formData.minimumAttendeeAge);
+    if (minimumAgeError) {
+        errors.minimumAttendeeAge = minimumAgeError;
     }
 
     if (!formData.date.trim()) {
@@ -869,7 +879,7 @@ export function EventWizard({
     }, [currentStep, setCurrentStep, setCurrentSubStep]);
 
     const goToStepForErrors = useCallback((errors: Record<string, string>) => {
-        if (errors.attendeeInfoMode || errors.customQuestions) {
+        if (errors.attendeeInfoMode || errors.minimumAttendeeAge || errors.customQuestions) {
             navigateToStepWithSubStep(4, 'attendeeInfo');
             return;
         }
@@ -1300,6 +1310,16 @@ export function EventWizard({
 
     const removeTicket = useCallback(
         (id: string) => {
+            if (
+                isSavedTicketId(id)
+                && typeof window !== 'undefined'
+                && !window.confirm(
+                    'Archive this ticket type? It will stop appearing on the live event and checkout pages. Existing orders, tickets, refunds and check-ins will still keep their historical ticket details.',
+                )
+            ) {
+                return;
+            }
+
             removeTicketBase(id);
             clearFieldErrors('tickets');
             const nextTickets = tickets.filter((ticket) => ticket.id !== id);
@@ -1521,10 +1541,15 @@ export function EventWizard({
 
     const handleFieldChange = useCallback(
         (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-            handleInputChange(event);
+            const { name, value } = event.target;
+            if (name === 'address' || name === 'city') {
+                setFormData((current) => updateLocationTextField(current, name, value));
+            } else {
+                handleInputChange(event);
+            }
             clearFieldErrors(event.target.name);
         },
-        [clearFieldErrors, handleInputChange],
+        [clearFieldErrors, handleInputChange, setFormData],
     );
 
     const serializedDraft = useMemo(
@@ -1686,6 +1711,35 @@ export function EventWizard({
                     setFieldErrors({ title: 'Title must be 75 characters or less' });
                     setCurrentStep(1);
                     return null;
+                }
+
+                const minimumAgeError = validateMinimumAttendeeAge(formData.minimumAttendeeAge);
+                if (minimumAgeError) {
+                    setActionError(minimumAgeError);
+                    setFieldErrors((current) => ({
+                        ...current,
+                        minimumAttendeeAge: minimumAgeError,
+                    }));
+                    navigateToStepWithSubStep(4, 'attendeeInfo');
+                    return null;
+                }
+
+                if (eventStatus === 'published') {
+                    const locationErrors = validateEventLocation(formData, {
+                        persistedPublishedLocation: persistedLocation,
+                    });
+                    if (Object.keys(locationErrors).length > 0) {
+                        setFieldErrors(locationErrors);
+                        setPublishErrors([]);
+                        goToStepForErrors(locationErrors);
+                        const errorMessage = Object.values(locationErrors)[0]
+                            ?? 'Fix the highlighted location fields before saving.';
+                        setActionError(errorMessage);
+                        if (!options?.silent) {
+                            toast.error(errorMessage);
+                        }
+                        return null;
+                    }
                 }
 
                 setIsSaving(true);
@@ -2145,7 +2199,7 @@ export function EventWizard({
                 }
             }
         },
-        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, formData, goToStepForErrors, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, mode, persistEditRecovery, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
+        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, eventStatus, formData, goToStepForErrors, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, mode, navigateToStepWithSubStep, persistEditRecovery, persistedLocation, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
@@ -3128,18 +3182,15 @@ export function EventWizard({
                                                                         clearFieldErrors('venue');
                                                                     }}
                                                                     onInputChange={(nextValue) => {
-                                                                        setFormData(prev => ({
-                                                                            ...prev,
-                                                                            venue: nextValue,
-                                                                            country: '',
-                                                                            latitude: null,
-                                                                            longitude: null,
-                                                                            ...(nextValue ? {} : { address: '', city: '' }),
-                                                                        }));
+                                                                        setFormData(prev => updateLocationTextField(
+                                                                            prev,
+                                                                            'venue',
+                                                                            nextValue,
+                                                                        ));
                                                                         if (!nextValue || locationCoords) {
                                                                             setLocationCoords(null);
                                                                         }
-                                                                        clearFieldErrors('venue');
+                                                                        clearFieldErrors('venue', 'address', 'city');
                                                                     }}
                                                                     label="Venue Location *"
                                                                     placeholder="Search for Location"
@@ -3440,6 +3491,8 @@ export function EventWizard({
                                                                                     size="icon"
                                                                                     onClick={() => removeTicket(ticket.id)}
                                                                                     className="text-destructive hover:text-destructive h-8 w-8"
+                                                                                    aria-label={isSavedTicketId(ticket.id) ? 'Archive ticket type' : 'Remove ticket type'}
+                                                                                    title={isSavedTicketId(ticket.id) ? 'Archive ticket type' : 'Remove ticket type'}
                                                                                 >
                                                                                     <Trash2 className="h-4 w-4" />
                                                                                 </Button>
@@ -4566,9 +4619,54 @@ export function EventWizard({
                                                                 <Check className="h-4 w-4 text-primary" />
                                                                 <span className="text-sm">Gender</span>
                                                             </div>
-                                                            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
-                                                                <Check className="h-4 w-4 text-primary" />
-                                                                <span className="text-sm">Age</span>
+                                                            <div className="flex flex-col gap-2 rounded-lg bg-muted/30 p-3">
+                                                                <div className="flex flex-col items-start gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                                                                        <Label htmlFor="minimumAttendeeAge" className="text-sm font-normal">Age</Label>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-xs text-muted-foreground">Minimum (0 = no minimum)</span>
+                                                                        <Input
+                                                                            id="minimumAttendeeAge"
+                                                                            name="minimumAttendeeAge"
+                                                                            type="number"
+                                                                            min={0}
+                                                                            max={120}
+                                                                            step={1}
+                                                                            aria-label="Minimum attendee age"
+                                                                            aria-invalid={Boolean(fieldErrors.minimumAttendeeAge)}
+                                                                            value={formData.minimumAttendeeAge}
+                                                                            onChange={(event) => {
+                                                                                const value = event.target.value;
+                                                                                const nextValue = value === '' ? '' : Number(value);
+                                                                                const currentMinimumAgeError = validateMinimumAttendeeAge(
+                                                                                    formData.minimumAttendeeAge,
+                                                                                );
+                                                                                setFormData((current) => ({
+                                                                                    ...current,
+                                                                                    minimumAttendeeAge: nextValue,
+                                                                                }));
+                                                                                clearFieldErrors('minimumAttendeeAge');
+                                                                                if (
+                                                                                    !validateMinimumAttendeeAge(nextValue) &&
+                                                                                    currentMinimumAgeError
+                                                                                ) {
+                                                                                    setActionError((current) =>
+                                                                                        current === currentMinimumAgeError ? null : current,
+                                                                                    );
+                                                                                }
+                                                                            }}
+                                                                            className={cn(
+                                                                                'h-8 w-20 bg-background text-center',
+                                                                                fieldErrors.minimumAttendeeAge && 'border-destructive focus-visible:ring-destructive',
+                                                                            )}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                {fieldErrors.minimumAttendeeAge ? (
+                                                                    <p className="text-xs text-destructive">{fieldErrors.minimumAttendeeAge}</p>
+                                                                ) : null}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -4905,6 +5003,7 @@ export function EventWizard({
                                 variant="outline"
                                 size="sm"
                                 onClick={handlePreviewClick}
+                                aria-label="Preview event"
                                 disabled={disableSaveButtons}
                                 className="flex gap-1.5"
                             >
@@ -4915,6 +5014,7 @@ export function EventWizard({
                                 variant="outline"
                                 size="sm"
                                 onClick={handleSaveDraftClick}
+                                aria-label="Save draft"
                                 disabled={disableSaveButtons}
                             >
                                 <span className="hidden sm:inline">Save Draft</span>

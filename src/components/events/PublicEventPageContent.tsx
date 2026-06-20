@@ -68,6 +68,7 @@ import { getAuthToken } from '@/lib/api';
 import { hasCoordinatePair } from '@/lib/event-location-validation';
 import {
     buildTicketAttendeesWithBuyerAsFirst,
+    isValidCheckoutAttendeeAge,
     normalizeCheckoutTicketAttendee,
     serializeCheckoutTicketAttendee,
     validateCheckoutTicketAttendee,
@@ -939,6 +940,7 @@ export function PublicEventPageContent({
     const quoteSignature = buildQuoteSignature(appliedPromo?.code);
 
     const customQuestionCount = event?.customQuestions?.length ?? 0;
+    const minimumAttendeeAge = event?.minimumAttendeeAge ?? 0;
     const forcePerTicket = customQuestionCount > 0;
     const requiresPerTicket = useMemo(() => {
         if (!event || totalTickets === 0) {
@@ -1725,9 +1727,8 @@ export function PublicEventPageContent({
             if (!attendeeEmail.trim()) return 'Please enter your email.';
             if (!attendeeAge.trim()) return 'Please enter your age.';
             if (!attendeeGender) return 'Please select your gender.';
-            const ageNum = Number(attendeeAge);
-            if (Number.isNaN(ageNum) || ageNum < 13 || ageNum > 120) {
-                return 'Please enter a valid age (13-120).';
+            if (!isValidCheckoutAttendeeAge(attendeeAge, minimumAttendeeAge)) {
+                return `Please enter a valid age (${minimumAttendeeAge}-120).`;
             }
         } else if (stepType === 'ticket' && currentTicketIndex >= 0) {
             const attendee = ticketAttendees[currentTicketIndex];
@@ -1736,9 +1737,53 @@ export function PublicEventPageContent({
                 ticketIndex: currentTicketIndex,
                 questions: event?.customQuestions ?? undefined,
                 allowGifting: false,
+                minimumAttendeeAge,
             });
         }
         return null;
+    };
+
+    const getBuyerAgeError = (value: string) => {
+        if (!value.trim()) return 'Please enter your age.';
+        if (!isValidCheckoutAttendeeAge(value, minimumAttendeeAge)) {
+            return `Please enter a valid age (${minimumAttendeeAge}-120).`;
+        }
+        return null;
+    };
+
+    const clearCheckoutErrorIfMatching = (message: string | null) => {
+        if (!message) return;
+        setCheckoutError((current) => (current === message ? null : current));
+    };
+
+    const handleBuyerAgeChange = (value: string) => {
+        const previousAgeError = getBuyerAgeError(attendeeAge);
+        setAttendeeAge(value);
+        if (!getBuyerAgeError(value)) {
+            clearCheckoutErrorIfMatching(previousAgeError);
+        }
+    };
+
+    const handleTicketAttendeeAgeChange = (value: string) => {
+        if (currentTicketIndex < 0) return;
+        const updated = [...ticketAttendees];
+        const nextAttendee = { ...updated[currentTicketIndex], age: value };
+        updated[currentTicketIndex] = nextAttendee;
+        setTicketAttendees(updated);
+
+        const nextError = validateCheckoutTicketAttendee({
+            attendee: nextAttendee,
+            ticketIndex: currentTicketIndex,
+            questions: event?.customQuestions ?? undefined,
+            allowGifting: false,
+            minimumAttendeeAge,
+        });
+        const currentErrorPrefix = `Ticket ${currentTicketIndex + 1}:`;
+        if (!nextError) {
+            setCheckoutError((current) =>
+                current?.startsWith(currentErrorPrefix) ? null : current,
+            );
+        }
     };
 
 
@@ -1783,9 +1828,8 @@ export function PublicEventPageContent({
             return 'Name must be at least 2 characters.';
         }
 
-        const buyerAgeNumber = Number(attendeeAge);
-        if (Number.isNaN(buyerAgeNumber) || buyerAgeNumber < 13 || buyerAgeNumber > 120) {
-            return 'Please enter a valid age (13-120).';
+        if (!isValidCheckoutAttendeeAge(attendeeAge, minimumAttendeeAge)) {
+            return `Please enter a valid age (${minimumAttendeeAge}-120).`;
         }
 
         if (!hasSelections) {
@@ -1806,6 +1850,7 @@ export function PublicEventPageContent({
                     ticketIndex: i,
                     questions: event?.customQuestions ?? undefined,
                     allowGifting: false,
+                    minimumAttendeeAge,
                 });
                 if (attendeeError) {
                     return attendeeError;
@@ -3083,19 +3128,19 @@ export function PublicEventPageContent({
                                                 </div>
                                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                                     <div className="space-y-1.5">
-                                                        <Label htmlFor="buyerAge" className={cn("text-xs font-medium", hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) < 13 || Number(attendeeAge) > 120) ? "text-destructive" : "text-muted-foreground")}>Age</Label>
+                                                        <Label htmlFor="buyerAge" className={cn("text-xs font-medium", hasAttemptedSubmit && !isValidCheckoutAttendeeAge(attendeeAge, minimumAttendeeAge) ? "text-destructive" : "text-muted-foreground")}>Age</Label>
                                                         <Input
                                                             id="buyerAge"
                                                             type="number"
-                                                            min="13"
+                                                            min={minimumAttendeeAge}
                                                             max="120"
                                                             value={attendeeAge}
-                                                            onChange={(e) => setAttendeeAge(e.target.value)}
+                                                            onChange={(e) => handleBuyerAgeChange(e.target.value)}
                                                             disabled={isProcessing}
-                                                            className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) < 13 || Number(attendeeAge) > 120) && "border-destructive ring-1 ring-destructive/30")}
+                                                            className={cn("h-10 bg-muted/30 border-input/60 focus:bg-background transition-colors", hasAttemptedSubmit && !isValidCheckoutAttendeeAge(attendeeAge, minimumAttendeeAge) && "border-destructive ring-1 ring-destructive/30")}
                                                         />
-                                                        {hasAttemptedSubmit && (!attendeeAge.trim() || Number(attendeeAge) < 13 || Number(attendeeAge) > 120) && (
-                                                            <p className="text-xs text-destructive">Enter age 13-120</p>
+                                                        {hasAttemptedSubmit && !isValidCheckoutAttendeeAge(attendeeAge, minimumAttendeeAge) && (
+                                                            <p className="text-xs text-destructive">Enter age {minimumAttendeeAge}-120</p>
                                                         )}
                                                     </div>
                                                     <div className="space-y-1.5">
@@ -3173,13 +3218,9 @@ export function PublicEventPageContent({
                                                                     id={`ticketAttendeeAge-${currentTicketIndex}`}
                                                                     type="number"
                                                                     value={currentTicketAttendee.age}
-                                                                    onChange={(e) => {
-                                                                        const updated = [...ticketAttendees];
-                                                                        updated[currentTicketIndex] = { ...updated[currentTicketIndex], age: e.target.value };
-                                                                        setTicketAttendees(updated);
-                                                                    }}
+                                                                    onChange={(e) => handleTicketAttendeeAgeChange(e.target.value)}
                                                                     disabled={isProcessing}
-                                                                    min="0"
+                                                                    min={minimumAttendeeAge}
                                                                     max="120"
                                                                     className="h-10 bg-muted/30"
                                                                 />

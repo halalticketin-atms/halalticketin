@@ -4,9 +4,14 @@ import {
     clearEventEditRecovery,
     getEventEditRecoverySavedAt,
     readEventEditRecovery,
+    reconcileRecoveredEventLocation,
     writeEventEditRecovery,
     type EventEditRecoverySnapshot,
 } from './event-edit-recovery';
+import {
+    type EventLocationFields,
+    validateEventLocation,
+} from './event-location-validation';
 
 class MemoryStorage implements Storage {
     private store = new Map<string, string>();
@@ -125,5 +130,89 @@ describe('event edit recovery storage', () => {
         vi.setSystemTime(new Date('1970-01-01T00:00:01.000Z'));
 
         expect(getEventEditRecoverySavedAt('1970-01-01T00:00:02.000Z')).toBe(2_001);
+    });
+});
+
+describe('recovered event location reconciliation', () => {
+    const draftWithLocation = (
+        latitude: number | null | undefined,
+        longitude: number | null | undefined,
+        overrides: Record<string, unknown> = {},
+    ) => ({
+        eventId: '550e8400-e29b-41d4-a716-446655440000',
+        eventStatus: 'published' as const,
+        formData: {
+            locationType: 'physical' as const,
+            venue: 'Dublin Hall',
+            address: '',
+            city: 'Dublin',
+            country: 'Ireland',
+            onlineUrl: '',
+            ...(latitude !== undefined ? { latitude } : {}),
+            ...(longitude !== undefined ? { longitude } : {}),
+            ...overrides,
+        },
+    });
+
+    const serverDraft = draftWithLocation(53.3498, -6.2603);
+
+    it.each([
+        [null, null],
+        [undefined, undefined],
+    ])('restores server coordinates when unchanged recovery coordinates are %s/%s', (latitude, longitude) => {
+        const reconciled = reconcileRecoveredEventLocation(
+            draftWithLocation(latitude, longitude),
+            serverDraft,
+        );
+
+        expect(reconciled.formData).toMatchObject({ latitude: 53.3498, longitude: -6.2603 });
+    });
+
+    it.each([
+        { city: 'Manchester' },
+        { address: 'Changed address' },
+        { venue: 'Changed venue' },
+        { locationType: 'online' },
+    ])('does not restore coordinates after a material recovered location change: %j', (change) => {
+        const reconciled = reconcileRecoveredEventLocation(
+            draftWithLocation(null, null, change),
+            serverDraft,
+        );
+
+        expect(reconciled.formData).toMatchObject({ latitude: null, longitude: null });
+    });
+
+    it('keeps a recovered replacement coordinate pair', () => {
+        const reconciled = reconcileRecoveredEventLocation(
+            draftWithLocation(53.4808, -2.2426, { city: 'Manchester' }),
+            serverDraft,
+        );
+
+        expect(reconciled.formData).toMatchObject({ latitude: 53.4808, longitude: -2.2426 });
+    });
+
+    it('does not hide a malformed partial recovered coordinate pair', () => {
+        const reconciled = reconcileRecoveredEventLocation(
+            draftWithLocation(53.3498, null),
+            serverDraft,
+        );
+
+        expect(reconciled.formData).toMatchObject({ latitude: 53.3498, longitude: null });
+    });
+
+    it('leaves changed recovery text with stale coordinates invalid against the server location', () => {
+        const recovered = reconcileRecoveredEventLocation(
+            draftWithLocation(53.3498, -6.2603, {
+                venue: 'Manchester Hall',
+                address: '10 Deansgate',
+                city: 'Manchester',
+                country: 'United Kingdom',
+            }),
+            serverDraft,
+        );
+
+        expect(validateEventLocation(recovered.formData as EventLocationFields, {
+            persistedPublishedLocation: serverDraft.formData as EventLocationFields,
+        })).toMatchObject({ venue: expect.any(String) });
     });
 });

@@ -23,6 +23,7 @@ interface TicketTypeBreakdown {
   sold: number;
   total: number;
   revenue: number;
+  isArchived?: boolean;
 }
 
 interface EventPerformanceData {
@@ -283,7 +284,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                                   percentage={ttPercentage}
                                   size="md"
                                   colorVariant={colorVariant}
-                                  label={ticketType.name}
+                                  label={ticketType.isArchived ? `${ticketType.name} (Archived)` : ticketType.name}
                                   sublabel={`${ticketType.sold}${ticketType.total > 0 ? ` / ${ticketType.total}` : ' sold'}`}
                                 />
                               </motion.div>

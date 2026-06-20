@@ -60,6 +60,7 @@ interface EventPerformanceData {
     sold: number;
     total: number;
     revenue: number;
+    isArchived?: boolean;
   }>;
 }
 

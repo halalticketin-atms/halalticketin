@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const frontendPort = Number(process.env.PLAYWRIGHT_PORT ?? 3000);
 const backendPort = 3001;
+const skipBackendServer = process.env.PLAYWRIGHT_SKIP_BACKEND === '1';
 
 export default defineConfig({
   testDir: './tests',
@@ -43,14 +44,14 @@ export default defineConfig({
       },
     },
   ],
-  // Start BOTH frontend and backend servers
+  // Start the frontend and, unless explicitly skipped for fully mocked tests, the backend.
   webServer: [
-    {
+    ...(!skipBackendServer ? [{
       command: `cd ../backend && npm run dev`,
       port: backendPort,
       reuseExistingServer: true,
       timeout: 120_000,
-    },
+    }] : []),
     {
       command: `npm run dev -- --hostname 127.0.0.1 --port ${frontendPort}`,
       port: frontendPort,

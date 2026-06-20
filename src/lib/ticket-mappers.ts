@@ -143,6 +143,7 @@ export const buildDraftFromEventRecord = (
         absorbFee: event.absorbFee ?? false,
         refundPolicy: event.refundPolicy ?? '',
         attendeeInfoMode: event.attendeeInfoMode ?? 'buyer_choice',
+        minimumAttendeeAge: event.minimumAttendeeAge ?? 0,
         customQuestions: event.customQuestions ?? [],
     },
     tickets: tickets.length > 0 ? mapTicketRecordsToDraft(tickets, event.timezone) : undefined,

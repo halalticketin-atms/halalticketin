@@ -38,6 +38,18 @@ export const normalizeCheckoutTicketAttendee = (
 export const isGiftCheckoutTicketAttendee = (attendee: CheckoutTicketAttendeeForm) =>
   attendee.giftDeliveryMode === 'email' || attendee.giftDeliveryMode === 'link';
 
+export const isValidCheckoutAttendeeAge = (
+  value: string | number,
+  minimumAttendeeAge = 0,
+) => {
+  if (typeof value === 'string' && !value.trim()) {
+    return false;
+  }
+
+  const age = Number(value);
+  return Number.isInteger(age) && age >= minimumAttendeeAge && age <= 120;
+};
+
 const shouldReplaceWithBuyerValue = (
   currentValue: string,
   previousBuyerValue: string | undefined,
@@ -92,11 +104,13 @@ export const validateCheckoutTicketAttendee = ({
   ticketIndex,
   questions,
   allowGifting = true,
+  minimumAttendeeAge = 0,
 }: {
   attendee: CheckoutTicketAttendeeForm;
   ticketIndex: number;
   questions?: CheckoutCustomQuestion[];
   allowGifting?: boolean;
+  minimumAttendeeAge?: number;
 }) => {
   const ticketLabel = `Ticket ${ticketIndex + 1}`;
   const isGift = isGiftCheckoutTicketAttendee(attendee);
@@ -130,9 +144,8 @@ export const validateCheckoutTicketAttendee = ({
     return `${ticketLabel}: name must be at least 2 characters.`;
   }
 
-  const ageNumber = Number(attendee.age);
-  if (Number.isNaN(ageNumber) || ageNumber < 0 || ageNumber > 120) {
-    return `${ticketLabel}: please enter a valid age (0-120).`;
+  if (!isValidCheckoutAttendeeAge(attendee.age, minimumAttendeeAge)) {
+    return `${ticketLabel}: please enter a valid age (${minimumAttendeeAge}-120).`;
   }
 
   for (const question of questions ?? []) {

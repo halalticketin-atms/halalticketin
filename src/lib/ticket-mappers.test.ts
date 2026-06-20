@@ -34,6 +34,7 @@ const eventRecord = (coordinates: Pick<EventRecord, 'latitude' | 'longitude'>): 
   customBookingFee: null,
   absorbFee: false,
   attendeeInfoMode: 'buyer_choice',
+  minimumAttendeeAge: 18,
   customQuestions: null,
   totalCapacity: 100,
   createdAt: '2026-06-20T10:00:00.000Z',
@@ -52,6 +53,13 @@ describe('buildDraftFromEventRecord', () => {
       eventRecord({ latitude: null, longitude: null }),
       [],
     ).formData).toMatchObject({ latitude: null, longitude: null });
+  });
+
+  it('maps the event minimum attendee age into the editable draft', () => {
+    expect(buildDraftFromEventRecord(
+      eventRecord({ latitude: null, longitude: null }),
+      [],
+    ).formData).toMatchObject({ minimumAttendeeAge: 18 });
   });
 });
 

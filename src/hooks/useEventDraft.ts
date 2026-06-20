@@ -40,6 +40,7 @@ export interface DraftFormData {
   currency: string;
   refundPolicy: string;
   attendeeInfoMode: DraftAttendeeInfoMode;
+  minimumAttendeeAge: number | '';
   customQuestions: DraftCustomQuestion[];
 }
 
@@ -121,6 +122,7 @@ const defaultFormData: DraftFormData = {
   currency: 'GBP',
   refundPolicy: '',
   attendeeInfoMode: 'buyer_choice',
+  minimumAttendeeAge: 0,
   customQuestions: [],
 };
 

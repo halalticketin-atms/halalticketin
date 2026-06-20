@@ -12,7 +12,11 @@ import { fetchEventDetails, fetchEventPromoCodes } from '@/lib/events-api';
 import type { DraftEventInitial } from '@/hooks/useEventDraft';
 import { buildDraftFromEventRecord } from '@/lib/ticket-mappers';
 import { getUserFriendlyMessage } from '@/lib/notifications';
-import { clearEventEditRecovery, readEventEditRecovery } from '@/lib/event-edit-recovery';
+import {
+    clearEventEditRecovery,
+    readEventEditRecovery,
+    reconcileRecoveredEventLocation,
+} from '@/lib/event-edit-recovery';
 import type { EventLocationFields } from '@/lib/event-location-validation';
 
 export default function EditEventPage() {
@@ -71,7 +75,7 @@ export default function EditEventPage() {
                 });
                 setServerDraft(loadedDraft);
                 if (recovery) {
-                    setInitialDraft(recovery.draft);
+                    setInitialDraft(reconcileRecoveredEventLocation(recovery.draft, loadedDraft));
                     setHasRecoveredDraft(true);
                 } else {
                     setInitialDraft(loadedDraft);
