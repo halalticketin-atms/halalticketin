@@ -51,10 +51,10 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
 import {
@@ -4625,27 +4625,27 @@ export function EventWizard({
                                                                 <Check className="h-4 w-4 text-primary" />
                                                                 <span className="text-sm">Gender</span>
                                                             </div>
-                                                            <div className="flex flex-col gap-1 rounded-lg bg-muted/30 p-3">
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                    <div className="flex items-center gap-1.5">
+                                                            <div className="flex min-w-0 flex-col gap-1 rounded-lg bg-muted/30 p-3">
+                                                                <div className="flex min-w-0 flex-col gap-1.5">
+                                                                    <div className="flex min-w-0 items-center gap-1.5">
                                                                         <Check className="h-4 w-4 shrink-0 text-primary" />
                                                                         <Label htmlFor="minimumAttendeeAge" className="text-sm">Age</Label>
-                                                                        <Tooltip>
-                                                                            <TooltipTrigger asChild>
+                                                                        <Popover>
+                                                                            <PopoverTrigger asChild>
                                                                                 <button
                                                                                     type="button"
                                                                                     aria-label="About the minimum age requirement"
-                                                                                    className="inline-flex shrink-0 items-center text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
+                                                                                    className="relative -m-2 inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground/70 transition-colors after:absolute after:-inset-1.5 after:content-[''] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                                                                 >
                                                                                     <Info className="h-3.5 w-3.5" />
                                                                                 </button>
-                                                                            </TooltipTrigger>
-                                                                            <TooltipContent side="top" className="max-w-56 text-center">
+                                                                            </PopoverTrigger>
+                                                                            <PopoverContent side="top" className="w-56 p-3 text-center text-xs">
                                                                                 Set the minimum age attendees must meet to complete checkout. Leave at 0 for no restriction.
-                                                                            </TooltipContent>
-                                                                        </Tooltip>
+                                                                            </PopoverContent>
+                                                                        </Popover>
                                                                     </div>
-                                                                    <div className="flex shrink-0 items-center gap-1.5">
+                                                                    <div className="flex min-w-0 items-center justify-end gap-1.5">
                                                                         <span className="text-xs text-muted-foreground">Min</span>
                                                                         <Input
                                                                             id="minimumAttendeeAge"
@@ -4678,7 +4678,7 @@ export function EventWizard({
                                                                                 }
                                                                             }}
                                                                             className={cn(
-                                                                                'h-8 w-14 bg-background text-center',
+                                                                                'h-8 min-w-0 w-14 bg-background px-1 text-center',
                                                                                 fieldErrors.minimumAttendeeAge && 'border-destructive focus-visible:ring-destructive',
                                                                             )}
                                                                         />
