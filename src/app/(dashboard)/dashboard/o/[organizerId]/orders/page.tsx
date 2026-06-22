@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,6 +18,7 @@ import {
     Mail,
     RefreshCw,
     ChevronDown,
+    Info,
     Users,
     Image as ImageIcon,
 } from 'lucide-react';
@@ -52,6 +53,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -91,6 +93,60 @@ const progressColorMap: Record<string, string> = {
 };
 
 const ATTENDEE_PAGE_SIZE = 500;
+
+// useLayoutEffect on the client, useEffect on the server (avoids the SSR warning).
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+// Custom-question column header. Only when the label actually overflows does it show a
+// hover affordance that reveals the full text in a popover on hover (desktop) or tap (mobile).
+function QuestionHeader({ label }: { label: string }) {
+    const textRef = useRef<HTMLSpanElement>(null);
+    const [truncated, setTruncated] = useState(false);
+    const [open, setOpen] = useState(false);
+
+    // Measure before paint so the icon never pops in after the fact (no jump).
+    useIsomorphicLayoutEffect(() => {
+        const el = textRef.current;
+        if (!el) return;
+        // +1 tolerance kills sub-pixel-rounding false positives on labels that just fit.
+        const measure = () => { if (el.isConnected) setTruncated(el.scrollWidth > el.clientWidth + 1); };
+        measure();
+        // Re-check once webfonts settle; fallback metrics can flag a fitting label as overflowing.
+        document.fonts?.ready.then(measure).catch(() => {});
+    }, [label]);
+
+    const text = (
+        <span ref={textRef} className="block min-w-0 max-w-48 truncate">
+            {label}
+        </span>
+    );
+
+    if (!truncated) return text;
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    onMouseEnter={() => setOpen(true)}
+                    onMouseLeave={() => setOpen(false)}
+                    className="group -mx-2 -my-1 inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-left align-middle outline-none transition-colors duration-150 hover:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted"
+                >
+                    {text}
+                    <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-colors duration-150 group-hover:text-foreground group-data-[state=open]:text-foreground" />
+                </button>
+            </PopoverTrigger>
+            <PopoverContent
+                align="start"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+                className="w-auto max-w-xs"
+            >
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Question</p>
+                <p className="mt-1 break-words text-sm font-medium leading-snug text-foreground">{label}</p>
+            </PopoverContent>
+        </Popover>
+    );
+}
 
 interface OrdersResponse {
     orders: OrderResponse[];
@@ -1559,7 +1615,7 @@ export default function OrdersPage() {
                                                     {attendeeAnswerDisplayMode === 'visible'
                                                         ? selectedEventQuestionLabels.map((question) => (
                                                             <th key={question.questionId} className="px-4 py-3 text-left font-medium">
-                                                                {question.label}
+                                                                <QuestionHeader label={question.label} />
                                                             </th>
                                                         ))
                                                         : (
