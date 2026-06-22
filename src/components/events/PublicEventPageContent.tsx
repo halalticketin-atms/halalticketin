@@ -3069,7 +3069,7 @@ export function PublicEventPageContent({
                             </div>
 
                             {/* Scrollable Form Area */}
-                            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-2 md:py-2.5 custom-scrollbar min-h-0">
+                            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-2 md:py-2.5 custom-scrollbar min-h-0">
                                 <AnimatePresence mode="wait">
                                     <motion.div
                                         key={checkoutStep}
