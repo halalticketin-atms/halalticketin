@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, Reorder } from 'motion/react';
 import {
     ArrowLeft,
     Calendar,
@@ -30,7 +30,6 @@ import {
     Loader2,
     ChevronDown,
     Settings2,
-    X,
     Code,
     FileText,
     Info,
@@ -67,6 +66,7 @@ import { MainStepTabs, SubStepSidebar, SubStepChips } from '@/components/events/
 import { EmbedCheckoutSnippet } from '@/components/events/EmbedCheckoutSnippet';
 import { AiDraftReviewPanel } from '@/components/events/AiDraftReviewPanel';
 import { CustomQuestionLibraryDialog } from '@/components/events/CustomQuestionLibraryDialog';
+import { CustomQuestionRow, QUESTION_ACCENTS } from '@/components/events/CustomQuestionRow';
 
 // Dynamic import to avoid SSR issues with Leaflet
 const EventLocationMap = dynamic(
@@ -125,6 +125,7 @@ import {
     createCustomQuestionId,
     MAX_CUSTOM_QUESTIONS,
     MAX_CUSTOM_QUESTION_LABEL_LENGTH,
+    moveCustomQuestion,
 } from '@/lib/custom-question-library';
 import {
     Dialog,
@@ -360,6 +361,7 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
                 options: question.type === 'select' || question.type === 'checkbox'
                     ? (Array.isArray(question.options) ? question.options : [])
                     : undefined,
+                ageValidation: question.type === 'date' && question.ageValidation === true ? true : undefined,
             }))
             : null,
     };
@@ -4750,170 +4752,52 @@ export function EventWizard({
                                                                 <p className="text-xs text-muted-foreground mt-1">Click &ldquo;Add Question&rdquo; to collect more info</p>
                                                             </div>
                                                         ) : (
-                                                            <div className="space-y-3">
+                                                            <Reorder.Group
+                                                                as="div"
+                                                                axis="y"
+                                                                values={formData.customQuestions}
+                                                                onReorder={(next: typeof formData.customQuestions) =>
+                                                                    setFormData(prev => ({ ...prev, customQuestions: next }))
+                                                                }
+                                                                className="space-y-3"
+                                                            >
                                                                 {formData.customQuestions.map((question, index) => (
-                                                                    <div key={question.id} className="flex gap-3 p-3 bg-muted/30 rounded-lg">
-                                                                        <div className="flex-1 space-y-2">
-                                                                            <Textarea
-                                                                                placeholder="Question label"
-                                                                                value={question.label}
-                                                                                maxLength={MAX_CUSTOM_QUESTION_LABEL_LENGTH}
-                                                                                rows={2}
-                                                                                onChange={(e) => {
-                                                                                    const updated = [...formData.customQuestions];
-                                                                                    updated[index] = {
-                                                                                        ...updated[index],
-                                                                                        label: e.target.value.slice(0, MAX_CUSTOM_QUESTION_LABEL_LENGTH),
-                                                                                    };
-                                                                                    setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                                }}
-                                                                                className="min-h-16 resize-y"
-                                                                            />
-                                                                            <p className="text-right text-xs text-muted-foreground">
-                                                                                {question.label.length}/{MAX_CUSTOM_QUESTION_LABEL_LENGTH}
-                                                                            </p>
-                                                                            <div className="flex items-center gap-3">
-                                                                                <Select
-                                                                                    value={question.type}
-                                                                                    onValueChange={(value) => {
-                                                                                        const updated = [...formData.customQuestions];
-                                                                                        const newType = value as 'text' | 'select' | 'checkbox' | 'date';
-                                                                                        updated[index] = {
-                                                                                            ...updated[index],
-                                                                                            type: newType,
-                                                                                            // Initialize options array when switching to select/checkbox
-                                                                                            options: (newType === 'select' || newType === 'checkbox')
-                                                                                                ? (updated[index].options ?? [])
-                                                                                                : undefined
-                                                                                        };
-                                                                                        setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                                    }}
-                                                                                >
-                                                                                    <SelectTrigger className="w-32 h-8">
-                                                                                        <SelectValue />
-                                                                                    </SelectTrigger>
-                                                                                    <SelectContent>
-                                                                                        <SelectItem value="text">Text</SelectItem>
-                                                                                        <SelectItem value="date">Date</SelectItem>
-                                                                                        <SelectItem value="select">Dropdown</SelectItem>
-                                                                                        <SelectItem value="checkbox">Checkbox</SelectItem>
-                                                                                    </SelectContent>
-                                                                                </Select>
-                                                                                <label className="flex items-center gap-2 text-sm">
-                                                                                    <input
-                                                                                        type="checkbox"
-                                                                                        checked={question.required}
-                                                                                        onChange={(e) => {
-                                                                                            const updated = [...formData.customQuestions];
-                                                                                            updated[index] = { ...updated[index], required: e.target.checked };
-                                                                                            setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                                        }}
-                                                                                        className="rounded border-muted-foreground"
-                                                                                    />
-                                                                                    Required
-                                                                                </label>
-                                                                            </div>
-                                                                            {/* Options input for dropdown/checkbox types */}
-                                                                            {(question.type === 'select' || question.type === 'checkbox') && (
-                                                                                <div className="space-y-2 pt-2">
-                                                                                    <Label className="text-xs text-muted-foreground">
-                                                                                        Options
-                                                                                    </Label>
-                                                                                    {/* Display existing options as chips */}
-                                                                                    {(question.options?.length ?? 0) > 0 && (
-                                                                                        <div className="flex flex-wrap gap-1.5">
-                                                                                            {question.options?.map((opt, optIndex) => (
-                                                                                                <div
-                                                                                                    key={optIndex}
-                                                                                                    className="flex items-center gap-1 pl-2.5 pr-1 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium"
-                                                                                                >
-                                                                                                    <span>{opt}</span>
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        onClick={() => {
-                                                                                                            const updated = [...formData.customQuestions];
-                                                                                                            const newOptions = [...(updated[index].options ?? [])];
-                                                                                                            newOptions.splice(optIndex, 1);
-                                                                                                            updated[index] = { ...updated[index], options: newOptions };
-                                                                                                            setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                                                        }}
-                                                                                                        className="p-0.5 hover:bg-primary/20 rounded-full transition-colors"
-                                                                                                    >
-                                                                                                        <X className="h-3 w-3" />
-                                                                                                    </button>
-                                                                                                </div>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    )}
-                                                                                    {/* Add new option input */}
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <Input
-                                                                                            placeholder="Type an option and press Enter"
-                                                                                            className="h-8 text-sm flex-1"
-                                                                                            onKeyDown={(e) => {
-                                                                                                if (e.key === 'Enter') {
-                                                                                                    e.preventDefault();
-                                                                                                    const input = e.currentTarget;
-                                                                                                    const value = input.value.trim();
-                                                                                                    if (value) {
-                                                                                                        const updated = [...formData.customQuestions];
-                                                                                                        const currentOptions = updated[index].options ?? [];
-                                                                                                        if (!currentOptions.includes(value)) {
-                                                                                                            updated[index] = { ...updated[index], options: [...currentOptions, value] };
-                                                                                                            setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                                                        }
-                                                                                                        input.value = '';
-                                                                                                    }
-                                                                                                }
-                                                                                            }}
-                                                                                        />
-                                                                                        <Button
-                                                                                            type="button"
-                                                                                            variant="outline"
-                                                                                            size="sm"
-                                                                                            className="h-8 px-3"
-                                                                                            onClick={(e) => {
-                                                                                                const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                                                                                                const value = input?.value?.trim();
-                                                                                                if (value) {
-                                                                                                    const updated = [...formData.customQuestions];
-                                                                                                    const currentOptions = updated[index].options ?? [];
-                                                                                                    if (!currentOptions.includes(value)) {
-                                                                                                        updated[index] = { ...updated[index], options: [...currentOptions, value] };
-                                                                                                        setFormData(prev => ({ ...prev, customQuestions: updated }));
-                                                                                                    }
-                                                                                                    input.value = '';
-                                                                                                }
-                                                                                            }}
-                                                                                        >
-                                                                                            <Plus className="h-3.5 w-3.5 mr-1" />
-                                                                                            Add
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                    {(question.options?.length ?? 0) === 0 && (
-                                                                                        <p className="text-xs text-amber-600">
-                                                                                            Add at least one option for attendees to choose from
-                                                                                        </p>
-                                                                                    )}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-8 w-8 text-destructive hover:text-destructive"
-                                                                            onClick={() => {
-                                                                                setFormData(prev => ({
-                                                                                    ...prev,
-                                                                                    customQuestions: prev.customQuestions.filter(q => q.id !== question.id)
-                                                                                }));
-                                                                            }}
-                                                                        >
-                                                                            <Trash2 className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </div>
+                                                                    <CustomQuestionRow
+                                                                        key={question.id}
+                                                                        question={question}
+                                                                        index={index}
+                                                                        total={formData.customQuestions.length}
+                                                                        accent={QUESTION_ACCENTS[index % QUESTION_ACCENTS.length]}
+                                                                        maxLabelLength={MAX_CUSTOM_QUESTION_LABEL_LENGTH}
+                                                                        onPatch={(patch) =>
+                                                                            setFormData(prev => ({
+                                                                                ...prev,
+                                                                                customQuestions: prev.customQuestions.map((q, i) =>
+                                                                                    i === index ? { ...q, ...patch } : q,
+                                                                                ),
+                                                                            }))
+                                                                        }
+                                                                        onRemove={() =>
+                                                                            setFormData(prev => ({
+                                                                                ...prev,
+                                                                                customQuestions: prev.customQuestions.filter(q => q.id !== question.id),
+                                                                            }))
+                                                                        }
+                                                                        onMoveUp={() =>
+                                                                            setFormData(prev => ({
+                                                                                ...prev,
+                                                                                customQuestions: moveCustomQuestion(prev.customQuestions, index, index - 1),
+                                                                            }))
+                                                                        }
+                                                                        onMoveDown={() =>
+                                                                            setFormData(prev => ({
+                                                                                ...prev,
+                                                                                customQuestions: moveCustomQuestion(prev.customQuestions, index, index + 1),
+                                                                            }))
+                                                                        }
+                                                                    />
                                                                 ))}
-                                                            </div>
+                                                            </Reorder.Group>
                                                         )}
                                                     </div>
                                                 </div>

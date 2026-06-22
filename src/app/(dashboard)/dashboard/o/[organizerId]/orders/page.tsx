@@ -74,6 +74,8 @@ import { ticketTypeColors } from '@/components/dashboard/CircularProgress';
 import {
     buildAttendeesQueryParams,
     clearAnswerFiltersForEventSelection,
+    formatAnswerQuestionLabel,
+    formatQuestionNumberLabel,
     ORDER_PAGE_TABS,
     getAttendeeAnswerDisplayMode,
     type OrderDetailTab,
@@ -1613,9 +1615,9 @@ export default function OrdersPage() {
                                                     <th className="px-4 py-3 text-left font-medium">Buyer</th>
                                                     <th className="px-4 py-3 text-left font-medium">Status</th>
                                                     {attendeeAnswerDisplayMode === 'visible'
-                                                        ? selectedEventQuestionLabels.map((question) => (
+                                                        ? selectedEventQuestionLabels.map((question, questionIndex) => (
                                                             <th key={question.questionId} className="px-4 py-3 text-left font-medium">
-                                                                <QuestionHeader label={question.label} />
+                                                                <QuestionHeader label={formatQuestionNumberLabel(question.label, questionIndex)} />
                                                             </th>
                                                         ))
                                                         : (
@@ -1724,7 +1726,9 @@ export default function OrdersPage() {
                                                         <div className="mt-3 space-y-3">
                                                             {attendee.registrationAnswers.map((answer) => (
                                                                 <div key={answer.questionId}>
-                                                                    <p className="text-xs font-medium text-muted-foreground">{answer.label}</p>
+                                                                    <p className="text-xs font-medium text-muted-foreground">
+                                                                        {formatAnswerQuestionLabel(answer.label, answer.questionId, selectedEventQuestions)}
+                                                                    </p>
                                                                     <p className="break-words text-sm">{formatAnswerValue(answer)}</p>
                                                                 </div>
                                                             ))}

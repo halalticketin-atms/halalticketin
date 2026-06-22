@@ -5,6 +5,7 @@ import {
   getCustomQuestionKey,
   isQuestionAlreadyPresent,
   MAX_CUSTOM_QUESTIONS,
+  moveCustomQuestion,
 } from './custom-question-library';
 import type { CustomQuestionLibraryItem } from './events-api';
 
@@ -42,6 +43,24 @@ describe('custom question library selection', () => {
     ).toBe(false);
   });
 
+  it('treats date age validation as part of the question key', () => {
+    const plainDate = libraryQuestion({
+      key: 'plain-date',
+      label: 'Date',
+      type: 'date',
+      required: true,
+      options: undefined,
+    });
+    const dobDate = libraryQuestion({
+      ...plainDate,
+      key: 'dob-date',
+      ageValidation: true,
+    });
+
+    expect(getCustomQuestionKey(plainDate)).not.toBe(getCustomQuestionKey(dobDate));
+    expect(isQuestionAlreadyPresent(dobDate, [{ ...plainDate, id: 'plain-date-id' }])).toBe(false);
+  });
+
   it('copies multiple selected questions with fresh ids and independent options', () => {
     const first = libraryQuestion();
     const second = libraryQuestion({
@@ -67,6 +86,35 @@ describe('custom question library selection', () => {
 
     result.questions[0].options?.push('Vegan');
     expect(first.options).toEqual(['Halal', 'Vegetarian']);
+  });
+
+  it('copies age validation for date questions only', () => {
+    const ids = ['date-id', 'text-id'];
+    const result = addLibraryQuestions(
+      [],
+      [
+        libraryQuestion({
+          key: 'dob-key',
+          label: 'Date of birth',
+          type: 'date',
+          ageValidation: true,
+          options: undefined,
+        }),
+        libraryQuestion({
+          key: 'text-key',
+          label: 'Notes',
+          type: 'text',
+          ageValidation: true,
+          options: undefined,
+        }),
+      ],
+      () => ids.shift()!,
+    );
+
+    expect(result.questions).toEqual([
+      expect.objectContaining({ id: 'date-id', type: 'date', ageValidation: true }),
+      expect.not.objectContaining({ ageValidation: true }),
+    ]);
   });
 
   it('skips exact duplicates and never exceeds the event question limit', () => {
@@ -100,5 +148,29 @@ describe('custom question library selection', () => {
     expect(result.addedCount).toBe(1);
     expect(result.skippedDuplicateCount).toBe(1);
     expect(result.skippedLimitCount).toBe(1);
+  });
+});
+
+describe('custom question ordering', () => {
+  it('moves questions while preserving object identity and ids', () => {
+    const first = { id: 'q1', label: 'One', type: 'text' as const, required: false };
+    const second = { id: 'q2', label: 'Two', type: 'text' as const, required: false };
+    const third = { id: 'q3', label: 'Three', type: 'text' as const, required: false };
+
+    const moved = moveCustomQuestion([first, second, third], 2, 0);
+
+    expect(moved).toEqual([third, first, second]);
+    expect(moved[0]).toBe(third);
+    expect(moved.map((question) => question.id)).toEqual(['q3', 'q1', 'q2']);
+  });
+
+  it('returns the original array for invalid or same-position moves', () => {
+    const questions = [
+      { id: 'q1', label: 'One', type: 'text' as const, required: false },
+    ];
+
+    expect(moveCustomQuestion(questions, 0, 0)).toBe(questions);
+    expect(moveCustomQuestion(questions, -1, 0)).toBe(questions);
+    expect(moveCustomQuestion(questions, 0, 1)).toBe(questions);
   });
 });

@@ -100,6 +100,7 @@ export interface CustomQuestionPayload {
   type: 'text' | 'select' | 'checkbox' | 'date';
   required: boolean;
   options?: string[];
+  ageValidation?: boolean;
 }
 
 export interface CustomQuestionLibraryItem extends Omit<CustomQuestionPayload, 'id'> {

@@ -5,6 +5,8 @@ import {
     ORDER_PAGE_TABS,
     buildAttendeesQueryParams,
     clearAnswerFiltersForEventSelection,
+    formatAnswerQuestionLabel,
+    formatQuestionNumberLabel,
     getAttendeeAnswerDisplayMode,
 } from './orders-attendees-ui';
 
@@ -15,6 +17,23 @@ describe('orders attendees UI contracts', () => {
 
     it('shows Details, Answers, and Refund in the order detail modal', () => {
         expect(ORDER_DETAIL_TABS.map((tab) => tab.label)).toEqual(['Details', 'Answers', 'Refund']);
+    });
+
+    it('formats custom question labels with one-based numbers', () => {
+        expect(formatQuestionNumberLabel('Dietary requirements', 0)).toBe('1. Dietary requirements');
+        expect(formatQuestionNumberLabel('Accessibility', 4)).toBe('5. Accessibility');
+    });
+
+    it('uses the event question order for answer-card labels', () => {
+        const questions = [
+            { questionId: 'optional', label: 'Optional question' },
+            { questionId: 'diet', label: 'Dietary requirements' },
+        ];
+
+        expect(formatAnswerQuestionLabel('Dietary requirements', 'diet', questions))
+            .toBe('2. Dietary requirements');
+        expect(formatAnswerQuestionLabel('Legacy answer', 'legacy', questions))
+            .toBe('Legacy answer');
     });
 
     it('uses visible answer fields only when exactly one event is selected', () => {

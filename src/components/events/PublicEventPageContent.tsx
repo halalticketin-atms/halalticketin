@@ -1738,6 +1738,7 @@ export function PublicEventPageContent({
                 questions: event?.customQuestions ?? undefined,
                 allowGifting: false,
                 minimumAttendeeAge,
+                eventTimezone: event?.timezone,
             });
         }
         return null;
@@ -1777,6 +1778,7 @@ export function PublicEventPageContent({
             questions: event?.customQuestions ?? undefined,
             allowGifting: false,
             minimumAttendeeAge,
+            eventTimezone: event?.timezone,
         });
         const currentErrorPrefix = `Ticket ${currentTicketIndex + 1}:`;
         if (!nextError) {
@@ -1851,6 +1853,7 @@ export function PublicEventPageContent({
                     questions: event?.customQuestions ?? undefined,
                     allowGifting: false,
                     minimumAttendeeAge,
+                    eventTimezone: event?.timezone,
                 });
                 if (attendeeError) {
                     return attendeeError;
@@ -3258,10 +3261,10 @@ export function PublicEventPageContent({
                                                         {/* Customer questions */}
                                                         {event?.customQuestions && event.customQuestions.length > 0 && (
                                                             <div className="space-y-3 pt-2 border-t border-border/50 mt-2">
-                                                                {event.customQuestions.map((q) => (
+                                                                {event.customQuestions.map((q, questionIndex) => (
                                                                     <div key={q.id} className="space-y-1.5">
                                                                         <Label className="text-xs font-medium text-muted-foreground">
-                                                                            {q.label}{q.required && <span className="text-destructive ml-0.5">*</span>}
+                                                                            {questionIndex + 1}. {q.label}{q.required && <span className="text-destructive ml-0.5">*</span>}
                                                                         </Label>
                                                                         {q.type === 'text' && (
                                                                             <Input

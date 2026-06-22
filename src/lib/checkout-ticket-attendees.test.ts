@@ -114,6 +114,41 @@ describe('validateCheckoutTicketAttendee', () => {
     ).toBeNull();
   });
 
+  it('rejects under-age DOB answers only when age validation is enabled', () => {
+    const attendee = normalizeCheckoutTicketAttendee({
+      name: 'Date Attendee',
+      gender: 'female',
+      age: '21',
+      customAnswers: { dob: '2008-06-23', visit: '2008-06-23' },
+    });
+
+    expect(
+      validateCheckoutTicketAttendee({
+        attendee,
+        ticketIndex: 0,
+        minimumAttendeeAge: 18,
+        eventTimezone: 'Europe/Dublin',
+        today: new Date('2026-06-22T12:00:00Z'),
+        questions: [
+          { id: 'dob', label: 'Date of birth', required: true, type: 'date', ageValidation: true },
+        ],
+      }),
+    ).toBe('Ticket 1: "Date of birth" must show the attendee is at least 18.');
+
+    expect(
+      validateCheckoutTicketAttendee({
+        attendee,
+        ticketIndex: 0,
+        minimumAttendeeAge: 18,
+        eventTimezone: 'Europe/Dublin',
+        today: new Date('2026-06-22T12:00:00Z'),
+        questions: [
+          { id: 'visit', label: 'Previous visit date', required: true, type: 'date' },
+        ],
+      }),
+    ).toBeNull();
+  });
+
   it('allows optional date questions to stay blank and serializes valid raw values unchanged', () => {
     const attendee = normalizeCheckoutTicketAttendee({
       name: 'Date Attendee',

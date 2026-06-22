@@ -23,6 +23,17 @@ export const clearAnswerFiltersForEventSelection = (
     answerFilters: AttendeeAnswerFilters,
 ): AttendeeAnswerFilters => selectedEventIds.length === 1 ? answerFilters : {};
 
+export const formatQuestionNumberLabel = (label: string, index: number) => `${index + 1}. ${label}`;
+
+export const formatAnswerQuestionLabel = (
+    label: string,
+    questionId: string,
+    questions: Array<{ questionId: string }>,
+) => {
+    const questionIndex = questions.findIndex((question) => question.questionId === questionId);
+    return questionIndex === -1 ? label : formatQuestionNumberLabel(label, questionIndex);
+};
+
 export const buildAttendeesQueryParams = ({
     organizerId,
     eventIds,

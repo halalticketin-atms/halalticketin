@@ -11,6 +11,7 @@ export interface DraftCustomQuestion {
   type: 'text' | 'select' | 'checkbox' | 'date';
   required: boolean;
   options?: string[];
+  ageValidation?: boolean;
 }
 
 export interface DraftFormData {
@@ -202,7 +203,12 @@ export function useEventDraft(initial?: DraftEventInitial, totalSteps: number = 
       const options = hasOptions
         ? (Array.isArray(question.options) ? question.options : [])
         : undefined;
-      return { ...question, id, options };
+      return {
+        ...question,
+        id,
+        options,
+        ageValidation: question.type === 'date' && question.ageValidation === true ? true : undefined,
+      };
     });
   };
 

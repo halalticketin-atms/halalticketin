@@ -132,7 +132,7 @@ export function CustomQuestionLibraryDialog({
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="flex max-h-[calc(100dvh-1rem)] grid-rows-none flex-col gap-0 p-0 sm:max-h-[min(760px,calc(100dvh-3rem))] sm:max-w-2xl">
+        <DialogContent className="flex h-[calc(100dvh-1rem)] grid-rows-none flex-col gap-0 overflow-hidden p-0 sm:h-[min(760px,calc(100dvh-3rem))] sm:max-w-2xl sm:p-0">
           <DialogHeader className="border-b px-4 py-4 pr-12 text-left sm:px-6 sm:py-5">
             <DialogTitle>Use previous questions</DialogTitle>
             <DialogDescription>

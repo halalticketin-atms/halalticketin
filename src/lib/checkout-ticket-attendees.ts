@@ -1,5 +1,5 @@
 import type { TicketAttendeePayload } from './checkout-api';
-import { isValidCustomQuestionDate } from './custom-question-dates';
+import { isValidCustomQuestionDate, isValidCustomQuestionDob } from './custom-question-dates';
 
 export interface CheckoutCustomQuestion {
   id: string;
@@ -7,6 +7,7 @@ export interface CheckoutCustomQuestion {
   required: boolean;
   type?: 'text' | 'select' | 'checkbox' | 'date';
   options?: string[];
+  ageValidation?: boolean;
 }
 
 export interface CheckoutTicketAttendeeForm {
@@ -92,9 +93,19 @@ export const buildTicketAttendeesWithBuyerAsFirst = ({
   return normalizedAttendees;
 };
 
-const hasRequiredAnswer = (question: CheckoutCustomQuestion, answer?: string) => {
+const hasRequiredAnswer = (
+  question: CheckoutCustomQuestion,
+  answer: string | undefined,
+  minimumAttendeeAge: number,
+  eventTimezone: string,
+  today: Date,
+) => {
   if (question.type === 'date') {
-    return typeof answer === 'string' && isValidCustomQuestionDate(answer);
+    return typeof answer === 'string' && (
+      question.ageValidation
+        ? isValidCustomQuestionDob(answer, minimumAttendeeAge, eventTimezone, today)
+        : isValidCustomQuestionDate(answer)
+    );
   }
 
   if (question.type === 'checkbox' && question.options && question.options.length > 0) {
@@ -104,12 +115,22 @@ const hasRequiredAnswer = (question: CheckoutCustomQuestion, answer?: string) =>
   return answer !== undefined && answer !== null && answer !== '';
 };
 
-const hasValidAnswer = (question: CheckoutCustomQuestion, answer?: string) => {
+const hasValidAnswer = (
+  question: CheckoutCustomQuestion,
+  answer: string | undefined,
+  minimumAttendeeAge: number,
+  eventTimezone: string,
+  today: Date,
+) => {
   if (!answer?.trim()) {
     return true;
   }
 
-  return question.type !== 'date' || isValidCustomQuestionDate(answer);
+  return question.type !== 'date' || (
+    question.ageValidation
+      ? isValidCustomQuestionDob(answer, minimumAttendeeAge, eventTimezone, today)
+      : isValidCustomQuestionDate(answer)
+  );
 };
 
 export const validateCheckoutTicketAttendee = ({
@@ -118,12 +139,16 @@ export const validateCheckoutTicketAttendee = ({
   questions,
   allowGifting = true,
   minimumAttendeeAge = 0,
+  eventTimezone = 'UTC',
+  today = new Date(),
 }: {
   attendee: CheckoutTicketAttendeeForm;
   ticketIndex: number;
   questions?: CheckoutCustomQuestion[];
   allowGifting?: boolean;
   minimumAttendeeAge?: number;
+  eventTimezone?: string;
+  today?: Date;
 }) => {
   const ticketLabel = `Ticket ${ticketIndex + 1}`;
   const isGift = isGiftCheckoutTicketAttendee(attendee);
@@ -163,17 +188,21 @@ export const validateCheckoutTicketAttendee = ({
 
   for (const question of questions ?? []) {
     const answer = attendee.customAnswers[question.id];
-    if (!hasValidAnswer(question, answer)) {
-      return `${ticketLabel}: please enter a valid date for "${question.label}".`;
+    if (!hasValidAnswer(question, answer, minimumAttendeeAge, eventTimezone, today)) {
+      return question.type === 'date' && question.ageValidation
+        ? `${ticketLabel}: "${question.label}" must show the attendee is at least ${minimumAttendeeAge}.`
+        : `${ticketLabel}: please enter a valid date for "${question.label}".`;
     }
 
     if (!question.required) {
       continue;
     }
 
-    if (!hasRequiredAnswer(question, answer)) {
+    if (!hasRequiredAnswer(question, answer, minimumAttendeeAge, eventTimezone, today)) {
       return question.type === 'date'
-        ? `${ticketLabel}: please enter a valid date for "${question.label}".`
+        ? question.ageValidation
+          ? `${ticketLabel}: "${question.label}" must show the attendee is at least ${minimumAttendeeAge}.`
+          : `${ticketLabel}: please enter a valid date for "${question.label}".`
         : `${ticketLabel}: please answer "${question.label}".`;
     }
   }
