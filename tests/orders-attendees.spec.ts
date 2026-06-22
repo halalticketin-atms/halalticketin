@@ -465,3 +465,13 @@ test('answer filters clear and hide when event selection becomes incompatible', 
 
   await expect(page.getByRole('button', { name: /Will you attend/ })).toHaveCount(0);
 });
+
+test('attendees view exposes the attendee CSV export flow', async ({ page }) => {
+  await page.getByRole('button', { name: 'Attendees' }).click();
+
+  await page.getByRole('button', { name: 'Export' }).click();
+  await page.getByRole('menuitem', { name: 'Attendee List' }).click();
+
+  await expect(page.getByRole('dialog', { name: 'Export Attendee List' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Export CSV' })).toBeVisible();
+});
