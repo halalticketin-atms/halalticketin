@@ -72,6 +72,7 @@ import { useOrganizers } from '@/context/organizer-context';
 import { OrderCard, type OrderResponse, type OrderItem, type OrderStatus } from '@/components/orders/OrderCard';
 import { ticketTypeColors } from '@/components/dashboard/CircularProgress';
 import {
+    buildAnswerQuestionLabelList,
     buildAttendeesQueryParams,
     clearAnswerFiltersForEventSelection,
     formatAnswerQuestionLabel,
@@ -945,18 +946,7 @@ export default function OrdersPage() {
             return [];
         }
 
-        const labels = new Map<string, string>();
-        for (const question of selectedEventQuestions) {
-            labels.set(question.questionId, question.label);
-        }
-        for (const attendee of filteredAttendees) {
-            for (const answer of attendee.registrationAnswers) {
-                if (!labels.has(answer.questionId)) {
-                    labels.set(answer.questionId, answer.label);
-                }
-            }
-        }
-        return [...labels.entries()].map(([questionId, label]) => ({ questionId, label }));
+        return buildAnswerQuestionLabelList(selectedEventQuestions, filteredAttendees);
     }, [attendeeAnswerDisplayMode, filteredAttendees, selectedEventQuestions]);
 
     const openOrderDetails = (order: OrderResponse) => {
@@ -1727,7 +1717,7 @@ export default function OrdersPage() {
                                                             {attendee.registrationAnswers.map((answer) => (
                                                                 <div key={answer.questionId}>
                                                                     <p className="text-xs font-medium text-muted-foreground">
-                                                                        {formatAnswerQuestionLabel(answer.label, answer.questionId, selectedEventQuestions)}
+                                                                        {formatAnswerQuestionLabel(answer.label, answer.questionId, selectedEventQuestionLabels)}
                                                                     </p>
                                                                     <p className="break-words text-sm">{formatAnswerValue(answer)}</p>
                                                                 </div>
@@ -2252,12 +2242,19 @@ export default function OrdersPage() {
                                                                     </div>
                                                                     {ticket.registrationAnswers && ticket.registrationAnswers.length > 0 ? (
                                                                         <div className="space-y-3">
-                                                                            {ticket.registrationAnswers.map((answer) => (
-                                                                                <div key={answer.questionId} className="rounded-md bg-background/80 p-3">
-                                                                                    <p className="text-xs font-medium text-muted-foreground">{answer.label}</p>
-                                                                                    <p className="mt-1 break-words text-sm">{formatAnswerValue(answer)}</p>
-                                                                                </div>
-                                                                            ))}
+                                                                            {ticket.registrationAnswers.map((answer) => {
+                                                                                const questionLabels = selectedEventQuestionLabels.length > 0
+                                                                                    ? selectedEventQuestionLabels
+                                                                                    : ticket.registrationAnswers ?? [];
+                                                                                return (
+                                                                                    <div key={answer.questionId} className="rounded-md bg-background/80 p-3">
+                                                                                        <p className="text-xs font-medium text-muted-foreground">
+                                                                                            {formatAnswerQuestionLabel(answer.label, answer.questionId, questionLabels)}
+                                                                                        </p>
+                                                                                        <p className="mt-1 break-words text-sm">{formatAnswerValue(answer)}</p>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
                                                                         </div>
                                                                     ) : (
                                                                         <p className="text-sm text-muted-foreground">No answers for this ticket.</p>

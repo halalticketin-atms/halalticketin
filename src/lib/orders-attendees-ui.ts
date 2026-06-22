@@ -14,6 +14,7 @@ export type OrderPageTab = (typeof ORDER_PAGE_TABS)[number]['id'];
 export type OrderDetailTab = (typeof ORDER_DETAIL_TABS)[number]['id'];
 export type AttendeeAnswerDisplayMode = 'visible' | 'details';
 export type AttendeeAnswerFilters = Record<string, string[]>;
+export type AnswerQuestionLabel = { questionId: string; label: string };
 
 export const getAttendeeAnswerDisplayMode = (selectedEventIds: string[]): AttendeeAnswerDisplayMode =>
     selectedEventIds.length === 1 ? 'visible' : 'details';
@@ -32,6 +33,24 @@ export const formatAnswerQuestionLabel = (
 ) => {
     const questionIndex = questions.findIndex((question) => question.questionId === questionId);
     return questionIndex === -1 ? label : formatQuestionNumberLabel(label, questionIndex);
+};
+
+export const buildAnswerQuestionLabelList = (
+    eventQuestions: AnswerQuestionLabel[],
+    attendees: Array<{ registrationAnswers: AnswerQuestionLabel[] }>,
+): AnswerQuestionLabel[] => {
+    const labels = new Map<string, string>();
+    for (const question of eventQuestions) {
+        labels.set(question.questionId, question.label);
+    }
+    for (const attendee of attendees) {
+        for (const answer of attendee.registrationAnswers) {
+            if (!labels.has(answer.questionId)) {
+                labels.set(answer.questionId, answer.label);
+            }
+        }
+    }
+    return [...labels.entries()].map(([questionId, label]) => ({ questionId, label }));
 };
 
 export const buildAttendeesQueryParams = ({

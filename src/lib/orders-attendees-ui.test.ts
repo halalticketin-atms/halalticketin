@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     ORDER_DETAIL_TABS,
     ORDER_PAGE_TABS,
+    buildAnswerQuestionLabelList,
     buildAttendeesQueryParams,
     clearAnswerFiltersForEventSelection,
     formatAnswerQuestionLabel,
@@ -28,12 +29,25 @@ describe('orders attendees UI contracts', () => {
         const questions = [
             { questionId: 'optional', label: 'Optional question' },
             { questionId: 'diet', label: 'Dietary requirements' },
+            { questionId: 'legacy', label: 'Legacy answer' },
         ];
 
         expect(formatAnswerQuestionLabel('Dietary requirements', 'diet', questions))
             .toBe('2. Dietary requirements');
         expect(formatAnswerQuestionLabel('Legacy answer', 'legacy', questions))
-            .toBe('Legacy answer');
+            .toBe('3. Legacy answer');
+    });
+
+    it('appends legacy answer labels after event questions', () => {
+        expect(buildAnswerQuestionLabelList(
+            [{ questionId: 'diet', label: 'Dietary requirements' }],
+            [
+                { registrationAnswers: [{ questionId: 'diet', label: 'Dietary requirements' }, { questionId: 'legacy', label: 'Legacy answer' }] },
+            ],
+        )).toEqual([
+            { questionId: 'diet', label: 'Dietary requirements' },
+            { questionId: 'legacy', label: 'Legacy answer' },
+        ]);
     });
 
     it('uses visible answer fields only when exactly one event is selected', () => {
