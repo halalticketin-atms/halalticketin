@@ -1468,6 +1468,26 @@ export default function OrdersPage() {
                                                 </DropdownMenu>
                                             );
                                         })}
+
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" className="h-10 bg-background/80 backdrop-blur">
+                                                    <Download className="h-4 w-4 mr-2" />
+                                                    Export
+                                                    <ChevronDown className="h-4 w-4 ml-2" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => handleOpenExportModal('attendees')}>
+                                                    <Users className="mr-2 h-4 w-4" />
+                                                    Attendee List
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleOpenExportModal('emails')}>
+                                                    <Mail className="mr-2 h-4 w-4" />
+                                                    Email List
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </div>
                             </CardContent>
