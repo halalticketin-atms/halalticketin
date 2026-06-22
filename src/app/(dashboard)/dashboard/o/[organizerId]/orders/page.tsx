@@ -57,6 +57,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import api from '@/lib/api';
+import { formatCustomQuestionDateForDisplay } from '@/lib/custom-question-dates';
 import { toast } from '@/lib/notifications';
 import {
     clearStoredRefundIdempotencyKey,
@@ -216,11 +217,19 @@ interface AttendeeRecord {
     registrationAnswers: RegistrationAnswer[];
 }
 
+interface EventQuestionMetadata {
+    questionId: string;
+    label: string;
+    type: string;
+    options: string[] | null;
+}
+
 interface AttendeesResponse {
     attendees: AttendeeRecord[];
     total: number;
     limit: number;
     offset: number;
+    eventQuestions?: EventQuestionMetadata[];
     answerFilterQuestions?: AnswerFilterQuestion[];
 }
 
@@ -263,8 +272,15 @@ const getTicketPaidAmount = (ticket: OrderTicket) =>
 const getRefundableTicketPrice = (ticket: OrderTicket) =>
     Math.max(0, ticket.refundableAmount ?? 0);
 
-const getAnswerValue = (answers: RegistrationAnswer[], questionId: string) =>
-    answers.find((answer) => answer.questionId === questionId)?.value ?? '-';
+const formatAnswerValue = (answer: Pick<RegistrationAnswer, 'type' | 'value'>) =>
+    answer.type === 'date'
+        ? formatCustomQuestionDateForDisplay(answer.value)
+        : answer.value;
+
+const getAnswerValue = (answers: RegistrationAnswer[], questionId: string) => {
+    const answer = answers.find((entry) => entry.questionId === questionId);
+    return answer ? formatAnswerValue(answer) : '-';
+};
 
 const getPromoUsageBadges = (promoCodes: EventBreakdown['promoCodes']) =>
     [...promoCodes].sort((a, b) => {
@@ -286,6 +302,7 @@ export default function OrdersPage() {
     const [eventFilter, setEventFilter] = useState<string[]>([]); // Multi-select event filter
     const [answerFilters, setAnswerFilters] = useState<AttendeeAnswerFilters>({});
     const [answerFilterQuestions, setAnswerFilterQuestions] = useState<AnswerFilterQuestion[]>([]);
+    const [selectedEventQuestions, setSelectedEventQuestions] = useState<EventQuestionMetadata[]>([]);
     const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
     const [selectedOrderDetail, setSelectedOrderDetail] = useState<OrderDetailResponse | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -624,6 +641,7 @@ export default function OrdersPage() {
         setEventFilter([]);
         setAnswerFilters({});
         setAnswerFilterQuestions([]);
+        setSelectedEventQuestions([]);
         setAttendees([]);
         setAttendeeTotal(0);
         setKnownAttendeeEvents([]);
@@ -698,6 +716,7 @@ export default function OrdersPage() {
                     return [...next.entries()].map(([id, name]) => ({ id, name }));
                 });
                 setAnswerFilterQuestions(response.answerFilterQuestions ?? []);
+                setSelectedEventQuestions(response.eventQuestions ?? []);
                 setAttendeesError(null);
             } catch (err) {
                 const message = err instanceof Error ? err.message : 'Unable to load attendees';
@@ -707,6 +726,7 @@ export default function OrdersPage() {
                 setAttendees([]);
                 setAttendeeTotal(0);
                 setAnswerFilterQuestions([]);
+                setSelectedEventQuestions([]);
                 setAttendeesError(message);
             } finally {
                 if (isMounted && requestVersion === attendeeRequestVersionRef.current) {
@@ -866,7 +886,11 @@ export default function OrdersPage() {
         if (attendeeAnswerDisplayMode !== 'visible') {
             return [];
         }
+
         const labels = new Map<string, string>();
+        for (const question of selectedEventQuestions) {
+            labels.set(question.questionId, question.label);
+        }
         for (const attendee of filteredAttendees) {
             for (const answer of attendee.registrationAnswers) {
                 if (!labels.has(answer.questionId)) {
@@ -875,7 +899,7 @@ export default function OrdersPage() {
             }
         }
         return [...labels.entries()].map(([questionId, label]) => ({ questionId, label }));
-    }, [attendeeAnswerDisplayMode, filteredAttendees]);
+    }, [attendeeAnswerDisplayMode, filteredAttendees, selectedEventQuestions]);
 
     const openOrderDetails = (order: OrderResponse) => {
         setSelectedOrder(order);
@@ -1574,7 +1598,7 @@ export default function OrdersPage() {
                                                                                 {attendee.registrationAnswers.map((answer) => (
                                                                                     <div key={answer.questionId} className="rounded-md bg-muted/50 p-2">
                                                                                         <p className="text-xs font-medium text-muted-foreground">{answer.label}</p>
-                                                                                        <p className="break-words text-sm">{answer.value}</p>
+                                                                                        <p className="break-words text-sm">{formatAnswerValue(answer)}</p>
                                                                                     </div>
                                                                                 ))}
                                                                             </div>
@@ -1625,7 +1649,7 @@ export default function OrdersPage() {
                                                             {attendee.registrationAnswers.map((answer) => (
                                                                 <div key={answer.questionId}>
                                                                     <p className="text-xs font-medium text-muted-foreground">{answer.label}</p>
-                                                                    <p className="break-words text-sm">{answer.value}</p>
+                                                                    <p className="break-words text-sm">{formatAnswerValue(answer)}</p>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -2151,7 +2175,7 @@ export default function OrdersPage() {
                                                                             {ticket.registrationAnswers.map((answer) => (
                                                                                 <div key={answer.questionId} className="rounded-md bg-background/80 p-3">
                                                                                     <p className="text-xs font-medium text-muted-foreground">{answer.label}</p>
-                                                                                    <p className="mt-1 break-words text-sm">{answer.value}</p>
+                                                                                    <p className="mt-1 break-words text-sm">{formatAnswerValue(answer)}</p>
                                                                                 </div>
                                                                             ))}
                                                                         </div>

@@ -1,4 +1,5 @@
 import type { GiftClaimQuestion, GiftClaimSubmitRequest } from './gift-claim-api';
+import { isValidCustomQuestionDate } from './custom-question-dates';
 
 export type GiftClaimValidationErrors = {
   name?: string;
@@ -41,6 +42,10 @@ export const serializeCheckboxSelections = (values: string[]) =>
   JSON.stringify(normalizeSelections(values));
 
 const hasRequiredAnswer = (question: GiftClaimQuestion, answer?: string) => {
+  if (question.type === 'date') {
+    return typeof answer === 'string' && isValidCustomQuestionDate(answer);
+  }
+
   if (question.type === 'checkbox') {
     if (question.options && question.options.length > 0) {
       return parseCheckboxSelections(answer).length > 0;
@@ -50,6 +55,14 @@ const hasRequiredAnswer = (question: GiftClaimQuestion, answer?: string) => {
   }
 
   return Boolean(answer?.trim());
+};
+
+const hasValidAnswer = (question: GiftClaimQuestion, answer?: string) => {
+  if (!answer?.trim()) {
+    return true;
+  }
+
+  return question.type !== 'date' || isValidCustomQuestionDate(answer);
 };
 
 export const validateGiftClaimForm = ({
@@ -85,12 +98,20 @@ export const validateGiftClaimForm = ({
   }
 
   for (const question of questions ?? []) {
+    if (!hasValidAnswer(question, customAnswers[question.id])) {
+      errors.customAnswers[question.id] = `Enter a valid date for "${question.label}".`;
+      continue;
+    }
+
     if (!question.required) {
       continue;
     }
 
     if (!hasRequiredAnswer(question, customAnswers[question.id])) {
-      errors.customAnswers[question.id] = `Answer "${question.label}".`;
+      errors.customAnswers[question.id] =
+        question.type === 'date'
+          ? `Enter a valid date for "${question.label}".`
+          : `Answer "${question.label}".`;
     }
   }
 

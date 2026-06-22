@@ -93,4 +93,66 @@ describe('validateGiftClaimForm', () => {
     expect(errors).toEqual({ customAnswers: {} });
     expect(hasGiftClaimValidationErrors(errors)).toBe(false);
   });
+
+  it('requires required date questions to contain a valid YYYY-MM-DD value', () => {
+    const question = {
+      id: 'dob',
+      label: 'Date of birth',
+      type: 'date' as const,
+      required: true,
+    };
+
+    expect(
+      validateGiftClaimForm({
+        name: 'Claimed Recipient',
+        gender: 'female',
+        age: '22',
+        customAnswers: {},
+        questions: [question],
+      }).customAnswers,
+    ).toEqual({
+      dob: 'Enter a valid date for "Date of birth".',
+    });
+
+    expect(
+      validateGiftClaimForm({
+        name: 'Claimed Recipient',
+        gender: 'female',
+        age: '22',
+        customAnswers: { dob: '2026-13-40' },
+        questions: [question],
+      }).customAnswers,
+    ).toEqual({
+      dob: 'Enter a valid date for "Date of birth".',
+    });
+
+    expect(
+      validateGiftClaimForm({
+        name: 'Claimed Recipient',
+        gender: 'female',
+        age: '22',
+        customAnswers: { dob: '2001-09-14' },
+        questions: [question],
+      }),
+    ).toEqual({ customAnswers: {} });
+  });
+
+  it('allows optional date questions to stay blank', () => {
+    expect(
+      validateGiftClaimForm({
+        name: 'Claimed Recipient',
+        gender: 'female',
+        age: '22',
+        customAnswers: {},
+        questions: [
+          {
+            id: 'dob',
+            label: 'Date of birth',
+            type: 'date',
+            required: false,
+          },
+        ],
+      }),
+    ).toEqual({ customAnswers: {} });
+  });
 });

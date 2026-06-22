@@ -19,7 +19,7 @@ type AiDraftFormData = AiNullableFields<Omit<DraftFormData, 'visibility' | 'cust
   customQuestions?: Array<{
     id?: string | null;
     label?: string | null;
-    type?: 'text' | 'select' | 'checkbox' | null;
+    type?: 'text' | 'select' | 'checkbox' | 'date' | null;
     required?: boolean | null;
     options?: string[] | null;
   }> | null;

@@ -76,6 +76,68 @@ describe('validateCheckoutTicketAttendee', () => {
     expect(error).toBeNull();
   });
 
+  it('requires required date questions to contain a valid YYYY-MM-DD value', () => {
+    const attendee = normalizeCheckoutTicketAttendee({
+      name: 'Date Attendee',
+      gender: 'female',
+      age: '29',
+    });
+
+    expect(
+      validateCheckoutTicketAttendee({
+        attendee,
+        ticketIndex: 0,
+        questions: [{ id: 'dob', label: 'Date of birth', required: true, type: 'date' }],
+      }),
+    ).toBe('Ticket 1: please enter a valid date for "Date of birth".');
+
+    expect(
+      validateCheckoutTicketAttendee({
+        attendee: {
+          ...attendee,
+          customAnswers: { dob: '2026-99-01' },
+        },
+        ticketIndex: 0,
+        questions: [{ id: 'dob', label: 'Date of birth', required: true, type: 'date' }],
+      }),
+    ).toBe('Ticket 1: please enter a valid date for "Date of birth".');
+
+    expect(
+      validateCheckoutTicketAttendee({
+        attendee: {
+          ...attendee,
+          customAnswers: { dob: '1997-04-12' },
+        },
+        ticketIndex: 0,
+        questions: [{ id: 'dob', label: 'Date of birth', required: true, type: 'date' }],
+      }),
+    ).toBeNull();
+  });
+
+  it('allows optional date questions to stay blank and serializes valid raw values unchanged', () => {
+    const attendee = normalizeCheckoutTicketAttendee({
+      name: 'Date Attendee',
+      gender: 'male',
+      age: '34',
+      customAnswers: { dob: '1990-07-01' },
+    });
+
+    expect(
+      validateCheckoutTicketAttendee({
+        attendee: { ...attendee, customAnswers: {} },
+        ticketIndex: 0,
+        questions: [{ id: 'dob', label: 'Date of birth', required: false, type: 'date' }],
+      }),
+    ).toBeNull();
+
+    expect(serializeCheckoutTicketAttendee(attendee)).toEqual({
+      name: 'Date Attendee',
+      gender: 'male',
+      age: 34,
+      customAnswers: { dob: '1990-07-01' },
+    });
+  });
+
   it('requires a valid recipient email for gift email delivery', () => {
     const missingEmail = validateCheckoutTicketAttendee({
       attendee: normalizeCheckoutTicketAttendee({

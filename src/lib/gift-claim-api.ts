@@ -3,7 +3,7 @@ import api from './api';
 export interface GiftClaimQuestion {
   id: string;
   label: string;
-  type: 'text' | 'select' | 'checkbox';
+  type: 'text' | 'select' | 'checkbox' | 'date';
   required: boolean;
   options?: string[];
 }

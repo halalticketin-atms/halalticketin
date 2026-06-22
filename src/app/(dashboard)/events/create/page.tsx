@@ -4777,7 +4777,7 @@ export function EventWizard({
                                                                                     value={question.type}
                                                                                     onValueChange={(value) => {
                                                                                         const updated = [...formData.customQuestions];
-                                                                                        const newType = value as 'text' | 'select' | 'checkbox';
+                                                                                        const newType = value as 'text' | 'select' | 'checkbox' | 'date';
                                                                                         updated[index] = {
                                                                                             ...updated[index],
                                                                                             type: newType,
@@ -4794,6 +4794,7 @@ export function EventWizard({
                                                                                     </SelectTrigger>
                                                                                     <SelectContent>
                                                                                         <SelectItem value="text">Text</SelectItem>
+                                                                                        <SelectItem value="date">Date</SelectItem>
                                                                                         <SelectItem value="select">Dropdown</SelectItem>
                                                                                         <SelectItem value="checkbox">Checkbox</SelectItem>
                                                                                     </SelectContent>

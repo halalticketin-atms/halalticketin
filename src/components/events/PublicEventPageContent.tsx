@@ -1483,7 +1483,7 @@ export function PublicEventPageContent({
 
     const organizerFeeDetails = useMemo(() => {
         const details = new Map<string, { feePerTicket: number; creditQuantity: number; quantity: number }>();
-        if (!activeQuote || cartItems.length === 0 || activeQuote.lineAllocations.length === 0) {
+        if (!activeQuote || cartItems.length === 0 || !Array.isArray(activeQuote.lineAllocations) || activeQuote.lineAllocations.length === 0) {
             return details;
         }
 
@@ -3276,6 +3276,22 @@ export function PublicEventPageContent({
                                                                                 }}
                                                                                 disabled={isProcessing}
                                                                                 maxLength={500}
+                                                                                className="h-10 bg-muted/30"
+                                                                            />
+                                                                        )}
+                                                                        {q.type === 'date' && (
+                                                                            <Input
+                                                                                type="date"
+                                                                                value={currentTicketAttendee.customAnswers[q.id] || ''}
+                                                                                onChange={(e) => {
+                                                                                    const updated = [...ticketAttendees];
+                                                                                    updated[currentTicketIndex] = {
+                                                                                        ...updated[currentTicketIndex],
+                                                                                        customAnswers: { ...updated[currentTicketIndex].customAnswers, [q.id]: e.target.value }
+                                                                                    };
+                                                                                    setTicketAttendees(updated);
+                                                                                }}
+                                                                                disabled={isProcessing}
                                                                                 className="h-10 bg-muted/30"
                                                                             />
                                                                         )}

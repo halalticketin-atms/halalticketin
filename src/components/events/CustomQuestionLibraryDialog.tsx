@@ -30,6 +30,7 @@ const questionTypeLabel: Record<CustomQuestionLibraryItem['type'], string> = {
   text: 'Text',
   select: 'Dropdown',
   checkbox: 'Checkbox',
+  date: 'Date',
 };
 
 interface CustomQuestionLibraryDialogProps {

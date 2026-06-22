@@ -1,10 +1,11 @@
 import type { TicketAttendeePayload } from './checkout-api';
+import { isValidCustomQuestionDate } from './custom-question-dates';
 
 export interface CheckoutCustomQuestion {
   id: string;
   label: string;
   required: boolean;
-  type?: 'text' | 'select' | 'checkbox';
+  type?: 'text' | 'select' | 'checkbox' | 'date';
   options?: string[];
 }
 
@@ -92,11 +93,23 @@ export const buildTicketAttendeesWithBuyerAsFirst = ({
 };
 
 const hasRequiredAnswer = (question: CheckoutCustomQuestion, answer?: string) => {
+  if (question.type === 'date') {
+    return typeof answer === 'string' && isValidCustomQuestionDate(answer);
+  }
+
   if (question.type === 'checkbox' && question.options && question.options.length > 0) {
     return Boolean(answer?.trim());
   }
 
   return answer !== undefined && answer !== null && answer !== '';
+};
+
+const hasValidAnswer = (question: CheckoutCustomQuestion, answer?: string) => {
+  if (!answer?.trim()) {
+    return true;
+  }
+
+  return question.type !== 'date' || isValidCustomQuestionDate(answer);
 };
 
 export const validateCheckoutTicketAttendee = ({
@@ -149,12 +162,19 @@ export const validateCheckoutTicketAttendee = ({
   }
 
   for (const question of questions ?? []) {
+    const answer = attendee.customAnswers[question.id];
+    if (!hasValidAnswer(question, answer)) {
+      return `${ticketLabel}: please enter a valid date for "${question.label}".`;
+    }
+
     if (!question.required) {
       continue;
     }
 
-    if (!hasRequiredAnswer(question, attendee.customAnswers[question.id])) {
-      return `${ticketLabel}: please answer "${question.label}".`;
+    if (!hasRequiredAnswer(question, answer)) {
+      return question.type === 'date'
+        ? `${ticketLabel}: please enter a valid date for "${question.label}".`
+        : `${ticketLabel}: please answer "${question.label}".`;
     }
   }
 

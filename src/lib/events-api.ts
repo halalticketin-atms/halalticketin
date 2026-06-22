@@ -97,7 +97,7 @@ export interface TicketRecord {
 export interface CustomQuestionPayload {
   id: string;
   label: string;
-  type: 'text' | 'select' | 'checkbox';
+  type: 'text' | 'select' | 'checkbox' | 'date';
   required: boolean;
   options?: string[];
 }

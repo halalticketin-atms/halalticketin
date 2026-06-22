@@ -38,7 +38,7 @@ const routeCheckoutEvent = async ({
     customQuestions: Array<{
         id: string;
         label: string;
-        type: 'text' | 'select' | 'checkbox';
+        type: 'text' | 'select' | 'checkbox' | 'date';
         required: boolean;
         options?: string[];
     }>;
@@ -319,6 +319,37 @@ test.describe('Checkout Journey - Attendee Form', () => {
 
         await page.locator('#ticketAttendeeName-0').fill('Guest Name');
         await expect(page.locator('#ticketAttendeeName-0')).toHaveValue('Guest Name');
+    });
+
+    test('date custom questions use native date inputs and accept raw YYYY-MM-DD values', async ({ page }) => {
+        await routeCheckoutEvent({
+            page,
+            eventId: '23232323-2323-4232-8232-232323232323',
+            slug: REAL_EVENTS.paidEvent,
+            attendeeInfoMode: 'buyer_choice',
+            customQuestions: [
+                {
+                    id: 'dob',
+                    label: 'Date of birth',
+                    type: 'date',
+                    required: true,
+                },
+            ],
+        });
+
+        await openCheckoutAndFillBuyerDetails(page);
+        await page.getByRole('button', { name: /continue/i }).click();
+
+        const dateInput = page.locator('input[type="date"]').first();
+        await expect(dateInput).toBeVisible();
+
+        await page.getByRole('button', { name: /continue/i }).click();
+        await expect(page.getByText('Ticket 1: please enter a valid date for "Date of birth".')).toBeVisible();
+
+        await dateInput.fill('1990-07-01');
+        await page.getByRole('button', { name: /continue/i }).click();
+
+        await expect(page.getByText('Order Total')).toBeVisible();
     });
 
     test('buyer choice checkout prefills ticket 1 when buyer opts out of shared info', async ({ page }) => {

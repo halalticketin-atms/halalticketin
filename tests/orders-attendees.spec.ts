@@ -71,6 +71,13 @@ const attendees = [
     },
     registrationAnswers: [
       {
+        questionId: 'dob',
+        label: 'Date of birth',
+        type: 'date',
+        options: null,
+        value: '1997-04-12',
+      },
+      {
         questionId: 'diet',
         label: 'Dietary requirements',
         type: 'text',
@@ -135,6 +142,21 @@ const answerFilterQuestions = [
       { value: 'Halal', count: 300 },
       { value: 'Vegetarian', count: 120 },
     ],
+  },
+];
+
+const eventQuestions = [
+  {
+    questionId: 'dob',
+    label: 'Date of birth',
+    type: 'date',
+    options: null,
+  },
+  {
+    questionId: 'diet',
+    label: 'Dietary requirements',
+    type: 'text',
+    options: null,
   },
 ];
 
@@ -233,6 +255,7 @@ async function mockOrdersPage(page: Page) {
         total: answerFilters.attendance?.includes('Yes') ? 501 : filteredAttendees.length,
         limit: 500,
         offset: 0,
+        eventQuestions: selectedEventId === eventOneId ? eventQuestions : [],
         answerFilterQuestions: selectedEventId === eventOneId ? answerFilterQuestions : [],
       }),
     });
@@ -313,7 +336,9 @@ test('attendees view keeps answers scoped to the selected event', async ({ page 
   await expect(visibleText('Yusuf Attendee')).toHaveCount(0);
 
   if ((page.viewportSize()?.width ?? 0) >= 768) {
+    await expect(page.locator('th').filter({ hasText: 'Date of birth' })).toBeVisible();
     await expect(page.locator('th').filter({ hasText: 'Dietary requirements' })).toBeVisible();
+    await expect(visibleText('12/04/1997')).toBeVisible();
     await expect(visibleText('Vegetarian')).toBeVisible();
     await expect(page.locator('th').filter({ hasText: 'Accessibility needs' })).toHaveCount(0);
   }
@@ -327,6 +352,8 @@ test('order details exposes ticket-level registration answers', async ({ page })
   await expect(page.getByRole('tab', { name: 'Refund' })).toBeVisible();
 
   await page.getByRole('tab', { name: 'Answers' }).click();
+  await expect(page.getByText('Date of birth')).toBeVisible();
+  await expect(page.getByText('12/04/1997')).toBeVisible();
   await expect(page.getByText('Dietary requirements')).toBeVisible();
   await expect(page.getByText('Vegetarian')).toBeVisible();
 });
