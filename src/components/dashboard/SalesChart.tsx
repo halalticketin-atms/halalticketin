@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useLayoutEffect } from 'react';
+import { useMemo } from 'react';
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
 interface WeeklySalesData {
@@ -23,7 +23,6 @@ const formatCurrency = (amount: number, currency: string) => {
 };
 
 export function SalesChart({ data, currency }: SalesChartProps) {
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
     const chartData = useMemo(() => {
         const orderedData = data
             .map((week, index) => ({
@@ -57,23 +56,11 @@ export function SalesChart({ data, currency }: SalesChartProps) {
         });
     }, [data]);
 
-    // Scroll to start on mount to show week 1
-    useLayoutEffect(() => {
-        if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollLeft = 0;
-        }
-    }, [chartData.length]);
-
-    // On mobile, use less space per data point to fit better
-    const minWidth = Math.max(chartData.length * 45, 320); // Reduced width per week for mobile
     const maxSales = Math.max(...chartData.map(d => d.sales), 1);
 
     return (
-        <div
-            ref={scrollContainerRef}
-            className="w-full mt-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-border/50 hover:scrollbar-thumb-border"
-        >
-            <div style={{ minWidth: `${minWidth}px` }} className="h-[160px] sm:h-[200px]">
+        <div className="w-full mt-2">
+            <div className="h-[160px] sm:h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={chartData}
@@ -96,23 +83,24 @@ export function SalesChart({ data, currency }: SalesChartProps) {
                             vertical={false}
                         />
 
-                        {/* X-axis */}
+                        {/* X-axis - auto-thin labels so all weeks fit without horizontal scroll */}
                         <XAxis
                             dataKey="week"
                             tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                             axisLine={{ stroke: 'oklch(0.72 0.15 185 / 0.2)', strokeWidth: 1 }}
                             tickLine={false}
+                            interval="preserveStartEnd"
+                            minTickGap={16}
                         />
 
                         {/* Y-axis */}
                         <YAxis
                             tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                            axisLine={{ stroke: 'oklch(0.72 0.15 185 / 0.2)', strokeWidth: 1 }}
+                            axisLine={false}
                             tickLine={false}
                             domain={[0, maxSales + 2]}
                             allowDecimals={false}
-                            width={45}
-                            label={{ value: 'Tickets', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: 'hsl(var(--muted-foreground))' } }}
+                            width={28}
                         />
 
                         {/* Tooltip */}

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { SalesChart } from './SalesChart';
 import { CircularProgress, ticketTypeColors } from './CircularProgress';
 import { useOptimizedAnimation } from '@/hooks/useOptimizedAnimation';
+import { buildEventOrdersHref } from '@/lib/orders-attendees-ui';
 
 interface WeeklySalesData {
   weekStart: string;
@@ -306,16 +307,23 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      <Button variant="outline" size="sm" asChild>
+                    {/* Actions - even 2-col grid on mobile, inline wrap on larger screens */}
+                    <div className="grid grid-cols-2 gap-2 pt-2 sm:flex sm:flex-wrap">
+                      {organizerId && (
+                        <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
+                          <Link href={buildEventOrdersHref(organizerId, event.id)}>
+                            Orders & Tickets
+                          </Link>
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
                         <Link href={`/events/${event.id}`}>View Event</Link>
                       </Button>
-                      <Button variant="outline" size="sm" asChild>
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
                         <Link href={`/events/${event.id}/edit`}>Edit Event</Link>
                       </Button>
                       {event.displayStatus === 'published' && (
-                        <Button variant="outline" size="sm" asChild>
+                        <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
                           <Link
                             href={`/dashboard/o/${organizerId}/email-attendees?eventId=${event.id}`}
                           >
