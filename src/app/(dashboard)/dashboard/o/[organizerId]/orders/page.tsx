@@ -3,6 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search,
@@ -77,6 +78,7 @@ import {
     clearAnswerFiltersForEventSelection,
     formatAnswerQuestionLabel,
     formatQuestionNumberLabel,
+    getInitialEventFilterFromQuery,
     ORDER_PAGE_TABS,
     getAttendeeAnswerDisplayMode,
     type OrderDetailTab,
@@ -351,6 +353,8 @@ const getPromoUsageBadges = (promoCodes: EventBreakdown['promoCodes']) =>
 
 export default function OrdersPage() {
     const organizerId = useOrganizerFromParams();
+    const searchParams = useSearchParams();
+    const initialEventId = searchParams.get('eventId');
     const { organizers } = useOrganizers();
     const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [attendees, setAttendees] = useState<AttendeeRecord[]>([]);
@@ -697,7 +701,7 @@ export default function OrdersPage() {
 
     useEffect(() => {
         let isMounted = true;
-        setEventFilter([]);
+        setEventFilter(getInitialEventFilterFromQuery(initialEventId));
         setAnswerFilters({});
         setAnswerFilterQuestions([]);
         setSelectedEventQuestions([]);
@@ -737,7 +741,7 @@ export default function OrdersPage() {
         return () => {
             isMounted = false;
         };
-    }, [organizerId]);
+    }, [organizerId, initialEventId]);
 
     useEffect(() => {
         let isMounted = true;

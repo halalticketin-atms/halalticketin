@@ -16,6 +16,14 @@ export type AttendeeAnswerDisplayMode = 'visible' | 'details';
 export type AttendeeAnswerFilters = Record<string, string[]>;
 export type AnswerQuestionLabel = { questionId: string; label: string };
 
+export const buildEventOrdersHref = (organizerId: string, eventId: string) =>
+    `/dashboard/o/${organizerId}/orders?eventId=${encodeURIComponent(eventId)}`;
+
+export const getInitialEventFilterFromQuery = (eventId: string | null): string[] => {
+    const trimmedEventId = eventId?.trim();
+    return trimmedEventId ? [trimmedEventId] : [];
+};
+
 export const getAttendeeAnswerDisplayMode = (selectedEventIds: string[]): AttendeeAnswerDisplayMode =>
     selectedEventIds.length === 1 ? 'visible' : 'details';
 

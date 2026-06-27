@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
     ORDER_DETAIL_TABS,
     ORDER_PAGE_TABS,
+    buildEventOrdersHref,
     buildAnswerQuestionLabelList,
     buildAttendeesQueryParams,
     clearAnswerFiltersForEventSelection,
     formatAnswerQuestionLabel,
     formatQuestionNumberLabel,
+    getInitialEventFilterFromQuery,
     getAttendeeAnswerDisplayMode,
 } from './orders-attendees-ui';
 
@@ -18,6 +20,16 @@ describe('orders attendees UI contracts', () => {
 
     it('shows Details, Answers, and Refund in the order detail modal', () => {
         expect(ORDER_DETAIL_TABS.map((tab) => tab.label)).toEqual(['Details', 'Answers', 'Refund']);
+    });
+
+    it('builds a filtered Orders & Tickets shortcut for an event', () => {
+        expect(buildEventOrdersHref('org-1', 'event 1')).toBe('/dashboard/o/org-1/orders?eventId=event%201');
+    });
+
+    it('uses a query eventId as the initial event filter', () => {
+        expect(getInitialEventFilterFromQuery('event-1')).toEqual(['event-1']);
+        expect(getInitialEventFilterFromQuery('   ')).toEqual([]);
+        expect(getInitialEventFilterFromQuery(null)).toEqual([]);
     });
 
     it('formats custom question labels with one-based numbers', () => {
