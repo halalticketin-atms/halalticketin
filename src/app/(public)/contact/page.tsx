@@ -13,9 +13,9 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronDown, Mail, Paperclip, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Mail, Paperclip, X } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
 import { getBackendErrorMessage } from '@/lib/api-errors';
 
@@ -40,6 +40,8 @@ const SUBJECT_OPTIONS = [
 const fieldClassName =
     'h-12 rounded-xl border-slate-200/80 bg-white/80 shadow-sm transition-[color,box-shadow,border-color] focus-visible:border-[var(--brand-teal)] focus-visible:ring-[var(--brand-teal)]/20 md:backdrop-blur-sm';
 
+type SuccessState = 'idle' | 'loading' | 'done';
+
 export default function ContactPage() {
     const [formData, setFormData] = useState({
         firstName: '',
@@ -52,9 +54,16 @@ export default function ContactPage() {
     });
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isSuccess, setIsSuccess] = useState(false);
+    const [successState, setSuccessState] = useState<SuccessState>('idle');
     const [showOrganiserHint, setShowOrganiserHint] = useState(false);
     const [attachment, setAttachment] = useState<File | null>(null);
+    const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => () => {
+        if (successTimerRef.current) {
+            clearTimeout(successTimerRef.current);
+        }
+    }, []);
 
     const handleAttachmentChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0] ?? null;
@@ -85,6 +94,7 @@ export default function ContactPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitError(null);
+        setSuccessState('idle');
 
         if (!formData.subject) {
             setSubmitError('Please select a subject.');
@@ -129,7 +139,6 @@ export default function ContactPage() {
                 throw new Error(getBackendErrorMessage(errorData, 'Failed to send message'));
             }
 
-            setIsSuccess(true);
             setFormData({
                 firstName: '',
                 lastName: '',
@@ -140,6 +149,13 @@ export default function ContactPage() {
                 agreed: false,
             });
             setAttachment(null);
+            setSuccessState('loading');
+            if (successTimerRef.current) {
+                clearTimeout(successTimerRef.current);
+            }
+            successTimerRef.current = setTimeout(() => {
+                setSuccessState('done');
+            }, 1000);
         } catch (error) {
             setSubmitError(error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.');
         } finally {
@@ -160,7 +176,7 @@ export default function ContactPage() {
                             <span className="text-gradient">message</span>
                         </h1>
                         <p className="mt-5 text-lg text-muted-foreground md:text-xl">
-                            Please fill in the form below to get in touch with us
+                            Please fill in the form to get in touch with us
                         </p>
 
                         <div className="mt-10 flex gap-4">
@@ -252,6 +268,52 @@ export default function ContactPage() {
 
                     {/* Right: the form, as an elevated floating panel */}
                     <div className="animate-fade-up w-full max-w-[500px] justify-self-center rounded-3xl border border-white/60 p-7 ring-1 ring-white/50 glass-surface shadow-[0_2px_8px_-2px_oklch(0.65_0.12_190_/_0.15),0_24px_70px_-24px_oklch(0.65_0.12_190_/_0.4)] md:p-10 md:backdrop-blur-2xl lg:justify-self-end">
+                        {successState !== 'idle' ? (
+                            <AnimatePresence mode="wait">
+                                {successState === 'loading' ? (
+                                    <motion.div
+                                        key="contact-success-loading"
+                                        initial={{ opacity: 0, scale: 0.98 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.98 }}
+                                        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                                        className="flex min-h-[560px] items-center justify-center"
+                                        aria-live="polite"
+                                        aria-label="Sending message"
+                                    >
+                                        <motion.div
+                                            className="h-14 w-14 rounded-full border-4 border-[var(--brand-teal)]/20 border-t-[var(--brand-teal)]"
+                                            animate={{ rotate: 360 }}
+                                            transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
+                                        />
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="contact-success-done"
+                                        initial={{ opacity: 0, y: 12 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                                        className="flex min-h-[560px] flex-col items-center justify-center text-center"
+                                        aria-live="polite"
+                                    >
+                                        <motion.div
+                                            initial={{ scale: 0.7 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{ type: 'spring', stiffness: 240, damping: 16 }}
+                                            className="mb-5 rounded-full bg-green-50 p-4 ring-1 ring-green-200"
+                                        >
+                                            <CheckCircle2 className="h-12 w-12 text-green-700" aria-hidden="true" />
+                                        </motion.div>
+                                        <p className="max-w-sm text-lg font-semibold text-green-900">
+                                            Thank you for your message!
+                                        </p>
+                                        <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                                            We will get back to you soon.
+                                        </p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        ) : (
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div className="space-y-2">
@@ -347,30 +409,32 @@ export default function ContactPage() {
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="attachment" className="text-muted-foreground">Attachment</Label>
-                                <div className="rounded-xl border border-dashed border-slate-300/90 bg-white/60 p-4 shadow-sm transition-colors focus-within:border-[var(--brand-teal)] focus-within:ring-2 focus-within:ring-[var(--brand-teal)]/20 md:backdrop-blur-sm">
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="attachment" className="flex items-center gap-1.5 text-muted-foreground">
+                                    Attachment
+                                    <span className="text-xs font-normal text-muted-foreground/60">(optional)</span>
+                                </Label>
+                                <div className="rounded-xl border border-slate-200/80 bg-white/70 p-2.5 shadow-sm transition-[border-color,box-shadow,background-color] hover:border-[var(--brand-teal)]/30 hover:bg-white/85 focus-within:border-[var(--brand-teal)] focus-within:ring-2 focus-within:ring-[var(--brand-teal)]/15 md:backdrop-blur-sm">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex min-w-0 items-center gap-2.5">
+                                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand-teal)]/10">
                                                 <Paperclip className="h-4 w-4 text-[var(--brand-teal)]" aria-hidden="true" />
-                                                {attachment ? (
-                                                    <span className="truncate">{attachment.name}</span>
-                                                ) : (
-                                                    <span>Add an attachment</span>
-                                                )}
+                                            </span>
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-medium text-foreground">
+                                                    {attachment ? attachment.name : 'Add an attachment'}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    PNG, JPG, or PDF. Max 10MB.
+                                                </p>
                                             </div>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                PNG, JPG, or PDF. Max 10MB.
-                                            </p>
                                         </div>
-
                                         {attachment ? (
                                             <Button
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                className="self-start text-muted-foreground hover:text-foreground sm:self-auto"
+                                                className="h-8 self-start text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:ring-red-200 sm:self-auto"
                                                 onClick={() => setAttachment(null)}
                                             >
                                                 <X className="h-4 w-4" aria-hidden="true" />
@@ -379,7 +443,7 @@ export default function ContactPage() {
                                         ) : (
                                             <Label
                                                 htmlFor="attachment"
-                                                className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-slate-50"
+                                                className="inline-flex h-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-foreground shadow-sm transition-[background-color,border-color,box-shadow] hover:border-[var(--brand-teal)]/40 hover:bg-slate-50 hover:shadow-md"
                                             >
                                                 Choose file
                                             </Label>
@@ -433,14 +497,8 @@ export default function ContactPage() {
                             {submitError && (
                                 <p className="text-sm text-destructive">{submitError}</p>
                             )}
-                            {isSuccess && (
-                                <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-                                    <p className="text-sm font-medium text-green-800">
-                                        ✓ Thank you for your message! We will get back to you soon.
-                                    </p>
-                                </div>
-                            )}
                         </form>
+                        )}
                     </div>
                 </div>
             </div>
