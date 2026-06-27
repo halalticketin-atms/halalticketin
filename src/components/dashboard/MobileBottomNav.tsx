@@ -38,7 +38,7 @@ const buildNavItems = (organizerId?: string): NavItem[] => {
     return [
         { title: 'Overview', href: base, icon: LayoutDashboard },
         { title: 'Events', href: `${base}/events`, icon: Calendar },
-        { title: 'Orders & Tickets', href: `${base}/orders`, icon: Receipt },
+        { title: 'Orders', href: `${base}/orders`, icon: Receipt },
         { title: 'Analytics', href: `${base}/analytics`, icon: BarChart3 },
     ];
 };
