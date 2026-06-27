@@ -19,7 +19,7 @@ import { useState } from 'react';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
 import { getBackendErrorMessage } from '@/lib/api-errors';
 
-const ACCEPTED_ATTACHMENT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf'];
+const ACCEPTED_ATTACHMENT_TYPES = ['image/png', 'image/jpeg', 'application/pdf'];
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
 const SUBJECT_OPTIONS = [
@@ -68,7 +68,7 @@ export default function ContactPage() {
         if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type)) {
             setAttachment(null);
             event.target.value = '';
-            setSubmitError('Please attach a PNG, JPG, WebP, GIF, or PDF file.');
+            setSubmitError('Please attach a PNG, JPG, or PDF file.');
             return;
         }
 
@@ -357,11 +357,11 @@ export default function ContactPage() {
                                                 {attachment ? (
                                                     <span className="truncate">{attachment.name}</span>
                                                 ) : (
-                                                    <span>Add a screenshot or PDF</span>
+                                                    <span>Add an attachment</span>
                                                 )}
                                             </div>
                                             <p className="mt-1 text-xs text-muted-foreground">
-                                                PNG, JPG, WebP, GIF, or PDF. Max 10MB.
+                                                PNG, JPG, or PDF. Max 10MB.
                                             </p>
                                         </div>
 
