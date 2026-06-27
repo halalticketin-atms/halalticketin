@@ -124,7 +124,12 @@ export default function ContactPage() {
                         </p>
                     </div>
 
-                    <div className="mb-8 border-l-2 border-[var(--brand-teal)]/40 pl-4">
+                    <div
+                        aria-hidden="true"
+                        className="mb-7 h-px w-full bg-gradient-to-r from-transparent via-[var(--brand-teal)]/25 to-transparent"
+                    />
+
+                    <div className="mb-7 border-l-2 border-[var(--brand-teal)]/40 pl-4">
                         <p className="text-sm leading-relaxed text-muted-foreground">
                             Question about a specific event or booking, like a{' '}
                             <span className="font-medium text-foreground">refund</span> or{' '}
@@ -176,6 +181,11 @@ export default function ContactPage() {
                             Something about the platform itself, or an issue you&rsquo;d like us to look into? Send it below.
                         </p>
                     </div>
+
+                    <div
+                        aria-hidden="true"
+                        className="mb-7 h-px w-full bg-gradient-to-r from-transparent via-slate-300/80 to-transparent"
+                    />
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid gap-6 md:grid-cols-2">
