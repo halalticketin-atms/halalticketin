@@ -12,6 +12,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { AnimatePresence, motion } from 'motion/react';
+import { ChevronDown, Mail } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { AmbientBackground } from '@/components/layout/AmbientBackground';
@@ -43,6 +46,7 @@ export default function ContactPage() {
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [showOrganiserHint, setShowOrganiserHint] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -117,6 +121,59 @@ export default function ContactPage() {
                         <h1 className="mb-2 text-3xl font-bold tracking-tight">Send us a message</h1>
                         <p className="text-muted-foreground">
                             Please fill in the form below to get in touch with us
+                        </p>
+                    </div>
+
+                    <div className="mb-8 border-l-2 border-[var(--brand-teal)]/40 pl-4">
+                        <p className="text-sm leading-relaxed text-muted-foreground">
+                            Question about a specific event or booking, like a{' '}
+                            <span className="font-medium text-foreground">refund</span> or{' '}
+                            <span className="font-medium text-foreground">re-sending your tickets</span>? The event
+                            organiser handles those.{' '}
+                            <button
+                                type="button"
+                                onClick={() => setShowOrganiserHint((value) => !value)}
+                                className="inline-flex items-center gap-0.5 font-medium text-[var(--brand-teal)] underline-offset-2 hover:underline"
+                                aria-expanded={showOrganiserHint}
+                            >
+                                How to reach them
+                                <ChevronDown
+                                    className={`h-3.5 w-3.5 transition-transform duration-200 ${showOrganiserHint ? 'rotate-180' : ''}`}
+                                    aria-hidden="true"
+                                />
+                            </button>
+                        </p>
+
+                        <AnimatePresence initial={false}>
+                            {showOrganiserHint && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="space-y-3 pt-3">
+                                        <p className="text-sm leading-relaxed text-muted-foreground">
+                                            Use the <span className="inline-flex items-center gap-1 font-medium text-foreground"><Mail className="h-3.5 w-3.5" aria-hidden="true" />Contact organiser</span> button
+                                            on the event page. Already booked? Their email is in your confirmation too, so you can write to them directly.
+                                        </p>
+                                        <div className="overflow-hidden rounded-xl border border-border/60">
+                                            <Image
+                                                src="/images/contact-organiser-button.png"
+                                                alt="The Contact organiser button as it appears on an event page"
+                                                width={1512}
+                                                height={210}
+                                                className="h-auto w-full"
+                                            />
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                            Something about the platform itself, or an issue you&rsquo;d like us to look into? Send it below.
                         </p>
                     </div>
 
