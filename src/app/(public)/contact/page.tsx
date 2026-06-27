@@ -267,7 +267,7 @@ export default function ContactPage() {
                     </div>
 
                     {/* Right: the form, as an elevated floating panel */}
-                    <div className="animate-fade-up w-full max-w-[500px] justify-self-center rounded-3xl border border-white/60 p-7 ring-1 ring-white/50 glass-surface shadow-[0_2px_8px_-2px_oklch(0.65_0.12_190_/_0.15),0_24px_70px_-24px_oklch(0.65_0.12_190_/_0.4)] md:p-10 md:backdrop-blur-2xl lg:justify-self-end">
+                    <div className="animate-fade-up min-w-0 w-full max-w-[500px] justify-self-center rounded-3xl border border-white/60 p-7 ring-1 ring-white/50 glass-surface shadow-[0_2px_8px_-2px_oklch(0.65_0.12_190_/_0.15),0_24px_70px_-24px_oklch(0.65_0.12_190_/_0.4)] md:p-10 md:backdrop-blur-2xl lg:justify-self-end">
                         {successState !== 'idle' ? (
                             <AnimatePresence mode="wait">
                                 {successState === 'loading' ? (
@@ -314,7 +314,7 @@ export default function ContactPage() {
                                 )}
                             </AnimatePresence>
                         ) : (
-                        <form onSubmit={handleSubmit} className="space-y-6">
+                        <form onSubmit={handleSubmit} className="min-w-0 space-y-6">
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="firstName" className="text-muted-foreground">First name</Label>
@@ -415,13 +415,13 @@ export default function ContactPage() {
                                     <span className="text-xs font-normal text-muted-foreground/60">(optional)</span>
                                 </Label>
                                 <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white/70 p-2.5 shadow-sm transition-[border-color,box-shadow,background-color] hover:border-[var(--brand-teal)]/30 hover:bg-white/85 focus-within:border-[var(--brand-teal)] focus-within:ring-2 focus-within:ring-[var(--brand-teal)]/15 md:backdrop-blur-sm">
-                                    <div className="flex max-w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                        <div className="flex min-w-0 max-w-full items-center gap-2.5">
+                                    <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex min-w-0 w-full items-center gap-2.5 sm:flex-1">
                                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand-teal)]/10">
                                                 <Paperclip className="h-4 w-4 text-[var(--brand-teal)]" aria-hidden="true" />
                                             </span>
-                                            <div className="min-w-0 max-w-full">
-                                                <p className="truncate text-sm font-medium text-foreground">
+                                            <div className="min-w-0 flex-1 overflow-hidden">
+                                                <p className="block w-full overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-foreground">
                                                     {attachment ? attachment.name : 'Add an attachment'}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">
@@ -460,7 +460,7 @@ export default function ContactPage() {
                                 </div>
                             </div>
 
-                            <div className="flex items-start gap-3 overflow-hidden rounded-xl border border-slate-200/70 bg-white/60 p-3 shadow-sm md:backdrop-blur-sm md:p-4">
+                            <div className="flex min-w-0 items-start gap-3 overflow-hidden rounded-xl border border-slate-200/70 bg-white/60 p-3 shadow-sm md:backdrop-blur-sm md:p-4">
                                 <Checkbox
                                     id="terms"
                                     checked={formData.agreed}
@@ -472,7 +472,7 @@ export default function ContactPage() {
                                 />
                                 <Label
                                     htmlFor="terms"
-                                    className="block flex-1 cursor-pointer text-sm font-medium leading-relaxed text-muted-foreground"
+                                    className="block min-w-0 flex-1 cursor-pointer text-sm font-medium leading-relaxed text-muted-foreground"
                                 >
                                     I agree to the{' '}
                                     <Link href="/terms" className="underline text-[var(--brand-teal)] hover:text-[var(--brand-cyan)]">
