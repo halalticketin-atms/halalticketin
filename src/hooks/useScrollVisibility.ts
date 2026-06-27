@@ -15,11 +15,14 @@ export function useScrollVisibility({
     idleDelay = 2500,
     isInteracting = false,
 }: ScrollVisibilityOptions = {}) {
-    const getScrollY = () => (typeof window === 'undefined' ? 0 : window.scrollY);
     const [isVisible, setIsVisible] = useState(true);
     const [isScrolled, setIsScrolled] = useState(false);
     const lastScrollY = useRef(0);
-    const lastToggleY = useRef(0);
+    // Distance travelled in the current, unbroken scroll direction. It resets to
+    // zero whenever the direction reverses, so a reversal is always measured from
+    // its turning point rather than from a stale anchor. This is what guarantees
+    // that any sustained upward scroll reliably re-reveals the bar.
+    const directionDelta = useRef(0);
     const rafRef = useRef<number | null>(null);
     const idleTimerRef = useRef<number | null>(null);
 
@@ -30,6 +33,7 @@ export function useScrollVisibility({
         }
     }, []);
 
+    // After the user stops scrolling, tuck the bar away (but never near the top).
     const scheduleIdleHide = useCallback((scrollY: number) => {
         clearIdleTimer();
         if (scrollY <= topOffset) {
@@ -43,43 +47,45 @@ export function useScrollVisibility({
     }, [clearIdleTimer, idleDelay, topOffset]);
 
     const updateVisibility = useCallback(() => {
-        const currentScrollY = window.scrollY;
+        const currentScrollY = Math.max(0, window.scrollY);
         const delta = currentScrollY - lastScrollY.current;
+        lastScrollY.current = currentScrollY;
 
         setIsScrolled(currentScrollY > topOffset);
 
-        if (isInteracting) {
+        // Near the top, or while the pointer is on the nav: always shown.
+        if (currentScrollY <= topOffset || isInteracting) {
+            directionDelta.current = 0;
             setIsVisible(true);
-            lastScrollY.current = currentScrollY;
-            lastToggleY.current = currentScrollY;
             clearIdleTimer();
             return;
         }
 
-        if (currentScrollY <= topOffset) {
-            setIsVisible(true);
-            lastScrollY.current = currentScrollY;
-            lastToggleY.current = currentScrollY;
-            clearIdleTimer();
-            return;
+        if (delta !== 0) {
+            // Reset the accumulator the moment direction flips, so the new
+            // direction is measured from the turning point.
+            if ((delta > 0) !== (directionDelta.current > 0)) {
+                directionDelta.current = 0;
+            }
+            directionDelta.current += delta;
         }
 
-        if (delta > 0 && currentScrollY - lastToggleY.current > directionThreshold) {
+        if (directionDelta.current > directionThreshold) {
+            // Sustained scroll down -> hide.
             setIsVisible(false);
-            lastToggleY.current = currentScrollY;
-        } else if (delta < 0 && lastToggleY.current - currentScrollY > directionThreshold) {
+        } else if (directionDelta.current < -directionThreshold) {
+            // Sustained scroll up -> reveal.
             setIsVisible(true);
-            lastToggleY.current = currentScrollY;
         }
 
-        lastScrollY.current = currentScrollY;
         scheduleIdleHide(currentScrollY);
     }, [clearIdleTimer, directionThreshold, isInteracting, scheduleIdleHide, topOffset]);
 
     useEffect(() => {
-        const initialScrollY = getScrollY();
-        lastScrollY.current = initialScrollY;
-        lastToggleY.current = initialScrollY;
+        lastScrollY.current = typeof window === 'undefined' ? 0 : window.scrollY;
+        directionDelta.current = 0;
+
+        // Sync once on mount in case the page loads already scrolled.
         if (rafRef.current === null) {
             rafRef.current = window.requestAnimationFrame(() => {
                 updateVisibility();
@@ -100,17 +106,24 @@ export function useScrollVisibility({
             window.removeEventListener('scroll', onScroll);
             if (rafRef.current !== null) {
                 window.cancelAnimationFrame(rafRef.current);
+                rafRef.current = null;
             }
             clearIdleTimer();
         };
-    }, [clearIdleTimer, isInteracting, scheduleIdleHide, updateVisibility]);
+    }, [clearIdleTimer, updateVisibility]);
 
+    // Keep idle-hide consistent when the pointer enters/leaves the nav, without
+    // waiting for the next scroll event.
     useEffect(() => {
         if (isInteracting) {
+            // `effectiveVisible` already forces the bar visible while interacting;
+            // here we only need to cancel any pending idle-hide.
             clearIdleTimer();
             return;
         }
-        scheduleIdleHide(window.scrollY);
+        if (typeof window !== 'undefined') {
+            scheduleIdleHide(window.scrollY);
+        }
     }, [clearIdleTimer, isInteracting, scheduleIdleHide]);
 
     const effectiveVisible = isInteracting ? true : isVisible;
