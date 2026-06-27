@@ -59,7 +59,7 @@ const buildNavItems = (organizerId?: string): NavItem[] => {
             allowedRoles: ['owner', 'co_owner', 'admin', 'editor'] // check_in excluded
         },
         {
-            title: 'Orders',
+            title: 'Orders & Tickets',
             href: `${base}/orders`,
             icon: Receipt,
             allowedRoles: ['owner', 'co_owner', 'admin', 'editor'] // check_in excluded

@@ -38,7 +38,7 @@ const buildNavItems = (organizerId?: string): NavItem[] => {
     return [
         { title: 'Overview', href: base, icon: LayoutDashboard },
         { title: 'Events', href: `${base}/events`, icon: Calendar },
-        { title: 'Orders', href: `${base}/orders`, icon: Receipt },
+        { title: 'Orders & Tickets', href: `${base}/orders`, icon: Receipt },
         { title: 'Analytics', href: `${base}/analytics`, icon: BarChart3 },
     ];
 };
@@ -196,7 +196,7 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
                                                 )}>
                                                     <item.icon className="h-5 w-5" />
                                                 </div>
-                                                <span className="text-xs font-medium">{item.title}</span>
+                                                <span className="text-xs font-medium text-center leading-tight">{item.title}</span>
                                             </button>
                                         );
                                     })}
@@ -266,7 +266,7 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
                                     <item.icon className="relative h-5 w-5" />
                                 </div>
                                 <span className={cn(
-                                    'text-[10px] font-medium',
+                                    'text-[10px] font-medium text-center leading-tight px-0.5',
                                     active && 'font-semibold'
                                 )}>
                                     {item.title}
