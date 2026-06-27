@@ -414,13 +414,13 @@ export default function ContactPage() {
                                     Attachment
                                     <span className="text-xs font-normal text-muted-foreground/60">(optional)</span>
                                 </Label>
-                                <div className="rounded-xl border border-slate-200/80 bg-white/70 p-2.5 shadow-sm transition-[border-color,box-shadow,background-color] hover:border-[var(--brand-teal)]/30 hover:bg-white/85 focus-within:border-[var(--brand-teal)] focus-within:ring-2 focus-within:ring-[var(--brand-teal)]/15 md:backdrop-blur-sm">
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                        <div className="flex min-w-0 items-center gap-2.5">
+                                <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white/70 p-2.5 shadow-sm transition-[border-color,box-shadow,background-color] hover:border-[var(--brand-teal)]/30 hover:bg-white/85 focus-within:border-[var(--brand-teal)] focus-within:ring-2 focus-within:ring-[var(--brand-teal)]/15 md:backdrop-blur-sm">
+                                    <div className="flex max-w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex min-w-0 max-w-full items-center gap-2.5">
                                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand-teal)]/10">
                                                 <Paperclip className="h-4 w-4 text-[var(--brand-teal)]" aria-hidden="true" />
                                             </span>
-                                            <div className="min-w-0">
+                                            <div className="min-w-0 max-w-full">
                                                 <p className="truncate text-sm font-medium text-foreground">
                                                     {attachment ? attachment.name : 'Add an attachment'}
                                                 </p>
