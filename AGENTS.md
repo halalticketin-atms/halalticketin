@@ -51,6 +51,7 @@ This is the Halal Ticketin frontend: a Next.js App Router app using TypeScript, 
 - Preserve accessibility for forms, dialogs, menus, QR flows, maps, checkout, and organiser dashboards.
 - Treat checkout, order status, refund status, gift claims, and check-in state as cross-app contracts with the backend and mobile app.
 - Keep organiser-facing language consistent: use "organiser" in UI copy unless existing source text uses another spelling.
+- For recurring frontend bug patterns, check `docs/engineering/bug-fix-ledger.md` before fixing similar issues and add concise entries when a fix teaches a reusable lesson.
 
 ## Verification
 - Run `npm run lint` and `npm run test:unit` for normal frontend changes.
