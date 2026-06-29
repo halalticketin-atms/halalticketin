@@ -331,6 +331,7 @@ interface WaitlistNotifyResponse {
 interface WaitlistNotifyPreviewResponse {
     subject: string;
     text: string;
+    html: string;
     eligibleCount: number;
     skippedCount: number;
     availableQuantityWarning: string | null;
@@ -364,115 +365,6 @@ const waitlistStatusBadgeClasses: Record<WaitlistEntry['status'], string> = {
     notified: 'border-amber-300/60 bg-amber-50 text-amber-700',
     converted: 'border-emerald-300/60 bg-emerald-50 text-emerald-700',
     removed: 'border-border bg-muted text-muted-foreground',
-};
-
-const waitlistStatusOrder: Record<WaitlistEntry['status'], number> = {
-    waiting: 0,
-    notified: 1,
-    converted: 2,
-    removed: 3,
-};
-
-const escapeWaitlistEmailPreviewHtml = (value: string) =>
-    value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-
-const buildWaitlistEmailPreviewHtml = (eventName: string) => {
-    const eventTitleHtml = escapeWaitlistEmailPreviewHtml(eventName);
-    const assetOrigin = typeof window === 'undefined' ? '' : window.location.origin;
-    return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light">
-  <meta name="supported-color-schemes" content="light">
-  <title>Tickets may be available</title>
-  <style>
-    * { box-sizing: border-box; }
-    img { max-width: 100%; }
-    @media only screen and (max-width: 480px) {
-      .email-outer { padding: 16px 10px !important; }
-      .email-panel { width: 100% !important; max-width: 100% !important; border-radius: 12px !important; }
-      .email-pad { padding-left: 16px !important; padding-right: 16px !important; }
-      .email-title { font-size: 21px !important; line-height: 1.25 !important; }
-      .email-event-title { font-size: 18px !important; overflow-wrap: anywhere !important; }
-      .email-button { display: block !important; width: 100% !important; padding-left: 12px !important; padding-right: 12px !important; }
-    }
-  </style>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc;">
-    <tr>
-      <td class="email-outer" align="center" style="padding: 40px 20px;">
-        <table class="email-panel" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 640px; width: 100%; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);">
-          <tr>
-            <td class="email-pad" style="background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%); padding: 24px 24px 20px 24px; text-align: center; border-bottom: 1px solid #e2e8f0;">
-              <img src="${assetOrigin}/images/HTlogocr.png" alt="Halal Ticketin'" style="width: 140px; height: auto; display: block; margin: 0 auto 12px auto;" />
-              <h1 class="email-title" style="margin: 0; font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px;">Tickets may be available 🎟️</h1>
-              <p style="margin: 6px 0 0 0; font-size: 14px; color: #64748b;">An update from your waitlist</p>
-            </td>
-          </tr>
-          <tr>
-            <td class="email-pad" style="padding: 28px 24px 20px 24px;">
-              <p style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #0f172a;">Salaam! 👋</p>
-              <p style="margin: 0; font-size: 15px; color: #64748b; line-height: 1.65;">
-                Good news! <strong style="color: #0f172a;">[Organizer name]</strong> has added availability for an event you're waiting on. Tickets can go fast, so we wanted to let you know right away.
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td class="email-pad" style="padding: 0 24px 24px 24px;">
-              <div style="background: linear-gradient(135deg, #f0fdf9 0%, #ecfeff 100%); border: 1px solid #99f6e4; border-radius: 12px; padding: 24px; text-align: center;">
-                <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: #14b8a6;">Now available</p>
-                <h2 class="email-event-title" style="margin: 0; font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.35;">${eventTitleHtml}</h2>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="email-pad" style="padding: 0 24px 24px 24px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <a class="email-button" href="#" style="display: inline-block; background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%); color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px;">Get Your Tickets →</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td class="email-pad" style="padding: 0 24px 28px 24px;">
-              <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 16px 20px; text-align: center;">
-                <p style="margin: 0; font-size: 12px; color: #92400e; line-height: 1.6;">
-                  Tickets aren't reserved and are available on a first-come, first-served basis, so they may sell out again quickly.
-                </p>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="email-pad" style="background: #f8fafc; padding: 20px 24px; border-top: 1px solid #e2e8f0;">
-              <div style="text-align: center;">
-                <img src="${assetOrigin}/images/ht-icon-180.png" alt="Halal Ticketin'" style="width: 36px; height: auto; margin-bottom: 12px;" />
-                <p style="margin: 0 0 6px 0; font-size: 14px; color: #334155;">Warm regards,</p>
-                <p style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #0f766e;">The Halal Ticketin' Team</p>
-                <div style="padding-top: 16px; border-top: 1px solid #e2e8f0;">
-                  <p style="margin: 0; font-size: 12px; color: #94a3b8;">This is a preview. Recipient details are inserted when the notification is sent.</p>
-                </div>
-              </div>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`;
 };
 
 interface AnswerFilterQuestion {
@@ -997,14 +889,6 @@ export default function OrdersPage() {
 
     const waitlistTotalCount = Object.values(waitlistCounts).reduce((total, count) => total + (count ?? 0), 0);
     const hasMoreWaitlistEntries = waitlistEntries.length < waitlistTotal;
-    const displayedWaitlistEntries = useMemo(() => {
-        if (waitlistStatus !== 'all') return waitlistEntries;
-        return [...waitlistEntries].sort((a, b) => {
-            const statusDelta = waitlistStatusOrder[a.status] - waitlistStatusOrder[b.status];
-            if (statusDelta !== 0) return statusDelta;
-            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        });
-    }, [waitlistEntries, waitlistStatus]);
     const selectedWaitlistIdsArray = Array.from(selectedWaitlistIds);
     const selectedWaitlistEntries = useMemo(
         () => waitlistEntries.filter((entry) => selectedWaitlistIds.has(entry.id)),
@@ -1357,12 +1241,6 @@ export default function OrdersPage() {
         }
         return [...map.entries()].map(([id, name]) => ({ id, name }));
     }, [eventBreakdowns, knownAttendeeEvents, orders]);
-    const selectedWaitlistEventName =
-        eventOptions.find((event) => event.id === selectedWaitlistEventId)?.name ?? '[Event name]';
-    const waitlistEmailPreviewHtml = useMemo(
-        () => buildWaitlistEmailPreviewHtml(selectedWaitlistEventName),
-        [selectedWaitlistEventName],
-    );
     const defaultWaitlistEventId = useMemo(
         () => eventBreakdowns.find((event) => event.isActive)?.eventId ?? eventOptions[0]?.id ?? null,
         [eventBreakdowns, eventOptions],
@@ -2237,15 +2115,27 @@ export default function OrdersPage() {
                                         </Select>
                                     </div>
                                     <div className="space-y-1.5 md:col-span-2 lg:col-span-1 lg:pt-[22px]">
-                                        <Button
-                                            variant="outline"
-                                            disabled={!selectedWaitlistEventId}
-                                            onClick={handleExportWaitlist}
-                                            className="h-11 w-full lg:w-auto"
-                                        >
-                                            <Download className="mr-2 h-4 w-4" />
-                                            Export CSV
-                                        </Button>
+                                        <div className="flex items-center gap-1.5">
+                                            <Button
+                                                variant="outline"
+                                                disabled={!selectedWaitlistEventId}
+                                                onClick={handleExportWaitlist}
+                                                className="h-11 w-full lg:w-auto"
+                                            >
+                                                <Download className="mr-2 h-4 w-4" />
+                                                Export CSV
+                                            </Button>
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        Exports active entries only (Waiting &amp; Notified).
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="grid gap-3 rounded-lg border border-border bg-background p-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-center">
@@ -2309,7 +2199,7 @@ export default function OrdersPage() {
                             <Card className="p-12 text-center">
                                 <p className="text-muted-foreground">{waitlistError}</p>
                             </Card>
-                        ) : displayedWaitlistEntries.length === 0 ? (
+                        ) : waitlistEntries.length === 0 ? (
                             <Card className="p-12 text-center">
                                 <p className="text-lg font-medium">No waitlist entries</p>
                                 <p className="text-sm text-muted-foreground">Entries will appear here when buyers join.</p>
@@ -2317,7 +2207,7 @@ export default function OrdersPage() {
                         ) : (
                             <>
                             <div className="space-y-3 md:hidden">
-                                {displayedWaitlistEntries.map((entry) => {
+                                {waitlistEntries.map((entry) => {
                                     const checked = selectedWaitlistIds.has(entry.id);
                                     const canNotify = entry.status === 'waiting';
                                     const canRemove = entry.status === 'waiting' || entry.status === 'notified';
@@ -2403,7 +2293,7 @@ export default function OrdersPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {displayedWaitlistEntries.map((entry) => {
+                                        {waitlistEntries.map((entry) => {
                                             const checked = selectedWaitlistIds.has(entry.id);
                                             const canNotify = entry.status === 'waiting';
                                             const canRemove = entry.status === 'waiting' || entry.status === 'notified';
@@ -2746,7 +2636,7 @@ export default function OrdersPage() {
                             <div className="pointer-events-none mx-auto w-full max-w-[640px] overflow-hidden rounded-lg border bg-white">
                                 <iframe
                                     title="Waitlist notification email HTML preview"
-                                    srcDoc={waitlistEmailPreviewHtml}
+                                    srcDoc={waitlistNotifyPreview?.html ?? ''}
                                     className="h-[980px] w-full max-w-full bg-white"
                                     sandbox=""
                                 />

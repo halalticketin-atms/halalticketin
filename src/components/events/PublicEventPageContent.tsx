@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, startTransition, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { fetchPublicOrganizerProfile } from '@/lib/organizers-api';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
     Calendar,
     Clock,
@@ -186,6 +186,7 @@ function TicketCard({
     organizerFeeNote,
     soldOut = false,
     soldOutReason = null,
+    waitlistSlot,
 }: {
     ticket: TicketLike;
     quantity: number;
@@ -193,6 +194,7 @@ function TicketCard({
     organizerFeeNote?: string | null;
     soldOut?: boolean;
     soldOutReason?: TicketSoldOutReason;
+    waitlistSlot?: ReactNode;
 }) {
     const regularPrice = formatPrice(ticket.price, ticket.currency);
     const isFree = ticket.type === 'free' || regularPrice === 'Free';
@@ -206,14 +208,18 @@ function TicketCard({
     const isEarlyBirdActive = !isFree && earlyBirdPrice && earlyBirdEndDate && now < new Date(earlyBirdEndDate);
     const displayPrice = isEarlyBirdActive ? formatPrice(earlyBirdPrice, ticket.currency) : regularPrice;
     const soldOutMessage = soldOutReason === 'event_capacity' ? 'Event sold out' : 'Ticket sold out';
+    const showWaitlist = soldOut && Boolean(waitlistSlot);
 
     return (
         <div
             className={cn(
-                "flex items-center justify-between gap-3 p-4 border rounded-lg transition-colors",
-                soldOut ? "border-muted bg-muted/40 opacity-70" : "hover:border-primary/50",
+                "p-4 border rounded-lg transition-colors",
+                showWaitlist
+                    ? "flex flex-col gap-3 border-muted bg-muted/40"
+                    : "flex items-center justify-between gap-3",
+                !showWaitlist && (soldOut ? "border-muted bg-muted/40 opacity-70" : "hover:border-primary/50"),
             )}
-            aria-disabled={soldOut}
+            aria-disabled={soldOut && !showWaitlist}
         >
             <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -245,28 +251,159 @@ function TicketCard({
                     <p className="text-xs text-muted-foreground mt-1">{organizerFeeNote}</p>
                 ) : null}
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            {showWaitlist ? (
+                waitlistSlot
+            ) : (
+                <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => onQuantityChange(Math.max(0, quantity - 1))}
+                        disabled={quantity === 0 || soldOut}
+                    >
+                        <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-8 text-center font-medium">{quantity}</span>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => onQuantityChange(Math.min(maxQty, quantity + 1))}
+                        disabled={soldOut || quantity >= maxQty}
+                    >
+                        <Plus className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function InlineTicketWaitlist({
+    slug,
+    ticketId,
+    accessCode,
+}: {
+    slug: string;
+    ticketId: string;
+    accessCode?: string | null;
+}) {
+    const reduceMotion = useReducedMotion();
+    const [expanded, setExpanded] = useState(false);
+    const [email, setEmail] = useState('');
+    const [trap, setTrap] = useState('');
+    const [formStartedAt, setFormStartedAt] = useState<number | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [message, setMessage] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleOpen = () => {
+        setExpanded(true);
+        setFormStartedAt(Date.now());
+    };
+
+    const handleSubmit = async (submitEvent: FormEvent<HTMLFormElement>) => {
+        submitEvent.preventDefault();
+        if (!email.trim()) return;
+
+        setError(null);
+        setIsSubmitting(true);
+        try {
+            const result = await joinEventWaitlist(
+                slug,
+                {
+                    email,
+                    ticketTypeId: ticketId,
+                    preferredContactMethod: trap,
+                    formStartedAt: formStartedAt ?? Date.now(),
+                },
+                accessCode,
+            );
+            setMessage(result.message);
+            setEmail('');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Could not join the waitlist. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (message) {
+        return (
+            <motion.div
+                initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800"
+            >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+                    <Check className="h-3.5 w-3.5" />
+                </span>
+                You are on the waitlist
+            </motion.div>
+        );
+    }
+
+    if (!expanded) {
+        return (
+            <div className="flex justify-end">
                 <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onQuantityChange(Math.max(0, quantity - 1))}
-                    disabled={quantity === 0 || soldOut}
+                    type="button"
+                    size="sm"
+                    onClick={handleOpen}
+                    className="bg-amber-500 text-amber-950 shadow-sm hover:bg-amber-400"
                 >
-                    <Minus className="h-4 w-4" />
-                </Button>
-                <span className="w-8 text-center font-medium">{quantity}</span>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onQuantityChange(Math.min(maxQty, quantity + 1))}
-                    disabled={soldOut || quantity >= maxQty}
-                >
-                    <Plus className="h-4 w-4" />
+                    <Mail className="mr-2 h-4 w-4" />
+                    Join waitlist
                 </Button>
             </div>
-        </div>
+        );
+    }
+
+    return (
+        <motion.form
+            onSubmit={handleSubmit}
+            initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-lg border border-amber-200 bg-amber-50 p-3 shadow-sm"
+        >
+            <input
+                type="text"
+                name="preferredContactMethod"
+                value={trap}
+                onChange={(e) => setTrap(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+                className="hidden"
+            />
+            <p className="mb-2 text-sm font-medium text-amber-900/90">
+                Get notified if a spot opens up.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email address"
+                    required
+                    maxLength={254}
+                    autoFocus
+                    className="border-amber-200 bg-white/90 focus-visible:ring-amber-400"
+                />
+                <Button
+                    type="submit"
+                    disabled={isSubmitting || !email.trim()}
+                    className="bg-amber-500 text-amber-950 shadow-sm hover:bg-amber-400 sm:w-auto"
+                >
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Join'}
+                </Button>
+            </div>
+            {error && (
+                <p className="mt-2 text-xs font-medium text-destructive">{error}</p>
+            )}
+        </motion.form>
     );
 }
 
@@ -646,9 +783,24 @@ export function PublicEventPageContent({
         [regularTickets, soldOutStateByTicketId],
     );
     const canShowWaitlist = Boolean(!isPreview && event?.slug && event.waitlistEnabled && waitlistTickets.length > 0);
+    // The standalone amber card is only for the "everything is gone" cases (overall event
+    // capacity sold out, or every public ticket sold out). When only some ticket types are
+    // sold out, each sold-out ticket gets an inline "Join waitlist" instead, so the page
+    // doesn't read as fully sold out.
+    const eventCapacitySoldOut = useMemo(
+        () =>
+            Boolean(event?.isSoldOut) ||
+            regularTickets.some(
+                (ticket) => soldOutStateByTicketId.get(ticket.id)?.soldOutReason === 'event_capacity',
+            ),
+        [event?.isSoldOut, regularTickets, soldOutStateByTicketId],
+    );
+    const allPublicTicketsSoldOut = regularTickets.length > 0 && waitlistTickets.length === regularTickets.length;
+    const showStandaloneWaitlist = canShowWaitlist && (eventCapacitySoldOut || allPublicTicketsSoldOut);
+    const showInlineWaitlist = canShowWaitlist && !showStandaloneWaitlist;
 
     useEffect(() => {
-        if (canShowWaitlist) {
+        if (showStandaloneWaitlist) {
             setWaitlistFormStartedAt(Date.now());
             setWaitlistTicketTypeId((current) =>
                 current && waitlistTickets.some((ticket) => ticket.id === current)
@@ -656,7 +808,7 @@ export function PublicEventPageContent({
                     : waitlistTickets[0]?.id ?? '',
             );
         }
-    }, [canShowWaitlist, waitlistTickets]);
+    }, [showStandaloneWaitlist, waitlistTickets]);
 
     const handleWaitlistSubmit = useCallback(async (submitEvent: FormEvent<HTMLFormElement>) => {
         submitEvent.preventDefault();
@@ -2665,17 +2817,29 @@ export function PublicEventPageContent({
                                         </p>
                                     ) : (
                                         <>
-                                            {regularTickets.map((ticket) => (
-                                                <TicketCard
-                                                    key={ticket.id}
-                                                    ticket={ticket}
-                                                    quantity={ticketQuantities[ticket.id] || 0}
-                                                    onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
-                                                    organizerFeeNote={organizerFeeNotes.get(ticket.id)}
-                                                    soldOut={soldOutStateByTicketId.get(ticket.id)?.isSoldOut ?? false}
-                                                    soldOutReason={soldOutStateByTicketId.get(ticket.id)?.soldOutReason ?? null}
-                                                />
-                                            ))}
+                                            {regularTickets.map((ticket) => {
+                                                const ticketSoldOut = soldOutStateByTicketId.get(ticket.id)?.isSoldOut ?? false;
+                                                return (
+                                                    <TicketCard
+                                                        key={ticket.id}
+                                                        ticket={ticket}
+                                                        quantity={ticketQuantities[ticket.id] || 0}
+                                                        onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
+                                                        organizerFeeNote={organizerFeeNotes.get(ticket.id)}
+                                                        soldOut={ticketSoldOut}
+                                                        soldOutReason={soldOutStateByTicketId.get(ticket.id)?.soldOutReason ?? null}
+                                                        waitlistSlot={
+                                                            showInlineWaitlist && ticketSoldOut && event?.slug ? (
+                                                                <InlineTicketWaitlist
+                                                                    slug={event.slug}
+                                                                    ticketId={ticket.id}
+                                                                    accessCode={accessCode}
+                                                                />
+                                                            ) : undefined
+                                                        }
+                                                    />
+                                                );
+                                            })}
 
                                             {/* Unlocked Hidden Tickets */}
                                             {regularUnlockedTickets.length > 0 && (
@@ -2731,7 +2895,7 @@ export function PublicEventPageContent({
                                         </>
                                     )}
 
-                                    {canShowWaitlist && (
+                                    {showStandaloneWaitlist && (
                                         <form
                                             onSubmit={handleWaitlistSubmit}
                                             className="relative overflow-hidden rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-[0_14px_36px_rgba(245,158,11,0.16)]"
