@@ -51,7 +51,7 @@ import { useCookieConsent } from '@/context/cookie-consent-context';
 import { getMetaTrackingContext } from '@/lib/meta-tracking';
 import { createMarketingTracker, type MarketingTicketItem } from '@/lib/marketing-tracking';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
-import { contactOrganizerByEventSlug } from '@/lib/events-api';
+import { contactOrganizerByEventSlug, joinEventWaitlist } from '@/lib/events-api';
 import { handleCheckout, CartItem, validatePromoCode, ValidatePromoResult, fetchUnlockedTickets, getCheckoutQuote, type CheckoutQuoteResponse, type TicketAttendeePayload } from '@/lib/checkout-api';
 import { getCheckoutPresentation } from '@/lib/checkout-presentation';
 import { formatCurrency, getCurrencySymbol } from '@/lib/fees';
@@ -445,6 +445,13 @@ export function PublicEventPageContent({
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [isPosterViewerOpen, setIsPosterViewerOpen] = useState(false);
     const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+    const [waitlistEmail, setWaitlistEmail] = useState('');
+    const [waitlistTicketTypeId, setWaitlistTicketTypeId] = useState('');
+    const [waitlistTrap, setWaitlistTrap] = useState('');
+    const [waitlistFormStartedAt, setWaitlistFormStartedAt] = useState<number | null>(null);
+    const [isWaitlistSubmitting, setIsWaitlistSubmitting] = useState(false);
+    const [waitlistMessage, setWaitlistMessage] = useState<string | null>(null);
+    const [waitlistError, setWaitlistError] = useState<string | null>(null);
 
     useTrackingConsentRequirement({
         analyticsNeeded: Boolean(googleAnalyticsMeasurementId),
@@ -633,6 +640,51 @@ export function PublicEventPageContent({
             ]),
         );
     }, [unlockedTickets, visibleTickets]);
+    const waitlistTickets = useMemo(
+        () =>
+            regularTickets.filter((ticket) => soldOutStateByTicketId.get(ticket.id)?.isSoldOut),
+        [regularTickets, soldOutStateByTicketId],
+    );
+    const canShowWaitlist = Boolean(!isPreview && event?.slug && event.waitlistEnabled && waitlistTickets.length > 0);
+
+    useEffect(() => {
+        if (canShowWaitlist) {
+            setWaitlistFormStartedAt(Date.now());
+            setWaitlistTicketTypeId((current) =>
+                current && waitlistTickets.some((ticket) => ticket.id === current)
+                    ? current
+                    : waitlistTickets[0]?.id ?? '',
+            );
+        }
+    }, [canShowWaitlist, waitlistTickets]);
+
+    const handleWaitlistSubmit = useCallback(async (submitEvent: FormEvent<HTMLFormElement>) => {
+        submitEvent.preventDefault();
+        if (!event?.slug || !waitlistTicketTypeId) return;
+
+        setWaitlistError(null);
+        setWaitlistMessage(null);
+        setIsWaitlistSubmitting(true);
+        try {
+            const result = await joinEventWaitlist(
+                event.slug,
+                {
+                    email: waitlistEmail,
+                    ticketTypeId: waitlistTicketTypeId,
+                    preferredContactMethod: waitlistTrap,
+                    formStartedAt: waitlistFormStartedAt ?? Date.now(),
+                },
+                accessCode,
+            );
+            setWaitlistMessage(result.message);
+            setWaitlistEmail('');
+            setWaitlistFormStartedAt(Date.now());
+        } catch (error) {
+            setWaitlistError(error instanceof Error ? error.message : 'Could not join the waitlist. Please try again.');
+        } finally {
+            setIsWaitlistSubmitting(false);
+        }
+    }, [accessCode, event?.slug, waitlistEmail, waitlistFormStartedAt, waitlistTicketTypeId, waitlistTrap]);
 
     const donationDefaultAmount = useMemo(() => {
         if (!donationTicket) {
@@ -2677,6 +2729,108 @@ export function PublicEventPageContent({
                                                 </div>
                                             )}
                                         </>
+                                    )}
+
+                                    {canShowWaitlist && (
+                                        <form
+                                            onSubmit={handleWaitlistSubmit}
+                                            className="relative overflow-hidden rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-[0_14px_36px_rgba(245,158,11,0.16)]"
+                                        >
+                                            <input
+                                                type="text"
+                                                name="preferredContactMethod"
+                                                value={waitlistTrap}
+                                                onChange={(e) => setWaitlistTrap(e.target.value)}
+                                                tabIndex={-1}
+                                                autoComplete="off"
+                                                className="hidden"
+                                            />
+                                            <AnimatePresence mode="wait">
+                                                {waitlistMessage ? (
+                                                    <motion.div
+                                                        key="waitlist-success"
+                                                        initial={{ opacity: 0, scale: 0.96 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.98 }}
+                                                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                                                        className="flex min-h-44 flex-col items-center justify-center px-3 py-6 text-center"
+                                                    >
+                                                        <motion.span
+                                                            initial={{ scale: 0.6, rotate: -8 }}
+                                                            animate={{ scale: 1, rotate: 0 }}
+                                                            transition={{ delay: 0.06, type: 'spring', stiffness: 260, damping: 18 }}
+                                                            className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_14px_30px_rgba(16,185,129,0.28)]"
+                                                        >
+                                                            <Check className="h-7 w-7" />
+                                                        </motion.span>
+                                                        <p className="text-base font-semibold text-amber-950">You are on the waitlist</p>
+                                                        <p className="mt-1 max-w-sm text-sm leading-5 text-amber-900/80">
+                                                            We will email you if tickets become available.
+                                                        </p>
+                                                    </motion.div>
+                                                ) : (
+                                                    <motion.div
+                                                        key="waitlist-form"
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        exit={{ opacity: 0 }}
+                                                        transition={{ duration: 0.16 }}
+                                                    >
+                                                        <div className="mb-3 flex items-start gap-3">
+                                                            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-200 text-amber-900">
+                                                                <Mail className="h-4 w-4" />
+                                                            </span>
+                                                            <div className="min-w-0 space-y-1">
+                                                                <Label className="text-base font-semibold text-amber-950">Join waitlist</Label>
+                                                                <p className="text-sm leading-5 text-amber-900/80">
+                                                                    Be first to know when a sold-out ticket opens up.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <Select
+                                                            value={waitlistTicketTypeId}
+                                                            onValueChange={setWaitlistTicketTypeId}
+                                                        >
+                                                            <SelectTrigger className="border-amber-200 bg-white/85 shadow-sm focus:ring-amber-400">
+                                                                <SelectValue placeholder="Select ticket type" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {waitlistTickets.map((ticket) => (
+                                                                    <SelectItem key={ticket.id} value={ticket.id}>
+                                                                        {ticket.name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                                                            <Input
+                                                                type="email"
+                                                                value={waitlistEmail}
+                                                                onChange={(e) => setWaitlistEmail(e.target.value)}
+                                                                placeholder="Email address"
+                                                                required
+                                                                maxLength={254}
+                                                                className="border-amber-200 bg-white/90 focus-visible:ring-amber-400"
+                                                            />
+                                                            <Button
+                                                                type="submit"
+                                                                disabled={isWaitlistSubmitting || !waitlistEmail.trim()}
+                                                                className="bg-amber-500 text-amber-950 shadow-sm hover:bg-amber-400 sm:w-auto"
+                                                            >
+                                                                {isWaitlistSubmitting ? (
+                                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                                ) : (
+                                                                    'Join'
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                            {waitlistError && (
+                                                <p className="text-xs font-medium text-destructive">{waitlistError}</p>
+                                            )}
+                                        </form>
                                     )}
 
                                     <Separator />

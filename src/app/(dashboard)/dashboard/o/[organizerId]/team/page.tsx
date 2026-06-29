@@ -344,6 +344,7 @@ export default function OrganizerTeamPage() {
     const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
     const [editSaving, setEditSaving] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
+    const [removeMemberConfirmOpen, setRemoveMemberConfirmOpen] = useState(false);
     const [editForm, setEditForm] = useState<{
         role: string;
         status: string;
@@ -553,6 +554,7 @@ export default function OrganizerTeamPage() {
         setEditForm(null);
         setEditSaving(false);
         setEditError(null);
+        setRemoveMemberConfirmOpen(false);
     };
 
     const handleSaveMembership = async () => {
@@ -587,12 +589,6 @@ export default function OrganizerTeamPage() {
 
     const handleRemoveMember = async () => {
         if (!organizerId || !editingMember) return;
-
-        const memberName = editingMember.user.name || editingMember.user.email;
-        const confirmed = confirm(
-            `Remove ${memberName} from the team?\n\nThis cannot be undone. They will need to be re-invited to regain access.`
-        );
-        if (!confirmed) return;
 
         setEditSaving(true);
         try {
@@ -1137,7 +1133,7 @@ export default function OrganizerTeamPage() {
                         <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between gap-2">
                             <Button
                                 variant="ghost"
-                                onClick={() => void handleRemoveMember()}
+                                onClick={() => setRemoveMemberConfirmOpen(true)}
                                 disabled={editSaving}
                                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             >
@@ -1156,6 +1152,26 @@ export default function OrganizerTeamPage() {
                         </DialogFooter>
                     </DialogContent>
                 )}
+            </Dialog>
+            <Dialog open={removeMemberConfirmOpen} onOpenChange={setRemoveMemberConfirmOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Remove team member?</DialogTitle>
+                        <DialogDescription>
+                            {editingMember
+                                ? `${editingMember.user.name || editingMember.user.email} will lose access and will need to be re-invited to regain it.`
+                                : 'This team member will lose access.'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setRemoveMemberConfirmOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" disabled={editSaving} onClick={() => void handleRemoveMember()}>
+                            Remove member
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
             </Dialog>
         </div>
     );

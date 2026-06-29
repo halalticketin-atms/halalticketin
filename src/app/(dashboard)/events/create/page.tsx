@@ -351,6 +351,7 @@ const buildEventPayload = (formData: DraftFormData): UpsertEventPayload => {
         clearAccessPassword: !accessCodeEnabled,
         category: formData.categories.length > 0 ? formData.categories.join(',') : null,
         // absorbFee removed - now handled per-ticket
+        waitlistEnabled: formData.waitlistEnabled,
         attendeeInfoMode: formData.attendeeInfoMode,
         minimumAttendeeAge: typeof formData.minimumAttendeeAge === 'number'
             ? formData.minimumAttendeeAge
@@ -608,7 +609,7 @@ const getStepForFieldErrors = (errors: Record<string, string>) => {
         { step: 1, fields: ['title', 'description', 'bannerImageDataUrl', 'categories', 'visibility', 'accessCode'] },
         { step: 2, fields: ['date', 'startTime', 'endDate', 'endTime', 'timezone'] },
         { step: 3, fields: ['locationType', 'venue', 'address', 'city', 'onlineUrl'] },
-        { step: 4, fields: ['tickets', 'currency', 'refundPolicy', 'totalCapacity', 'attendeeInfoMode', 'minimumAttendeeAge', 'customQuestions'] },
+        { step: 4, fields: ['tickets', 'currency', 'refundPolicy', 'totalCapacity', 'waitlistEnabled', 'attendeeInfoMode', 'minimumAttendeeAge', 'customQuestions'] },
     ];
 
     for (const entry of stepFields) {
@@ -822,6 +823,7 @@ export function EventWizard({
 
     // Sub-step navigation state
     const [currentSubStep, setCurrentSubStep] = useState<string>(initialDraft?.currentSubStep ?? mainSteps[0]?.subSteps[0]?.id ?? '');
+    const [ticketArchiveConfirmId, setTicketArchiveConfirmId] = useState<string | null>(null);
     // Ref to track intentional sub-step navigation (prevents effect from overriding)
     const pendingSubStepRef = useRef<string | null>(initialDraft?.currentSubStep ?? null);
 
@@ -1316,18 +1318,8 @@ export function EventWizard({
         clearFieldErrors('tickets');
     }, [addDonationTicketBase, clearFieldErrors]);
 
-    const removeTicket = useCallback(
+    const removeTicketConfirmed = useCallback(
         (id: string) => {
-            if (
-                isSavedTicketId(id)
-                && typeof window !== 'undefined'
-                && !window.confirm(
-                    'Archive this ticket type? It will stop appearing on the live event and checkout pages. Existing orders, tickets, refunds and check-ins will still keep their historical ticket details.',
-                )
-            ) {
-                return;
-            }
-
             removeTicketBase(id);
             clearFieldErrors('tickets');
             const nextTickets = tickets.filter((ticket) => ticket.id !== id);
@@ -1343,6 +1335,16 @@ export function EventWizard({
             });
         },
         [clearFieldErrors, removeTicketBase, tickets],
+    );
+    const removeTicket = useCallback(
+        (id: string) => {
+            if (isSavedTicketId(id)) {
+                setTicketArchiveConfirmId(id);
+                return;
+            }
+            removeTicketConfirmed(id);
+        },
+        [removeTicketConfirmed],
     );
 
     const removeDonationTicket = useCallback(() => {
@@ -3399,6 +3401,26 @@ export function EventWizard({
                                                             This is the combined limit across all ticket types.
                                                         </p>
                                                     </div>
+                                                    <div className="mt-5 rounded-lg border border-border/70 bg-background/80 p-4">
+                                                        <div className="mb-3">
+                                                            <h3 className="text-sm font-semibold text-foreground">Waitlist</h3>
+                                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                                Collect interested buyers when public tickets sell out.
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <Label htmlFor="waitlistEnabled" className="leading-5">
+                                                                Enable waitlist for sold-out tickets
+                                                            </Label>
+                                                            <Switch
+                                                                id="waitlistEnabled"
+                                                                checked={formData.waitlistEnabled}
+                                                                onCheckedChange={(checked) =>
+                                                                    setFormData((prev) => ({ ...prev, waitlistEnabled: checked }))
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
 
                                                 <div className="space-y-3">
@@ -4965,6 +4987,32 @@ export function EventWizard({
                         </Button>
                         <Button onClick={executePublish}>
                             Publish Anyway
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={ticketArchiveConfirmId !== null} onOpenChange={(open) => !open && setTicketArchiveConfirmId(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Archive ticket type?</DialogTitle>
+                        <DialogDescription>
+                            This ticket type will stop appearing on the live event and checkout pages. Existing orders, tickets, refunds and check-ins will keep their historical ticket details.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setTicketArchiveConfirmId(null)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => {
+                                if (!ticketArchiveConfirmId) return;
+                                removeTicketConfirmed(ticketArchiveConfirmId);
+                                setTicketArchiveConfirmId(null);
+                            }}
+                        >
+                            Archive ticket
                         </Button>
                     </DialogFooter>
                 </DialogContent>

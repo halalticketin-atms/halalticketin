@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -18,6 +18,7 @@ import {
     X,
     Mail,
     RefreshCw,
+    Loader2,
     ChevronDown,
     Info,
     Users,
@@ -27,6 +28,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import {
     Select,
     SelectContent,
@@ -38,6 +47,7 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
@@ -59,7 +69,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import api from '@/lib/api';
+import api, { getAuthToken } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { formatCustomQuestionDateForDisplay } from '@/lib/custom-question-dates';
 import { toast } from '@/lib/notifications';
 import {
@@ -294,6 +305,176 @@ interface AttendeesResponse {
     answerFilterQuestions?: AnswerFilterQuestion[];
 }
 
+interface WaitlistEntry {
+    id: string;
+    ticketTypeName: string;
+    email: string;
+    status: 'waiting' | 'notified' | 'converted' | 'removed';
+    createdAt: string;
+    notifiedAt: string | null;
+}
+
+interface WaitlistResponse {
+    entries: WaitlistEntry[];
+    counts: Partial<Record<WaitlistEntry['status'], number>>;
+    total: number;
+    limit: number;
+    offset: number;
+}
+
+interface WaitlistNotifyResponse {
+    sent: number;
+    skipped: number;
+    failed: Array<{ id: string; email: string; error: string }>;
+}
+
+interface WaitlistNotifyPreviewResponse {
+    subject: string;
+    text: string;
+    eligibleCount: number;
+    skippedCount: number;
+    availableQuantityWarning: string | null;
+    blocker: string | null;
+}
+
+type WaitlistActionPayload = {
+    organizerId: string;
+    eventId: string;
+    entryIds: string[];
+};
+
+const WAITLIST_PAGE_SIZE = 100;
+
+const waitlistStatusLabels: Record<WaitlistEntry['status'], string> = {
+    waiting: 'Waiting',
+    notified: 'Notified',
+    converted: 'Converted',
+    removed: 'Removed',
+};
+
+const waitlistStatusBars: Record<WaitlistEntry['status'], string> = {
+    waiting: 'bg-primary',
+    notified: 'bg-amber-500',
+    converted: 'bg-emerald-600',
+    removed: 'bg-muted-foreground/45',
+};
+
+const waitlistStatusBadgeClasses: Record<WaitlistEntry['status'], string> = {
+    waiting: 'border-primary/25 bg-primary/10 text-primary',
+    notified: 'border-amber-300/60 bg-amber-50 text-amber-700',
+    converted: 'border-emerald-300/60 bg-emerald-50 text-emerald-700',
+    removed: 'border-border bg-muted text-muted-foreground',
+};
+
+const waitlistStatusOrder: Record<WaitlistEntry['status'], number> = {
+    waiting: 0,
+    notified: 1,
+    converted: 2,
+    removed: 3,
+};
+
+const escapeWaitlistEmailPreviewHtml = (value: string) =>
+    value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+const buildWaitlistEmailPreviewHtml = (eventName: string) => {
+    const eventTitleHtml = escapeWaitlistEmailPreviewHtml(eventName);
+    const assetOrigin = typeof window === 'undefined' ? '' : window.location.origin;
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Tickets may be available</title>
+  <style>
+    * { box-sizing: border-box; }
+    img { max-width: 100%; }
+    @media only screen and (max-width: 480px) {
+      .email-outer { padding: 16px 10px !important; }
+      .email-panel { width: 100% !important; max-width: 100% !important; border-radius: 12px !important; }
+      .email-pad { padding-left: 16px !important; padding-right: 16px !important; }
+      .email-title { font-size: 21px !important; line-height: 1.25 !important; }
+      .email-event-title { font-size: 18px !important; overflow-wrap: anywhere !important; }
+      .email-button { display: block !important; width: 100% !important; padding-left: 12px !important; padding-right: 12px !important; }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc;">
+    <tr>
+      <td class="email-outer" align="center" style="padding: 40px 20px;">
+        <table class="email-panel" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 640px; width: 100%; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);">
+          <tr>
+            <td class="email-pad" style="background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%); padding: 24px 24px 20px 24px; text-align: center; border-bottom: 1px solid #e2e8f0;">
+              <img src="${assetOrigin}/images/HTlogocr.png" alt="Halal Ticketin'" style="width: 140px; height: auto; display: block; margin: 0 auto 12px auto;" />
+              <h1 class="email-title" style="margin: 0; font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: -0.5px;">Tickets may be available 🎟️</h1>
+              <p style="margin: 6px 0 0 0; font-size: 14px; color: #64748b;">An update from your waitlist</p>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-pad" style="padding: 28px 24px 20px 24px;">
+              <p style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #0f172a;">Salaam! 👋</p>
+              <p style="margin: 0; font-size: 15px; color: #64748b; line-height: 1.65;">
+                Good news! <strong style="color: #0f172a;">[Organizer name]</strong> has added availability for an event you're waiting on. Tickets can go fast, so we wanted to let you know right away.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-pad" style="padding: 0 24px 24px 24px;">
+              <div style="background: linear-gradient(135deg, #f0fdf9 0%, #ecfeff 100%); border: 1px solid #99f6e4; border-radius: 12px; padding: 24px; text-align: center;">
+                <p style="margin: 0 0 6px 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; color: #14b8a6;">Now available</p>
+                <h2 class="email-event-title" style="margin: 0; font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.35;">${eventTitleHtml}</h2>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-pad" style="padding: 0 24px 24px 24px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <a class="email-button" href="#" style="display: inline-block; background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%); color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px;">Get Your Tickets →</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-pad" style="padding: 0 24px 28px 24px;">
+              <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 16px 20px; text-align: center;">
+                <p style="margin: 0; font-size: 12px; color: #92400e; line-height: 1.6;">
+                  Tickets aren't reserved and are available on a first-come, first-served basis, so they may sell out again quickly.
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-pad" style="background: #f8fafc; padding: 20px 24px; border-top: 1px solid #e2e8f0;">
+              <div style="text-align: center;">
+                <img src="${assetOrigin}/images/ht-icon-180.png" alt="Halal Ticketin'" style="width: 36px; height: auto; margin-bottom: 12px;" />
+                <p style="margin: 0 0 6px 0; font-size: 14px; color: #334155;">Warm regards,</p>
+                <p style="margin: 0 0 16px 0; font-size: 14px; font-weight: 600; color: #0f766e;">The Halal Ticketin' Team</p>
+                <div style="padding-top: 16px; border-top: 1px solid #e2e8f0;">
+                  <p style="margin: 0; font-size: 12px; color: #94a3b8;">This is a preview. Recipient details are inserted when the notification is sent.</p>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+};
+
 interface AnswerFilterQuestion {
     questionId: string;
     label: string;
@@ -355,6 +536,7 @@ export default function OrdersPage() {
     const organizerId = useOrganizerFromParams();
     const searchParams = useSearchParams();
     const initialEventId = searchParams.get('eventId');
+    const initialTab = searchParams.get('tab');
     const { organizers } = useOrganizers();
     const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [attendees, setAttendees] = useState<AttendeeRecord[]>([]);
@@ -375,6 +557,19 @@ export default function OrdersPage() {
     const [isLoadingOrderDetail, setIsLoadingOrderDetail] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [attendeesError, setAttendeesError] = useState<string | null>(null);
+    const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([]);
+    const [waitlistCounts, setWaitlistCounts] = useState<WaitlistResponse['counts']>({});
+    const [waitlistTotal, setWaitlistTotal] = useState(0);
+    const [waitlistStatus, setWaitlistStatus] = useState<WaitlistEntry['status'] | 'all'>('all');
+    const [isLoadingWaitlist, setIsLoadingWaitlist] = useState(false);
+    const [isLoadingMoreWaitlist, setIsLoadingMoreWaitlist] = useState(false);
+    const [waitlistError, setWaitlistError] = useState<string | null>(null);
+    const [selectedWaitlistIds, setSelectedWaitlistIds] = useState<Set<string>>(new Set());
+    const [isWaitlistEmailPreviewOpen, setIsWaitlistEmailPreviewOpen] = useState(false);
+    const [waitlistNotifyPreview, setWaitlistNotifyPreview] = useState<WaitlistNotifyPreviewResponse | null>(null);
+    const [waitlistRefreshKey, setWaitlistRefreshKey] = useState(0);
+    const [waitlistAction, setWaitlistAction] = useState<'preview' | 'notify' | 'remove' | null>(null);
+    const [waitlistConfirm, setWaitlistConfirm] = useState<{ action: 'notify' | 'remove'; payload: WaitlistActionPayload } | null>(null);
 
     // Dialog state
     const [activeTab, setActiveTab] = useState<OrderDetailTab>('details');
@@ -408,12 +603,15 @@ export default function OrdersPage() {
     const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
     const [showAllBreakdown, setShowAllBreakdown] = useState(false);
     const attendeeRequestVersionRef = useRef(0);
+    const waitlistRequestVersionRef = useRef(0);
 
-    const [pageTab, setPageTab] = useState<OrderPageTab>('orders');
+    const [pageTab, setPageTab] = useState<OrderPageTab>(
+        initialTab === 'waitlist' ? 'waitlist' : 'orders',
+    );
 
     const EMAIL_COOLDOWN_SECONDS = 5 * 60;
 
-    const updateEventFilter = (nextEventIds: string[]) => {
+    const updateEventFilter = useCallback((nextEventIds: string[]) => {
         const currentSingleEventId = eventFilter.length === 1 ? eventFilter[0] : null;
         const nextSingleEventId = nextEventIds.length === 1 ? nextEventIds[0] : null;
         setEventFilter(nextEventIds);
@@ -425,7 +623,7 @@ export default function OrdersPage() {
                 clearAnswerFiltersForEventSelection(nextEventIds, current)
             );
         }
-    };
+    }, [eventFilter]);
 
     const toggleAnswerFilter = (questionId: string, choice: string) => {
         setAnswerFilters((current) => {
@@ -708,6 +906,7 @@ export default function OrdersPage() {
         setAttendees([]);
         setAttendeeTotal(0);
         setKnownAttendeeEvents([]);
+        setPageTab(initialTab === 'waitlist' ? 'waitlist' : 'orders');
         const fetchOrders = async () => {
             if (!organizerId) {
                 setOrders([]);
@@ -741,7 +940,218 @@ export default function OrdersPage() {
         return () => {
             isMounted = false;
         };
-    }, [organizerId, initialEventId]);
+    }, [organizerId, initialEventId, initialTab]);
+
+    useEffect(() => {
+        let isMounted = true;
+        const requestVersion = ++waitlistRequestVersionRef.current;
+        const fetchWaitlist = async () => {
+            if (!organizerId || pageTab !== 'waitlist' || eventFilter.length !== 1) {
+                setWaitlistEntries([]);
+                setWaitlistCounts({});
+                setWaitlistTotal(0);
+                setIsLoadingWaitlist(false);
+                return;
+            }
+
+            setIsLoadingWaitlist(true);
+            try {
+                const response = await api.get<WaitlistResponse>('/api/v1/orders/waitlist', {
+                    params: {
+                        organizerId,
+                        eventId: eventFilter[0],
+                        status: waitlistStatus,
+                        search: searchQuery.trim(),
+                        limit: String(WAITLIST_PAGE_SIZE),
+                        offset: '0',
+                    },
+                });
+                if (!isMounted || requestVersion !== waitlistRequestVersionRef.current) return;
+                setWaitlistEntries(response.entries);
+                setWaitlistCounts(response.counts);
+                setWaitlistTotal(response.total);
+                setSelectedWaitlistIds(new Set());
+                setWaitlistError(null);
+            } catch (err) {
+                if (!isMounted || requestVersion !== waitlistRequestVersionRef.current) return;
+                setWaitlistEntries([]);
+                setWaitlistCounts({});
+                setWaitlistTotal(0);
+                setWaitlistError(err instanceof Error ? err.message : 'Unable to load waitlist');
+            } finally {
+                if (isMounted && requestVersion === waitlistRequestVersionRef.current) setIsLoadingWaitlist(false);
+            }
+        };
+
+        void fetchWaitlist();
+        return () => {
+            isMounted = false;
+        };
+    }, [eventFilter, organizerId, pageTab, searchQuery, waitlistRefreshKey, waitlistStatus]);
+
+    const selectedWaitlistEventId = pageTab === 'waitlist' && eventFilter.length === 1 ? eventFilter[0] : null;
+
+    useEffect(() => {
+        setWaitlistNotifyPreview(null);
+    }, [selectedWaitlistEventId, selectedWaitlistIds, waitlistStatus]);
+
+    const waitlistTotalCount = Object.values(waitlistCounts).reduce((total, count) => total + (count ?? 0), 0);
+    const hasMoreWaitlistEntries = waitlistEntries.length < waitlistTotal;
+    const displayedWaitlistEntries = useMemo(() => {
+        if (waitlistStatus !== 'all') return waitlistEntries;
+        return [...waitlistEntries].sort((a, b) => {
+            const statusDelta = waitlistStatusOrder[a.status] - waitlistStatusOrder[b.status];
+            if (statusDelta !== 0) return statusDelta;
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        });
+    }, [waitlistEntries, waitlistStatus]);
+    const selectedWaitlistIdsArray = Array.from(selectedWaitlistIds);
+    const selectedWaitlistEntries = useMemo(
+        () => waitlistEntries.filter((entry) => selectedWaitlistIds.has(entry.id)),
+        [selectedWaitlistIds, waitlistEntries],
+    );
+    const hasSelectedWaitlistEntries = selectedWaitlistEntries.length > 0;
+    const canBulkNotifyWaitlist = hasSelectedWaitlistEntries && selectedWaitlistEntries.every((entry) => entry.status === 'waiting');
+    const canBulkRemoveWaitlist = hasSelectedWaitlistEntries && selectedWaitlistEntries.every((entry) => entry.status === 'waiting' || entry.status === 'notified');
+    const refreshWaitlist = () => {
+        setWaitlistRefreshKey((current) => current + 1);
+    };
+    const waitlistActionPayload = (entryIds = selectedWaitlistIdsArray) => {
+        if (!organizerId || !selectedWaitlistEventId || entryIds.length === 0) {
+            return null;
+        }
+        return {
+            organizerId,
+            eventId: selectedWaitlistEventId,
+            entryIds,
+        };
+    };
+    const clearSelectedWaitlistIds = (entryIds: string[]) => {
+        setSelectedWaitlistIds((current) => {
+            const next = new Set(current);
+            entryIds.forEach((id) => next.delete(id));
+            return next;
+        });
+    };
+    const loadWaitlistNotifyPreview = async (payload: WaitlistActionPayload) => {
+        setWaitlistAction('preview');
+        try {
+            const preview = await api.post<WaitlistNotifyPreviewResponse>('/api/v1/orders/waitlist/notify-preview', payload);
+            setWaitlistNotifyPreview(preview);
+            return preview;
+        } catch (err) {
+            toast.error(err, 'Unable to preview waitlist notification');
+            return null;
+        } finally {
+            setWaitlistAction(null);
+        }
+    };
+    const handlePreviewWaitlist = async () => {
+        const payload = waitlistActionPayload();
+        if (!payload) return;
+        const preview = await loadWaitlistNotifyPreview(payload);
+        if (preview) setIsWaitlistEmailPreviewOpen(true);
+    };
+    const runNotifyWaitlist = async (payload: WaitlistActionPayload) => {
+        setWaitlistAction('notify');
+        try {
+            const result = await api.post<WaitlistNotifyResponse>('/api/v1/orders/waitlist/notify', payload);
+            toast.success('Waitlist notified', {
+                description: `${result.sent} sent, ${result.skipped} skipped, ${result.failed.length} failed.`,
+            });
+            clearSelectedWaitlistIds(payload.entryIds);
+            refreshWaitlist();
+        } catch (err) {
+            toast.error(err, 'Unable to notify waitlist');
+        } finally {
+            setWaitlistAction(null);
+        }
+    };
+    const runRemoveWaitlist = async (payload: WaitlistActionPayload) => {
+        setWaitlistAction('remove');
+        try {
+            await api.post('/api/v1/orders/waitlist/remove', payload);
+            toast.success('Waitlist entries removed');
+            clearSelectedWaitlistIds(payload.entryIds);
+            refreshWaitlist();
+        } catch (err) {
+            toast.error(err, 'Unable to remove waitlist entries');
+        } finally {
+            setWaitlistAction(null);
+        }
+    };
+    const handleNotifyWaitlist = async (entryIds = selectedWaitlistIdsArray) => {
+        const payload = waitlistActionPayload(entryIds);
+        if (!payload) return;
+        const preview = await loadWaitlistNotifyPreview(payload);
+        if (!preview) return;
+        setWaitlistConfirm({ action: 'notify', payload });
+    };
+    const handleRemoveWaitlist = (entryIds = selectedWaitlistIdsArray) => {
+        const payload = waitlistActionPayload(entryIds);
+        if (!payload) return;
+        setWaitlistConfirm({ action: 'remove', payload });
+    };
+    const confirmWaitlistAction = async () => {
+        const confirmation = waitlistConfirm;
+        if (!confirmation) return;
+        setWaitlistConfirm(null);
+        if (confirmation.action === 'notify') await runNotifyWaitlist(confirmation.payload);
+        else await runRemoveWaitlist(confirmation.payload);
+    };
+    const handleExportWaitlist = async () => {
+        if (!organizerId || !selectedWaitlistEventId) return;
+        try {
+            const params = new URLSearchParams({ organizerId, eventId: selectedWaitlistEventId });
+            const token = getAuthToken();
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/v1/orders/export/waitlist?${params.toString()}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            if (!response.ok) {
+                throw new Error('Unable to export waitlist');
+            }
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `waitlist-${Date.now()}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+            toast.success('Waitlist export downloaded');
+        } catch (err) {
+            toast.error(err, 'Unable to export waitlist');
+        }
+    };
+    const handleLoadMoreWaitlist = async () => {
+        if (!organizerId || !selectedWaitlistEventId || isLoadingMoreWaitlist) return;
+
+        const requestVersion = waitlistRequestVersionRef.current;
+        setIsLoadingMoreWaitlist(true);
+        try {
+            const response = await api.get<WaitlistResponse>('/api/v1/orders/waitlist', {
+                params: {
+                    organizerId,
+                    eventId: selectedWaitlistEventId,
+                    status: waitlistStatus,
+                    search: searchQuery.trim(),
+                    limit: String(WAITLIST_PAGE_SIZE),
+                    offset: String(waitlistEntries.length),
+                },
+            });
+            if (requestVersion !== waitlistRequestVersionRef.current) return;
+            setWaitlistEntries((current) => [...current, ...response.entries]);
+            setWaitlistCounts(response.counts);
+            setWaitlistTotal(response.total);
+            setWaitlistError(null);
+        } catch (err) {
+            if (requestVersion !== waitlistRequestVersionRef.current) return;
+            toast.error(err, 'Unable to load more waitlist entries');
+        } finally {
+            if (requestVersion === waitlistRequestVersionRef.current) {
+                setIsLoadingMoreWaitlist(false);
+            }
+        }
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -936,6 +1346,9 @@ export default function OrdersPage() {
     const hasMoreAttendees = attendees.length < attendeeTotal;
     const eventOptions = useMemo(() => {
         const map = new Map<string, string>();
+        for (const event of eventBreakdowns) {
+            map.set(event.eventId, event.eventName || 'Unnamed Event');
+        }
         for (const order of orders) {
             map.set(order.event.id, order.event.name || 'Unnamed Event');
         }
@@ -943,7 +1356,23 @@ export default function OrdersPage() {
             map.set(event.id, event.name);
         }
         return [...map.entries()].map(([id, name]) => ({ id, name }));
-    }, [knownAttendeeEvents, orders]);
+    }, [eventBreakdowns, knownAttendeeEvents, orders]);
+    const selectedWaitlistEventName =
+        eventOptions.find((event) => event.id === selectedWaitlistEventId)?.name ?? '[Event name]';
+    const waitlistEmailPreviewHtml = useMemo(
+        () => buildWaitlistEmailPreviewHtml(selectedWaitlistEventName),
+        [selectedWaitlistEventName],
+    );
+    const defaultWaitlistEventId = useMemo(
+        () => eventBreakdowns.find((event) => event.isActive)?.eventId ?? eventOptions[0]?.id ?? null,
+        [eventBreakdowns, eventOptions],
+    );
+    useEffect(() => {
+        if (pageTab !== 'waitlist' || initialEventId || eventFilter.length > 0 || !defaultWaitlistEventId) {
+            return;
+        }
+        updateEventFilter([defaultWaitlistEventId]);
+    }, [defaultWaitlistEventId, eventFilter.length, initialEventId, pageTab, updateEventFilter]);
     const attendeeAnswerDisplayMode = getAttendeeAnswerDisplayMode(eventFilter);
     const selectedEventQuestionLabels = useMemo(() => {
         if (attendeeAnswerDisplayMode !== 'visible') {
@@ -1054,7 +1483,7 @@ export default function OrdersPage() {
                 <div className="mb-6">
                     <div className="inline-flex p-1 bg-muted/80 rounded-xl">
                         {ORDER_PAGE_TABS.map((tab) => {
-                            const Icon = tab.id === 'orders' ? Receipt : tab.id === 'tickets' ? Ticket : Users;
+                            const Icon = tab.id === 'orders' ? Receipt : tab.id === 'tickets' ? Ticket : tab.id === 'waitlist' ? Mail : Users;
                             return (
                                 <button
                                     key={tab.id}
@@ -1752,6 +2181,324 @@ export default function OrdersPage() {
                     </motion.div>
                 )}
 
+                {pageTab === 'waitlist' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="space-y-6"
+                    >
+                        <Card className="border-border/70 bg-background shadow-xs">
+                            <CardContent className="space-y-3 p-3 sm:p-4">
+                                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(170px,205px)_auto] lg:items-start">
+                                    <div className="min-w-0 space-y-1.5">
+                                        <Label className="text-xs font-semibold text-foreground">Event</Label>
+                                        <Select
+                                            value={selectedWaitlistEventId ?? ''}
+                                            onValueChange={(value) => updateEventFilter(value ? [value] : [])}
+                                        >
+                                            <SelectTrigger className="h-11 w-full min-w-0 border-primary/35 bg-background shadow-xs [&_[data-slot=select-value]]:truncate">
+                                                <SelectValue placeholder="Select one event" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {eventOptions.map((event) => (
+                                                    <SelectItem key={event.id} value={event.id}>
+                                                        {event.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="min-w-0 space-y-1.5">
+                                        <Label className="text-xs font-semibold text-foreground">Search</Label>
+                                        <div className="relative">
+                                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                            <Input
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                placeholder="Search email or ticket type..."
+                                                className="h-11 bg-background pl-9"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="min-w-0 space-y-1.5">
+                                        <Label className="text-xs font-semibold text-foreground">Status filter</Label>
+                                        <Select value={waitlistStatus} onValueChange={(value) => setWaitlistStatus(value as typeof waitlistStatus)}>
+                                            <SelectTrigger className="h-11 w-full min-w-0 border-primary/35 bg-background shadow-xs [&_[data-slot=select-value]]:truncate">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="waiting">Waiting ({waitlistCounts.waiting ?? 0})</SelectItem>
+                                                <SelectItem value="notified">Notified ({waitlistCounts.notified ?? 0})</SelectItem>
+                                                <SelectItem value="converted">Converted ({waitlistCounts.converted ?? 0})</SelectItem>
+                                                <SelectItem value="removed">Removed ({waitlistCounts.removed ?? 0})</SelectItem>
+                                                <SelectItem value="all">All ({waitlistTotalCount})</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5 md:col-span-2 lg:col-span-1 lg:pt-[22px]">
+                                        <Button
+                                            variant="outline"
+                                            disabled={!selectedWaitlistEventId}
+                                            onClick={handleExportWaitlist}
+                                            className="h-11 w-full lg:w-auto"
+                                        >
+                                            <Download className="mr-2 h-4 w-4" />
+                                            Export CSV
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="grid gap-3 rounded-lg border border-border bg-background p-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-center">
+                                    <div>
+                                        <p className="text-sm font-medium">Email preview</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Select waiting entries to preview warnings before notifying.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        disabled={!canBulkNotifyWaitlist || waitlistAction !== null}
+                                        onClick={() => void handlePreviewWaitlist()}
+                                        className="w-full lg:w-auto lg:justify-self-end"
+                                    >
+                                        {waitlistAction === 'preview' ? 'Loading preview...' : 'View email preview'}
+                                    </Button>
+                                </div>
+                                <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-center">
+                                    <div>
+                                        <p className="text-sm font-medium">Bulk actions</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {selectedWaitlistIds.size
+                                                ? `${selectedWaitlistIds.size} selected`
+                                                : 'Select entries to notify or remove together.'}
+                                        </p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
+                                        <Button
+                                            disabled={!canBulkNotifyWaitlist || waitlistAction !== null}
+                                            onClick={() => void handleNotifyWaitlist()}
+                                            className="w-full sm:w-auto"
+                                        >
+                                            <Mail className="mr-2 h-4 w-4" />
+                                            {waitlistAction === 'notify' ? 'Notifying...' : 'Notify'}
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            disabled={!canBulkRemoveWaitlist || waitlistAction !== null}
+                                            onClick={() => void handleRemoveWaitlist()}
+                                            className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive sm:w-auto"
+                                        >
+                                            {waitlistAction === 'remove' ? 'Removing...' : 'Remove'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {!selectedWaitlistEventId ? (
+                            <Card className="p-12 text-center">
+                                <Mail className="mx-auto mb-4 h-12 w-12 text-muted-foreground opacity-50" />
+                                <p className="text-lg font-medium">Select an event</p>
+                                <p className="text-sm text-muted-foreground">Waitlist management works one event at a time.</p>
+                            </Card>
+                        ) : isLoadingWaitlist ? (
+                            <div className="flex justify-center py-16">
+                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : waitlistError ? (
+                            <Card className="p-12 text-center">
+                                <p className="text-muted-foreground">{waitlistError}</p>
+                            </Card>
+                        ) : displayedWaitlistEntries.length === 0 ? (
+                            <Card className="p-12 text-center">
+                                <p className="text-lg font-medium">No waitlist entries</p>
+                                <p className="text-sm text-muted-foreground">Entries will appear here when buyers join.</p>
+                            </Card>
+                        ) : (
+                            <>
+                            <div className="space-y-3 md:hidden">
+                                {displayedWaitlistEntries.map((entry) => {
+                                    const checked = selectedWaitlistIds.has(entry.id);
+                                    const canNotify = entry.status === 'waiting';
+                                    const canRemove = entry.status === 'waiting' || entry.status === 'notified';
+                                    return (
+                                        <Card
+                                            key={entry.id}
+                                            className={cn(
+                                                'overflow-hidden border-border/80 bg-card shadow-sm',
+                                                checked && 'border-primary/60 bg-primary/5',
+                                            )}
+                                        >
+                                            <CardContent className="p-0">
+                                                <div className="flex">
+                                                    <span className={cn('w-1 shrink-0', waitlistStatusBars[entry.status])} />
+                                                    <div className="min-w-0 flex-1 space-y-3 p-3">
+                                                        <div className="flex min-w-0 items-start gap-3">
+                                                            <Checkbox
+                                                                checked={checked}
+                                                                onCheckedChange={(value) => {
+                                                                    setSelectedWaitlistIds((current) => {
+                                                                        const next = new Set(current);
+                                                                        if (value) next.add(entry.id);
+                                                                        else next.delete(entry.id);
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                                aria-label={`Select ${entry.email}`}
+                                                            />
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="truncate font-medium text-foreground">{entry.email}</p>
+                                                                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                                                    {entry.ticketTypeName} - {new Date(entry.createdAt).toLocaleDateString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-col gap-2 min-[390px]:flex-row min-[390px]:items-center min-[390px]:justify-between">
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={cn(
+                                                                    'w-fit rounded-full px-2.5 py-1 text-xs font-medium capitalize',
+                                                                    waitlistStatusBadgeClasses[entry.status],
+                                                                )}
+                                                            >
+                                                                {waitlistStatusLabels[entry.status]}
+                                                            </Badge>
+                                                            <div className="grid grid-cols-2 gap-2 min-[390px]:flex min-[390px]:shrink-0">
+                                                                <Button
+                                                                    size="sm"
+                                                                    disabled={!canNotify || waitlistAction !== null}
+                                                                    onClick={() => void handleNotifyWaitlist([entry.id])}
+                                                                    className="w-full min-[390px]:w-auto"
+                                                                >
+                                                                    Notify
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    disabled={!canRemove || waitlistAction !== null}
+                                                                    onClick={() => void handleRemoveWaitlist([entry.id])}
+                                                                    className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive min-[390px]:w-auto"
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                            <Card className="hidden overflow-hidden border-border/80 bg-card shadow-sm md:block">
+                                <Table>
+                                    <TableHeader className="bg-muted/40">
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead className="w-[44px]" />
+                                            <TableHead>Customer</TableHead>
+                                            <TableHead className="hidden md:table-cell">Ticket</TableHead>
+                                            <TableHead className="hidden lg:table-cell">Joined</TableHead>
+                                            <TableHead className="text-center">Status</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {displayedWaitlistEntries.map((entry) => {
+                                            const checked = selectedWaitlistIds.has(entry.id);
+                                            const canNotify = entry.status === 'waiting';
+                                            const canRemove = entry.status === 'waiting' || entry.status === 'notified';
+                                            return (
+                                                <TableRow
+                                                    key={entry.id}
+                                                    data-state={checked ? 'selected' : undefined}
+                                                    className="group"
+                                                >
+                                                    <TableCell className="w-[44px]">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={cn('h-8 w-1 rounded-full', waitlistStatusBars[entry.status])} />
+                                                            <Checkbox
+                                                                checked={checked}
+                                                                onCheckedChange={(value) => {
+                                                                    setSelectedWaitlistIds((current) => {
+                                                                        const next = new Set(current);
+                                                                        if (value) next.add(entry.id);
+                                                                        else next.delete(entry.id);
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                                aria-label={`Select ${entry.email}`}
+                                                            />
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="min-w-[220px] max-w-[340px]">
+                                                        <div className="min-w-0">
+                                                            <p className="truncate font-medium text-foreground">{entry.email}</p>
+                                                            <p className="mt-0.5 truncate text-xs text-muted-foreground md:hidden">
+                                                                {entry.ticketTypeName} - {new Date(entry.createdAt).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="hidden max-w-[220px] md:table-cell">
+                                                        <span className="block truncate text-muted-foreground">{entry.ticketTypeName}</span>
+                                                    </TableCell>
+                                                    <TableCell className="hidden text-muted-foreground lg:table-cell">
+                                                        {new Date(entry.createdAt).toLocaleDateString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={cn(
+                                                                'mx-auto w-fit rounded-full px-2.5 py-1 text-xs font-medium capitalize',
+                                                                waitlistStatusBadgeClasses[entry.status],
+                                                            )}
+                                                        >
+                                                            {waitlistStatusLabels[entry.status]}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                size="sm"
+                                                                disabled={!canNotify || waitlistAction !== null}
+                                                                onClick={() => void handleNotifyWaitlist([entry.id])}
+                                                            >
+                                                                Notify
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                disabled={!canRemove || waitlistAction !== null}
+                                                                onClick={() => void handleRemoveWaitlist([entry.id])}
+                                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                            >
+                                                                Remove
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </Card>
+                            {hasMoreWaitlistEntries && (
+                                <div className="flex justify-center pt-2">
+                                    <Button
+                                        variant="outline"
+                                        disabled={isLoadingMoreWaitlist}
+                                        onClick={() => void handleLoadMoreWaitlist()}
+                                    >
+                                        {isLoadingMoreWaitlist
+                                            ? 'Loading entries...'
+                                            : `Load more (${waitlistEntries.length} of ${waitlistTotal})`}
+                                    </Button>
+                                </div>
+                            )}
+                            </>
+                        )}
+                    </motion.div>
+                )}
+
                 {/* Orders Tab Content */}
                 {pageTab === 'orders' && (
                     <>
@@ -1968,6 +2715,86 @@ export default function OrdersPage() {
                         )}
                     </>
                 )}
+
+                <Dialog open={isWaitlistEmailPreviewOpen} onOpenChange={setIsWaitlistEmailPreviewOpen}>
+                    <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] max-h-[90dvh] overflow-hidden p-0 sm:max-w-3xl">
+                        <DialogHeader className="border-b px-4 py-4 sm:px-6">
+                            <DialogTitle>Waitlist email preview</DialogTitle>
+                            <DialogDescription>
+                                This is how the email will appear to selected recipients. Recipient details are shown as placeholders.
+                            </DialogDescription>
+                        </DialogHeader>
+                        {waitlistNotifyPreview && (
+                            <div className="space-y-2 border-b px-4 py-3 text-sm sm:px-6">
+                                <p className="font-medium text-foreground">{waitlistNotifyPreview.subject}</p>
+                                <p className="text-muted-foreground">
+                                    {waitlistNotifyPreview.eligibleCount} eligible, {waitlistNotifyPreview.skippedCount} skipped.
+                                </p>
+                                {waitlistNotifyPreview.availableQuantityWarning && (
+                                    <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                                        {waitlistNotifyPreview.availableQuantityWarning}
+                                    </p>
+                                )}
+                                {waitlistNotifyPreview.blocker && (
+                                    <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive">
+                                        {waitlistNotifyPreview.blocker}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                        <div className="max-h-[70dvh] overflow-y-auto overflow-x-hidden bg-muted/30 p-2 sm:p-4">
+                            <div className="pointer-events-none mx-auto w-full max-w-[640px] overflow-hidden rounded-lg border bg-white">
+                                <iframe
+                                    title="Waitlist notification email HTML preview"
+                                    srcDoc={waitlistEmailPreviewHtml}
+                                    className="h-[980px] w-full max-w-full bg-white"
+                                    sandbox=""
+                                />
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={waitlistConfirm !== null} onOpenChange={(open) => !open && setWaitlistConfirm(null)}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>
+                                {waitlistConfirm?.action === 'notify' ? 'Notify waitlist entries?' : 'Remove waitlist entries?'}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {waitlistConfirm?.action === 'notify'
+                                    ? `Send email notifications to ${waitlistConfirm.payload.entryIds.length} selected waitlist entr${waitlistConfirm.payload.entryIds.length === 1 ? 'y' : 'ies'}.`
+                                    : `Remove ${waitlistConfirm?.payload.entryIds.length ?? 0} selected waitlist entr${waitlistConfirm?.payload.entryIds.length === 1 ? 'y' : 'ies'} from this event.`}
+                            </DialogDescription>
+                        </DialogHeader>
+                        {waitlistConfirm?.action === 'notify' && waitlistNotifyPreview && (
+                            <div className="space-y-2 text-sm">
+                                {waitlistNotifyPreview.availableQuantityWarning && (
+                                    <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                                        {waitlistNotifyPreview.availableQuantityWarning}
+                                    </p>
+                                )}
+                                {waitlistNotifyPreview.blocker && (
+                                    <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive">
+                                        {waitlistNotifyPreview.blocker}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                        <DialogFooter className="gap-2 sm:gap-0">
+                            <Button variant="outline" onClick={() => setWaitlistConfirm(null)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                variant={waitlistConfirm?.action === 'remove' ? 'destructive' : 'default'}
+                                disabled={waitlistAction !== null || (waitlistConfirm?.action === 'notify' && Boolean(waitlistNotifyPreview?.blocker))}
+                                onClick={() => void confirmWaitlistAction()}
+                            >
+                                {waitlistConfirm?.action === 'notify' ? 'Notify' : 'Remove'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* Order Details Dialog with Tabs */}
                 <Dialog

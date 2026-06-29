@@ -4,6 +4,7 @@ import {
     ORDER_DETAIL_TABS,
     ORDER_PAGE_TABS,
     buildEventOrdersHref,
+    buildEventWaitlistHref,
     buildAnswerQuestionLabelList,
     buildAttendeesQueryParams,
     clearAnswerFiltersForEventSelection,
@@ -14,8 +15,8 @@ import {
 } from './orders-attendees-ui';
 
 describe('orders attendees UI contracts', () => {
-    it('shows Orders, Tickets, and Attendees as top-level tabs', () => {
-        expect(ORDER_PAGE_TABS.map((tab) => tab.label)).toEqual(['Orders', 'Tickets', 'Attendees']);
+    it('shows Orders, Tickets, Attendees, and Waitlist as top-level tabs', () => {
+        expect(ORDER_PAGE_TABS.map((tab) => tab.label)).toEqual(['Orders', 'Tickets', 'Attendees', 'Waitlist']);
     });
 
     it('shows Details, Answers, and Refund in the order detail modal', () => {
@@ -24,6 +25,7 @@ describe('orders attendees UI contracts', () => {
 
     it('builds a filtered Orders & Tickets shortcut for an event', () => {
         expect(buildEventOrdersHref('org-1', 'event 1')).toBe('/dashboard/o/org-1/orders?eventId=event%201');
+        expect(buildEventWaitlistHref('org-1', 'event 1')).toBe('/dashboard/o/org-1/orders?eventId=event%201&tab=waitlist');
     });
 
     it('uses a query eventId as the initial event filter', () => {

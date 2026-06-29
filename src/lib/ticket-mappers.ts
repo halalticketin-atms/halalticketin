@@ -142,6 +142,7 @@ export const buildDraftFromEventRecord = (
         currency: event.currency ?? 'GBP',
         absorbFee: event.absorbFee ?? false,
         refundPolicy: event.refundPolicy ?? '',
+        waitlistEnabled: event.waitlistEnabled ?? false,
         attendeeInfoMode: event.attendeeInfoMode ?? 'buyer_choice',
         minimumAttendeeAge: event.minimumAttendeeAge ?? 0,
         customQuestions: event.customQuestions ?? [],

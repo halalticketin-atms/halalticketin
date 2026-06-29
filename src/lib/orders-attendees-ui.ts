@@ -2,6 +2,7 @@ export const ORDER_PAGE_TABS = [
     { id: 'orders', label: 'Orders' },
     { id: 'tickets', label: 'Tickets' },
     { id: 'attendees', label: 'Attendees' },
+    { id: 'waitlist', label: 'Waitlist' },
 ] as const;
 
 export const ORDER_DETAIL_TABS = [
@@ -18,6 +19,9 @@ export type AnswerQuestionLabel = { questionId: string; label: string };
 
 export const buildEventOrdersHref = (organizerId: string, eventId: string) =>
     `/dashboard/o/${organizerId}/orders?eventId=${encodeURIComponent(eventId)}`;
+
+export const buildEventWaitlistHref = (organizerId: string, eventId: string) =>
+    `/dashboard/o/${organizerId}/orders?eventId=${encodeURIComponent(eventId)}&tab=waitlist`;
 
 export const getInitialEventFilterFromQuery = (eventId: string | null): string[] => {
     const trimmedEventId = eventId?.trim();

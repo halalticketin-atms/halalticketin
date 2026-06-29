@@ -40,6 +40,7 @@ export interface DraftFormData {
   absorbFee: boolean;
   currency: string;
   refundPolicy: string;
+  waitlistEnabled: boolean;
   attendeeInfoMode: DraftAttendeeInfoMode;
   minimumAttendeeAge: number | '';
   customQuestions: DraftCustomQuestion[];
@@ -122,6 +123,7 @@ const defaultFormData: DraftFormData = {
   absorbFee: false,
   currency: 'GBP',
   refundPolicy: '',
+  waitlistEnabled: false,
   attendeeInfoMode: 'buyer_choice',
   minimumAttendeeAge: 0,
   customQuestions: [],

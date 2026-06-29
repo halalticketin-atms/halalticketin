@@ -55,6 +55,7 @@ export interface EventRecord {
   customBookingFee: number | null;
   absorbFee: boolean;
   attendeeInfoMode: 'per_ticket' | 'buyer_choice';
+  waitlistEnabled?: boolean;
   minimumAttendeeAge?: number;
   customQuestions: CustomQuestionPayload[] | null;
   ticketsSold?: number; // Aggregate from ticket_types
@@ -139,6 +140,7 @@ export interface UpsertEventPayload {
   totalCapacity?: number;
   absorbFee?: boolean;
   attendeeInfoMode?: 'per_ticket' | 'buyer_choice';
+  waitlistEnabled?: boolean;
   minimumAttendeeAge?: number;
   customQuestions?: CustomQuestionPayload[] | null;
 }
@@ -339,6 +341,7 @@ export interface PublicEventRecord {
   tracking?: PublicTrackingConfig | null;
   status?: 'draft' | 'published' | 'cancelled' | 'archived';
   attendeeInfoMode: 'per_ticket' | 'buyer_choice' | null;
+  waitlistEnabled?: boolean;
   minimumAttendeeAge?: number;
   customQuestions: CustomQuestionPayload[] | null;
   totalCapacity?: number | null;
@@ -436,5 +439,23 @@ export const contactOrganizerByEventSlug = async (
     `/api/v1/public/events/${slug}/contact-organizer`,
     data,
     Object.keys(headers).length > 0 ? { headers } : undefined
+  );
+};
+
+export const joinEventWaitlist = async (
+  slug: string,
+  payload: {
+    email: string;
+    ticketTypeId: string;
+    preferredContactMethod?: string;
+    formStartedAt?: number;
+  },
+  accessCode?: string | null,
+) => {
+  const headers = accessCode ? { 'x-event-access-code': accessCode } : undefined;
+  return api.post<{ success: boolean; message: string }>(
+    `/api/v1/public/events/${encodeURIComponent(slug)}/waitlist`,
+    payload,
+    headers ? { headers } : undefined,
   );
 };

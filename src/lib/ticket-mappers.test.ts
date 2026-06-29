@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import type { EventRecord, PromoCodeRecord, TicketRecord } from './events-api';
 import { buildDraftFromEventRecord, mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from './ticket-mappers';
 
-const eventRecord = (coordinates: Pick<EventRecord, 'latitude' | 'longitude'>): EventRecord => ({
+const eventRecord = (
+  overrides: Pick<EventRecord, 'latitude' | 'longitude'> & Partial<Omit<EventRecord, 'latitude' | 'longitude'>>,
+): EventRecord => ({
   id: '550e8400-e29b-41d4-a716-446655440020',
   organizerId: '550e8400-e29b-41d4-a716-446655440021',
   title: 'Mapped event',
@@ -39,7 +41,7 @@ const eventRecord = (coordinates: Pick<EventRecord, 'latitude' | 'longitude'>): 
   totalCapacity: 100,
   createdAt: '2026-06-20T10:00:00.000Z',
   updatedAt: '2026-06-20T10:00:00.000Z',
-  ...coordinates,
+  ...overrides,
 });
 
 describe('buildDraftFromEventRecord', () => {
@@ -60,6 +62,13 @@ describe('buildDraftFromEventRecord', () => {
       eventRecord({ latitude: null, longitude: null }),
       [],
     ).formData).toMatchObject({ minimumAttendeeAge: 18 });
+  });
+
+  it('maps waitlist enabled into the editable draft', () => {
+    expect(buildDraftFromEventRecord(
+      eventRecord({ latitude: null, longitude: null, waitlistEnabled: true }),
+      [],
+    ).formData).toMatchObject({ waitlistEnabled: true });
   });
 });
 
