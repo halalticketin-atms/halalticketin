@@ -5,6 +5,7 @@ import {
     ORDER_PAGE_TABS,
     buildEventOrdersHref,
     buildEventWaitlistHref,
+    buildOrdersPageSearchParams,
     buildAnswerQuestionLabelList,
     buildAttendeesQueryParams,
     clearAnswerFiltersForEventSelection,
@@ -12,6 +13,7 @@ import {
     formatQuestionNumberLabel,
     getInitialEventFilterFromQuery,
     getAttendeeAnswerDisplayMode,
+    getOrdersPageUrlState,
 } from './orders-attendees-ui';
 
 describe('orders attendees UI contracts', () => {
@@ -32,6 +34,46 @@ describe('orders attendees UI contracts', () => {
         expect(getInitialEventFilterFromQuery('event-1')).toEqual(['event-1']);
         expect(getInitialEventFilterFromQuery('   ')).toEqual([]);
         expect(getInitialEventFilterFromQuery(null)).toEqual([]);
+    });
+
+    it('reads persisted orders page state from the URL', () => {
+        const state = getOrdersPageUrlState(new URLSearchParams({
+            tab: 'attendees',
+            eventId: 'event-1',
+            search: 'amina',
+            status: 'completed',
+            answerFilters: JSON.stringify({ attendance: ['Yes'] }),
+        }));
+
+        expect(state).toMatchObject({
+            pageTab: 'attendees',
+            eventFilter: ['event-1'],
+            searchQuery: 'amina',
+            statusFilter: 'completed',
+            answerFilters: { attendance: ['Yes'] },
+        });
+    });
+
+    it('writes only valid tab-scoped orders page state to the URL', () => {
+        expect(buildOrdersPageSearchParams({
+            pageTab: 'waitlist',
+            eventFilter: ['event-1'],
+            searchQuery: ' notified ',
+            statusFilter: 'completed',
+            waitlistStatus: 'notified',
+            answerFilters: { attendance: ['Yes'] },
+            showAllBreakdown: true,
+        }).toString()).toBe('tab=waitlist&eventId=event-1&search=notified&waitlistStatus=notified');
+
+        expect(buildOrdersPageSearchParams({
+            pageTab: 'attendees',
+            eventFilter: ['event-1', 'event-2'],
+            searchQuery: '',
+            statusFilter: 'all',
+            waitlistStatus: 'waiting',
+            answerFilters: { attendance: ['Yes'] },
+            showAllBreakdown: false,
+        }).toString()).toBe('tab=attendees&eventIds=event-1%2Cevent-2');
     });
 
     it('formats custom question labels with one-based numbers', () => {

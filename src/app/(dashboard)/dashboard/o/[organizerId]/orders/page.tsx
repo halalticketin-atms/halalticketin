@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search,
@@ -86,15 +86,18 @@ import { ticketTypeColors } from '@/components/dashboard/CircularProgress';
 import {
     buildAnswerQuestionLabelList,
     buildAttendeesQueryParams,
+    buildOrdersPageSearchParams,
     clearAnswerFiltersForEventSelection,
     formatAnswerQuestionLabel,
     formatQuestionNumberLabel,
-    getInitialEventFilterFromQuery,
     ORDER_PAGE_TABS,
+    getOrdersPageUrlState,
     getAttendeeAnswerDisplayMode,
     type OrderDetailTab,
     type OrderPageTab,
     type AttendeeAnswerFilters,
+    type OrderStatusFilter,
+    type WaitlistStatusFilter,
 } from '@/lib/orders-attendees-ui';
 
 const progressColorMap: Record<string, string> = {
@@ -426,18 +429,19 @@ const getPromoUsageBadges = (promoCodes: EventBreakdown['promoCodes']) =>
 
 export default function OrdersPage() {
     const organizerId = useOrganizerFromParams();
+    const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
-    const initialEventId = searchParams.get('eventId');
-    const initialTab = searchParams.get('tab');
+    const initialUrlState = getOrdersPageUrlState(new URLSearchParams(searchParams.toString()));
     const { organizers } = useOrganizers();
     const [orders, setOrders] = useState<OrderResponse[]>([]);
     const [attendees, setAttendees] = useState<AttendeeRecord[]>([]);
     const [attendeeTotal, setAttendeeTotal] = useState(0);
     const [knownAttendeeEvents, setKnownAttendeeEvents] = useState<Array<{ id: string; name: string }>>([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [eventFilter, setEventFilter] = useState<string[]>([]); // Multi-select event filter
-    const [answerFilters, setAnswerFilters] = useState<AttendeeAnswerFilters>({});
+    const [searchQuery, setSearchQuery] = useState(initialUrlState.searchQuery);
+    const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>(initialUrlState.statusFilter);
+    const [eventFilter, setEventFilter] = useState<string[]>(initialUrlState.eventFilter); // Multi-select event filter
+    const [answerFilters, setAnswerFilters] = useState<AttendeeAnswerFilters>(initialUrlState.answerFilters);
     const [answerFilterQuestions, setAnswerFilterQuestions] = useState<AnswerFilterQuestion[]>([]);
     const [selectedEventQuestions, setSelectedEventQuestions] = useState<EventQuestionMetadata[]>([]);
     const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
@@ -452,7 +456,7 @@ export default function OrdersPage() {
     const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([]);
     const [waitlistCounts, setWaitlistCounts] = useState<WaitlistResponse['counts']>({});
     const [waitlistTotal, setWaitlistTotal] = useState(0);
-    const [waitlistStatus, setWaitlistStatus] = useState<WaitlistEntry['status'] | 'all'>('all');
+    const [waitlistStatus, setWaitlistStatus] = useState<WaitlistStatusFilter>(initialUrlState.waitlistStatus);
     const [isLoadingWaitlist, setIsLoadingWaitlist] = useState(false);
     const [isLoadingMoreWaitlist, setIsLoadingMoreWaitlist] = useState(false);
     const [waitlistError, setWaitlistError] = useState<string | null>(null);
@@ -493,15 +497,62 @@ export default function OrdersPage() {
     // Ticket breakdown state
     const [eventBreakdowns, setEventBreakdowns] = useState<EventBreakdown[]>([]);
     const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
-    const [showAllBreakdown, setShowAllBreakdown] = useState(false);
+    const [showAllBreakdown, setShowAllBreakdown] = useState(initialUrlState.showAllBreakdown);
     const attendeeRequestVersionRef = useRef(0);
     const waitlistRequestVersionRef = useRef(0);
 
-    const [pageTab, setPageTab] = useState<OrderPageTab>(
-        initialTab === 'waitlist' ? 'waitlist' : 'orders',
-    );
+    const [pageTab, setPageTab] = useState<OrderPageTab>(initialUrlState.pageTab);
 
     const EMAIL_COOLDOWN_SECONDS = 5 * 60;
+
+    useEffect(() => {
+        const params = buildOrdersPageSearchParams({
+            pageTab,
+            eventFilter,
+            searchQuery,
+            statusFilter,
+            waitlistStatus,
+            answerFilters,
+            showAllBreakdown,
+        });
+        const nextSearch = params.toString();
+        if (nextSearch !== searchParams.toString()) {
+            router.replace(`${pathname}${nextSearch ? `?${nextSearch}` : ''}`, { scroll: false });
+        }
+    }, [
+        answerFilters,
+        eventFilter,
+        pageTab,
+        pathname,
+        router,
+        searchParams,
+        searchQuery,
+        showAllBreakdown,
+        statusFilter,
+        waitlistStatus,
+    ]);
+
+    const handlePageTabChange = (nextTab: OrderPageTab) => {
+        setPageTab(nextTab);
+        if (nextTab === 'tickets') {
+            setEventFilter([]);
+            setSearchQuery('');
+            setStatusFilter('all');
+            setWaitlistStatus('all');
+            setAnswerFilters({});
+            return;
+        }
+        if (nextTab === 'waitlist') {
+            setEventFilter((current) => current.slice(0, 1));
+            setStatusFilter('all');
+            setAnswerFilters({});
+            return;
+        }
+        setWaitlistStatus('all');
+        if (nextTab === 'orders') {
+            setAnswerFilters({});
+        }
+    };
 
     const updateEventFilter = useCallback((nextEventIds: string[]) => {
         const currentSingleEventId = eventFilter.length === 1 ? eventFilter[0] : null;
@@ -791,14 +842,6 @@ export default function OrdersPage() {
 
     useEffect(() => {
         let isMounted = true;
-        setEventFilter(getInitialEventFilterFromQuery(initialEventId));
-        setAnswerFilters({});
-        setAnswerFilterQuestions([]);
-        setSelectedEventQuestions([]);
-        setAttendees([]);
-        setAttendeeTotal(0);
-        setKnownAttendeeEvents([]);
-        setPageTab(initialTab === 'waitlist' ? 'waitlist' : 'orders');
         const fetchOrders = async () => {
             if (!organizerId) {
                 setOrders([]);
@@ -832,7 +875,7 @@ export default function OrdersPage() {
         return () => {
             isMounted = false;
         };
-    }, [organizerId, initialEventId, initialTab]);
+    }, [organizerId]);
 
     useEffect(() => {
         let isMounted = true;
@@ -1258,11 +1301,11 @@ export default function OrdersPage() {
         [eventBreakdowns, eventOptions],
     );
     useEffect(() => {
-        if (pageTab !== 'waitlist' || initialEventId || eventFilter.length > 0 || !defaultWaitlistEventId) {
+        if (pageTab !== 'waitlist' || eventFilter.length > 0 || !defaultWaitlistEventId) {
             return;
         }
         updateEventFilter([defaultWaitlistEventId]);
-    }, [defaultWaitlistEventId, eventFilter.length, initialEventId, pageTab, updateEventFilter]);
+    }, [defaultWaitlistEventId, eventFilter.length, pageTab, updateEventFilter]);
     const attendeeAnswerDisplayMode = getAttendeeAnswerDisplayMode(eventFilter);
     const selectedEventQuestionLabels = useMemo(() => {
         if (attendeeAnswerDisplayMode !== 'visible') {
@@ -1377,7 +1420,7 @@ export default function OrdersPage() {
                             return (
                                 <button
                                     key={tab.id}
-                                    onClick={() => setPageTab(tab.id)}
+                                    onClick={() => handlePageTabChange(tab.id)}
                                     className={`px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 sm:px-6 ${pageTab === tab.id
                                         ? 'bg-background text-foreground shadow-sm'
                                         : 'text-muted-foreground hover:text-foreground'
@@ -1731,7 +1774,7 @@ export default function OrdersPage() {
                                         )}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as OrderStatusFilter)}>
                                             <SelectTrigger className="w-[150px] h-10 bg-background/80 backdrop-blur">
                                                 <Filter className="h-4 w-4 mr-2" />
                                                 <SelectValue placeholder="Status" />
@@ -2113,7 +2156,7 @@ export default function OrdersPage() {
                                     </div>
                                     <div className="min-w-0 space-y-1.5">
                                         <Label className="text-xs font-semibold text-foreground">Status filter</Label>
-                                        <Select value={waitlistStatus} onValueChange={(value) => setWaitlistStatus(value as typeof waitlistStatus)}>
+                                        <Select value={waitlistStatus} onValueChange={(value) => setWaitlistStatus(value as WaitlistStatusFilter)}>
                                             <SelectTrigger className="h-11 w-full min-w-0 border-primary/35 bg-background shadow-xs [&_[data-slot=select-value]]:truncate">
                                                 <SelectValue />
                                             </SelectTrigger>
@@ -2426,7 +2469,7 @@ export default function OrdersPage() {
                                         )}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as OrderStatusFilter)}>
                                             <SelectTrigger className="w-[150px] h-10 bg-background/80 backdrop-blur">
                                                 <Filter className="h-4 w-4 mr-2" />
                                                 <SelectValue placeholder="Status" />

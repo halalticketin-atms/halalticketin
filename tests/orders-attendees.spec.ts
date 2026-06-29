@@ -261,6 +261,45 @@ async function mockOrdersPage(page: Page) {
     });
   });
 
+  await page.route('**/api/v1/orders/waitlist?*', route => {
+    const url = new URL(route.request().url());
+    const status = url.searchParams.get('status') || 'all';
+    const search = url.searchParams.get('search') || '';
+    const entries = [
+      {
+        id: 'waitlist-1',
+        ticketTypeName: 'General',
+        email: 'waitlisted@example.com',
+        status: 'waiting',
+        createdAt: '2026-06-03T10:00:00.000Z',
+        notifiedAt: null,
+      },
+      {
+        id: 'waitlist-2',
+        ticketTypeName: 'VIP',
+        email: 'notified@example.com',
+        status: 'notified',
+        createdAt: '2026-06-04T10:00:00.000Z',
+        notifiedAt: '2026-06-05T10:00:00.000Z',
+      },
+    ].filter(entry =>
+      (status === 'all' || entry.status === status) &&
+      (!search || entry.email.includes(search))
+    );
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        entries,
+        counts: { waiting: 1, notified: 1, converted: 0, removed: 0 },
+        total: entries.length,
+        limit: 100,
+        offset: 0,
+      }),
+    });
+  });
+
   await page.route(`**/api/v1/orders/${orderId}`, route =>
     route.fulfill({
       status: 200,
@@ -448,6 +487,26 @@ test('answer filters appear for one event and are sent with pagination-safe requ
   expect(JSON.parse(new URL(nextRequest.url()).searchParams.get('answerFilters') || '{}')).toEqual({
     attendance: ['Yes'],
   });
+});
+
+test('orders page restores waitlist tab and filters after reload', async ({ page }) => {
+  await page.getByRole('button', { name: 'Waitlist' }).click();
+  await page.getByPlaceholder('Search email or ticket type...').fill('notified');
+  await page.locator('[data-slot="select-trigger"]').filter({ hasText: /All/ }).click();
+  await page.getByRole('option', { name: /Notified/ }).click();
+
+  await expect(page).toHaveURL(/tab=waitlist/);
+  await expect(page).toHaveURL(/eventId=550e8400-e29b-41d4-a716-446655440020/);
+  await expect(page).toHaveURL(/search=notified/);
+  await expect(page).toHaveURL(/waitlistStatus=notified/);
+
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+
+  await expect(page.getByRole('button', { name: 'Waitlist' })).toHaveClass(/bg-background/);
+  await expect(page.getByPlaceholder('Search email or ticket type...')).toHaveValue('notified');
+  await expect(page.getByRole('cell', { name: 'notified@example.com', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'waitlisted@example.com', exact: true })).toHaveCount(0);
 });
 
 test('answer filters clear and hide when event selection becomes incompatible', async ({ page }) => {

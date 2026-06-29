@@ -16,6 +16,22 @@ export type OrderDetailTab = (typeof ORDER_DETAIL_TABS)[number]['id'];
 export type AttendeeAnswerDisplayMode = 'visible' | 'details';
 export type AttendeeAnswerFilters = Record<string, string[]>;
 export type AnswerQuestionLabel = { questionId: string; label: string };
+export type OrderStatusFilter = 'all' | 'completed' | 'refunded' | 'partially_refunded';
+export type WaitlistStatusFilter = 'all' | 'waiting' | 'notified' | 'converted' | 'removed';
+
+export interface OrdersPageUrlState {
+    pageTab: OrderPageTab;
+    eventFilter: string[];
+    searchQuery: string;
+    statusFilter: OrderStatusFilter;
+    waitlistStatus: WaitlistStatusFilter;
+    answerFilters: AttendeeAnswerFilters;
+    showAllBreakdown: boolean;
+}
+
+const orderPageTabIds = new Set<OrderPageTab>(ORDER_PAGE_TABS.map((tab) => tab.id));
+const orderStatusFilters = new Set<OrderStatusFilter>(['all', 'completed', 'refunded', 'partially_refunded']);
+const waitlistStatusFilters = new Set<WaitlistStatusFilter>(['all', 'waiting', 'notified', 'converted', 'removed']);
 
 export const buildEventOrdersHref = (organizerId: string, eventId: string) =>
     `/dashboard/o/${organizerId}/orders?eventId=${encodeURIComponent(eventId)}`;
@@ -26,6 +42,103 @@ export const buildEventWaitlistHref = (organizerId: string, eventId: string) =>
 export const getInitialEventFilterFromQuery = (eventId: string | null): string[] => {
     const trimmedEventId = eventId?.trim();
     return trimmedEventId ? [trimmedEventId] : [];
+};
+
+const readEventFilterFromQuery = (searchParams: URLSearchParams): string[] => {
+    const eventIds = searchParams.get('eventIds');
+    if (eventIds) {
+        return eventIds.split(',').map((id) => id.trim()).filter(Boolean);
+    }
+    return getInitialEventFilterFromQuery(searchParams.get('eventId'));
+};
+
+const readAnswerFiltersFromQuery = (
+    value: string | null,
+    eventFilter: string[],
+): AttendeeAnswerFilters => {
+    if (!value || eventFilter.length !== 1) {
+        return {};
+    }
+    try {
+        const parsed = JSON.parse(value) as Record<string, unknown>;
+        return Object.fromEntries(
+            Object.entries(parsed)
+                .map(([key, choices]) => [
+                    key,
+                    Array.isArray(choices) ? choices.filter((choice): choice is string => typeof choice === 'string') : [],
+                ])
+                .filter(([, choices]) => choices.length > 0),
+        );
+    } catch {
+        return {};
+    }
+};
+
+export const getOrdersPageUrlState = (searchParams: URLSearchParams): OrdersPageUrlState => {
+    const queryTab = searchParams.get('tab') as OrderPageTab | null;
+    const pageTab = queryTab && orderPageTabIds.has(queryTab) ? queryTab : 'orders';
+    const queryStatus = searchParams.get('status') as OrderStatusFilter | null;
+    const queryWaitlistStatus = searchParams.get('waitlistStatus') as WaitlistStatusFilter | null;
+    const eventFilter = pageTab === 'tickets' ? [] : readEventFilterFromQuery(searchParams);
+
+    return {
+        pageTab,
+        eventFilter,
+        searchQuery: pageTab === 'tickets' ? '' : searchParams.get('search') ?? '',
+        statusFilter: queryStatus && orderStatusFilters.has(queryStatus) ? queryStatus : 'all',
+        waitlistStatus: queryWaitlistStatus && waitlistStatusFilters.has(queryWaitlistStatus)
+            ? queryWaitlistStatus
+            : 'all',
+        answerFilters: pageTab === 'attendees'
+            ? readAnswerFiltersFromQuery(searchParams.get('answerFilters'), eventFilter)
+            : {},
+        showAllBreakdown: searchParams.get('showAll') === '1',
+    };
+};
+
+export const buildOrdersPageSearchParams = ({
+    pageTab,
+    eventFilter,
+    searchQuery,
+    statusFilter,
+    waitlistStatus,
+    answerFilters,
+    showAllBreakdown,
+}: OrdersPageUrlState): URLSearchParams => {
+    const params = new URLSearchParams();
+    if (pageTab !== 'orders') {
+        params.set('tab', pageTab);
+    }
+    if (pageTab === 'tickets') {
+        if (showAllBreakdown) params.set('showAll', '1');
+        return params;
+    }
+
+    const normalizedEventFilter = pageTab === 'waitlist' ? eventFilter.slice(0, 1) : eventFilter;
+    if (normalizedEventFilter.length === 1) {
+        params.set('eventId', normalizedEventFilter[0]);
+    } else if (normalizedEventFilter.length > 1) {
+        params.set('eventIds', normalizedEventFilter.join(','));
+    }
+
+    const trimmedSearch = searchQuery.trim();
+    if (trimmedSearch) {
+        params.set('search', trimmedSearch);
+    }
+    if ((pageTab === 'orders' || pageTab === 'attendees') && statusFilter !== 'all') {
+        params.set('status', statusFilter);
+    }
+    if (pageTab === 'waitlist' && waitlistStatus !== 'all') {
+        params.set('waitlistStatus', waitlistStatus);
+    }
+    if (
+        pageTab === 'attendees' &&
+        normalizedEventFilter.length === 1 &&
+        Object.values(answerFilters).some((choices) => choices.length > 0)
+    ) {
+        params.set('answerFilters', JSON.stringify(answerFilters));
+    }
+    return params;
 };
 
 export const getAttendeeAnswerDisplayMode = (selectedEventIds: string[]): AttendeeAnswerDisplayMode =>
