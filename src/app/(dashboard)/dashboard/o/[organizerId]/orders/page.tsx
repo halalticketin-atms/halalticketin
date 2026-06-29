@@ -917,6 +917,14 @@ export default function OrdersPage() {
             return next;
         });
     };
+    const toggleWaitlistSelection = (entryId: string) => {
+        setSelectedWaitlistIds((current) => {
+            const next = new Set(current);
+            if (next.has(entryId)) next.delete(entryId);
+            else next.add(entryId);
+            return next;
+        });
+    };
     const loadWaitlistNotifyPreview = async (payload: WaitlistActionPayload) => {
         setWaitlistAction('preview');
         try {
@@ -931,9 +939,13 @@ export default function OrdersPage() {
         }
     };
     const handlePreviewWaitlist = async () => {
-        const payload = waitlistActionPayload();
-        if (!payload) return;
-        const preview = await loadWaitlistNotifyPreview(payload);
+        if (!organizerId || !selectedWaitlistEventId) return;
+        // Generic preview: no recipients needed, it just shows what buyers receive.
+        const preview = await loadWaitlistNotifyPreview({
+            organizerId,
+            eventId: selectedWaitlistEventId,
+            entryIds: [],
+        });
         if (preview) setIsWaitlistEmailPreviewOpen(true);
     };
     const runNotifyWaitlist = async (payload: WaitlistActionPayload) => {
@@ -2142,12 +2154,12 @@ export default function OrdersPage() {
                                     <div>
                                         <p className="text-sm font-medium">Email preview</p>
                                         <p className="text-xs text-muted-foreground">
-                                            Select waiting entries to preview warnings before notifying.
+                                            See exactly what waitlisted buyers receive — no need to select anyone.
                                         </p>
                                     </div>
                                     <Button
                                         variant="outline"
-                                        disabled={!canBulkNotifyWaitlist || waitlistAction !== null}
+                                        disabled={!selectedWaitlistEventId || waitlistAction !== null}
                                         onClick={() => void handlePreviewWaitlist()}
                                         className="w-full lg:w-auto lg:justify-self-end"
                                     >
@@ -2214,8 +2226,9 @@ export default function OrdersPage() {
                                     return (
                                         <Card
                                             key={entry.id}
+                                            onClick={() => toggleWaitlistSelection(entry.id)}
                                             className={cn(
-                                                'overflow-hidden border-border/80 bg-card shadow-sm',
+                                                'cursor-pointer overflow-hidden border-border/80 bg-card shadow-sm transition-colors',
                                                 checked && 'border-primary/60 bg-primary/5',
                                             )}
                                         >
@@ -2226,14 +2239,8 @@ export default function OrdersPage() {
                                                         <div className="flex min-w-0 items-start gap-3">
                                                             <Checkbox
                                                                 checked={checked}
-                                                                onCheckedChange={(value) => {
-                                                                    setSelectedWaitlistIds((current) => {
-                                                                        const next = new Set(current);
-                                                                        if (value) next.add(entry.id);
-                                                                        else next.delete(entry.id);
-                                                                        return next;
-                                                                    });
-                                                                }}
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                onCheckedChange={() => toggleWaitlistSelection(entry.id)}
                                                                 aria-label={`Select ${entry.email}`}
                                                             />
                                                             <div className="min-w-0 flex-1">
@@ -2253,7 +2260,10 @@ export default function OrdersPage() {
                                                             >
                                                                 {waitlistStatusLabels[entry.status]}
                                                             </Badge>
-                                                            <div className="grid grid-cols-2 gap-2 min-[390px]:flex min-[390px]:shrink-0">
+                                                            <div
+                                                                className="grid grid-cols-2 gap-2 min-[390px]:flex min-[390px]:shrink-0"
+                                                                onClick={(event) => event.stopPropagation()}
+                                                            >
                                                                 <Button
                                                                     size="sm"
                                                                     disabled={!canNotify || waitlistAction !== null}
@@ -2301,21 +2311,18 @@ export default function OrdersPage() {
                                                 <TableRow
                                                     key={entry.id}
                                                     data-state={checked ? 'selected' : undefined}
-                                                    className="group"
+                                                    onClick={() => toggleWaitlistSelection(entry.id)}
+                                                    className="group cursor-pointer"
                                                 >
                                                     <TableCell className="w-[44px]">
-                                                        <div className="flex items-center gap-2">
+                                                        <div
+                                                            className="flex items-center gap-2"
+                                                            onClick={(event) => event.stopPropagation()}
+                                                        >
                                                             <span className={cn('h-8 w-1 rounded-full', waitlistStatusBars[entry.status])} />
                                                             <Checkbox
                                                                 checked={checked}
-                                                                onCheckedChange={(value) => {
-                                                                    setSelectedWaitlistIds((current) => {
-                                                                        const next = new Set(current);
-                                                                        if (value) next.add(entry.id);
-                                                                        else next.delete(entry.id);
-                                                                        return next;
-                                                                    });
-                                                                }}
+                                                                onCheckedChange={() => toggleWaitlistSelection(entry.id)}
                                                                 aria-label={`Select ${entry.email}`}
                                                             />
                                                         </div>
@@ -2346,7 +2353,10 @@ export default function OrdersPage() {
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        <div className="flex justify-end gap-2">
+                                                        <div
+                                                            className="flex justify-end gap-2"
+                                                            onClick={(event) => event.stopPropagation()}
+                                                        >
                                                             <Button
                                                                 size="sm"
                                                                 disabled={!canNotify || waitlistAction !== null}
@@ -2611,15 +2621,17 @@ export default function OrdersPage() {
                         <DialogHeader className="border-b px-4 py-4 sm:px-6">
                             <DialogTitle>Waitlist email preview</DialogTitle>
                             <DialogDescription>
-                                This is how the email will appear to selected recipients. Recipient details are shown as placeholders.
+                                This is the email waitlisted buyers receive when you notify them.
                             </DialogDescription>
                         </DialogHeader>
                         {waitlistNotifyPreview && (
                             <div className="space-y-2 border-b px-4 py-3 text-sm sm:px-6">
-                                <p className="font-medium text-foreground">{waitlistNotifyPreview.subject}</p>
-                                <p className="text-muted-foreground">
-                                    {waitlistNotifyPreview.eligibleCount} eligible, {waitlistNotifyPreview.skippedCount} skipped.
-                                </p>
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                                        Subject line
+                                    </p>
+                                    <p className="font-medium text-foreground">{waitlistNotifyPreview.subject}</p>
+                                </div>
                                 {waitlistNotifyPreview.availableQuantityWarning && (
                                     <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
                                         {waitlistNotifyPreview.availableQuantityWarning}
