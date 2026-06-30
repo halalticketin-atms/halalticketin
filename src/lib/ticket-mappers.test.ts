@@ -132,6 +132,35 @@ describe('mapTicketRecordsToDraft', () => {
     expect(mapped.salesEnd).toBe('');
     expect(mapped.salesEndTime).toBe('');
   });
+
+  it('maps ticket waitlist exclusions into the editable draft', () => {
+    const rows = [
+      {
+        id: '550e8400-e29b-41d4-a716-446655440004',
+        eventId: '550e8400-e29b-41d4-a716-446655440005',
+        name: 'Early Bird',
+        description: null,
+        price: '15.00',
+        currency: 'GBP',
+        maxQuantity: 10,
+        minPerOrder: 1,
+        maxPerOrder: 2,
+        type: 'paid' as const,
+        visibility: 'public' as const,
+        waitlistEnabled: false,
+        salesStart: null,
+        salesEnd: null,
+        absorbFee: null,
+        customFee: null,
+        earlyBirdPrice: null,
+        earlyBirdEndDate: null,
+      },
+    ];
+
+    const [mapped] = mapTicketRecordsToDraft(rows);
+
+    expect(mapped.waitlistEnabled).toBe(false);
+  });
 });
 
 describe('mapPromoCodeRecordsToDraft', () => {

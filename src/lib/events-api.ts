@@ -83,6 +83,7 @@ export interface TicketRecord {
   maxPerOrder: number | null;
   type: 'free' | 'paid' | 'donation';
   visibility: 'public' | 'hidden';
+  waitlistEnabled?: boolean;
   salesStart: string | null;
   salesEnd: string | null;
   absorbFee: boolean | null;
@@ -157,6 +158,7 @@ export interface TicketInputPayload {
   minPerOrder?: number;
   maxPerOrder?: number;
   visibility?: 'public' | 'hidden';
+  waitlistEnabled?: boolean;
   salesStart?: string | null;
   salesEnd?: string | null;
   absorbFee?: boolean | null;
@@ -363,6 +365,7 @@ export interface PublicTicketRecord {
   maxPerOrder: number | null;
   type: 'free' | 'paid' | 'donation';
   visibility?: 'public' | 'hidden';
+  waitlistEnabled?: boolean;
   salesStart: string | null;
   salesEnd: string | null;
   customFee?: number | null;

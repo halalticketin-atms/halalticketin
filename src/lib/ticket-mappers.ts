@@ -74,6 +74,7 @@ export const mapTicketRecordsToDraft = (
             earlyBirdPrice: ticket.earlyBirdPrice ?? '',
             earlyBirdEndDate: isoToDate(ticket.earlyBirdEndDate, timeZone),
             visibility: ticket.visibility ?? 'public',
+            waitlistEnabled: ticket.waitlistEnabled ?? true,
             absorbFee: ticket.absorbFee ?? null,
         };
     });

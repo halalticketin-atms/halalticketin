@@ -337,6 +337,7 @@ function normalizeTicket(
     earlyBirdPrice,
     earlyBirdEndDate: raw.earlyBirdEndDate ?? '',
     visibility,
+    waitlistEnabled: true,
   };
 }
 

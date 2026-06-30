@@ -82,6 +82,7 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
         earlyBirdPrice: '12',
         earlyBirdEndDate: '2024-11-15',
         visibility: 'public',
+        waitlistEnabled: true,
       },
     ],
     promoCodes: [
@@ -136,6 +137,7 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
         earlyBirdPrice: '',
         earlyBirdEndDate: '',
         visibility: 'public',
+        waitlistEnabled: true,
       },
     ],
     promoCodes: [
@@ -191,6 +193,7 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
         earlyBirdPrice: '39',
         earlyBirdEndDate: '2024-12-15',
         visibility: 'public',
+        waitlistEnabled: true,
       },
       {
         id: 't-yc-student',
@@ -211,6 +214,7 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
         earlyBirdPrice: '',
         earlyBirdEndDate: '',
         visibility: 'public',
+        waitlistEnabled: true,
       },
     ],
     promoCodes: [
@@ -265,6 +269,7 @@ const draftTemplates: Record<DraftTemplateKey, DraftEventInitial> = {
         earlyBirdPrice: '15',
         earlyBirdEndDate: '2025-01-15',
         visibility: 'public',
+        waitlistEnabled: true,
       },
     ],
     promoCodes: [],

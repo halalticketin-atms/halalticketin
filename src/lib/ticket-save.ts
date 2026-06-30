@@ -77,6 +77,7 @@ export const buildTicketPayloadsForSave = (
       minPerOrder: isDonation ? 1 : minPerOrderValue,
       maxPerOrder: isDonation ? 1 : maxPerOrderValue,
       visibility: isDonation ? 'public' : ticket.visibility,
+      waitlistEnabled: ticket.waitlistEnabled ?? true,
       salesStart: isDonation ? null : salesStartValue,
       salesEnd: isDonation ? null : salesEndValue,
       absorbFee: ticket.absorbFee,

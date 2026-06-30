@@ -318,6 +318,87 @@ test.describe('Public Pages - Event Detail', () => {
 
         await expect(page.getByText('Order Summary')).toBeVisible();
     });
+
+    test('event waitlist dropdown excludes tickets that do not accept signups', async ({ page }) => {
+        await page.unroute('**/api/v1/public/events/test-event');
+        await page.route('**/api/v1/public/events/test-event', route => {
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    event: {
+                        id: 'event_waitlist',
+                        organizerId: 'org_123',
+                        title: 'Test Event',
+                        slug: 'test-event',
+                        description: 'A wonderful test event for the community.',
+                        startDatetime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                        endDatetime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 + 4 * 60 * 60 * 1000).toISOString(),
+                        timezone: 'Europe/London',
+                        locationType: 'in_person',
+                        venue: 'Community Hall',
+                        address: '123 Test Street',
+                        city: 'London',
+                        country: 'UK',
+                        latitude: 51.5074,
+                        longitude: -0.1278,
+                        currency: 'GBP',
+                        organizerName: 'Test Organizer',
+                        absorbFee: false,
+                        waitlistEnabled: true,
+                        isSoldOut: true,
+                    },
+                    tickets: [
+                        {
+                            id: 'general',
+                            name: 'General',
+                            description: null,
+                            price: '25.00',
+                            currency: 'GBP',
+                            type: 'paid',
+                            visibility: 'public',
+                            waitlistEnabled: true,
+                            maxQuantity: 10,
+                            minPerOrder: 1,
+                            maxPerOrder: 4,
+                            salesStart: null,
+                            salesEnd: null,
+                            earlyBirdPrice: null,
+                            earlyBirdEndDate: null,
+                            isSoldOut: true,
+                            soldOutReason: 'event_capacity',
+                        },
+                        {
+                            id: 'early',
+                            name: 'Early Bird',
+                            description: null,
+                            price: '15.00',
+                            currency: 'GBP',
+                            type: 'paid',
+                            visibility: 'public',
+                            waitlistEnabled: false,
+                            maxQuantity: 10,
+                            minPerOrder: 1,
+                            maxPerOrder: 4,
+                            salesStart: null,
+                            salesEnd: null,
+                            earlyBirdPrice: null,
+                            earlyBirdEndDate: null,
+                            isSoldOut: true,
+                            soldOutReason: 'event_capacity',
+                        },
+                    ],
+                })
+            });
+        });
+
+        await page.goto('/events/test-event');
+        await page.waitForLoadState('networkidle');
+
+        await page.getByRole('combobox').click();
+        await expect(page.getByRole('option', { name: 'General' })).toBeVisible();
+        await expect(page.getByRole('option', { name: 'Early Bird' })).toHaveCount(0);
+    });
 });
 
 test.describe('Public Pages - Pricing', () => {

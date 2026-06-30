@@ -98,4 +98,16 @@ describe('getTicketSavePlan', () => {
 
     expect(secondPlan.shouldSave).toBe(true);
   });
+
+  it('includes ticket waitlist exclusions in the save payload', () => {
+    const plan = getTicketSavePlan({
+      tickets: [{ ...baseTicket, waitlistEnabled: false }],
+      currency: 'GBP',
+      timeZone: 'Europe/London',
+      existingEventId: '550e8400-e29b-41d4-a716-446655440000',
+      lastSavedSerializedPayload: null,
+    });
+
+    expect(plan.payloads[0].waitlistEnabled).toBe(false);
+  });
 });

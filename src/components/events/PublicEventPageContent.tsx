@@ -779,7 +779,11 @@ export function PublicEventPageContent({
     }, [unlockedTickets, visibleTickets]);
     const waitlistTickets = useMemo(
         () =>
-            regularTickets.filter((ticket) => soldOutStateByTicketId.get(ticket.id)?.isSoldOut),
+            regularTickets.filter(
+                (ticket) =>
+                    ticket.waitlistEnabled !== false &&
+                    soldOutStateByTicketId.get(ticket.id)?.isSoldOut,
+            ),
         [regularTickets, soldOutStateByTicketId],
     );
     const canShowWaitlist = Boolean(!isPreview && event?.slug && event.waitlistEnabled && waitlistTickets.length > 0);
@@ -2829,7 +2833,10 @@ export function PublicEventPageContent({
                                                         soldOut={ticketSoldOut}
                                                         soldOutReason={soldOutStateByTicketId.get(ticket.id)?.soldOutReason ?? null}
                                                         waitlistSlot={
-                                                            showInlineWaitlist && ticketSoldOut && event?.slug ? (
+                                                            showInlineWaitlist &&
+                                                                ticketSoldOut &&
+                                                                ticket.waitlistEnabled !== false &&
+                                                                event?.slug ? (
                                                                 <InlineTicketWaitlist
                                                                     slug={event.slug}
                                                                     ticketId={ticket.id}

@@ -61,6 +61,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Checkbox } from '@/components/ui/checkbox';
 import { LocationAutocomplete } from '@/components/events/LocationAutocomplete';
 import { MainStepTabs, SubStepSidebar, SubStepChips } from '@/components/events/wizard';
 import { EmbedCheckoutSnippet } from '@/components/events/EmbedCheckoutSnippet';
@@ -3420,6 +3421,9 @@ export function EventWizard({
                                                                 }
                                                             />
                                                         </div>
+                                                        <p className="mt-2 text-xs text-muted-foreground">
+                                                            Use the ticket settings below to choose which ticket types are open for waitlist signups.
+                                                        </p>
                                                     </div>
                                                 </div>
 
@@ -3722,6 +3726,24 @@ export function EventWizard({
                                                                                 <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.quantity}</p>
                                                                             ) : null}
                                                                         </div>
+
+                                                                        {formData.waitlistEnabled ? (
+                                                                            <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/70 p-3">
+                                                                                <Checkbox
+                                                                                    id={`waitlist-${ticket.id}`}
+                                                                                    checked={ticket.waitlistEnabled ?? true}
+                                                                                    onCheckedChange={(checked) => updateTicket(ticket.id, 'waitlistEnabled', checked === true)}
+                                                                                />
+                                                                                <div className="space-y-1">
+                                                                                    <Label htmlFor={`waitlist-${ticket.id}`} className="text-sm font-medium">
+                                                                                        Include this ticket in the waitlist
+                                                                                    </Label>
+                                                                                    <p className="text-xs text-muted-foreground">
+                                                                                        Turn off for ticket types that should not accept waitlist signups.
+                                                                                    </p>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : null}
 
                                                                         {/* Advanced Options Accordion */}
                                                                         <Collapsible

@@ -65,6 +65,7 @@ export interface DraftTicketType {
   earlyBirdPrice: string;
   earlyBirdEndDate: string;
   visibility: 'public' | 'hidden';
+  waitlistEnabled: boolean;
   absorbFee?: boolean | null; // null = use event default, true/false = explicit override
 }
 
@@ -148,6 +149,7 @@ const createDefaultTicket = (): DraftTicketType => ({
   earlyBirdPrice: '',
   earlyBirdEndDate: '',
   visibility: 'public',
+  waitlistEnabled: true,
   absorbFee: false, // per-ticket, no event-level default
 });
 
@@ -158,6 +160,7 @@ const normalizeDraftTicketType = (ticket: DraftTicketType): DraftTicketType => (
   salesEnd: ticket.salesEnd ?? '',
   salesEndTime: ticket.salesEndTime ?? '',
   type: ticket.type ?? (ticket.isFree ? 'free' : 'paid'),
+  waitlistEnabled: ticket.waitlistEnabled ?? true,
 });
 
 export const resolveInitialTickets = (initial?: DraftEventInitial): DraftTicketType[] => {
@@ -189,6 +192,7 @@ const createDonationTicket = (): DraftTicketType => ({
   earlyBirdPrice: '',
   earlyBirdEndDate: '',
   visibility: 'public',
+  waitlistEnabled: true,
   absorbFee: false,
 });
 
