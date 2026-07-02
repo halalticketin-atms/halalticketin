@@ -5,6 +5,7 @@ import {
     ORDER_PAGE_TABS,
     buildEventOrdersHref,
     buildEventWaitlistHref,
+    buildPublicEventHref,
     buildOrdersPageSearchParams,
     buildAnswerQuestionLabelList,
     buildAttendeesQueryParams,
@@ -28,6 +29,11 @@ describe('orders attendees UI contracts', () => {
     it('builds a filtered Orders & Tickets shortcut for an event', () => {
         expect(buildEventOrdersHref('org-1', 'event 1')).toBe('/dashboard/o/org-1/orders?eventId=event%201');
         expect(buildEventWaitlistHref('org-1', 'event 1')).toBe('/dashboard/o/org-1/orders?eventId=event%201&tab=waitlist');
+    });
+
+    it('builds public event links with slugs when available', () => {
+        expect(buildPublicEventHref('event-1', 'community-dinner')).toBe('/events/community-dinner');
+        expect(buildPublicEventHref('event-1', '   ')).toBe('/events/event-1');
     });
 
     it('uses a query eventId as the initial event filter', () => {

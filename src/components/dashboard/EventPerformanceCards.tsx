@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { SalesChart } from './SalesChart';
 import { CircularProgress, ticketTypeColors } from './CircularProgress';
 import { useOptimizedAnimation } from '@/hooks/useOptimizedAnimation';
-import { buildEventOrdersHref } from '@/lib/orders-attendees-ui';
+import { buildEventOrdersHref, buildPublicEventHref } from '@/lib/orders-attendees-ui';
 
 interface WeeklySalesData {
   weekStart: string;
@@ -29,6 +29,7 @@ interface TicketTypeBreakdown {
 
 interface EventPerformanceData {
   id: string;
+  slug?: string | null;
   title: string;
   startDatetime: string | null;
   venue: string | null;
@@ -317,7 +318,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                         </Button>
                       )}
                       <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
-                        <Link href={`/events/${event.id}`}>View Event</Link>
+                        <Link href={buildPublicEventHref(event.id, event.slug)}>View Event</Link>
                       </Button>
                       <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
                         <Link href={`/events/${event.id}/edit`}>Edit Event</Link>

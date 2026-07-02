@@ -39,6 +39,9 @@ export const buildEventOrdersHref = (organizerId: string, eventId: string) =>
 export const buildEventWaitlistHref = (organizerId: string, eventId: string) =>
     `/dashboard/o/${organizerId}/orders?eventId=${encodeURIComponent(eventId)}&tab=waitlist`;
 
+export const buildPublicEventHref = (eventId: string, slug?: string | null) =>
+    `/events/${encodeURIComponent(slug?.trim() || eventId)}`;
+
 export const getInitialEventFilterFromQuery = (eventId: string | null): string[] => {
     const trimmedEventId = eventId?.trim();
     return trimmedEventId ? [trimmedEventId] : [];

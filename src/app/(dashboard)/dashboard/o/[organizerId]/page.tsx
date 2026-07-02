@@ -33,6 +33,7 @@ interface AnalyticsResponse {
 
 interface EventPerformanceData {
   id: string;
+  slug?: string | null;
   title: string;
   startDatetime: string | null;
   venue: string | null;
