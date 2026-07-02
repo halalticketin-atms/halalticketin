@@ -85,7 +85,8 @@ const buildRevenueSplitLabel = (
   if (donationRevenue > 0) {
     return `Tickets ${formatCurrency(ticketRevenue, currency)} • Donations ${formatCurrency(donationRevenue, currency)}`;
   }
-  return `Tickets ${formatCurrency(ticketRevenue, currency)}`;
+  // Without donations the split would just repeat the headline figure.
+  return undefined;
 };
 
 export default function DashboardPage() {
@@ -240,25 +241,27 @@ export default function DashboardPage() {
     return [
       {
         title: 'Net Revenue',
-        value: formatCurrency(totalRevenue, currency),
-        subtitle: buildRevenueSplitLabel(ticketRevenue, donationRevenue, currency),
+        value: analyticsStats ? formatCurrency(totalRevenue, currency) : '—',
+        subtitle: analyticsStats
+          ? buildRevenueSplitLabel(ticketRevenue, donationRevenue, currency)
+          : undefined,
         icon: DollarSign,
         color: 'green' as const,
       },
       {
         title: 'Tickets Sold',
-        value: analyticsStats?.ticketsSold ?? 0,
+        value: analyticsStats ? analyticsStats.ticketsSold ?? 0 : '—',
         icon: Ticket,
         color: 'blue' as const,
       },
       {
         title: 'Active Events',
-        value: eventsPerformance.length,
+        value: hasLoadedEvents ? eventsPerformance.length : '—',
         icon: Calendar,
         color: 'purple' as const,
       },
     ];
-  }, [analyticsStats, eventsPerformance]);
+  }, [analyticsStats, eventsPerformance, hasLoadedEvents]);
 
   // Single source of truth for the credits module: available/used accounting
   // plus a health status that drives the bar colour and copy.

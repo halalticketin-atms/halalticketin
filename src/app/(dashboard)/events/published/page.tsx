@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { EventPublishedSuccess } from '@/components/events/EventPublishedSuccess';
 import { Loader2 } from 'lucide-react';
 
@@ -18,7 +18,18 @@ interface EventData {
 }
 
 function SuccessContent() {
+    const router = useRouter();
     const searchParams = useSearchParams();
+    // The publish flow always includes a slug (falling back to the event id), so a
+    // missing slug means direct navigation with no published event to celebrate.
+    const hasPublishedEvent = Boolean(searchParams.get('slug'));
+
+    useEffect(() => {
+        if (!hasPublishedEvent) {
+            router.replace('/dashboard');
+        }
+    }, [hasPublishedEvent, router]);
+
     const eventData = useMemo<EventData>(() => {
         // Parse event data from URL search params
         const title = searchParams.get('title') || 'Your Event';
@@ -47,6 +58,14 @@ function SuccessContent() {
             dashboardHref,
         };
     }, [searchParams]);
+
+    if (!hasPublishedEvent) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+        );
+    }
 
     return (
         <EventPublishedSuccess

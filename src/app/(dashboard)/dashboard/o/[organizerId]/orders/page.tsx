@@ -1494,12 +1494,12 @@ export default function OrdersPage() {
                                             <p className="text-2xl font-bold leading-tight">
                                                 {formatCurrency(revenueTotal, netRevenueCurrency)}
                                             </p>
-                                            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                                                <span>Tickets {formatCurrency(ticketRevenueTotal, netRevenueCurrency)}</span>
-                                                {donationRevenueTotal > 0 && (
+                                            {donationRevenueTotal > 0 && (
+                                                <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                                                    <span>Tickets {formatCurrency(ticketRevenueTotal, netRevenueCurrency)}</span>
                                                     <span>Donations {formatCurrency(donationRevenueTotal, netRevenueCurrency)}</span>
-                                                )}
-                                            </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </CardContent>

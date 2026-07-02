@@ -87,7 +87,8 @@ const buildRevenueSplitLabel = (
   if (donationRevenue > 0) {
     return `Tickets ${formatCurrency(ticketRevenue, currency)} • Donations ${formatCurrency(donationRevenue, currency)}`;
   }
-  return `Tickets ${formatCurrency(ticketRevenue, currency)}`;
+  // Without donations the split would just repeat the headline figure.
+  return null;
 };
 
 const statusColors = {
@@ -225,9 +226,11 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                       <div className="font-mono text-xl sm:text-2xl font-bold text-primary">
                         {formatCurrency(event.revenue, event.currency)}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {buildRevenueSplitLabel(ticketRevenue, donationRevenue, event.currency)}
-                      </div>
+                      {buildRevenueSplitLabel(ticketRevenue, donationRevenue, event.currency) && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {buildRevenueSplitLabel(ticketRevenue, donationRevenue, event.currency)}
+                        </div>
+                      )}
                     </div>
 
                     {/* Capacity Bar */}

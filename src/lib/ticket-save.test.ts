@@ -36,6 +36,7 @@ describe('getTicketSavePlan', () => {
     earlyBirdEndDate: '',
     visibility: 'public' as const,
     absorbFee: false,
+    waitlistEnabled: true,
   };
 
   it('skips ticket persistence when the effective ticket payload is unchanged', () => {

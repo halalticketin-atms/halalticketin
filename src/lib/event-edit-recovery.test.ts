@@ -74,6 +74,7 @@ const makeSnapshot = (overrides: Partial<EventEditRecoverySnapshot> = {}): Event
                 earlyBirdEndDate: '',
                 visibility: 'public',
                 absorbFee: false,
+                waitlistEnabled: true,
             },
         ],
         promoCodes: [],

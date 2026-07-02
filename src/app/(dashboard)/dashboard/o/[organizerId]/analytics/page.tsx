@@ -87,7 +87,8 @@ const buildRevenueSplitLabel = (
   if (donationRevenue > 0) {
     return `Tickets ${formatCurrency(ticketRevenue, currency)} • Donations ${formatCurrency(donationRevenue, currency)}`;
   }
-  return `Tickets ${formatCurrency(ticketRevenue, currency)}`;
+  // Without donations the split would just repeat the headline figure.
+  return undefined;
 };
 
 // Format large numbers for Y-axis
@@ -784,15 +785,20 @@ export default function AnalyticsPage() {
                                   : event.ticketsSold.toLocaleString()}
                               </span>
                             </div>
-                            {eventSortBy === 'revenue' && (
-                              <p className="pl-7 text-[11px] text-muted-foreground sm:pl-8 sm:text-xs">
-                                {buildRevenueSplitLabel(
-                                  ticketRevenue,
-                                  donationRevenue,
-                                  analytics?.stats.currency ?? 'GBP'
-                                )}
-                              </p>
-                            )}
+                            {eventSortBy === 'revenue' &&
+                              buildRevenueSplitLabel(
+                                ticketRevenue,
+                                donationRevenue,
+                                analytics?.stats.currency ?? 'GBP'
+                              ) && (
+                                <p className="pl-7 text-[11px] text-muted-foreground sm:pl-8 sm:text-xs">
+                                  {buildRevenueSplitLabel(
+                                    ticketRevenue,
+                                    donationRevenue,
+                                    analytics?.stats.currency ?? 'GBP'
+                                  )}
+                                </p>
+                              )}
                           </motion.div>
                         );
                       })}

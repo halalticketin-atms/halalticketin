@@ -61,7 +61,9 @@ export function SalesChart({ data, currency }: SalesChartProps) {
     return (
         <div className="w-full mt-2">
             <div className="h-[160px] sm:h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
+                {/* initialDimension avoids the width(-1)/height(-1) warning while the
+                    container is measured on first mount; the real size takes over after. */}
+                <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 480, height: 160 }}>
                     <AreaChart
                         data={chartData}
                         margin={{ top: 10, right: 10, left: 0, bottom: 5 }}

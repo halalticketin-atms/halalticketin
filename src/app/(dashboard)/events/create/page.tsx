@@ -2690,8 +2690,8 @@ export function EventWizard({
                 className="lg:hidden"
             />
 
-            {/* Main Layout */}
-            <div className="container pt-8 pb-6 lg:py-10">
+            {/* Main Layout - bottom padding keeps content clear of the fixed action footer */}
+            <div className="container pt-8 pb-24 lg:pt-10 lg:pb-28">
                 <div className="flex gap-6 lg:gap-10 xl:gap-16">
                     {/* Sub-step Sidebar - Desktop Only */}
                     <SubStepSidebar
@@ -2816,7 +2816,7 @@ export function EventWizard({
                                                         />
                                                         <label
                                                             htmlFor="banner-upload"
-                                                            className="relative flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 transition-all hover:border-primary/40 hover:bg-muted/30 group overflow-hidden aspect-[4/5] max-w-[320px] mx-auto"
+                                                            className="relative flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 transition-all hover:border-primary/40 hover:bg-muted/30 group overflow-hidden aspect-[4/5] max-w-[min(320px,26vh)] mx-auto"
                                                         >
                                                             {formData.bannerImageDataUrl ? (
                                                                 <>
