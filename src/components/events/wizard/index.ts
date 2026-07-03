@@ -1,3 +1,2 @@
-export { MainStepTabs, type MainStep } from './MainStepTabs';
-export { SubStepSidebar, type SubStep } from './SubStepSidebar';
-export { SubStepChips } from './SubStepChips';
+export { MainStepTabs, MainStepSidebar, type MainStep } from './MainStepTabs';
+export { SectionNavSidebar, SectionNavChips, type WizardSection } from './SectionNav';

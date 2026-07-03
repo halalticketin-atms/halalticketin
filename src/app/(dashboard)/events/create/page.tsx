@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { motion, AnimatePresence, Reorder } from 'motion/react';
+import { motion, Reorder } from 'motion/react';
 import {
     ArrowLeft,
     Calendar,
@@ -63,7 +63,7 @@ import {
 } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LocationAutocomplete } from '@/components/events/LocationAutocomplete';
-import { MainStepTabs, SubStepSidebar, SubStepChips } from '@/components/events/wizard';
+import { MainStepTabs, MainStepSidebar, SectionNavSidebar, SectionNavChips } from '@/components/events/wizard';
 import { EmbedCheckoutSnippet } from '@/components/events/EmbedCheckoutSnippet';
 import { AiDraftReviewPanel } from '@/components/events/AiDraftReviewPanel';
 import { CustomQuestionLibraryDialog } from '@/components/events/CustomQuestionLibraryDialog';
@@ -115,6 +115,7 @@ import { formatDateInTimeZone, formatTimeInTimeZone, toUtcIsoString } from '@/li
 import { uploadEventBanner } from '@/lib/upload-api';
 import { getCreditBalance } from '@/lib/credits-api';
 import { clearEventEditRecovery, getEventEditRecoverySavedAt, writeEventEditRecovery } from '@/lib/event-edit-recovery';
+import { getWizardErrorTarget } from '@/lib/event-wizard-sections';
 import { validateMinimumAttendeeAge } from '@/lib/event-minimum-age';
 import {
     updateLocationTextField,
@@ -604,24 +605,6 @@ const deriveFieldErrorsFromMessages = (errors: string[]) => {
     return { fieldErrors: mapped, unmatched };
 };
 
-const getStepForFieldErrors = (errors: Record<string, string>) => {
-    const keys = new Set(Object.keys(errors));
-    const stepFields: Array<{ step: number; fields: string[] }> = [
-        { step: 1, fields: ['title', 'description', 'bannerImageDataUrl', 'categories', 'visibility', 'accessCode'] },
-        { step: 2, fields: ['date', 'startTime', 'endDate', 'endTime', 'timezone'] },
-        { step: 3, fields: ['locationType', 'venue', 'address', 'city', 'onlineUrl'] },
-        { step: 4, fields: ['tickets', 'currency', 'refundPolicy', 'totalCapacity', 'waitlistEnabled', 'attendeeInfoMode', 'minimumAttendeeAge', 'customQuestions'] },
-    ];
-
-    for (const entry of stepFields) {
-        if (entry.fields.some((field) => keys.has(field))) {
-            return entry.step;
-        }
-    }
-
-    return null;
-};
-
 /**
  * Check if a step's required fields are filled out.
  * Returns true if all minimum required fields for the step have valid values.
@@ -822,29 +805,21 @@ export function EventWizard({
         progressPercentage,
     } = useEventDraft(initialDraft, steps.length);
 
-    // Sub-step navigation state
-    const [currentSubStep, setCurrentSubStep] = useState<string>(initialDraft?.currentSubStep ?? mainSteps[0]?.subSteps[0]?.id ?? '');
+    // In-page section navigation state (former sub-steps are now anchored sections)
+    const [activeSection, setActiveSection] = useState<string>(
+        initialDraft?.currentSubStep ?? mainSteps[0]?.subSteps[0]?.id ?? '',
+    );
     const [ticketArchiveConfirmId, setTicketArchiveConfirmId] = useState<string | null>(null);
-    // Ref to track intentional sub-step navigation (prevents effect from overriding)
-    const pendingSubStepRef = useRef<string | null>(initialDraft?.currentSubStep ?? null);
+    // Section to scroll to once the target main step has rendered (error nav, resumed drafts)
+    const pendingSectionRef = useRef<string | null>(initialDraft?.currentSubStep ?? null);
+    const wizardShellRef = useRef<HTMLDivElement>(null);
+    const wizardHeaderRef = useRef<HTMLDivElement>(null);
 
     // Get current main step config
     const currentMainStep = useMemo(
         () => mainSteps.find(s => s.id === currentStep) || mainSteps[0],
         [currentStep]
     );
-
-    // Reset sub-step when main step changes (unless there's a pending sub-step)
-    useEffect(() => {
-        if (currentMainStep.subSteps.length > 0) {
-            if (pendingSubStepRef.current) {
-                setCurrentSubStep(pendingSubStepRef.current);
-                pendingSubStepRef.current = null;
-            } else {
-                setCurrentSubStep(currentMainStep.subSteps[0].id);
-            }
-        }
-    }, [currentStep, currentMainStep.subSteps]);
 
     // Derived data for MainStepTabs navigation component
     const mainStepTabsData = useMemo(
@@ -859,8 +834,8 @@ export function EventWizard({
         [currentStep, formData, persistedLocation, tickets]
     );
 
-    // Current step's sub-steps for sidebar
-    const currentSubSteps = useMemo(
+    // Current step's sections for the section navs
+    const currentSections = useMemo(
         () => currentMainStep.subSteps.map(sub => ({
             id: sub.id,
             label: sub.label,
@@ -873,63 +848,37 @@ export function EventWizard({
         setCurrentStep(stepId);
     }, [setCurrentStep]);
 
-    const handleSubStepClick = useCallback((subStepId: string) => {
-        setCurrentSubStep(subStepId);
+    const scrollToSection = useCallback((sectionId: string) => {
+        document.getElementById(`section-${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, []);
 
-    // Navigate to a specific step and sub-step (useful for error navigation)
-    const navigateToStepWithSubStep = useCallback((stepId: number, subStepId?: string) => {
-        if (subStepId) {
-            if (currentStep === stepId) {
-                setCurrentSubStep(subStepId);
-                return;
+    // Navigate to a specific step and scroll to one of its sections (useful for error navigation)
+    const navigateToStepWithSubStep = useCallback((stepId: number, sectionId?: string) => {
+        if (currentStep === stepId) {
+            if (sectionId) {
+                scrollToSection(sectionId);
             }
-            pendingSubStepRef.current = subStepId;
-        }
-        setCurrentStep(stepId);
-    }, [currentStep, setCurrentStep, setCurrentSubStep]);
-
-    const goToStepForErrors = useCallback((errors: Record<string, string>) => {
-        if (errors.attendeeInfoMode || errors.minimumAttendeeAge || errors.customQuestions) {
-            navigateToStepWithSubStep(4, 'attendeeInfo');
             return;
         }
-        const nextStep = getStepForFieldErrors(errors);
-        if (nextStep) {
-            navigateToStepWithSubStep(nextStep);
+        pendingSectionRef.current = sectionId ?? null;
+        setCurrentStep(stepId);
+    }, [currentStep, scrollToSection, setCurrentStep]);
+
+    const goToStepForErrors = useCallback((errors: Record<string, string>) => {
+        const target = getWizardErrorTarget(errors);
+        if (target) {
+            navigateToStepWithSubStep(target.step, target.section);
         }
     }, [navigateToStepWithSubStep]);
 
-    // Handler for Continue button - advances sub-step first, then main step
+    // Continue/Back move between the five main pages
     const handleContinue = useCallback(() => {
-        const currentSubSteps = currentMainStep.subSteps;
-        const currentSubIndex = currentSubSteps.findIndex(s => s.id === currentSubStep);
+        nextStep();
+    }, [nextStep]);
 
-        if (currentSubIndex < currentSubSteps.length - 1) {
-            setCurrentSubStep(currentSubSteps[currentSubIndex + 1].id);
-        } else {
-            nextStep();
-        }
-    }, [currentMainStep.subSteps, currentSubStep, nextStep]);
-
-    // Handler for Back button - goes to previous sub-step first, then previous main step
     const handleBack = useCallback(() => {
-        const currentSubSteps = currentMainStep.subSteps;
-        const currentSubIndex = currentSubSteps.findIndex(s => s.id === currentSubStep);
-
-        if (currentSubIndex > 0) {
-            setCurrentSubStep(currentSubSteps[currentSubIndex - 1].id);
-        } else if (currentStep > 1) {
-            const prevMainStep = mainSteps.find(s => s.id === currentStep - 1);
-            if (prevMainStep) {
-                const lastSubStep = prevMainStep.subSteps[prevMainStep.subSteps.length - 1];
-                if (lastSubStep) {
-                    pendingSubStepRef.current = lastSubStep.id;
-                }
-                setCurrentStep(currentStep - 1);
-            }
-        }
-    }, [currentMainStep.subSteps, currentSubStep, currentStep, setCurrentStep]);
+        setCurrentStep(currentStep - 1);
+    }, [currentStep, setCurrentStep]);
 
     const { user, isLoading: authLoading } = useAuth();
     const { activeOrganizerId, organizers, isLoading: organizersLoading } = useOrganizers();
@@ -1151,11 +1100,94 @@ export function EventWizard({
     // Ref for scrolling to top of content area
     const mainContentRef = useRef<HTMLDivElement>(null);
 
-    // Scroll to top when step or substep changes
     useEffect(() => {
-        // Scroll window to absolute top immediately
-        window.scrollTo({ top: 0, behavior: 'instant' });
-    }, [currentStep, currentSubStep]);
+        const shell = wizardShellRef.current;
+        const header = wizardHeaderRef.current;
+        if (!shell || !header) return;
+
+        const updateOffset = () => {
+            shell.style.setProperty('--event-wizard-sticky-offset', `${Math.ceil(header.getBoundingClientRect().height)}px`);
+        };
+
+        updateOffset();
+        window.addEventListener('resize', updateOffset);
+
+        if (typeof ResizeObserver === 'undefined') {
+            return () => {
+                window.removeEventListener('resize', updateOffset);
+            };
+        }
+
+        const observer = new ResizeObserver(updateOffset);
+        observer.observe(header);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('resize', updateOffset);
+        };
+    }, []);
+
+    // On step change (and mount), jump to a pending section or to the top
+    useEffect(() => {
+        const pendingSection = pendingSectionRef.current;
+        pendingSectionRef.current = null;
+        const target = pendingSection ? document.getElementById(`section-${pendingSection}`) : null;
+        if (target) {
+            target.scrollIntoView({ block: 'start' });
+        } else {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
+    }, [currentStep]);
+
+    // Scroll spy: highlight the section closest to the top of the viewport
+    useEffect(() => {
+        const sectionIds = currentMainStep.subSteps.map((sub) => sub.id);
+        setActiveSection((current) => sectionIds.includes(current) ? current : sectionIds[0] ?? '');
+
+        let frame = 0;
+        const update = () => {
+            frame = 0;
+            const stickyOffset = Number.parseFloat(wizardShellRef.current?.style.getPropertyValue('--event-wizard-sticky-offset') ?? '60');
+            const activeThreshold = (Number.isFinite(stickyOffset) ? stickyOffset : 60) + 80;
+            let current = sectionIds[0];
+            for (const id of sectionIds) {
+                const el = document.getElementById(`section-${id}`);
+                if (el && el.getBoundingClientRect().top <= activeThreshold) {
+                    current = id;
+                }
+            }
+            // At the very bottom, the last section counts as active even if short
+            if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+                current = sectionIds[sectionIds.length - 1];
+            }
+            setActiveSection(current);
+        };
+        frame = window.requestAnimationFrame(update);
+
+        if (sectionIds.length < 2) {
+            return () => {
+                if (frame) {
+                    window.cancelAnimationFrame(frame);
+                }
+            };
+        }
+
+        const onScroll = () => {
+            if (!frame) {
+                frame = window.requestAnimationFrame(update);
+            }
+        };
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll, { passive: true });
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            window.removeEventListener('resize', onScroll);
+            if (frame) {
+                window.cancelAnimationFrame(frame);
+            }
+        };
+    }, [currentStep, currentMainStep.subSteps]);
 
     // Credit warning state
     const [isWarningOpen, setIsWarningOpen] = useState(false);
@@ -1598,7 +1630,7 @@ export function EventWizard({
             eventId: snapshotEventId,
             savedAt: options?.savedAt ?? Date.now(),
             currentStep,
-            currentSubStep,
+            currentSubStep: activeSection,
             draft: {
                 eventId: snapshotEventId,
                 eventStatus: eventStatus ?? undefined,
@@ -1606,10 +1638,10 @@ export function EventWizard({
                 tickets: snapshotTickets,
                 promoCodes: snapshotPromoCodes,
                 currentStep,
-                currentSubStep,
+                currentSubStep: activeSection,
             },
         });
-    }, [currentStep, currentSubStep, eventId, eventStatus, formData, mode, promoCodes, tickets]);
+    }, [activeSection, currentStep, eventId, eventStatus, formData, mode, promoCodes, tickets]);
 
     useEffect(() => {
         persistEditRecovery();
@@ -1714,13 +1746,13 @@ export function EventWizard({
                 if (trimmedTitle.length < 3) {
                     setActionError('Event title must be at least 3 characters.');
                     setFieldErrors({ title: 'Title must be at least 3 characters' });
-                    setCurrentStep(1); // Navigate to Basic Details step
+                    navigateToStepWithSubStep(1, 'title');
                     return null;
                 }
                 if (trimmedTitle.length > 75) {
                     setActionError('Event title must be 75 characters or less.');
                     setFieldErrors({ title: 'Title must be 75 characters or less' });
-                    setCurrentStep(1);
+                    navigateToStepWithSubStep(1, 'title');
                     return null;
                 }
 
@@ -1770,7 +1802,7 @@ export function EventWizard({
                         setTicketErrors((prev) => mergeTicketNameErrors(prev, duplicateNameErrors, tickets));
                         setFieldErrors((prev) => ({ ...prev, tickets: 'Ticket name must be unique.' }));
                         setActionError('Ticket names must be unique.');
-                        setCurrentStep(4);
+                        navigateToStepWithSubStep(4, 'ticketTypes');
                         return null;
                     }
 
@@ -1785,7 +1817,7 @@ export function EventWizard({
                         });
                         setFieldErrors((prev) => ({ ...prev, tickets: 'Fix ticket sales window errors.' }));
                         setActionError('Fix ticket sales window errors before saving.');
-                        setCurrentStep(4);
+                        navigateToStepWithSubStep(4, 'ticketTypes');
                         return null;
                     }
 
@@ -1905,7 +1937,7 @@ export function EventWizard({
 
                     if (hasPromoValidationErrors) {
                         setActionError(PARTIAL_SAVE_PROMO_MESSAGE);
-                        setCurrentStep(4);
+                        navigateToStepWithSubStep(4, 'promoCodes');
                     }
 
                     if (normalizedPromoCodes.length > 0 && isUuid(nextEventId) && !hasPromoValidationErrors) {
@@ -1987,7 +2019,7 @@ export function EventWizard({
                         if (hasPromoApiErrors) {
                             setPromoErrors((prev) => ({ ...prev, ...promoApiErrors }));
                             setActionError(buildPartialSaveErrorMessage(promoErrorMessage ?? 'Fix promo code errors before saving.'));
-                            setCurrentStep(4);
+                            navigateToStepWithSubStep(4, 'promoCodes');
                         } else {
                             // Delete removed promo codes
                             const currentIds = new Set(normalizedPromoCodes.map(p => p.id));
@@ -2005,7 +2037,7 @@ export function EventWizard({
 
                             if (hasPromoApiErrors) {
                                 setActionError(buildPartialSaveErrorMessage(promoErrorMessage ?? 'Unable to update promo codes.'));
-                                setCurrentStep(4);
+                                navigateToStepWithSubStep(4, 'promoCodes');
                             } else {
                                 // Refresh promo codes
                                 const refreshed = await fetchEventPromoCodes(nextEventId).catch(() => ({ promoCodes: [] }));
@@ -2166,7 +2198,7 @@ export function EventWizard({
                                 if (!mappedErrors.tickets && firstMessage) {
                                     mappedErrors.tickets = firstMessage;
                                 }
-                                setCurrentStep(4);
+                                navigateToStepWithSubStep(4, 'ticketTypes');
                                 overrideMessage = firstMessage ?? 'Fix the highlighted ticket fields.';
                             }
 
@@ -2210,7 +2242,7 @@ export function EventWizard({
                 }
             }
         },
-        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, eventStatus, formData, goToStepForErrors, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, mode, navigateToStepWithSubStep, persistEditRecovery, persistedLocation, promoCodes, setCurrentStep, setPromoCodes, setTickets, tickets],
+        [activeOrganizerId, bannerFile, bannerWasRemoved, eventId, eventStatus, formData, goToStepForErrors, hasExistingAccessCode, isSaving, markSnapshotAsSaved, maxPromoFixed, mode, navigateToStepWithSubStep, persistEditRecovery, persistedLocation, promoCodes, setPromoCodes, setTickets, tickets],
     );
 
     const handleSaveDraftClick = useCallback(async () => {
@@ -2599,43 +2631,50 @@ export function EventWizard({
     }
 
     return (
-        <div className="min-h-screen bg-muted/30">
+        <div ref={wizardShellRef} className="min-h-screen -mt-[var(--nav-safe-offset)] bg-muted/30 [--event-wizard-sticky-offset:60px]">
+            <style>{'html, body { overflow-x: clip !important; }'}</style>
             {/* Top Header with Progress Bar */}
-            <div className="sticky top-0 z-40 bg-background border-b">
+            <div ref={wizardHeaderRef} className="sticky top-0 z-[60] bg-background border-b">
                 {/* Header Row */}
-                <div className="container flex min-h-14 py-2.5 sm:py-0 sm:h-14 items-center gap-3 sm:gap-4">
-                    <Button variant="ghost" size="icon" asChild className="shrink-0 self-start sm:self-center mt-0.5 sm:mt-0">
-                        <Link href={dashboardHref}>
-                            <ArrowLeft className="h-5 w-5" />
-                        </Link>
-                    </Button>
-                    <div className="flex-1 min-w-0">
-                        {/* Mobile: Stack title and badges vertically | Desktop: Single row */}
-                        <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
-                            <h1 className="font-display text-base sm:text-lg font-semibold leading-tight">
-                                {headerTitle}
-                            </h1>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                                {entryContext?.label ? (
-                                    <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 h-5 sm:h-auto">
-                                        {entryContext.label}
-                                    </Badge>
-                                ) : null}
-                                {hasUnsavedChanges && activeOrganizerId ? (
-                                    <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 h-5 sm:h-auto">
-                                        Unsaved
-                                    </Badge>
-                                ) : null}
+                <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:h-14 sm:gap-4 sm:py-0 lg:px-0">
+                    <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4 lg:w-[18rem] lg:flex-none lg:pl-8 xl:w-[22rem] xl:pl-10">
+                        <Button variant="ghost" size="icon" asChild className="shrink-0 self-start sm:self-center mt-0.5 sm:mt-0">
+                            <Link href={dashboardHref}>
+                                <ArrowLeft className="h-5 w-5" />
+                            </Link>
+                        </Button>
+                        <div className="min-w-0">
+                            {/* Mobile: Stack title and badges vertically | Desktop: Single row */}
+                            <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+                                <h1 className="font-display text-base sm:text-lg font-semibold leading-tight">
+                                    {headerTitle}
+                                </h1>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    {entryContext?.label ? (
+                                        <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 h-5 sm:h-auto">
+                                            {entryContext.label}
+                                        </Badge>
+                                    ) : null}
+                                    {hasUnsavedChanges && activeOrganizerId ? (
+                                        <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 h-5 sm:h-auto">
+                                            Unsaved
+                                        </Badge>
+                                    ) : null}
+                                </div>
+                            </div>
+                            {entryContext?.description ? (
+                                <p className="hidden text-sm text-muted-foreground sm:block">
+                                    {entryContext.description}
+                                </p>
+                            ) : null}
+                        </div>
+                    </div>
+                    <div className="hidden min-w-0 flex-1 sm:flex">
+                        <div className="w-full px-6 xl:px-8">
+                            <div className="mx-auto flex w-full max-w-6xl items-center justify-end text-sm text-muted-foreground">
+                                Step {currentStep} of {steps.length}
                             </div>
                         </div>
-                        {entryContext?.description ? (
-                            <p className="hidden text-sm text-muted-foreground sm:block">
-                                {entryContext.description}
-                            </p>
-                        ) : null}
-                    </div>
-                    <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
-                        Step {currentStep} of {steps.length}
                     </div>
                 </div>
 
@@ -2680,44 +2719,44 @@ export function EventWizard({
             <MainStepTabs
                 steps={mainStepTabsData}
                 onStepClick={handleMainStepClick}
-            />
-
-            {/* Mobile Sub-step Chips */}
-            <SubStepChips
-                subSteps={currentSubSteps}
-                currentSubStep={currentSubStep}
-                onSubStepClick={handleSubStepClick}
                 className="lg:hidden"
             />
 
+            {/* Mobile section jump links */}
+            <SectionNavChips
+                sections={currentSections}
+                activeSection={activeSection}
+                onSectionClick={scrollToSection}
+            />
+
             {/* Main Layout - bottom padding keeps content clear of the fixed action footer */}
-            <div className="container pt-8 pb-24 lg:pt-10 lg:pb-28">
-                <div className="flex gap-6 lg:gap-10 xl:gap-16">
-                    {/* Sub-step Sidebar - Desktop Only */}
-                    <SubStepSidebar
-                        subSteps={currentSubSteps}
-                        currentSubStep={currentSubStep}
-                        onSubStepClick={handleSubStepClick}
-                        className="hidden lg:block"
+            <div className="container pt-8 pb-24 lg:flex lg:max-w-none lg:items-stretch lg:p-0 lg:pb-20">
+                    {/* Main step rail - Desktop Only */}
+                    <MainStepSidebar
+                        steps={mainStepTabsData}
+                        onStepClick={handleMainStepClick}
+                    />
+
+                    {/* Section rail - Desktop Only */}
+                    <SectionNavSidebar
+                        sections={currentSections}
+                        activeSection={activeSection}
+                        onSectionClick={scrollToSection}
                     />
 
                     {/* Main Content */}
-                    <main ref={mainContentRef} className="flex-1 min-w-0 bg-card/50 rounded-2xl border border-border/50 p-4 sm:p-6 lg:p-8">
-                        <div className="max-w-2xl mx-auto lg:max-w-none lg:mx-0">
-                            <AnimatePresence mode="wait">
+                    <main ref={mainContentRef} className="min-w-0 flex-1 rounded-2xl border border-border/50 bg-card/50 p-4 sm:p-6 lg:rounded-none lg:border-0 lg:bg-background/40 lg:p-6 xl:p-8">
+                        <div className="mx-auto max-w-2xl lg:max-w-6xl">
                                 {/* Step 1: Event Details */}
                                 {currentStep === 1 && (
                                     <motion.div
-                                        key={`step1-${currentSubStep}`}
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="space-y-4 lg:space-y-5"
+                                        className="space-y-10 lg:space-y-12"
                                     >
-                                        {/* Sub-step: Title & Category */}
-                                        {currentSubStep === 'title' && (
-                                            <>
+                                        {/* Section: Title & Category */}
+                                        <section id="section-title" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">What&apos;s your event called?</h2>
                                                 </div>
@@ -2767,12 +2806,10 @@ export function EventWizard({
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
 
-                                        {/* Sub-step: Description */}
-                                        {currentSubStep === 'description' && (
-                                            <>
+                                        {/* Section: Description */}
+                                        <section id="section-description" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Describe your event</h2>
                                                 </div>
@@ -2793,12 +2830,10 @@ export function EventWizard({
                                                         <p className="text-xs text-muted-foreground text-right">{formData.description.length}/2500</p>
                                                     </div>
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
 
-                                        {/* Sub-step: Poster Upload */}
-                                        {currentSubStep === 'poster' && (
-                                            <>
+                                        {/* Section: Poster Upload */}
+                                        <section id="section-poster" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Add an event poster</h2>
                                                     <p className="mt-1 text-sm text-muted-foreground">Upload an eye-catching image for your event</p>
@@ -2852,12 +2887,10 @@ export function EventWizard({
                                                         </label>
                                                     </div>
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
 
-                                        {/* Sub-step: Visibility */}
-                                        {currentSubStep === 'visibility' && (
-                                            <>
+                                        {/* Section: Visibility */}
+                                        <section id="section-visibility" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Who can see your event?</h2>
                                                     <p className="mt-1 text-sm text-muted-foreground">Choose visibility and access settings</p>
@@ -2964,24 +2997,20 @@ export function EventWizard({
                                                         </div>
                                                     )}
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
                                     </motion.div>
                                 )}
 
                                 {/* Step 2: Schedule */}
                                 {currentStep === 2 && (
                                     <motion.div
-                                        key={`step2-${currentSubStep}`}
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="space-y-4 lg:space-y-5"
+                                        className="space-y-10 lg:space-y-12"
                                     >
-                                        {/* Sub-step: Date Selection */}
-                                        {currentSubStep === 'date' && (
-                                            <>
+                                        {/* Section: Date Selection */}
+                                        <section id="section-date" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">When is your event?</h2>
                                                     <p className="mt-1 text-sm text-muted-foreground">Select the date(s) for your event</p>
@@ -3044,12 +3073,10 @@ export function EventWizard({
                                                         />
                                                     </div>
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
 
-                                        {/* Sub-step: Time & Timezone */}
-                                        {currentSubStep === 'time' && (
-                                            <>
+                                        {/* Section: Time & Timezone */}
+                                        <section id="section-time" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Set the time</h2>
                                                 </div>
@@ -3117,24 +3144,20 @@ export function EventWizard({
                                                         {fieldErrors.timezone && <p className="text-xs text-destructive">{fieldErrors.timezone}</p>}
                                                     </div>
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
                                     </motion.div>
                                 )}
 
                                 {/* Step 3: Venue */}
                                 {currentStep === 3 && (
                                     <motion.div
-                                        key={`step3-${currentSubStep}`}
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="space-y-4 lg:space-y-5"
+                                        className="space-y-10 lg:space-y-12"
                                     >
-                                        {/* Sub-step: Location (only sub-step for Venue) */}
-                                        {currentSubStep === 'location' && (
-                                            <>
+                                        {/* Section: Location (only section for Venue) */}
+                                        <section id="section-location" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Where is your event?</h2>
                                                 </div>
@@ -3290,24 +3313,20 @@ export function EventWizard({
                                                         )}
                                                     </div>
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
                                     </motion.div>
                                 )}
 
                                 {/* Step 4: Tickets */}
                                 {currentStep === 4 && (
                                     <motion.div
-                                        key={`step4-${currentSubStep}`}
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="space-y-4 lg:space-y-5"
+                                        className="space-y-10 lg:space-y-12"
                                     >
-                                        {/* Sub-step: Currency */}
-                                        {currentSubStep === 'currency' && (
-                                            <>
+                                        {/* Section: Currency */}
+                                        <section id="section-currency" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Set ticket currency</h2>
                                                     <p className="mt-1 text-sm text-muted-foreground">Select the currency for your ticket prices</p>
@@ -3359,12 +3378,10 @@ export function EventWizard({
                                                         <p className="text-xs text-muted-foreground">This applies to all ticket types</p>
                                                     </div>
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
 
-                                        {/* Sub-step: Ticket Types */}
-                                        {currentSubStep === 'ticketTypes' && (
-                                            <>
+                                        {/* Section: Ticket Types */}
+                                        <section id="section-ticketTypes" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Set up your tickets</h2>
                                                     <p className="mt-1 text-sm text-muted-foreground">Create one or more ticket types</p>
@@ -4071,12 +4088,10 @@ export function EventWizard({
                                                     <Plus className="mr-1.5 h-3.5 w-3.5" />
                                                     Add Another Ticket
                                                 </Button>
-                                            </>
-                                        )}
+                                        </section>
 
-                                        {/* Sub-step: Donations */}
-                                        {currentSubStep === 'donations' && (
-                                            <>
+                                        {/* Section: Donations */}
+                                        <section id="section-donations" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Donations</h2>
                                                 </div>
@@ -4166,12 +4181,10 @@ export function EventWizard({
                                                         )}
                                                     </div>
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
 
-                                        {/* Sub-step: Promo Codes */}
-                                        {currentSubStep === 'promoCodes' && (
-                                            <>
+                                        {/* Section: Promo Codes */}
+                                        <section id="section-promoCodes" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Promo Codes</h2>
                                                     <p className="mt-1 text-sm text-muted-foreground">Create discount codes for your event</p>
@@ -4522,12 +4535,10 @@ export function EventWizard({
                                                         </div>
                                                     )}
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
 
-                                        {/* Sub-step: Refund Policy */}
-                                        {currentSubStep === 'refundPolicy' && (
-                                            <>
+                                        {/* Section: Refund Policy */}
+                                        <section id="section-refundPolicy" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Refund Policy</h2>
                                                     <p className="mt-1 text-sm text-muted-foreground">Set your ticket refund terms for attendees</p>
@@ -4575,12 +4586,10 @@ export function EventWizard({
                                                         )}
                                                     </div>
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
 
-                                        {/* Sub-step: Attendee Info */}
-                                        {currentSubStep === 'attendeeInfo' && (
-                                            <>
+                                        {/* Section: Attendee Info */}
+                                        <section id="section-attendeeInfo" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                                 <div>
                                                     <h2 className="font-display text-xl lg:text-2xl font-bold">Attendee Information</h2>
                                                     <p className="mt-1 text-sm text-muted-foreground">Configure how you collect attendee details at checkout</p>
@@ -4845,21 +4854,19 @@ export function EventWizard({
                                                         )}
                                                     </div>
                                                 </div>
-                                            </>
-                                        )}
+                                        </section>
                                     </motion.div>
                                 )}
 
                                 {/* Step 5: Embed Widget */}
                                 {currentStep === 5 && (
                                     <motion.div
-                                        key="step5-embed"
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="space-y-4 lg:space-y-5"
+                                        className="space-y-10 lg:space-y-12"
                                     >
+                                        <section id="section-widget" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
                                         <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
                                             <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
                                                 <h3 className="text-sm font-medium text-foreground">Embed Checkout Widget</h3>
@@ -4876,23 +4883,23 @@ export function EventWizard({
                                                 />
                                             </div>
                                         </div>
+                                        </section>
                                     </motion.div>
                                 )}
-                            </AnimatePresence>
 
                             {/* Navigation Footer */}
                             <div className="mt-8 flex items-center justify-between">
                                 <Button
                                     variant="ghost"
                                     onClick={handleBack}
-                                    disabled={currentStep === 1 && currentSubStep === currentMainStep.subSteps[0]?.id}
+                                    disabled={currentStep === 1}
                                     className="gap-2"
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                     <span className="hidden sm:inline">Back</span>
                                 </Button>
 
-                                {(currentStep < steps.length || currentSubStep !== currentMainStep.subSteps[currentMainStep.subSteps.length - 1]?.id) && (
+                                {currentStep < steps.length && (
                                     <Button onClick={handleContinue} className="gap-2 px-4 sm:px-6">
                                         Continue
                                         <ChevronRight className="h-4 w-4" />
@@ -4901,13 +4908,13 @@ export function EventWizard({
                             </div>
                         </div>
                     </main>
-                </div>
             </div>
 
             {/* Unified Sticky Footer Bar */}
             <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
-                <div className="container py-3">
-                    <div className="flex items-center gap-3">
+                <div className="pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:py-3 lg:pl-[18rem] xl:pl-[22rem]">
+                    <div className="px-4 sm:px-6 lg:px-6 xl:px-8">
+                        <div className="mx-auto flex w-full max-w-6xl items-center gap-3">
                         {/* Error Display - Left (tap for full message) */}
                         <div className="flex-1 min-w-0">
                             {actionError ? (
@@ -4948,14 +4955,14 @@ export function EventWizard({
                         </div>
 
                         {/* Action Buttons - Right */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-2">
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={handlePreviewClick}
                                 aria-label="Preview event"
                                 disabled={disableSaveButtons}
-                                className="flex gap-1.5"
+                                className="flex h-11 min-w-11 gap-1.5 px-3 sm:h-9 sm:min-w-0"
                             >
                                 <Eye className="h-3.5 w-3.5" />
                                 <span className="hidden sm:inline">Preview</span>
@@ -4966,6 +4973,7 @@ export function EventWizard({
                                 onClick={handleSaveDraftClick}
                                 aria-label="Save draft"
                                 disabled={disableSaveButtons}
+                                className="h-11 px-3 sm:h-9"
                             >
                                 <span className="hidden sm:inline">Save Draft</span>
                                 <span className="sm:hidden">Save</span>
@@ -4975,19 +4983,20 @@ export function EventWizard({
                                 onClick={handlePublishClick}
                                 aria-label={publishButtonLabel}
                                 disabled={disablePublishButtons}
-                                className="gap-1.5"
+                                className="h-11 gap-1.5 px-3 sm:h-9"
                             >
                                 <Sparkles className="h-3.5 w-3.5" />
                                 <span className="hidden sm:inline">{publishButtonLabel}</span>
                                 <span className="sm:hidden">Publish</span>
                             </Button>
                         </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Spacer for sticky footer */}
-            <div className="h-16" />
+            <div className="h-[calc(6rem+env(safe-area-inset-bottom))] sm:h-20" />
 
             <Dialog open={isWarningOpen} onOpenChange={setIsWarningOpen}>
                 <DialogContent>

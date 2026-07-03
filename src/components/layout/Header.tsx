@@ -67,13 +67,14 @@ export function Header() {
         pathname &&
         (/^\/events\/preview(\/|$)/.test(pathname) || /^\/events\/[^/]+\/preview$/.test(pathname))
     );
+    const isEventWizardRoute = Boolean(pathname && (pathname === '/events/create' || /^\/events\/[^/]+\/edit$/.test(pathname)));
     const isEmbedRoute = pathname?.startsWith('/embed');
     // Organizer dashboard uses its own full-height sidebar + slim app top bar on
     // desktop, so the marketing header is hidden there on lg+ (kept on mobile,
     // where the sidebar is hidden and the hamburger menu is needed).
     const isOrgDashboard = pathname?.startsWith('/dashboard/o/') ?? false;
 
-    if (isPreviewRoute || isEmbedRoute) {
+    if (isPreviewRoute || isEventWizardRoute || isEmbedRoute) {
         return null;
     }
 

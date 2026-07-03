@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,21 @@ export default function EventPreviewPage() {
     const eventId = Array.isArray(params?.id) ? params.id[0] : params?.id;
 
     const [viewMode, setViewMode] = useState<ViewMode>('desktop');
-    const [isFrameLoading, setIsFrameLoading] = useState(true);
+    const previewSrc = eventId ? `/events/preview/${eventId}` : '';
+    const [loadedPreviewSrc, setLoadedPreviewSrc] = useState<string | null>(null);
+    const isFrameLoading = previewSrc !== '' && loadedPreviewSrc !== previewSrc;
+
+    useEffect(() => {
+        if (!previewSrc) {
+            return;
+        }
+
+        const fallback = window.setTimeout(() => setLoadedPreviewSrc(previewSrc), 2000);
+
+        return () => {
+            window.clearTimeout(fallback);
+        };
+    }, [previewSrc]);
 
     const handleBack = () => {
         // Try to focus the opener (wizard window) and close this popup
@@ -60,7 +74,6 @@ export default function EventPreviewPage() {
     };
 
     const currentDimensions = viewportDimensions[viewMode];
-    const previewSrc = `/events/preview/${eventId}`;
 
     return (
         <div className="min-h-screen bg-background -mt-[var(--nav-safe-offset)]">
@@ -122,7 +135,7 @@ export default function EventPreviewPage() {
                         src={previewSrc}
                         title="Event preview"
                         className="w-full h-full border-0"
-                        onLoad={() => setIsFrameLoading(false)}
+                        onLoad={() => setLoadedPreviewSrc(previewSrc)}
                     />
                 </div>
             </div>
