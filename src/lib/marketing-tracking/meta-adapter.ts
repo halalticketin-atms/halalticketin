@@ -76,7 +76,11 @@ export const mapMarketingEventToMeta = (
         };
     }
 
-    if (eventName === 'tickets_added' || eventName === 'checkout_started') {
+    if (
+        eventName === 'tickets_added' ||
+        eventName === 'checkout_started' ||
+        eventName === 'payment_info_submitted'
+    ) {
         const params: Record<string, unknown> = {
             value: roundedNumber(payload.value),
             currency: payload.currency,
@@ -89,9 +93,15 @@ export const mapMarketingEventToMeta = (
             params.contents = contents;
         }
 
+        const funnelEventNames = {
+            tickets_added: 'AddToCart',
+            checkout_started: 'InitiateCheckout',
+            payment_info_submitted: 'AddPaymentInfo',
+        } as const;
+
         return {
             pixelId,
-            eventName: eventName === 'tickets_added' ? 'AddToCart' : 'InitiateCheckout',
+            eventName: funnelEventNames[eventName],
             params,
             options: undefined,
         };

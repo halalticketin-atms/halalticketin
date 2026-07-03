@@ -112,6 +112,31 @@ describe('mapMarketingEventToMeta', () => {
         });
     });
 
+    it('maps payment_info_submitted to Meta AddPaymentInfo with the InitiateCheckout params shape', () => {
+        expect(
+            mapMarketingEventToMeta('payment_info_submitted', {
+                providerTargets: { metaPixelId: '123456789012345' },
+                publicEventId: 'event_001',
+                value: 29.2,
+                currency: 'GBP',
+                numItems: 1,
+                items: [{ ticketTypeId: 'ticket_001', quantity: 1, unitPrice: 25 }],
+            }),
+        ).toEqual({
+            pixelId: '123456789012345',
+            eventName: 'AddPaymentInfo',
+            params: {
+                value: 29.2,
+                currency: 'GBP',
+                num_items: 1,
+                content_ids: ['event_001'],
+                content_type: 'product',
+                contents: [{ id: 'ticket_001', quantity: 1, item_price: 25 }],
+            },
+            options: undefined,
+        });
+    });
+
     it('returns null when no Meta Pixel ID is configured', () => {
         expect(mapMarketingEventToMeta('event_viewed', { providerTargets: {}, currency: 'GBP' })).toBeNull();
     });
