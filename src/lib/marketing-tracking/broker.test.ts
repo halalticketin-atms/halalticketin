@@ -135,24 +135,24 @@ describe('createMarketingTracker', () => {
             currency: 'GBP',
         });
 
-        expect(gtagMock).toHaveBeenNthCalledWith(2, 'consent', 'update', {
+        expect(gtagMock).toHaveBeenNthCalledWith(3, 'consent', 'update', {
             analytics_storage: 'granted',
             ad_storage: 'denied',
             ad_user_data: 'denied',
             ad_personalization: 'denied',
         });
-        expect(gtagMock).toHaveBeenNthCalledWith(3, 'config', 'G-ABC123', {
+        expect(gtagMock).toHaveBeenNthCalledWith(4, 'config', 'G-ABC123', {
             send_page_view: false,
         });
-        expect(gtagMock).toHaveBeenNthCalledWith(4, 'event', 'view_item', {
+        expect(gtagMock).toHaveBeenNthCalledWith(5, 'event', 'view_item', {
             send_to: 'G-ABC123',
             currency: 'GBP',
             items: [{ item_id: 'event_001', item_name: 'Test Event' }],
         });
     });
 
-    it('does not route GA4 events without analytics consent', () => {
-        const tracker = createMarketingTracker({ analyticsAllowed: false, marketingAllowed: true });
+    it('routes GA4 events with a denied consent update when analytics consent is missing (consent mode advanced)', () => {
+        const tracker = createMarketingTracker({ analyticsAllowed: false, marketingAllowed: false });
 
         tracker.trackMarketingEvent('event_viewed', {
             providerTargets: { googleAnalyticsMeasurementId: 'G-ABC123' },
@@ -161,7 +161,18 @@ describe('createMarketingTracker', () => {
             currency: 'GBP',
         });
 
-        expect(gtagMock).not.toHaveBeenCalled();
+        expect(gtagMock).toHaveBeenCalledWith('consent', 'update', {
+            analytics_storage: 'denied',
+            ad_storage: 'denied',
+            ad_user_data: 'denied',
+            ad_personalization: 'denied',
+        });
+        expect(gtagMock).toHaveBeenCalledWith('config', 'G-ABC123', { send_page_view: false });
+        expect(gtagMock).toHaveBeenCalledWith('event', 'view_item', {
+            send_to: 'G-ABC123',
+            currency: 'GBP',
+            items: [{ item_id: 'event_001', item_name: 'Test Event' }],
+        });
     });
 
     it('routes TikTok events through the targeted pixel instance when marketing consent is allowed', () => {
@@ -266,21 +277,38 @@ describe('createMarketingTracker', () => {
             currency: 'GBP',
         });
 
-        expect(gtagMock).toHaveBeenNthCalledWith(2, 'consent', 'update', {
+        expect(gtagMock).toHaveBeenNthCalledWith(3, 'consent', 'update', {
             analytics_storage: 'denied',
             ad_storage: 'granted',
             ad_user_data: 'granted',
             ad_personalization: 'granted',
         });
-        expect(gtagMock).toHaveBeenNthCalledWith(3, 'config', 'AW-123456789', {
+        expect(gtagMock).toHaveBeenNthCalledWith(4, 'config', 'AW-123456789', {
             send_page_view: false,
         });
-        expect(gtagMock).toHaveBeenNthCalledWith(4, 'event', 'conversion', {
+        expect(gtagMock).toHaveBeenNthCalledWith(5, 'event', 'conversion', {
             send_to: 'AW-123456789/abcDEFghiJKL',
             value: 29.2,
             currency: 'GBP',
             transaction_id: 'order_123',
         });
+    });
+
+    it('configures the Google Ads destination on landing events so gclid is captured', () => {
+        const tracker = createMarketingTracker({ analyticsAllowed: false, marketingAllowed: false });
+
+        tracker.trackMarketingEvent('page_viewed', {
+            providerTargets: {
+                googleAds: {
+                    conversionId: 'AW-123456789',
+                    purchaseConversionLabel: 'abcDEFghiJKL',
+                },
+            },
+            pagePath: '/events/community-dinner',
+        });
+
+        expect(gtagMock).toHaveBeenCalledWith('config', 'AW-123456789', { send_page_view: false });
+        expect(gtagMock.mock.calls.filter((call) => call[0] === 'event')).toEqual([]);
     });
 
     it('sets Google Ads enhanced conversion user data before the purchase conversion when email is present', () => {
@@ -299,10 +327,10 @@ describe('createMarketingTracker', () => {
             currency: 'GBP',
         });
 
-        expect(gtagMock).toHaveBeenNthCalledWith(4, 'set', 'user_data', {
+        expect(gtagMock).toHaveBeenNthCalledWith(5, 'set', 'user_data', {
             email: 'buyer@example.com',
         });
-        expect(gtagMock).toHaveBeenNthCalledWith(5, 'event', 'conversion', {
+        expect(gtagMock).toHaveBeenNthCalledWith(6, 'event', 'conversion', {
             send_to: 'AW-123456789/abcDEFghiJKL',
             value: 29.2,
             currency: 'GBP',
@@ -334,7 +362,7 @@ describe('createMarketingTracker', () => {
         ]);
     });
 
-    it('does not route Google Ads purchase conversions with analytics consent alone', () => {
+    it('routes Google Ads conversions as denied-consent pings and withholds user data without marketing consent', () => {
         const tracker = createMarketingTracker({ analyticsAllowed: true, marketingAllowed: false });
 
         tracker.trackMarketingEvent('purchase_completed', {
@@ -345,11 +373,24 @@ describe('createMarketingTracker', () => {
                 },
             },
             orderId: 'order_123',
+            userEmail: 'buyer@example.com',
             value: 29.2,
             currency: 'GBP',
         });
 
-        expect(gtagMock).not.toHaveBeenCalled();
+        expect(gtagMock).toHaveBeenCalledWith('consent', 'update', {
+            analytics_storage: 'granted',
+            ad_storage: 'denied',
+            ad_user_data: 'denied',
+            ad_personalization: 'denied',
+        });
+        expect(gtagMock).toHaveBeenCalledWith('event', 'conversion', {
+            send_to: 'AW-123456789/abcDEFghiJKL',
+            value: 29.2,
+            currency: 'GBP',
+            transaction_id: 'order_123',
+        });
+        expect(gtagMock.mock.calls.filter((call) => call[0] === 'set')).toEqual([]);
     });
 
     it('pushes purchase data layer payload without accidental personal or payment fields', () => {

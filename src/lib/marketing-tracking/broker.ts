@@ -199,38 +199,37 @@ export const createMarketingTracker = ({
             pushDataLayerEvent(eventName, payload);
         }
 
-        if (analyticsAllowed) {
+        // Google destinations run in Consent Mode v2 advanced mode: the tag is
+        // always configured and events always fire, while the consent state
+        // decides whether gtag uses cookies or falls back to cookieless pings.
+        const googleConsent = { analyticsAllowed, marketingAllowed };
+
+        const ga4MeasurementId = payload.providerTargets.googleAnalyticsMeasurementId?.trim();
+        if (ga4MeasurementId) {
+            const gtag = configureGoogleTagDestination(ga4MeasurementId, googleConsent);
             const ga4Event = mapMarketingEventToGa4(eventName, payload);
-            const ga4MeasurementId = payload.providerTargets.googleAnalyticsMeasurementId?.trim();
-            const gtag = ga4Event && ga4MeasurementId
-                ? configureGoogleTagDestination(ga4MeasurementId, {
-                    analyticsAllowed,
-                    marketingAllowed,
-                })
-                : null;
             if (ga4Event && gtag) {
                 gtag('event', ga4Event.eventName, ga4Event.params);
             }
         }
 
-        if (!marketingAllowed) {
-            return;
+        const googleAdsConversionId = payload.providerTargets.googleAds?.conversionId?.trim();
+        if (googleAdsConversionId) {
+            // Configuring the AW- destination on landing lets gtag pick up gclid
+            // for later purchase attribution, even before any conversion fires.
+            const googleAdsGtag = configureGoogleTagDestination(googleAdsConversionId, googleConsent);
+            const googleAdsEvent = mapMarketingEventToGoogleAds(eventName, payload);
+            if (googleAdsEvent && googleAdsGtag) {
+                const userEmail = payload.userEmail?.trim().toLowerCase();
+                if (marketingAllowed && userEmail) {
+                    googleAdsGtag('set', 'user_data', { email: userEmail });
+                }
+                googleAdsGtag('event', googleAdsEvent.eventName, googleAdsEvent.params);
+            }
         }
 
-        const googleAdsEvent = mapMarketingEventToGoogleAds(eventName, payload);
-        const googleAdsConversionId = payload.providerTargets.googleAds?.conversionId?.trim();
-        const googleAdsGtag = googleAdsEvent && googleAdsConversionId
-            ? configureGoogleTagDestination(googleAdsConversionId, {
-                analyticsAllowed,
-                marketingAllowed,
-            })
-            : null;
-        if (googleAdsEvent && googleAdsGtag) {
-            const userEmail = payload.userEmail?.trim().toLowerCase();
-            if (userEmail) {
-                googleAdsGtag('set', 'user_data', { email: userEmail });
-            }
-            googleAdsGtag('event', googleAdsEvent.eventName, googleAdsEvent.params);
+        if (!marketingAllowed) {
+            return;
         }
 
         const metaEvent = mapMarketingEventToMeta(eventName, payload);

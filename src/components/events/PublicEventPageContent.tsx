@@ -519,15 +519,19 @@ export function PublicEventPageContent({
     const eventTracking = !isPreview && event && 'tracking' in event ? event.tracking : null;
     const googleAnalyticsMeasurementId = eventTracking?.googleAnalyticsMeasurementId ?? null;
     const tiktokPixelId = eventTracking?.tiktokPixelId ?? null;
+    const googleAdsTarget = eventTracking?.googleAds ?? null;
     const trackingProviderTargets = useMemo(
         () => ({
             metaPixelId: eventPixelId,
             googleAnalyticsMeasurementId,
             tiktokPixelId,
+            googleAds: googleAdsTarget,
         }),
-        [eventPixelId, googleAnalyticsMeasurementId, tiktokPixelId],
+        [eventPixelId, googleAnalyticsMeasurementId, tiktokPixelId, googleAdsTarget],
     );
-    const hasTrackingProviderTarget = Boolean(eventPixelId || googleAnalyticsMeasurementId || tiktokPixelId);
+    const hasTrackingProviderTarget = Boolean(
+        eventPixelId || googleAnalyticsMeasurementId || tiktokPixelId || googleAdsTarget?.conversionId,
+    );
     const organizerName =
         organizerNameOverride ?? (event && 'organizerName' in event ? event.organizerName : null);
     const canContactOrganizer =

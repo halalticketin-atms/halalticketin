@@ -3,6 +3,7 @@ declare global {
         dataLayer?: unknown[];
         gtag?: (...args: unknown[]) => void;
         __htGoogleTagInitialized?: boolean;
+        __htGoogleConsentDefaultSet?: boolean;
         __htConfiguredGoogleTagDestinations?: Set<string>;
     }
 }
@@ -19,6 +20,18 @@ const getOrCreateGtag = () => {
         window.gtag = (...args: unknown[]) => {
             window.dataLayer?.push(args);
         };
+    }
+
+    // Consent Mode v2 advanced: the default must be registered before gtag.js
+    // boots so denied visitors still produce cookieless pings.
+    if (!window.__htGoogleConsentDefaultSet) {
+        window.gtag('consent', 'default', {
+            ad_storage: 'denied',
+            analytics_storage: 'denied',
+            ad_user_data: 'denied',
+            ad_personalization: 'denied',
+        });
+        window.__htGoogleConsentDefaultSet = true;
     }
 
     if (!window.__htGoogleTagInitialized) {

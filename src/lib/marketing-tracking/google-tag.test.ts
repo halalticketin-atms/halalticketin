@@ -38,10 +38,33 @@ describe('configureGoogleTagDestination', () => {
             src: 'https://www.googletagmanager.com/gtag/js?id=G-ABC123',
         });
         expect(appendChildMock).toHaveBeenCalledWith(script);
-        expect(gtagMock.mock.calls[0]?.[0]).toBe('js');
-        expect(gtagMock).toHaveBeenNthCalledWith(2, 'config', 'G-ABC123', {
+        expect(gtagMock.mock.calls[0]?.[0]).toBe('consent');
+        expect(gtagMock.mock.calls[1]?.[0]).toBe('js');
+        expect(gtagMock).toHaveBeenNthCalledWith(3, 'config', 'G-ABC123', {
             send_page_view: false,
         });
+    });
+
+    it('registers a denied consent default exactly once, before the tag bootstraps', () => {
+        configureGoogleTagDestination('G-ABC123');
+        configureGoogleTagDestination('AW-123456789');
+
+        const consentDefaultCalls = gtagMock.mock.calls.filter(
+            (call) => call[0] === 'consent' && call[1] === 'default',
+        );
+        expect(consentDefaultCalls).toEqual([
+            [
+                'consent',
+                'default',
+                {
+                    ad_storage: 'denied',
+                    analytics_storage: 'denied',
+                    ad_user_data: 'denied',
+                    ad_personalization: 'denied',
+                },
+            ],
+        ]);
+        expect(gtagMock.mock.calls[0]).toEqual(consentDefaultCalls[0]);
     });
 
     it('does not reload or reconfigure an existing destination', () => {

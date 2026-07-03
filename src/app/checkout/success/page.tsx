@@ -76,7 +76,7 @@ function CheckoutSuccessContent() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pollCount, setPollCount] = useState(0);
-    const { analyticsAllowed, marketingAllowed } = useCookieConsent();
+    const { analyticsAllowed, marketingAllowed, hasResponded } = useCookieConsent();
     const marketingTracker = useMemo(
         () => createMarketingTracker({ analyticsAllowed, marketingAllowed }),
         [analyticsAllowed, marketingAllowed],
@@ -235,10 +235,13 @@ function CheckoutSuccessContent() {
             }
         }
 
+        // GA4 and Google Ads use Consent Mode v2 advanced mode: fire once the
+        // visitor has answered the banner, whatever the answer — gtag downgrades
+        // to cookieless pings when the matching consent signal is denied.
         const ga4MeasurementId = orderStatus.tracking?.googleAnalyticsMeasurementId ?? null;
         if (
             ga4MeasurementId &&
-            analyticsAllowed &&
+            hasResponded &&
             !hasTrackedProviderPurchase('ga4', orderStatus.orderId) &&
             !purchaseTrackedProvidersRef.current.has('ga4')
         ) {
@@ -281,7 +284,7 @@ function CheckoutSuccessContent() {
         if (
             googleAds?.conversionId &&
             googleAds.purchaseConversionLabel &&
-            marketingAllowed &&
+            hasResponded &&
             !hasTrackedProviderPurchase('google_ads', orderStatus.orderId) &&
             !purchaseTrackedProvidersRef.current.has('google_ads')
         ) {
@@ -299,7 +302,7 @@ function CheckoutSuccessContent() {
             markProviderPurchaseTracked('google_ads', orderStatus.orderId);
             purchaseTrackedProvidersRef.current.add('google_ads');
         }
-    }, [analyticsAllowed, marketingAllowed, marketingTracker, orderStatus]);
+    }, [analyticsAllowed, hasResponded, marketingAllowed, marketingTracker, orderStatus]);
 
     const downloadQRCode = (ticketId: string, ticketCode: string) => {
         const canvas = document.getElementById(`qr-code-${ticketId}`) as HTMLCanvasElement;
