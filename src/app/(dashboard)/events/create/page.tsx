@@ -843,6 +843,10 @@ export function EventWizard({
         [currentMainStep.subSteps]
     );
 
+    // SectionNavSidebar renders nothing for single-section steps, so the sticky
+    // footer's left inset must shrink to just the main step rail to stay aligned
+    const hasSectionRail = currentSections.length >= 2;
+
     // Navigation handlers
     const handleMainStepClick = useCallback((stepId: number) => {
         setCurrentStep(stepId);
@@ -4912,7 +4916,10 @@ export function EventWizard({
 
             {/* Unified Sticky Footer Bar */}
             <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
-                <div className="pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:py-3 lg:pl-[18rem] xl:pl-[22rem]">
+                <div className={cn(
+                    'pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:py-3',
+                    hasSectionRail ? 'lg:pl-[18rem] xl:pl-[22rem]' : 'lg:pl-28 xl:pl-32',
+                )}>
                     <div className="px-4 sm:px-6 lg:px-6 xl:px-8">
                         <div className="mx-auto flex w-full max-w-6xl items-center gap-3">
                         {/* Error Display - Left (tap for full message) */}

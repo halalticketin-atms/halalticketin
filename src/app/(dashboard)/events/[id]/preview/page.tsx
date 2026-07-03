@@ -22,7 +22,9 @@ export default function EventPreviewPage() {
             return;
         }
 
-        const fallback = window.setTimeout(() => setLoadedPreviewSrc(previewSrc), 2000);
+        // Safety net in case the iframe's onLoad never fires; long enough to
+        // keep covering slow loads instead of revealing a blank frame
+        const fallback = window.setTimeout(() => setLoadedPreviewSrc(previewSrc), 10000);
 
         return () => {
             window.clearTimeout(fallback);
