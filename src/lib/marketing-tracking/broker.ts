@@ -235,7 +235,11 @@ export const createMarketingTracker = ({
 
         const metaEvent = mapMarketingEventToMeta(eventName, payload);
         if (metaEvent) {
-            initMetaPixel(metaEvent.pixelId);
+            if (payload.userEmail) {
+                initMetaPixel(metaEvent.pixelId, { em: payload.userEmail });
+            } else {
+                initMetaPixel(metaEvent.pixelId);
+            }
             trackPixelEvent(metaEvent.pixelId, metaEvent.eventName, metaEvent.params, metaEvent.options);
         }
 

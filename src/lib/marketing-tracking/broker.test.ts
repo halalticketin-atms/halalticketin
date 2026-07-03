@@ -63,6 +63,23 @@ describe('createMarketingTracker', () => {
         );
     });
 
+    it('passes the buyer email to Meta pixel init for advanced matching', () => {
+        const tracker = createMarketingTracker({ analyticsAllowed: false, marketingAllowed: true });
+
+        tracker.trackMarketingEvent('purchase_completed', {
+            providerTargets: { metaPixelId: '123456789012345' },
+            eventId: 'meta_event_123',
+            orderId: 'order_123',
+            userEmail: 'buyer@example.com',
+            value: 29.2,
+            currency: 'GBP',
+        });
+
+        expect(initMetaPixelMock).toHaveBeenCalledWith('123456789012345', {
+            em: 'buyer@example.com',
+        });
+    });
+
     it('does not route events without marketing consent', () => {
         const tracker = createMarketingTracker({ analyticsAllowed: false, marketingAllowed: false });
 

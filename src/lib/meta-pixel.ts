@@ -17,6 +17,7 @@ declare global {
 }
 
 const initializedPixels = new Set<string>();
+const pixelsInitializedWithUserData = new Set<string>();
 const META_PIXEL_COOKIE_NAMES = ['_fbp', '_fbc'];
 
 const getCookieDomains = () => {
@@ -66,25 +67,43 @@ export const ensureMetaPixel = () => {
     ensureBaseSnippet();
 };
 
-export const initMetaPixel = (pixelId: string) => {
+export interface MetaAdvancedMatching {
+    em?: string;
+}
+
+export const initMetaPixel = (pixelId: string, advancedMatching?: MetaAdvancedMatching) => {
     if (!pixelId || typeof window === 'undefined') {
         return;
     }
 
     ensureBaseSnippet();
 
-    if (initializedPixels.has(pixelId)) {
+    // The pixel accepts a plain email and SHA-256 hashes it client-side before sending.
+    const normalizedEmail = advancedMatching?.em?.trim().toLowerCase();
+    const userData = normalizedEmail ? { em: normalizedEmail } : null;
+    const alreadyInitialized = initializedPixels.has(pixelId);
+    const shouldUpgradeWithUserData =
+        alreadyInitialized && Boolean(userData) && !pixelsInitializedWithUserData.has(pixelId);
+
+    if (alreadyInitialized && !shouldUpgradeWithUserData) {
         return;
     }
 
-    try {
-        window.fbq?.('consent', 'grant');
-    } catch {
-        // Ignore consent command errors.
+    if (!alreadyInitialized) {
+        try {
+            window.fbq?.('consent', 'grant');
+        } catch {
+            // Ignore consent command errors.
+        }
     }
 
     initializedPixels.add(pixelId);
-    window.fbq?.('init', pixelId);
+    if (userData) {
+        pixelsInitializedWithUserData.add(pixelId);
+        window.fbq?.('init', pixelId, userData);
+    } else {
+        window.fbq?.('init', pixelId);
+    }
 };
 
 export interface PixelEventOptions {
@@ -121,6 +140,7 @@ export const teardownMetaPixel = () => {
     }
 
     initializedPixels.clear();
+    pixelsInitializedWithUserData.clear();
 
     try {
         window.fbq?.('consent', 'revoke');

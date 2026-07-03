@@ -218,6 +218,7 @@ function CheckoutSuccessContent() {
                     currency: orderStatus.currency,
                     numItems: ticketRowCount,
                     orderId: orderStatus.orderId,
+                    userEmail: storedCheckoutEmail,
                     items: orderStatus.trackingItems ?? [],
                 });
 
