@@ -21,6 +21,19 @@ describe('mapMarketingEventToTikTok', () => {
         });
     });
 
+    it('maps page_viewed to Pageview without commerce params', () => {
+        expect(
+            mapMarketingEventToTikTok('page_viewed', {
+                providerTargets: { tiktokPixelId: 'CABC12345' },
+                pagePath: '/events/community-dinner',
+            }),
+        ).toEqual({
+            pixelId: 'CABC12345',
+            eventName: 'Pageview',
+            params: {},
+        });
+    });
+
     it('maps checkout_started to InitiateCheckout with value and contents', () => {
         expect(
             mapMarketingEventToTikTok('checkout_started', {

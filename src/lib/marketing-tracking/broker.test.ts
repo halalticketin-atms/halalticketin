@@ -190,6 +190,35 @@ describe('createMarketingTracker', () => {
         );
     });
 
+    it('fires TikTok Pageview through the pixel instance page() method', () => {
+        const ttqPageMock = vi.fn();
+        ttqInstanceMock.mockReturnValue({ track: ttqTrackMock, page: ttqPageMock });
+        const tracker = createMarketingTracker({ analyticsAllowed: false, marketingAllowed: true });
+
+        tracker.trackMarketingEvent('page_viewed', {
+            providerTargets: { tiktokPixelId: 'CABC12345' },
+            pagePath: '/events/community-dinner',
+        });
+
+        expect(ttqLoadMock).toHaveBeenCalledWith('CABC12345');
+        expect(ttqPageMock).toHaveBeenCalledTimes(1);
+        expect(ttqTrackMock).not.toHaveBeenCalled();
+    });
+
+    it('queues TikTok Pageview in the fallback queue before the SDK loads', () => {
+        (window as { ttq?: unknown }).ttq = undefined;
+        const tracker = createMarketingTracker({ analyticsAllowed: false, marketingAllowed: true });
+
+        tracker.trackMarketingEvent('page_viewed', {
+            providerTargets: { tiktokPixelId: 'CABC12345' },
+            pagePath: '/events/community-dinner',
+        });
+
+        const queuedInstance = window.ttq?._i?.['CABC12345'] as unknown[] | undefined;
+        expect(queuedInstance).toBeDefined();
+        expect(queuedInstance).toContainEqual(['page']);
+    });
+
     it('does not route TikTok events without marketing consent', () => {
         const tracker = createMarketingTracker({ analyticsAllowed: true, marketingAllowed: false });
 

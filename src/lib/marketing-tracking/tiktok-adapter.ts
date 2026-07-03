@@ -12,6 +12,8 @@ export interface TikTokEvent {
 }
 
 const TIKTOK_EVENT_NAMES: Partial<Record<MarketingEventName, string>> = {
+    // Pageview is dispatched via ttq.instance(pixelId).page(), not track().
+    page_viewed: 'Pageview',
     event_viewed: 'ViewContent',
     tickets_added: 'AddToCart',
     checkout_started: 'InitiateCheckout',
@@ -37,6 +39,14 @@ export const mapMarketingEventToTikTok = (
 
     if (!pixelId || !mappedName) {
         return null;
+    }
+
+    if (eventName === 'page_viewed') {
+        return {
+            pixelId,
+            eventName: mappedName,
+            params: {},
+        };
     }
 
     const params: TikTokParams = { content_type: 'product' };

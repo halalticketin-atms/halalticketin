@@ -20,6 +20,7 @@ interface TikTokPixelInstance {
         params?: Record<string, unknown>,
         options?: Record<string, unknown>,
     ) => void;
+    page?: () => void;
 }
 
 interface TikTokPixelQueue {
@@ -70,6 +71,11 @@ const createTikTokQueue = (): TikTokPixelQueue => {
         if (typeof instance.track !== 'function') {
             instance.track = (...args: unknown[]) => {
                 instance.push(['track', ...args]);
+            };
+        }
+        if (typeof instance.page !== 'function') {
+            instance.page = (...args: unknown[]) => {
+                instance.push(['page', ...args]);
             };
         }
         queue._i = queue._i ?? {};
@@ -124,6 +130,10 @@ const trackTikTokPixelEvent = (
     ttq.enableCookie?.();
     ttq.load(pixelId);
     const pixelInstance = ttq.instance(pixelId);
+    if (eventName === 'Pageview') {
+        pixelInstance?.page?.();
+        return;
+    }
     if (typeof pixelInstance?.track === 'function') {
         if (options) {
             pixelInstance.track(eventName, params, options);
