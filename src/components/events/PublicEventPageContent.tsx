@@ -49,6 +49,7 @@ import {
 import { useTrackingConsentRequirement } from '@/hooks/useMarketingConsentRequirement';
 import { useCookieConsent } from '@/context/cookie-consent-context';
 import { getMetaTrackingContext } from '@/lib/meta-tracking';
+import { captureUtmParams, getStoredUtmParams } from '@/lib/utm-tracking';
 import { createMarketingTracker, type MarketingTicketItem } from '@/lib/marketing-tracking';
 import type { EventRecord, PublicEventRecord, PublicTicketRecord, TicketRecord } from '@/lib/events-api';
 import { contactOrganizerByEventSlug, joinEventWaitlist } from '@/lib/events-api';
@@ -1403,6 +1404,12 @@ export function PublicEventPageContent({
         return notes;
     }, [currencyCode, event, regularTickets, regularUnlockedTickets]);
 
+    // UTM labels are aggregate campaign identifiers, not personal data, so
+    // they are captured without a consent gate for order attribution.
+    useEffect(() => {
+        captureUtmParams();
+    }, []);
+
     useEffect(() => {
         if (!hasTrackingProviderTarget) {
             return;
@@ -2126,7 +2133,7 @@ export function PublicEventPageContent({
                 useSharedInfo: !requiresPerTicket && useSharedInfo,
                 ticketAttendees: ticketAttendeePayload,
                 promoCode: appliedPromo?.code || undefined,
-                tracking: getMetaTrackingContext(marketingAllowed),
+                tracking: { ...getMetaTrackingContext(marketingAllowed), ...getStoredUtmParams() },
             },
             { redirectTarget: isEmbedCheckout ? 'top' : 'self', accessCode: accessCode ?? undefined },
         );

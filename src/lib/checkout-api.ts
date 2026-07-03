@@ -38,6 +38,10 @@ export interface CheckoutRequest {
     ttclid?: string;
     ttp?: string;
     eventSourceUrl?: string;
+    // First-party campaign attribution; sent regardless of marketing consent.
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
   };
 }
 
