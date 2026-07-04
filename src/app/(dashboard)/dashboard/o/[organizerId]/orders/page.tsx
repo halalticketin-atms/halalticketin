@@ -2175,7 +2175,7 @@ export default function OrdersPage() {
                                                 variant="outline"
                                                 disabled={!selectedWaitlistEventId}
                                                 onClick={handleExportWaitlist}
-                                                className="h-11 w-full lg:w-auto"
+                                                className="h-11 min-w-0 flex-1 lg:w-auto lg:flex-none"
                                             >
                                                 <Download className="mr-2 h-4 w-4" />
                                                 Export CSV
