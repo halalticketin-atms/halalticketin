@@ -14,6 +14,10 @@ import { buildDashboardPath } from '@/lib/organizer-path';
 import api from '@/lib/api';
 import { getCreditAccounting, getCreditStatus } from '@/lib/credit-accounting';
 import { getCreditBalance, CreditBalanceResponse } from '@/lib/credits-api';
+import {
+  resolveActiveEventsStatValue,
+  scheduleDashboardEventsLoad,
+} from '@/lib/dashboard-stat-values';
 import { MIN_CREDITS } from '@/lib/fees';
 
 interface AnalyticsStats {
@@ -24,6 +28,7 @@ interface AnalyticsStats {
   ticketsSold: number;
   paidOrders: number;
   totalEvents: number;
+  activeEvents?: number;
   currency: string;
 }
 
@@ -136,11 +141,6 @@ export default function DashboardPage() {
     void fetchStats(organizerId ?? null);
   }, [organizerId]);
 
-  useEffect(() => {
-    setHasLoadedEvents(false);
-    setEventsPerformance([]);
-  }, [organizerId]);
-
   const fetchEventsPerformance = useEffectEvent(async (currentOrganizerId: string | null) => {
     if (!currentOrganizerId || userRole === 'check_in') {
       setEventsPerformance([]);
@@ -166,8 +166,12 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    void fetchEventsPerformance(organizerId ?? null);
-  }, [hasLoadedEvents, organizerId]);
+    setHasLoadedEvents(false);
+    setEventsPerformance([]);
+
+    const loadEvents = () => void fetchEventsPerformance(organizerId ?? null);
+    return scheduleDashboardEventsLoad(loadEvents);
+  }, [organizerId]);
 
   useEffect(() => {
     if (!organizerId) {
@@ -250,18 +254,24 @@ export default function DashboardPage() {
       },
       {
         title: 'Tickets Sold',
-        value: analyticsStats ? analyticsStats.ticketsSold ?? 0 : '—',
+        value: analyticsStats ? (analyticsStats.ticketsSold ?? 0) : '—',
         icon: Ticket,
         color: 'blue' as const,
       },
       {
         title: 'Active Events',
-        value: hasLoadedEvents ? eventsPerformance.length : '—',
+        value: analyticsStats
+          ? resolveActiveEventsStatValue({
+              activeEvents: analyticsStats.activeEvents,
+              hasLoadedEvents,
+              eventsPerformanceCount: eventsPerformance.length,
+            })
+          : '—',
         icon: Calendar,
         color: 'purple' as const,
       },
     ];
-  }, [analyticsStats, eventsPerformance, hasLoadedEvents]);
+  }, [analyticsStats, eventsPerformance.length, hasLoadedEvents]);
 
   // Single source of truth for the credits module: available/used accounting
   // plus a health status that drives the bar colour and copy.
