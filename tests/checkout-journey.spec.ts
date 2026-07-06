@@ -29,6 +29,10 @@ const routeCheckoutEvent = async ({
     attendeeInfoMode,
     customQuestions,
     minimumAttendeeAge = 0,
+    eventOverrides = {},
+    tickets,
+    quoteStatus = 200,
+    quoteResponse,
 }: {
     page: Page;
     eventId: string;
@@ -42,6 +46,10 @@ const routeCheckoutEvent = async ({
         required: boolean;
         options?: string[];
     }>;
+    eventOverrides?: Record<string, unknown>;
+    tickets?: Array<Record<string, unknown>>;
+    quoteStatus?: number;
+    quoteResponse?: Record<string, unknown>;
 }) => {
     await page.route(`**/api/v1/public/events/${slug}**`, async (route) => {
         await route.fulfill({
@@ -79,8 +87,9 @@ const routeCheckoutEvent = async ({
                     minimumAttendeeAge,
                     customQuestions,
                     status: 'published',
+                    ...eventOverrides,
                 },
-                tickets: [
+                tickets: tickets ?? [
                     {
                         id: 'ticket_checkout_prefill_001',
                         name: 'General Admission',
@@ -106,9 +115,9 @@ const routeCheckoutEvent = async ({
 
     await page.route(`**/api/v1/events/${eventId}/checkout/quote`, async (route) => {
         await route.fulfill({
-            status: 200,
+            status: quoteStatus,
             contentType: 'application/json',
-            body: JSON.stringify({
+            body: JSON.stringify(quoteResponse ?? {
                 success: true,
                 currency: 'GBP',
                 subtotal: 5.0,
@@ -151,6 +160,93 @@ const openCheckoutAndFillBuyerDetails = async (page: Page) => {
 // TICKET SELECTION TESTS - Using Real Events
 // =============================================================================
 test.describe('Checkout Journey - Ticket Selection', () => {
+    test('sold-out ticket cannot be selected when waitlist is disabled', async ({ page }) => {
+        await page.route('**/api/v1/**', route => route.abort());
+        await routeCheckoutEvent({
+            page,
+            eventId: 'event-sold-out',
+            slug: REAL_EVENTS.paidEvent,
+            attendeeInfoMode: 'buyer_choice',
+            customQuestions: [],
+            eventOverrides: { waitlistEnabled: false },
+            tickets: [{
+                id: 'sold-out-ticket',
+                name: 'Early Bird',
+                price: '170.00',
+                currency: 'EUR',
+                type: 'paid',
+                visibility: 'public',
+                maxQuantity: 100,
+                minPerOrder: 1,
+                maxPerOrder: 4,
+                isSoldOut: true,
+                soldOutReason: 'ticket_capacity',
+                remainingQuantity: 0,
+                waitlistEnabled: false,
+            }],
+        });
+
+        await page.goto(`/events/${REAL_EVENTS.paidEvent}`);
+
+        const ticketCard = page.locator('div[aria-disabled="true"]').filter({
+            has: page.getByRole('heading', { name: 'Early Bird', exact: true }),
+        });
+        await expect(ticketCard.getByText('Sold out', { exact: true })).toBeVisible();
+        await expect(ticketCard.getByText('Ticket sold out', { exact: true })).toBeVisible();
+        await expect(ticketCard.getByText('0', { exact: true })).toBeVisible();
+        await expect(ticketCard.getByRole('button').last()).toBeDisabled();
+        await expect(page.getByRole('button', { name: 'Select Tickets', exact: true })).toBeDisabled();
+    });
+
+    test('stale inventory quote resets the selected quantity', async ({ page }) => {
+        await page.route('**/api/v1/**', route => route.abort());
+        await routeCheckoutEvent({
+            page,
+            eventId: 'event-stale-inventory',
+            slug: REAL_EVENTS.paidEvent,
+            attendeeInfoMode: 'buyer_choice',
+            customQuestions: [],
+            eventOverrides: { waitlistEnabled: false },
+            tickets: [{
+                id: 'general',
+                name: 'General Admission',
+                price: '170.00',
+                currency: 'EUR',
+                type: 'paid',
+                visibility: 'public',
+                maxQuantity: 100,
+                minPerOrder: 1,
+                maxPerOrder: 4,
+                isSoldOut: false,
+                soldOutReason: null,
+                remainingQuantity: 100,
+                waitlistEnabled: false,
+            }],
+            quoteStatus: 400,
+            quoteResponse: {
+                error: {
+                    code: 'VALIDATION_ERROR',
+                    message: 'Some tickets are no longer available',
+                    details: {
+                        code: 'CAPACITY_ADJUSTED',
+                        issues: [],
+                        adjustedItems: [{ ticketTypeId: 'general', quantity: 0 }],
+                    },
+                },
+            },
+        });
+
+        await page.goto(`/events/${REAL_EVENTS.paidEvent}`);
+
+        const ticketHeading = page.getByRole('heading', { name: 'General Admission', exact: true });
+        const ticketCard = page.locator('div[aria-disabled="false"]').filter({ has: ticketHeading });
+        await ticketCard.getByRole('button').last().click();
+
+        await expect(page.getByText('Some tickets are no longer available', { exact: true })).toBeVisible();
+        await expect(ticketCard.getByText('0', { exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Select Tickets', exact: true })).toBeDisabled();
+    });
+
     test('event page displays available tickets', async ({ page }) => {
         await page.goto(`/events/${REAL_EVENTS.paidEvent}`);
         await page.waitForLoadState('networkidle');
