@@ -63,6 +63,8 @@ import { useOptionalAuth } from '@/context/auth-context';
 import { differenceInYears } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ShareDialog } from '@/components/share/ShareDialog';
+import { AddToCalendarButton } from '@/components/events/AddToCalendarButton';
+import { absoluteUrl } from '@/lib/seo';
 import { toast } from '@/lib/notifications';
 import { getSupabase } from '@/lib/supabase';
 import { getAuthToken } from '@/lib/api';
@@ -2673,6 +2675,26 @@ export function PublicEventPageContent({
                                         </>
                                     )}
                                 </div>
+                                {event.startDatetime && (
+                                    <div className="basis-full sm:basis-auto sm:ml-auto sm:pr-4">
+                                        <AddToCalendarButton
+                                            event={{
+                                                title: event.title || 'Event',
+                                                description: event.description,
+                                                start: event.startDatetime,
+                                                end: event.endDatetime,
+                                                timezone: event.timezone,
+                                                location:
+                                                    event.locationType === 'online'
+                                                        ? event.onlineUrl || 'Online'
+                                                        : [event.venue, event.address, event.city, event.country]
+                                                              .filter(Boolean)
+                                                              .join(', ') || undefined,
+                                                url: absoluteUrl(`/events/${event.slug || event.id}`),
+                                            }}
+                                        />
+                                    </div>
+                                )}
                             </motion.div>
 
                             <Separator />

@@ -21,3 +21,21 @@ Use this ledger for recurring frontend bugs where the root cause, failed approac
 - Root cause: The dashboard performance API returned only the UUID, while the public event route expects the event slug.
 - Working pattern: include `slug` in organiser/dashboard API payloads that build public event URLs; build public links from `slug` with an ID fallback only for compatibility.
 - Verification: focused URL-helper unit test plus backend/frontend/mobile type checks.
+
+## Tailwind v4 Scanner Misses Classes In Template Literals
+
+- Date: 2026-07-09
+- Area: FAQ deep-link scroll offset (`FaqPageClient.tsx`)
+- Symptom: `scroll-mt-[calc(var(--nav-safe-offset)+1rem)]` was in the DOM `class` attribute but computed `scroll-margin-top: 0px`; the utility was absent from both dev and production CSS.
+- Root cause: the Tailwind v4 source scanner does not extract an arbitrary-value candidate placed at the start of a JSX template literal (`` className={`scroll-mt-[...]${...}`} ``). The identical utility in a plain quoted string elsewhere in the repo was generated fine.
+- Working pattern: hoist the class into a plain string constant (`const x = 'scroll-mt-[...]'`) and interpolate the constant.
+- Verification: check the computed style in the browser, and grep the built CSS in `.next/static/chunks/*.css` for the escaped selector; do not trust the class being present in the DOM.
+
+## Hash Deep-Link Scroll Lands Under The Floating Nav
+
+- Date: 2026-07-09
+- Area: `/faq#<item-id>` deep links
+- Symptom: after navigation to a hash URL, the target element sat behind the fixed navbar despite a correct computed `scroll-margin-top`.
+- Root cause: two scroll actors ignore the margin. Next.js App Router performs its own hash scroll without honoring `scroll-margin`, and `scrollIntoView` loses the margin when an ancestor is an `overflow-hidden` wrapper (it is treated as a scroll container in the ancestor chain).
+- Working pattern: after mount, wait for Next's scroll and any entrance animation (`animate-fade-up` is 0.6s), then `window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - parseFloat(getComputedStyle(el).scrollMarginTop), behavior: 'smooth' })`.
+- Verification: measure `el.getBoundingClientRect().top` after settle in Playwright at both 375 and 1440 widths; it should equal the intended offset, not 0 or negative.
