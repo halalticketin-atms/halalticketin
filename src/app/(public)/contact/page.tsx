@@ -262,6 +262,17 @@ export default function ContactPage() {
                                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                                     Something about the platform itself, or an issue you&rsquo;d like us to look into? Send it below.
                                 </p>
+
+                                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                                    Looking for a quick answer first? Check our{' '}
+                                    <Link
+                                        href="/faq"
+                                        className="font-medium text-[var(--brand-teal)] underline underline-offset-2 transition-colors hover:text-[var(--brand-cyan)]"
+                                    >
+                                        FAQ
+                                    </Link>
+                                    .
+                                </p>
                             </div>
                         </div>
                     </div>
