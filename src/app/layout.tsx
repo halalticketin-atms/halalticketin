@@ -58,14 +58,16 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: DEFAULT_TITLE,
-  description: DEFAULT_DESCRIPTION,
   keywords: DEFAULT_KEYWORDS,
+  other: {
+    description: DEFAULT_DESCRIPTION,
+  },
   alternates: {
     canonical: absoluteUrl('/'),
   },
   openGraph: {
     title: DEFAULT_TITLE,
-    description: DEFAULT_DESCRIPTION,
+    description: '',
     url: absoluteUrl('/'),
     siteName: SITE_NAME,
     type: 'website',
@@ -73,7 +75,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: DEFAULT_TITLE,
-    description: DEFAULT_DESCRIPTION,
+    description: '',
   },
   icons: {
     icon: [
