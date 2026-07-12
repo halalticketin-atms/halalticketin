@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const SITE_NAME = "HalalTicketin'";
-export const DEFAULT_TITLE = `${SITE_NAME} - Your Home of Meaningful Events`;
+export const DEFAULT_TITLE = `${SITE_NAME} - Your Home for Meaningful Events`;
 export const DEFAULT_DESCRIPTION =
   'Discover, create, and manage meaningful halal-friendly events for your community.';
 export const DEFAULT_KEYWORDS = [

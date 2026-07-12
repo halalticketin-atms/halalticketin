@@ -106,25 +106,8 @@ export default async function OpenGraphImage() {
               lineHeight: 1.35,
             }}
           >
-            Discover halal-friendly gatherings, workshops and experiences near you.
+            Discover, create, and manage meaningful halal-friendly events for your community.
           </div>
-        </div>
-
-        <div
-          style={{
-            position: 'absolute',
-            left: 72,
-            top: 474,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            color: '#0b777d',
-            fontSize: 23,
-            fontWeight: 700,
-          }}
-        >
-          halalticketin.com
-          <div style={{ fontSize: 24 }}>→</div>
         </div>
       </div>
 
@@ -137,7 +120,6 @@ export default async function OpenGraphImage() {
           height: 390,
           display: 'flex',
           overflow: 'hidden',
-          transform: 'rotate(4deg)',
         }}
       >
         <img
