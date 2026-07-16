@@ -48,6 +48,7 @@ export function EventLocationMap({
     return (
         <Card className={className}>
             <MapContainer
+                className="isolate"
                 center={position}
                 zoom={15}
                 style={{ height: '300px', width: '100%', borderRadius: '0.5rem' }}

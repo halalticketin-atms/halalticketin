@@ -641,7 +641,7 @@ test.describe('Checkout Journey - Responsive Design', () => {
         }
     });
 
-    test('checkout modal keeps top padding across steps and closes in one tap on mobile', async ({ page }) => {
+    test('checkout modal stays above the event map, keeps top padding, and closes in one tap on mobile', async ({ page }) => {
         const mockEventId = '11111111-1111-4111-8111-111111111111';
 
         await page.route(`**/api/v1/public/events/${REAL_EVENTS.paidEvent}`, (route) => {
@@ -666,8 +666,8 @@ test.describe('Checkout Journey - Responsive Design', () => {
                         city: 'London',
                         country: 'UK',
                         onlineUrl: null,
-                        latitude: null,
-                        longitude: null,
+                        latitude: 53.3081,
+                        longitude: -6.22657,
                         currency: 'GBP',
                         organizerName: 'Test Organizer',
                         organizerAvatarUrl: null,
@@ -735,10 +735,43 @@ test.describe('Checkout Journey - Responsive Design', () => {
 
         const openCheckoutButton = page.getByRole('button', { name: /proceed to checkout/i }).first();
         await expect(openCheckoutButton).toBeVisible();
-        await openCheckoutButton.click();
+
+        const locationMap = page.locator('.leaflet-container');
+        const mapZoomControl = page.locator('.leaflet-control-zoom');
+        await expect(locationMap).toBeVisible();
+        await locationMap.evaluate((map) => map.scrollIntoView({ block: 'center' }));
+        await expect(mapZoomControl).toBeVisible();
+
+        // Preserve the map's viewport position so the test exercises the real overlap.
+        await openCheckoutButton.evaluate((button: HTMLButtonElement) => button.click());
 
         const checkoutDialog = page.locator('[data-slot="dialog-content"]').last();
         await expect(checkoutDialog).toBeVisible();
+
+        const isCheckoutTopmostAtMapOverlap = await page.evaluate(() => {
+            const mapControl = document.querySelector('.leaflet-control-zoom');
+            const dialog = document.querySelector('[data-slot="dialog-content"]');
+            if (!(mapControl instanceof HTMLElement) || !(dialog instanceof HTMLElement)) {
+                return false;
+            }
+
+            const mapRect = mapControl.getBoundingClientRect();
+            const dialogRect = dialog.getBoundingClientRect();
+            const left = Math.max(mapRect.left, dialogRect.left);
+            const right = Math.min(mapRect.right, dialogRect.right);
+            const top = Math.max(mapRect.top, dialogRect.top);
+            const bottom = Math.min(mapRect.bottom, dialogRect.bottom);
+            if (left >= right || top >= bottom) {
+                return false;
+            }
+
+            const topmostElement = document.elementFromPoint(
+                (left + right) / 2,
+                (top + bottom) / 2,
+            );
+            return Boolean(topmostElement?.closest('[data-slot="dialog-content"]'));
+        });
+        expect(isCheckoutTopmostAtMapOverlap).toBe(true);
 
         const boxStepOne = await checkoutDialog.boundingBox();
         expect(boxStepOne).not.toBeNull();
