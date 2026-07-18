@@ -63,6 +63,7 @@ const ticket = {
   salesStart: null,
   salesEnd: null,
   absorbFee: null,
+  waitlistEnabled: false,
   customFee: null,
   earlyBirdPrice: null,
   earlyBirdEndDate: null,
@@ -79,6 +80,7 @@ async function mockEditPage(
 ) {
   const event = { ...eventFixture(coordinates), ...overrides };
   const patchBodies: unknown[] = [];
+  const requestOrder: string[] = [];
   let publishCalls = 0;
 
   await page.addInitScript(() => {
@@ -117,13 +119,17 @@ async function mockEditPage(
   }] }));
   await page.route('**/api/v1/exchange-rates**', route => fulfillJson(route, { base: 'GBP', rates: { GBP: 1, EUR: 1.18 } }));
   await page.route(`**/api/v1/events/${eventId}/promo-codes`, route => fulfillJson(route, { promoCodes: [] }));
-  await page.route(`**/api/v1/events/${eventId}/tickets`, route => fulfillJson(route, { tickets: [ticket] }));
+  await page.route(`**/api/v1/events/${eventId}/tickets`, route => {
+    if (route.request().method() === 'PUT') requestOrder.push('tickets');
+    return fulfillJson(route, { tickets: [ticket] });
+  });
   await page.route(`**/api/v1/events/${eventId}/publish`, async route => {
     publishCalls += 1;
     await fulfillJson(route, { event });
   });
   await page.route(`**/api/v1/events/${eventId}`, async route => {
     if (route.request().method() === 'PATCH') {
+      requestOrder.push('event');
       patchBodies.push(route.request().postDataJSON());
       await fulfillJson(route, { event: { ...event, ...route.request().postDataJSON() } });
       return;
@@ -133,7 +139,7 @@ async function mockEditPage(
   await page.route(`**/api/v1/organizers/${organizerId}/custom-questions`, route => fulfillJson(route, { questions: [] }));
   await page.route(`**/api/v1/organizers/${organizerId}/credits`, route => fulfillJson(route, { balance: 1000 }));
 
-  return { patchBodies, getPublishCalls: () => publishCalls };
+  return { patchBodies, requestOrder, getPublishCalls: () => publishCalls };
 }
 
 async function openLocationStep(page: Page) {
@@ -141,8 +147,8 @@ async function openLocationStep(page: Page) {
   await expect(page.getByPlaceholder('Search for Location')).toBeVisible();
 }
 
-const getSaveDraftButton = (page: Page) =>
-  page.getByRole('button', { name: 'Save draft' });
+const getUpdateEventButton = (page: Page) =>
+  page.getByRole('button', { name: 'Update event' });
 
 const recoveredFormData = (coordinates: Coordinates) => ({
   title: 'Recovered Community Gathering',
@@ -200,7 +206,7 @@ test('published legacy location permits an unrelated edit without reconfirmation
   await page.goto(`/events/${eventId}/edit`);
   await expect(page.getByLabel('Event Title *')).toBeVisible();
   await page.getByLabel('Event Title *').fill('Updated Community Gathering');
-  await page.getByRole('button', { name: 'Update Event' }).click();
+  await page.getByRole('button', { name: 'Update event' }).click();
 
   await expect.poll(() => requests.patchBodies.length).toBe(1);
   expect(requests.patchBodies[0]).toMatchObject({
@@ -226,7 +232,7 @@ test('changing venue text invalidates a stale legacy location', async ({ page })
   await page.getByPlaceholder('Search for Location').fill('Changed venue');
   await expect(page.getByLabel('Address (optional override)')).toHaveValue('');
   await expect(page.getByLabel('City')).toHaveValue('');
-  await getSaveDraftButton(page).click();
+  await getUpdateEventButton(page).click();
 
   await expect(page.getByText('Address is required when entering a venue manually.').first()).toBeVisible();
   expect(requests.patchBodies).toHaveLength(0);
@@ -241,18 +247,54 @@ test('published coordinate-backed location permits an unrelated edit with empty 
   );
   await page.goto(`/events/${eventId}/edit`);
   await page.getByLabel('Event Title *').fill('Coordinate-backed Event');
-  await page.getByRole('button', { name: 'Update Event' }).click();
+  await page.getByRole('button', { name: 'Update event' }).click();
 
   await expect.poll(() => requests.patchBodies.length).toBe(1);
   await expect.poll(requests.getPublishCalls).toBe(1);
 });
 
-test('published invalid location is blocked through Save Draft', async ({ page }) => {
+test('first published waitlist enable saves the eligible ticket before the event', async ({ page }) => {
+  const requests = await mockEditPage(page, { latitude: 53.3498, longitude: -6.2603 });
+  await page.goto(`/events/${eventId}/edit`);
+  await page.getByRole('button', { name: 'Tickets', exact: true }).click();
+  await page.getByRole('switch', { name: 'Enable waitlist for sold-out tickets' }).click();
+  await page.getByRole('checkbox', { name: 'Include this ticket in the waitlist' }).click();
+  await getUpdateEventButton(page).click();
+
+  await expect.poll(() => requests.requestOrder.length).toBeGreaterThanOrEqual(2);
+  expect(requests.requestOrder.slice(0, 2)).toEqual(['tickets', 'event']);
+});
+
+test('published numeric ticket blanks are blocked before Update or Preview writes', async ({ page }) => {
+  const requests = await mockEditPage(page, { latitude: 53.3498, longitude: -6.2603 });
+  await page.goto(`/events/${eventId}/edit`);
+  await page.getByRole('button', { name: 'Tickets', exact: true }).click();
+  await page.getByLabel('Ticket price').fill('');
+  await page.getByLabel('Ticket quantity').fill('');
+
+  await getUpdateEventButton(page).click();
+  await expect(page.getByText('Enter a valid price for this paid ticket.').first()).toBeVisible();
+  await expect(page.getByText('Enter a ticket quantity of at least 1.').first()).toBeVisible();
+  expect(requests.requestOrder).toHaveLength(0);
+
+  await page.getByRole('button', { name: 'Close toast' }).click();
+
+  let popupCount = 0;
+  page.on('popup', popup => {
+    popupCount += 1;
+    void popup.close();
+  });
+  await page.getByRole('button', { name: 'Preview event' }).click();
+  expect(popupCount).toBe(0);
+  expect(requests.requestOrder).toHaveLength(0);
+});
+
+test('published invalid location is blocked through Update event', async ({ page }) => {
   const requests = await mockEditPage(page, { latitude: null, longitude: null });
   await page.goto(`/events/${eventId}/edit`);
   await openLocationStep(page);
   await page.getByPlaceholder('Search for Location').fill('Changed venue');
-  await getSaveDraftButton(page).click();
+  await getUpdateEventButton(page).click();
 
   await expect(page.getByText('Address is required when entering a venue manually.').first()).toBeVisible();
   expect(requests.patchBodies).toHaveLength(0);
@@ -266,16 +308,17 @@ test('minimum-age validation clears when the organiser corrects the field', asyn
 
   const minimumAgeInput = page.getByLabel('Minimum attendee age');
   await expect(minimumAgeInput).toBeVisible();
-  const minimumAgeError = page.getByText('Enter a minimum age from 0 to 120.');
+  const minimumAgeError = page.locator('main').getByText('Enter a minimum age from 0 to 120.');
   await minimumAgeInput.fill('-1');
   await expect(minimumAgeError).toHaveCount(0);
 
-  await getSaveDraftButton(page).click();
+  await getUpdateEventButton(page).click();
   await expect(minimumAgeError.first()).toBeVisible();
   expect(requests.patchBodies).toHaveLength(0);
 
   await minimumAgeInput.fill('18');
   await expect(minimumAgeError).toHaveCount(0);
+  await expect(minimumAgeInput).toHaveAttribute('aria-invalid', 'false');
 });
 
 test('published invalid location is blocked through Preview', async ({ page }) => {
@@ -284,12 +327,15 @@ test('published invalid location is blocked through Preview', async ({ page }) =
   await openLocationStep(page);
   await page.getByPlaceholder('Search for Location').fill('Changed venue');
 
-  const popupPromise = page.waitForEvent('popup');
+  let popupCount = 0;
+  page.on('popup', popup => {
+    popupCount += 1;
+    void popup.close();
+  });
   await page.getByRole('button', { name: 'Preview event' }).click();
-  const popup = await popupPromise;
 
   await expect(page.getByText('Address is required when entering a venue manually.').first()).toBeVisible();
-  await expect.poll(() => popup.isClosed()).toBe(true);
+  expect(popupCount).toBe(0);
   expect(requests.patchBodies).toHaveLength(0);
 });
 
@@ -305,7 +351,7 @@ for (const field of ['address', 'city'] as const) {
     await page.getByLabel(field === 'address' ? 'Address (optional override)' : 'City').fill(
       field === 'address' ? '10 Deansgate' : 'Manchester',
     );
-    await getSaveDraftButton(page).click();
+    await getUpdateEventButton(page).click();
 
     await expect.poll(() => requests.patchBodies.length).toBe(1);
     expect(requests.patchBodies[0]).toMatchObject({
@@ -348,7 +394,7 @@ test('recovered unchanged location preserves the server coordinate pair', async 
   );
   await page.goto(`/events/${eventId}/edit`);
   await expect(page.getByLabel('Event Title *')).toHaveValue('Recovered Community Gathering');
-  await getSaveDraftButton(page).click();
+  await getUpdateEventButton(page).click();
 
   await expect.poll(() => requests.patchBodies.length).toBe(1);
   expect(requests.patchBodies[0]).toMatchObject({ latitude: 53.3498, longitude: -6.2603 });
@@ -394,7 +440,7 @@ test('recovered changed text cannot save with the stale server coordinate pair',
   );
   await page.goto(`/events/${eventId}/edit`);
   await expect(page.getByPlaceholder('Search for Location')).toHaveValue('Manchester Hall');
-  await getSaveDraftButton(page).click();
+  await getUpdateEventButton(page).click();
 
   await expect(page.getByText(/select the updated venue/i).first()).toBeVisible();
   expect(requests.patchBodies).toHaveLength(0);
@@ -409,7 +455,7 @@ test('accepts a published manual location with a null coordinate pair', async ({
   );
   await page.goto(`/events/${eventId}/edit`);
   await page.getByLabel('Event Title *').fill('Updated manual event');
-  await getSaveDraftButton(page).click();
+  await getUpdateEventButton(page).click();
 
   await expect.poll(() => requests.patchBodies.length).toBe(1);
   expect(requests.patchBodies[0]).toMatchObject({ latitude: null, longitude: null });
@@ -423,7 +469,7 @@ test('accepts 0,0 as a published coordinate pair', async ({ page }) => {
   );
   await page.goto(`/events/${eventId}/edit`);
   await page.getByLabel('Event Title *').fill('Zero coordinate event');
-  await getSaveDraftButton(page).click();
+  await getUpdateEventButton(page).click();
 
   await expect.poll(() => requests.patchBodies.length).toBe(1);
   expect(requests.patchBodies[0]).toMatchObject({ latitude: 0, longitude: 0 });
@@ -440,7 +486,7 @@ test('online published events validate only the online location half', async ({ 
   });
   await page.goto(`/events/${eventId}/edit`);
   await page.getByLabel('Event Title *').fill('Updated online event');
-  await getSaveDraftButton(page).click();
+  await getUpdateEventButton(page).click();
 
   await expect.poll(() => requests.patchBodies.length).toBe(1);
   expect(requests.patchBodies[0]).toMatchObject({
@@ -460,7 +506,7 @@ test('hybrid published events require both physical and online location halves',
     onlineUrl: null,
   });
   await page.goto(`/events/${eventId}/edit`);
-  await getSaveDraftButton(page).click();
+  await getUpdateEventButton(page).click();
 
   await expect(page.getByText('Online URL is required for online or hybrid events.').first()).toBeVisible();
   expect(requests.patchBodies).toHaveLength(0);

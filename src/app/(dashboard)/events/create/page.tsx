@@ -93,6 +93,7 @@ import { useOrganizers } from '@/context/organizer-context';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import {
     createEventDraft,
+    fetchEventDetails,
     createPromoCode,
     deletePromoCode,
     fetchEventPromoCodes,
@@ -104,7 +105,7 @@ import {
     type CustomQuestionLibraryItem,
     type UpsertEventPayload,
 } from '@/lib/events-api';
-import { mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
+import { buildDraftFromEventRecord, mapPromoCodeRecordsToDraft, mapTicketRecordsToDraft } from '@/lib/ticket-mappers';
 import { ApiError } from '@/lib/api';
 import { getBackendErrorDetails } from '@/lib/api-errors';
 import { getUserFriendlyMessage, toast } from '@/lib/notifications';
@@ -117,6 +118,11 @@ import { getCreditBalance } from '@/lib/credits-api';
 import { clearEventEditRecovery, getEventEditRecoverySavedAt, writeEventEditRecovery } from '@/lib/event-edit-recovery';
 import { getWizardErrorTarget } from '@/lib/event-wizard-sections';
 import { validateMinimumAttendeeAge } from '@/lib/event-minimum-age';
+import { isNewerServerTimestamp, shouldApplyForegroundRefresh } from '@/lib/foreground-refresh';
+import {
+    hasEligibleWaitlistTicket,
+    shouldStageTicketsBeforePublishedWaitlistEnable,
+} from '@/lib/event-waitlist-validation';
 import {
     updateLocationTextField,
     validateEventLocation,
@@ -239,6 +245,7 @@ async function dataUrlToFile(dataUrl: string, fallbackName: string): Promise<Fil
 
 type TicketFieldErrors = {
     name?: string;
+    minPerOrder?: string;
     maxPerOrder?: string;
     price?: string;
     quantity?: string;
@@ -247,6 +254,47 @@ type TicketFieldErrors = {
     salesEnd?: string;
     earlyBirdPrice?: string;
     earlyBirdEndDate?: string;
+};
+
+const validateLiveTicketFields = (tickets: DraftTicketType[]) => {
+    const ticketErrors: Record<string, TicketFieldErrors> = {};
+    let firstMessage: string | null = null;
+
+    tickets.forEach((ticket) => {
+        if (ticket.type === 'donation') return;
+        const errors: TicketFieldErrors = {};
+        const addError = (field: keyof TicketFieldErrors, message: string) => {
+            errors[field] = message;
+            firstMessage ??= message;
+        };
+
+        const price = ticket.price.trim();
+        if (!ticket.isFree && (price.length === 0 || !Number.isFinite(Number(price)) || Number(price) < 0)) {
+            addError('price', 'Enter a valid price for this paid ticket.');
+        }
+        if (!Number.isInteger(ticket.quantity) || ticket.quantity < 1) {
+            addError('quantity', 'Enter a ticket quantity of at least 1.');
+        }
+        if (!Number.isInteger(ticket.minPerOrder) || ticket.minPerOrder < 0) {
+            addError('minPerOrder', 'Enter a minimum per order, or turn the limit off.');
+        }
+        if (!Number.isInteger(ticket.maxPerOrder) || ticket.maxPerOrder < 0) {
+            addError('maxPerOrder', 'Enter a maximum per order, or turn the limit off.');
+        } else if (
+            ticket.maxPerOrder > 0
+            && ticket.minPerOrder > 0
+            && ticket.maxPerOrder < ticket.minPerOrder
+        ) {
+            addError('maxPerOrder', 'Maximum per order must not be lower than the minimum.');
+        }
+
+        if (Object.keys(errors).length > 0) ticketErrors[ticket.id] = errors;
+    });
+
+    return {
+        fieldErrors: firstMessage ? { tickets: firstMessage } : {},
+        ticketErrors,
+    };
 };
 
 type PromoFieldErrors = {
@@ -731,6 +779,11 @@ const validatePublishForm = (
         errors.tickets = 'At least one ticket type must be configured before publishing.';
     }
 
+    if (formData.waitlistEnabled && !hasEligibleWaitlistTicket(tickets)) {
+        errors.waitlistEnabled = 'Enable waitlist for at least one public, non-donation ticket.';
+        errors.tickets = errors.tickets ?? 'Choose a public ticket type that accepts waitlist signups.';
+    }
+
     const trimmedRefundPolicy = formData.refundPolicy.trim();
     if (!trimmedRefundPolicy) {
         errors.refundPolicy = 'Select a refund policy before publishing.';
@@ -751,7 +804,10 @@ const validatePublishForm = (
         }
     }
 
-    return errors;
+    const liveTicketValidation = validateLiveTicketFields(tickets);
+    Object.assign(errors, liveTicketValidation.fieldErrors);
+
+    return { fieldErrors: errors, ticketErrors: liveTicketValidation.ticketErrors };
 };
 
 const PARTIAL_SAVE_PROMO_MESSAGE =
@@ -769,6 +825,7 @@ export function EventWizard({
     embedCheckout,
     recoveryNotice,
     persistedLocation,
+    serverUpdatedAt,
 }: {
     mode?: 'create' | 'edit';
     initialDraft?: DraftEventInitial;
@@ -782,6 +839,7 @@ export function EventWizard({
         onDiscard: () => void;
     };
     persistedLocation?: EventLocationFields;
+    serverUpdatedAt?: string | null;
 }) {
     const {
         currentStep,
@@ -1076,6 +1134,9 @@ export function EventWizard({
                 initialDraft?.eventId ?? null,
             )
             : null,
+    );
+    const lastSavedWaitlistEnabledRef = useRef(
+        initialDraft?.formData?.waitlistEnabled ?? false,
     );
 
     useEffect(() => {
@@ -1605,9 +1666,21 @@ export function EventWizard({
     );
     const lastSavedSnapshotRef = useRef(recoveryNotice ? '' : serializedDraft);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const hasUnsavedChangesRef = useRef(false);
+    const foregroundRequestVersionRef = useRef(0);
+    const saveGenerationRef = useRef(0);
+    const isSavingRef = useRef(false);
+    const lastServerUpdatedAtRef = useRef<string | null>(serverUpdatedAt ?? null);
+    const [serverChangeDraft, setServerChangeDraft] = useState<DraftEventInitial | null>(null);
 
     useEffect(() => {
-        setHasUnsavedChanges(serializedDraft !== lastSavedSnapshotRef.current);
+        lastServerUpdatedAtRef.current = serverUpdatedAt ?? null;
+    }, [serverUpdatedAt]);
+
+    useEffect(() => {
+        const nextHasUnsavedChanges = serializedDraft !== lastSavedSnapshotRef.current;
+        hasUnsavedChangesRef.current = nextHasUnsavedChanges;
+        setHasUnsavedChanges(nextHasUnsavedChanges);
     }, [serializedDraft]);
 
     const persistEditRecovery = useCallback((options?: {
@@ -1690,6 +1763,7 @@ export function EventWizard({
                 promoCodes: snapshotPromoCodes,
             });
             lastSavedSnapshotRef.current = snapshot;
+            lastSavedWaitlistEnabledRef.current = snapshotFormData.waitlistEnabled;
             lastSavedTicketPayloadRef.current = serializeTicketPayloadsForSave(
                 snapshotTickets,
                 snapshotFormData.currency,
@@ -1700,10 +1774,73 @@ export function EventWizard({
                 clearEventEditRecovery(snapshotEventId);
             }
             setHasUnsavedChanges(false);
+            hasUnsavedChangesRef.current = false;
             setLastSavedAt(new Date());
         },
         [eventId, formData, promoCodes, tickets],
     );
+
+    const applyForegroundDraft = useCallback((draft: DraftEventInitial) => {
+        setFormData((current) => ({ ...current, ...draft.formData }));
+        setTickets(draft.tickets ?? []);
+        setPromoCodes(draft.promoCodes ?? []);
+        setHasExistingAccessCode(draft.formData?.accessCodeEnabled ?? false);
+        markSnapshotAsSaved({
+            formData: { ...formData, ...draft.formData },
+            tickets: draft.tickets ?? [],
+            promoCodes: draft.promoCodes ?? [],
+            eventId: draft.eventId ?? eventId,
+        });
+    }, [eventId, formData, markSnapshotAsSaved, setFormData, setPromoCodes, setTickets]);
+
+    const refreshEditorOnForeground = useCallback(async () => {
+        if (mode !== 'edit' || !eventId || isSavingRef.current) return;
+        const requestVersion = ++foregroundRequestVersionRef.current;
+        const saveGenerationAtStart = saveGenerationRef.current;
+        try {
+            const [eventResponse, promoResponse] = await Promise.all([
+                fetchEventDetails(eventId),
+                fetchEventPromoCodes(eventId),
+            ]);
+            if (!shouldApplyForegroundRefresh({
+                requestVersion,
+                currentRequestVersion: foregroundRequestVersionRef.current,
+                saveGenerationAtStart,
+                currentSaveGeneration: saveGenerationRef.current,
+                saveInProgress: isSavingRef.current,
+            })) return;
+
+            const nextUpdatedAt = eventResponse.event.updatedAt;
+            if (!isNewerServerTimestamp(lastServerUpdatedAtRef.current, nextUpdatedAt)) return;
+            const nextDraft = buildDraftFromEventRecord(
+                eventResponse.event,
+                eventResponse.tickets,
+                promoResponse.promoCodes,
+            );
+            lastServerUpdatedAtRef.current = nextUpdatedAt;
+            if (hasUnsavedChangesRef.current) {
+                setServerChangeDraft(nextDraft);
+                return;
+            }
+            applyForegroundDraft(nextDraft);
+        } catch {
+            // Foreground refresh is advisory. Preserve the current editor and retry next focus.
+        }
+    }, [applyForegroundDraft, eventId, mode]);
+
+    useEffect(() => {
+        if (mode !== 'edit') return;
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') void refreshEditorOnForeground();
+        };
+        const handleFocus = () => void refreshEditorOnForeground();
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleFocus);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [mode, refreshEditorOnForeground]);
 
     useEffect(() => {
         if (typeof window === 'undefined' || !hasUnsavedChanges) {
@@ -1772,15 +1909,20 @@ export function EventWizard({
                 }
 
                 if (eventStatus === 'published') {
-                    const locationErrors = validateEventLocation(formData, {
-                        persistedPublishedLocation: persistedLocation,
-                    });
-                    if (Object.keys(locationErrors).length > 0) {
-                        setFieldErrors(locationErrors);
+                    const liveValidation = validatePublishForm(
+                        formData,
+                        tickets,
+                        hasExistingAccessCode,
+                        persistedLocation,
+                    );
+                    const liveFieldErrors = liveValidation.fieldErrors;
+                    setTicketErrors(liveValidation.ticketErrors);
+                    if (Object.keys(liveFieldErrors).length > 0) {
+                        setFieldErrors(liveFieldErrors);
                         setPublishErrors([]);
-                        goToStepForErrors(locationErrors);
-                        const errorMessage = Object.values(locationErrors)[0]
-                            ?? 'Fix the highlighted location fields before saving.';
+                        goToStepForErrors(liveFieldErrors);
+                        const errorMessage = Object.values(liveFieldErrors)[0]
+                            ?? 'Fix the highlighted fields before updating this event.';
                         setActionError(errorMessage);
                         if (!options?.silent) {
                             toast.error(errorMessage);
@@ -1789,6 +1931,9 @@ export function EventWizard({
                     }
                 }
 
+                // Invalidate any foreground read that began before or during this save.
+                saveGenerationRef.current += 1;
+                isSavingRef.current = true;
                 setIsSaving(true);
                 setActionError(null);
                 setHasOrganizerContactPublishBlocker(false);
@@ -1830,6 +1975,53 @@ export function EventWizard({
                         payload.bannerImageUrl = null;
                     }
                     let nextEventId = eventId;
+                    let normalizedTickets = tickets;
+                    const ticketIdMap = new Map<string, string>();
+                    let ticketsSavedBeforeEvent = false;
+                    let ticketSavePlan: ReturnType<typeof getTicketSavePlan> | null = nextEventId
+                        ? getTicketSavePlan({
+                            tickets,
+                            currency: formData.currency,
+                            timeZone: formData.timezone,
+                            existingEventId: nextEventId,
+                            lastSavedSerializedPayload: lastSavedTicketPayloadRef.current,
+                        })
+                        : null;
+
+                    const persistTickets = async (
+                        targetEventId: string,
+                        plan: ReturnType<typeof getTicketSavePlan>,
+                    ) => {
+                        console.log('[DEBUG] Saving tickets for event:', targetEventId, 'payload:', plan.payloads);
+                        const ticketResponse = await saveEventTickets(targetEventId, plan.payloads);
+                        if (ticketResponse.tickets && ticketResponse.tickets.length > 0) {
+                            normalizedTickets = mapTicketRecordsToDraft(ticketResponse.tickets, formData.timezone);
+                            setTickets(normalizedTickets);
+                            const limit = Math.min(tickets.length, ticketResponse.tickets.length);
+                            for (let i = 0; i < limit; i += 1) {
+                                const previousId = tickets[i]?.id;
+                                const savedTicketId = ticketResponse.tickets[i]?.id;
+                                if (previousId && savedTicketId) {
+                                    ticketIdMap.set(previousId, savedTicketId);
+                                }
+                            }
+                        }
+                    };
+
+                    if (
+                        nextEventId
+                        && ticketSavePlan
+                        && shouldStageTicketsBeforePublishedWaitlistEnable({
+                            eventStatus,
+                            previousWaitlistEnabled: lastSavedWaitlistEnabledRef.current,
+                            nextWaitlistEnabled: formData.waitlistEnabled,
+                            ticketsNeedSave: ticketSavePlan.shouldSave,
+                        })
+                    ) {
+                        await persistTickets(nextEventId, ticketSavePlan);
+                        ticketsSavedBeforeEvent = true;
+                        eventWasPersisted = true;
+                    }
 
                     if (!nextEventId) {
                         if (mode === 'edit') {
@@ -1840,6 +2032,7 @@ export function EventWizard({
                         nextEventId = response.event.id;
                         persistedEventId = nextEventId;
                         persistedEventUpdatedAt = response.event.updatedAt;
+                        lastServerUpdatedAtRef.current = persistedEventUpdatedAt;
                         eventWasPersisted = true;
                         setEventId(nextEventId);
                         setDraftEmbedSlug(response.event.slug ?? null);
@@ -1849,6 +2042,7 @@ export function EventWizard({
                         const response = await updateEventDraft(nextEventId, payload);
                         persistedEventId = nextEventId;
                         persistedEventUpdatedAt = response.event.updatedAt;
+                        lastServerUpdatedAtRef.current = persistedEventUpdatedAt;
                         eventWasPersisted = true;
                         setDraftEmbedSlug(response.event.slug ?? null);
                         setDraftEmbedStatus(response.event.status ?? 'draft');
@@ -1860,10 +2054,7 @@ export function EventWizard({
                         (formData.accessCode.trim().length > 0 || hasExistingAccessCode);
                     setHasExistingAccessCode(accessCodeShouldPersist);
 
-                    let normalizedTickets = tickets;
-                    const ticketIdMap = new Map<string, string>();
-
-                    const ticketSavePlan = getTicketSavePlan({
+                    ticketSavePlan ??= getTicketSavePlan({
                         tickets,
                         currency: formData.currency,
                         timeZone: formData.timezone,
@@ -1871,21 +2062,8 @@ export function EventWizard({
                         lastSavedSerializedPayload: lastSavedTicketPayloadRef.current,
                     });
 
-                    if (ticketSavePlan.shouldSave) {
-                        console.log('[DEBUG] Saving tickets for event:', nextEventId, 'payload:', ticketSavePlan.payloads);
-                        const ticketResponse = await saveEventTickets(nextEventId, ticketSavePlan.payloads);
-                        if (ticketResponse.tickets && ticketResponse.tickets.length > 0) {
-                            normalizedTickets = mapTicketRecordsToDraft(ticketResponse.tickets, formData.timezone);
-                            setTickets(normalizedTickets);
-                            const limit = Math.min(tickets.length, ticketResponse.tickets.length);
-                            for (let i = 0; i < limit; i += 1) {
-                                const previousId = tickets[i]?.id;
-                                const nextId = ticketResponse.tickets[i]?.id;
-                                if (previousId && nextId) {
-                                    ticketIdMap.set(previousId, nextId);
-                                }
-                            }
-                        }
+                    if (ticketSavePlan.shouldSave && !ticketsSavedBeforeEvent) {
+                        await persistTickets(nextEventId, ticketSavePlan);
                     }
 
                     // Save promo codes (only if we have a valid event ID)
@@ -2232,6 +2410,8 @@ export function EventWizard({
                     setActionError(message);
                     return null;
                 } finally {
+                    saveGenerationRef.current += 1;
+                    isSavingRef.current = false;
                     setIsSaving(false);
                 }
             };
@@ -2485,12 +2665,14 @@ export function EventWizard({
             setActionError(`Please add options for: ${questionLabels}`);
             return;
         }
-        const publishFieldErrors = validatePublishForm(
+        const publishValidation = validatePublishForm(
             formData,
             tickets,
             hasExistingAccessCode,
             persistedLocation,
         );
+        const publishFieldErrors = publishValidation.fieldErrors;
+        setTicketErrors(publishValidation.ticketErrors);
         if (Object.keys(publishFieldErrors).length > 0) {
             setFieldErrors(publishFieldErrors);
             setPublishErrors([]);
@@ -2524,6 +2706,27 @@ export function EventWizard({
     }, [activeOrganizerId, canUseCredits, executePublish, formData, goToStepForErrors, hasExistingAccessCode, isPublishing, navigateToStepWithSubStep, persistedLocation, tickets]);
 
     const handlePreviewClick = useCallback(async () => {
+        if (eventStatus === 'published') {
+            const liveValidation = validatePublishForm(
+                formData,
+                tickets,
+                hasExistingAccessCode,
+                persistedLocation,
+            );
+            const liveFieldErrors = liveValidation.fieldErrors;
+            setTicketErrors(liveValidation.ticketErrors);
+            if (Object.keys(liveFieldErrors).length > 0) {
+                setFieldErrors(liveFieldErrors);
+                setPublishErrors([]);
+                goToStepForErrors(liveFieldErrors);
+                setActionError(
+                    Object.values(liveFieldErrors)[0]
+                    ?? 'Fix the highlighted fields before previewing this event.',
+                );
+                return;
+            }
+        }
+
         const previewWindow = window.open('', '_blank');
         if (!previewWindow) {
             toast.warning('Popup blocked. Allow popups to open the preview.');
@@ -2554,7 +2757,7 @@ export function EventWizard({
             previewWindow.close();
             setActionError('Please save the event before previewing.');
         }
-    }, [eventId, mode, router, saveDraft]);
+    }, [eventId, eventStatus, formData, goToStepForErrors, hasExistingAccessCode, mode, persistedLocation, router, saveDraft, tickets]);
 
     const isBusy = isSaving || isPublishing || isNavigatingToOrganizerSettings;
     const isPrivate = formData.visibility === 'private';
@@ -2579,10 +2782,8 @@ export function EventWizard({
         isPublishing
             ? (isAlreadyPublished ? 'Updating...' : 'Publishing...')
             : isAlreadyPublished
-                ? 'Update Event'
-                : mode === 'edit'
-                    ? 'Publish Changes'
-                    : 'Publish Event';
+                ? 'Update event'
+                : 'Publish event';
     const isGateLoading = authLoading || organizersLoading;
 
     if (isGateLoading) {
@@ -3437,11 +3638,15 @@ export function EventWizard({
                                                             <Switch
                                                                 id="waitlistEnabled"
                                                                 checked={formData.waitlistEnabled}
-                                                                onCheckedChange={(checked) =>
-                                                                    setFormData((prev) => ({ ...prev, waitlistEnabled: checked }))
-                                                                }
+                                                                onCheckedChange={(checked) => {
+                                                                    setFormData((prev) => ({ ...prev, waitlistEnabled: checked }));
+                                                                    clearFieldErrors('waitlistEnabled');
+                                                                }}
                                                             />
                                                         </div>
+                                                        {fieldErrors.waitlistEnabled ? (
+                                                            <p className="mt-2 text-xs text-destructive">{fieldErrors.waitlistEnabled}</p>
+                                                        ) : null}
                                                         <p className="mt-2 text-xs text-muted-foreground">
                                                             Use the ticket settings below to choose which ticket types are open for waitlist signups.
                                                         </p>
@@ -3451,7 +3656,8 @@ export function EventWizard({
                                                 <div className="space-y-3">
                                                     {regularTickets.map((ticket, index) => {
                                                         const hasAdvancedErrors = Boolean(
-                                                            ticketErrors[ticket.id]?.maxPerOrder
+                                                            ticketErrors[ticket.id]?.minPerOrder
+                                                            || ticketErrors[ticket.id]?.maxPerOrder
                                                             || ticketErrors[ticket.id]?.salesStart
                                                             || ticketErrors[ticket.id]?.salesEnd
                                                             || ticketErrors[ticket.id]?.earlyBirdPrice
@@ -3460,7 +3666,7 @@ export function EventWizard({
                                                         const isAdvancedOpen = hasAdvancedErrors || ticketAdvancedOpen[ticket.id];
                                                         // Determine which tab to show based on errors (auto-switch to tab with error)
                                                         const errorTab: 'limits' | 'sales' | 'earlybird' | null = hasAdvancedErrors
-                                                            ? (ticketErrors[ticket.id]?.maxPerOrder ? 'limits'
+                                                            ? ((ticketErrors[ticket.id]?.minPerOrder || ticketErrors[ticket.id]?.maxPerOrder) ? 'limits'
                                                                 : (ticketErrors[ticket.id]?.salesStart || ticketErrors[ticket.id]?.salesEnd) ? 'sales'
                                                                     : (ticketErrors[ticket.id]?.earlyBirdPrice || ticketErrors[ticket.id]?.earlyBirdEndDate) ? 'earlybird'
                                                                         : null)
@@ -3624,6 +3830,7 @@ export function EventWizard({
                                                                                 </div>
                                                                                 <Input
                                                                                     type="number"
+                                                                                    aria-label="Ticket price"
                                                                                     placeholder="0.00"
                                                                                     min="0"
                                                                                     max={maxTicketPrice}
@@ -3714,6 +3921,7 @@ export function EventWizard({
                                                                                 </Button>
                                                                                 <Input
                                                                                     type="number"
+                                                                                    aria-label="Ticket quantity"
                                                                                     min={1}
                                                                                     max={MAX_TICKET_QUANTITY}
                                                                                     value={ticket.quantity || ''}
@@ -3753,7 +3961,10 @@ export function EventWizard({
                                                                                 <Checkbox
                                                                                     id={`waitlist-${ticket.id}`}
                                                                                     checked={ticket.waitlistEnabled ?? true}
-                                                                                    onCheckedChange={(checked) => updateTicket(ticket.id, 'waitlistEnabled', checked === true)}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        updateTicket(ticket.id, 'waitlistEnabled', checked === true);
+                                                                                        clearFieldErrors('waitlistEnabled');
+                                                                                    }}
                                                                                 />
                                                                                 <div className="space-y-1">
                                                                                     <Label htmlFor={`waitlist-${ticket.id}`} className="text-sm font-medium">
@@ -3793,7 +4004,7 @@ export function EventWizard({
                                                                                 {/* Tab pills */}
                                                                                 <div className="flex gap-1 p-1 rounded-xl bg-muted/60 border border-border/40">
                                                                                     {[
-                                                                                        { key: 'limits' as const, label: 'Order Limits', hasError: !!ticketErrors[ticket.id]?.maxPerOrder },
+                                                                                        { key: 'limits' as const, label: 'Order Limits', hasError: !!(ticketErrors[ticket.id]?.minPerOrder || ticketErrors[ticket.id]?.maxPerOrder) },
                                                                                         { key: 'sales' as const, label: 'Sales Window', hasError: !!(ticketErrors[ticket.id]?.salesStart || ticketErrors[ticket.id]?.salesEnd) },
                                                                                         { key: 'earlybird' as const, label: 'Early Bird', hasError: !!(ticketErrors[ticket.id]?.earlyBirdPrice || ticketErrors[ticket.id]?.earlyBirdEndDate) },
                                                                                     ].map((tab) => (
@@ -3827,6 +4038,7 @@ export function EventWizard({
                                                                                                     <Switch
                                                                                                         checked={ticket.minPerOrder !== 0}
                                                                                                         onCheckedChange={(checked) => {
+                                                                                                            clearTicketError(ticket.id, 'minPerOrder');
                                                                                                             if (checked) {
                                                                                                                 updateTicket(ticket.id, 'minPerOrder', 1);
                                                                                                             } else {
@@ -3836,10 +4048,13 @@ export function EventWizard({
                                                                                                     />
                                                                                                 </div>
                                                                                                 {ticket.minPerOrder !== 0 ? (
+                                                                                                    <>
                                                                                                     <Input
                                                                                                         type="number"
+                                                                                                        aria-label="Minimum per order"
                                                                                                         value={ticket.minPerOrder > 0 ? ticket.minPerOrder : ''}
                                                                                                         onChange={(e) => {
+                                                                                                            clearTicketError(ticket.id, 'minPerOrder');
                                                                                                             const value = e.target.value;
                                                                                                             if (value === '') {
                                                                                                                 updateTicket(ticket.id, 'minPerOrder', -1);
@@ -3857,10 +4072,17 @@ export function EventWizard({
                                                                                                                 updateTicket(ticket.id, 'minPerOrder', 1);
                                                                                                             }
                                                                                                         }}
-                                                                                                        className="h-9"
+                                                                                                        className={cn(
+                                                                                                            'h-9',
+                                                                                                            ticketErrors[ticket.id]?.minPerOrder ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                                        )}
                                                                                                         min={1}
                                                                                                         max={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : MAX_PER_ORDER}
                                                                                                     />
+                                                                                                    {ticketErrors[ticket.id]?.minPerOrder ? (
+                                                                                                        <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.minPerOrder}</p>
+                                                                                                    ) : null}
+                                                                                                    </>
                                                                                                 ) : null}
                                                                                             </div>
                                                                                             {/* Max Per Order */}
@@ -3882,6 +4104,7 @@ export function EventWizard({
                                                                                                 {ticket.maxPerOrder !== 0 ? (
                                                                                                     <Input
                                                                                                         type="number"
+                                                                                                        aria-label="Maximum per order"
                                                                                                         value={ticket.maxPerOrder > 0 ? ticket.maxPerOrder : ''}
                                                                                                         onChange={(e) => {
                                                                                                             const value = e.target.value;
@@ -4974,17 +5197,19 @@ export function EventWizard({
                                 <Eye className="h-3.5 w-3.5" />
                                 <span className="hidden sm:inline">Preview</span>
                             </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleSaveDraftClick}
-                                aria-label="Save draft"
-                                disabled={disableSaveButtons}
-                                className="h-11 px-3 sm:h-9"
-                            >
-                                <span className="hidden sm:inline">Save Draft</span>
-                                <span className="sm:hidden">Save</span>
-                            </Button>
+                            {!isAlreadyPublished && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleSaveDraftClick}
+                                    aria-label="Save draft"
+                                    disabled={disableSaveButtons}
+                                    className="h-11 px-3 sm:h-9"
+                                >
+                                    <span className="hidden sm:inline">Save draft</span>
+                                    <span className="sm:hidden">Save draft</span>
+                                </Button>
+                            )}
                             <Button
                                 size="sm"
                                 onClick={handlePublishClick}
@@ -4994,7 +5219,7 @@ export function EventWizard({
                             >
                                 <Sparkles className="h-3.5 w-3.5" />
                                 <span className="hidden sm:inline">{publishButtonLabel}</span>
-                                <span className="sm:hidden">Publish</span>
+                                <span className="sm:hidden">{publishButtonLabel}</span>
                             </Button>
                         </div>
                         </div>
@@ -5025,6 +5250,31 @@ export function EventWizard({
                         </Button>
                         <Button onClick={executePublish}>
                             Publish Anyway
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={serverChangeDraft !== null} onOpenChange={(open) => !open && setServerChangeDraft(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>This event changed elsewhere</DialogTitle>
+                        <DialogDescription>
+                            Your unsaved edits are still safe in this tab. Reload to review the newer event, or continue editing your current draft.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setServerChangeDraft(null)}>
+                            Continue editing
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (!serverChangeDraft) return;
+                                applyForegroundDraft(serverChangeDraft);
+                                setServerChangeDraft(null);
+                            }}
+                        >
+                            Reload and review
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -70,6 +70,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import api, { getAuthToken } from '@/lib/api';
+import { listOrganizerEvents, type EventRecord } from '@/lib/events-api';
 import { cn } from '@/lib/utils';
 import { formatCustomQuestionDateForDisplay } from '@/lib/custom-question-dates';
 import { toast } from '@/lib/notifications';
@@ -99,6 +100,10 @@ import {
     type OrderStatusFilter,
     type WaitlistStatusFilter,
 } from '@/lib/orders-attendees-ui';
+import {
+    buildTicketBreakdownEventOptions,
+    isCurrentRequestVersion,
+} from '@/lib/orders-ticket-breakdown';
 
 const progressColorMap: Record<string, string> = {
     primary: 'bg-linear-to-r from-violet-500 to-purple-500',
@@ -464,6 +469,9 @@ export default function OrdersPage() {
     const [isWaitlistEmailPreviewOpen, setIsWaitlistEmailPreviewOpen] = useState(false);
     const [waitlistNotifyPreview, setWaitlistNotifyPreview] = useState<WaitlistNotifyPreviewResponse | null>(null);
     const [waitlistRefreshKey, setWaitlistRefreshKey] = useState(0);
+    const [ordersRefreshKey, setOrdersRefreshKey] = useState(0);
+    const [breakdownRefreshKey, setBreakdownRefreshKey] = useState(0);
+    const [organizerEventsRefreshKey, setOrganizerEventsRefreshKey] = useState(0);
     const [waitlistAction, setWaitlistAction] = useState<'preview' | 'notify' | 'remove' | null>(null);
     const [waitlistConfirm, setWaitlistConfirm] = useState<{ action: 'notify' | 'remove'; payload: WaitlistActionPayload } | null>(null);
 
@@ -496,10 +504,14 @@ export default function OrdersPage() {
 
     // Ticket breakdown state
     const [eventBreakdowns, setEventBreakdowns] = useState<EventBreakdown[]>([]);
+    const [organizerEvents, setOrganizerEvents] = useState<EventRecord[]>([]);
     const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
     const [showAllBreakdown, setShowAllBreakdown] = useState(initialUrlState.showAllBreakdown);
     const attendeeRequestVersionRef = useRef(0);
     const waitlistRequestVersionRef = useRef(0);
+    const ordersRequestVersionRef = useRef(0);
+    const breakdownRequestVersionRef = useRef(0);
+    const organizerEventsRequestVersionRef = useRef(0);
 
     const [pageTab, setPageTab] = useState<OrderPageTab>(initialUrlState.pageTab);
 
@@ -842,6 +854,7 @@ export default function OrdersPage() {
 
     useEffect(() => {
         let isMounted = true;
+        const requestVersion = ++ordersRequestVersionRef.current;
         const fetchOrders = async () => {
             if (!organizerId) {
                 setOrders([]);
@@ -853,19 +866,19 @@ export default function OrdersPage() {
                 const response = await api.get<OrdersResponse>('/api/v1/orders', {
                     params: { organizerId },
                 });
-                if (!isMounted) {
+                if (!isMounted || requestVersion !== ordersRequestVersionRef.current) {
                     return;
                 }
                 setOrders(response.orders);
                 setError(null);
             } catch (err) {
                 const message = err instanceof Error ? err.message : 'Unable to load orders';
-                if (!isMounted) {
+                if (!isMounted || requestVersion !== ordersRequestVersionRef.current) {
                     return;
                 }
                 setError(message);
             } finally {
-                if (isMounted) {
+                if (isMounted && requestVersion === ordersRequestVersionRef.current) {
                     setIsLoading(false);
                 }
             }
@@ -875,7 +888,7 @@ export default function OrdersPage() {
         return () => {
             isMounted = false;
         };
-    }, [organizerId]);
+    }, [organizerId, ordersRefreshKey]);
 
     useEffect(() => {
         let isMounted = true;
@@ -940,9 +953,36 @@ export default function OrdersPage() {
     const hasSelectedWaitlistEntries = selectedWaitlistEntries.length > 0;
     const canBulkNotifyWaitlist = hasSelectedWaitlistEntries && selectedWaitlistEntries.every((entry) => entry.status === 'waiting');
     const canBulkRemoveWaitlist = hasSelectedWaitlistEntries && selectedWaitlistEntries.every((entry) => entry.status === 'waiting' || entry.status === 'notified');
-    const refreshWaitlist = () => {
+    const refreshWaitlist = useCallback(() => {
         setWaitlistRefreshKey((current) => current + 1);
-    };
+    }, []);
+    const refreshOrders = useCallback(() => {
+        setOrdersRefreshKey((current) => current + 1);
+    }, []);
+    const refreshTicketBreakdown = useCallback(() => {
+        setBreakdownRefreshKey((current) => current + 1);
+    }, []);
+    const refreshOrganizerEvents = useCallback(() => {
+        setOrganizerEventsRefreshKey((current) => current + 1);
+    }, []);
+
+    useEffect(() => {
+        const refreshForegroundData = () => {
+            refreshOrders();
+            refreshTicketBreakdown();
+            refreshOrganizerEvents();
+            if (pageTab === 'waitlist') refreshWaitlist();
+        };
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') refreshForegroundData();
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', refreshForegroundData);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', refreshForegroundData);
+        };
+    }, [pageTab, refreshOrders, refreshOrganizerEvents, refreshTicketBreakdown, refreshWaitlist]);
     const waitlistActionPayload = (entryIds = selectedWaitlistIdsArray) => {
         if (!organizerId || !selectedWaitlistEventId || entryIds.length === 0) {
             return null;
@@ -1206,9 +1246,11 @@ export default function OrdersPage() {
     // Fetch ticket breakdown
     useEffect(() => {
         let isMounted = true;
+        const requestVersion = ++breakdownRequestVersionRef.current;
         const fetchBreakdown = async () => {
             if (!organizerId) {
                 setEventBreakdowns([]);
+                setIsLoadingBreakdown(false);
                 return;
             }
             setIsLoadingBreakdown(true);
@@ -1216,12 +1258,14 @@ export default function OrdersPage() {
                 const response = await api.get<TicketBreakdownResponse>('/api/v1/orders/ticket-breakdown', {
                     params: { organizerId },
                 });
-                if (!isMounted) return;
+                if (!isMounted || !isCurrentRequestVersion(requestVersion, breakdownRequestVersionRef.current)) return;
                 setEventBreakdowns(response.events);
             } catch (err) {
                 console.error('Failed to fetch ticket breakdown:', err);
             } finally {
-                if (isMounted) setIsLoadingBreakdown(false);
+                if (isMounted && isCurrentRequestVersion(requestVersion, breakdownRequestVersionRef.current)) {
+                    setIsLoadingBreakdown(false);
+                }
             }
         };
 
@@ -1229,7 +1273,36 @@ export default function OrdersPage() {
         return () => {
             isMounted = false;
         };
-    }, [organizerId]);
+    }, [breakdownRefreshKey, organizerId]);
+
+    useEffect(() => {
+        let isMounted = true;
+        const requestVersion = ++organizerEventsRequestVersionRef.current;
+
+        const fetchOrganizerEvents = async () => {
+            if (!organizerId) {
+                setOrganizerEvents([]);
+                return;
+            }
+
+            try {
+                const response = await listOrganizerEvents(organizerId);
+                if (!isMounted || !isCurrentRequestVersion(requestVersion, organizerEventsRequestVersionRef.current)) {
+                    return;
+                }
+                setOrganizerEvents(response.events);
+            } catch (err) {
+                if (isMounted && isCurrentRequestVersion(requestVersion, organizerEventsRequestVersionRef.current)) {
+                    console.error('Failed to fetch organiser events:', err);
+                }
+            }
+        };
+
+        void fetchOrganizerEvents();
+        return () => {
+            isMounted = false;
+        };
+    }, [organizerEventsRefreshKey, organizerId]);
 
     useEffect(() => {
         if (!isDialogOpen || !selectedOrder) {
@@ -1284,18 +1357,13 @@ export default function OrdersPage() {
     });
     const hasMoreAttendees = attendees.length < attendeeTotal;
     const eventOptions = useMemo(() => {
-        const map = new Map<string, string>();
-        for (const event of eventBreakdowns) {
-            map.set(event.eventId, event.eventName || 'Unnamed Event');
-        }
-        for (const order of orders) {
-            map.set(order.event.id, order.event.name || 'Unnamed Event');
-        }
-        for (const event of knownAttendeeEvents) {
-            map.set(event.id, event.name);
-        }
-        return [...map.entries()].map(([id, name]) => ({ id, name }));
-    }, [eventBreakdowns, knownAttendeeEvents, orders]);
+        return buildTicketBreakdownEventOptions({
+            orders: orders.map((order) => order.event),
+            attendeeEvents: knownAttendeeEvents,
+            breakdownEvents: eventBreakdowns,
+            organizerEvents,
+        });
+    }, [eventBreakdowns, knownAttendeeEvents, orders, organizerEvents]);
     const defaultWaitlistEventId = useMemo(
         () => eventBreakdowns.find((event) => event.isActive)?.eventId ?? eventOptions[0]?.id ?? null,
         [eventBreakdowns, eventOptions],

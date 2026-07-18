@@ -29,6 +29,7 @@ export default function EditEventPage() {
 
     const [initialDraft, setInitialDraft] = useState<DraftEventInitial | null>(null);
     const [serverDraft, setServerDraft] = useState<DraftEventInitial | null>(null);
+    const [serverUpdatedAt, setServerUpdatedAt] = useState<string | null>(null);
     const [hasRecoveredDraft, setHasRecoveredDraft] = useState(false);
     const [wizardKey, setWizardKey] = useState(0);
     const [embedMeta, setEmbedMeta] = useState<{
@@ -43,6 +44,7 @@ export default function EditEventPage() {
         if (!eventId) {
             setInitialDraft(null);
             setServerDraft(null);
+            setServerUpdatedAt(null);
             setEmbedMeta(null);
             setHasRecoveredDraft(false);
             setIsLoading(false);
@@ -74,6 +76,7 @@ export default function EditEventPage() {
                     backendUpdatedAt: eventResponse.event.updatedAt,
                 });
                 setServerDraft(loadedDraft);
+                setServerUpdatedAt(eventResponse.event.updatedAt);
                 if (recovery) {
                     setInitialDraft(reconcileRecoveredEventLocation(recovery.draft, loadedDraft));
                     setHasRecoveredDraft(true);
@@ -86,6 +89,7 @@ export default function EditEventPage() {
                 if (cancelled) return;
                 setInitialDraft(null);
                 setServerDraft(null);
+                setServerUpdatedAt(null);
                 setEmbedMeta(null);
                 setHasRecoveredDraft(false);
                 const message = getUserFriendlyMessage(err) || 'Unable to load this event.';
@@ -150,6 +154,7 @@ export default function EditEventPage() {
                     ? serverDraft.formData as EventLocationFields
                     : undefined
             }
+            serverUpdatedAt={serverUpdatedAt}
             entryContext={{
                 source: 'draft',
                 label: 'Editing existing event',
