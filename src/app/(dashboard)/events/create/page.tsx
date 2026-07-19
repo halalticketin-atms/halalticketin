@@ -5217,7 +5217,7 @@ export function EventWizard({
                                 disabled={disablePublishButtons}
                                 className="h-11 gap-1.5 px-3 sm:h-9"
                             >
-                                <Sparkles className="h-3.5 w-3.5" />
+                                {!isAlreadyPublished && <Sparkles className="h-3.5 w-3.5" />}
                                 <span className="hidden sm:inline">{publishButtonLabel}</span>
                                 <span className="sm:hidden">{publishButtonLabel}</span>
                             </Button>
