@@ -84,53 +84,34 @@ export async function generateEventDraft({
   imageFile,
   titleHint,
 }: GenerateEventDraftParams): Promise<AiDraftEventInitial> {
-  // Prepare request body
-  const body: {
-    organizerId: string;
-    prompt: string;
-    imageBase64?: string;
-    mimeType?: string;
-    titleHint?: string;
-  } = {
-    organizerId,
-    prompt: prompt.trim(),
-    titleHint,
-  };
+  const trimmedPrompt = prompt.trim();
+  let response: BackendAiResponse;
 
-  // Convert image to base64 if provided
   if (imageFile) {
-    const base64Image = await fileToBase64(imageFile);
-    body.imageBase64 = base64Image;
-    body.mimeType = imageFile.type || 'image/png';
+    const body = new FormData();
+    body.append('organizerId', organizerId);
+    body.append('prompt', trimmedPrompt);
+    if (titleHint !== undefined) {
+      body.append('titleHint', titleHint);
+    }
+    body.append('image', imageFile);
+
+    response = await api.postForm<BackendAiResponse>('/api/v1/ai/generate-event-draft', body);
+  } else {
+    const body: {
+      organizerId: string;
+      prompt: string;
+      titleHint?: string;
+    } = {
+      organizerId,
+      prompt: trimmedPrompt,
+      titleHint,
+    };
+
+    response = await api.post<BackendAiResponse>('/api/v1/ai/generate-event-draft', body);
   }
 
-  // Call backend AI endpoint (requires authentication)
-  const response = await api.post<BackendAiResponse>('/api/v1/ai/generate-event-draft', body);
-
-  return buildDraftFromAiPayload(response.draft, titleHint ?? prompt.trim() ?? '');
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result;
-      if (typeof result !== 'string') {
-        reject(new Error('Failed to read file as data URL'));
-        return;
-      }
-      const commaIndex = result.indexOf(',');
-      if (commaIndex === -1) {
-        reject(new Error('Unexpected data URL format'));
-        return;
-      }
-      resolve(result.slice(commaIndex + 1));
-    };
-    reader.onerror = () => {
-      reject(reader.error ?? new Error('Failed to read file'));
-    };
-    reader.readAsDataURL(file);
-  });
+  return buildDraftFromAiPayload(response.draft, titleHint ?? trimmedPrompt);
 }
 
 export function buildDraftFromAiPayload(

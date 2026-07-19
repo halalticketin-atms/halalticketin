@@ -246,6 +246,14 @@ class ApiClient {
         });
     }
 
+    async postForm<T>(endpoint: string, data: FormData, config?: RequestConfig): Promise<T> {
+        return this.request<T>(endpoint, {
+            ...config,
+            method: 'POST',
+            body: data,
+        });
+    }
+
     async put<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
         return this.request<T>(endpoint, {
             ...config,
