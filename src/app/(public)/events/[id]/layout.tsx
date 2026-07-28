@@ -124,6 +124,7 @@ function buildEventStructuredData({
           ticket.isSoldOut || ticket.remainingQuantity === 0
             ? 'https://schema.org/SoldOut'
             : 'https://schema.org/InStock',
+        validFrom: ticket.salesStart || undefined,
         url: canonicalUrl,
       })
     );
