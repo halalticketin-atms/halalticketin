@@ -414,8 +414,8 @@ function NewEventChooserPageContent() {
 
             {/* Org Badge - shows which org will own the event */}
             {activeOrganizerId && currentOrganizer && (
-              <div className="flex items-center justify-center gap-2 pt-2">
-                <span className="text-sm text-muted-foreground">Creating for:</span>
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                <span className="shrink-0 text-sm text-muted-foreground">Creating for:</span>
                 {activeOrganizers.length > 1 ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

@@ -210,21 +210,28 @@ for (const width of [1024, 1280]) {
 
     const description = page.getByText('Changes will update this event once you publish.', { exact: true });
     await expect(description).toBeVisible();
+    const editBadge = page.getByText('Editing existing event', { exact: true });
+    await expect(editBadge).toBeVisible();
     await expect(page.getByText('Unsaved', { exact: true })).toBeVisible();
 
     const header = description.locator(
       'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " sticky ")][1]',
     );
-    const [descriptionBox, headerBox] = await Promise.all([
+    const [descriptionBox, editBadgeBox, headerBox] = await Promise.all([
       description.boundingBox(),
+      editBadge.boundingBox(),
       header.boundingBox(),
     ]);
 
     expect(descriptionBox).not.toBeNull();
+    expect(editBadgeBox).not.toBeNull();
     expect(headerBox).not.toBeNull();
     expect(descriptionBox!.y + descriptionBox!.height).toBeLessThanOrEqual(
       headerBox!.y + headerBox!.height,
     );
+    expect(descriptionBox!.x).toBeGreaterThan(editBadgeBox!.x + editBadgeBox!.width);
+    expect(descriptionBox!.y).toBeLessThan(editBadgeBox!.y + editBadgeBox!.height);
+    expect(editBadgeBox!.y).toBeLessThan(descriptionBox!.y + descriptionBox!.height);
   });
 }
 

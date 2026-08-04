@@ -176,8 +176,8 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
     return (
         <>
             {/* Desktop Sidebar - Always visible on lg+ screens */}
-            <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-[260px] bg-card border-r border-border/50 flex-col z-40 shadow-sm">
-                {/* Brand — bottom edge aligns with the top bar to read as one line */}
+            <aside className="fixed left-0 top-0 z-40 hidden min-h-[100dvh] w-[280px] flex-col border-r border-border/50 bg-card shadow-sm lg:flex">
+                {/* Brand: bottom edge aligns with the top bar to read as one line */}
                 <div className="flex h-16 items-center border-b border-border/50 px-5">
                     <Link href={logoHref} className="flex items-center gap-2">
                         <Image
@@ -191,9 +191,9 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
                     </Link>
                 </div>
 
-                {/* Organizer Switcher (no divider — blends into the nav below) */}
+                {/* Organiser switcher, with no divider, blends into the nav below */}
                 <div>
-                    <OrganizerSwitcher />
+                    <OrganizerSwitcher size="lg" />
                 </div>
 
                 {/* Main Navigation */}

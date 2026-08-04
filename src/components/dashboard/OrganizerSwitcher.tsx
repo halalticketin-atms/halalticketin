@@ -82,7 +82,7 @@ export function OrgBadge({ name, avatarUrl, isActive = false, showChevron = fals
     return (
         <div
             className={cn(
-                'inline-flex items-center gap-2 rounded-full transition-all duration-200',
+                'inline-flex max-w-full items-center gap-2 rounded-full transition-all duration-200',
                 color.bg,
                 isActive && 'ring-2 ring-offset-2 ring-offset-background',
                 isActive && color.border.replace('border-', 'ring-'),
@@ -97,12 +97,12 @@ export function OrgBadge({ name, avatarUrl, isActive = false, showChevron = fals
                     alt={name}
                     width={avatarPixels[size]}
                     height={avatarPixels[size]}
-                    className={cn('rounded-full object-cover border-0', sizes[size])}
+                    className={cn('shrink-0 rounded-full object-cover border-0', sizes[size])}
                 />
             ) : (
                 <div
                     className={cn(
-                        'rounded-full bg-gradient-to-br flex items-center justify-center font-bold text-white shadow-sm',
+                        'shrink-0 rounded-full bg-gradient-to-br flex items-center justify-center font-bold text-white shadow-sm',
                         color.gradient,
                         sizes[size]
                     )}
@@ -112,7 +112,7 @@ export function OrgBadge({ name, avatarUrl, isActive = false, showChevron = fals
             )}
 
             {/* Org Name */}
-            <span className={cn('font-medium truncate max-w-[120px]', color.text, textSizes[size])}>
+            <span className={cn('min-w-0 max-w-[160px] flex-1 truncate font-medium', color.text, textSizes[size])}>
                 {name}
             </span>
 
@@ -143,7 +143,7 @@ export function OrganizerSwitcher({ variant = 'sidebar', size = 'md', showLabel 
     if (isLoading && options.length === 0) {
         return (
             <div className={variant === 'sidebar' ? 'px-4 py-3' : ''}>
-                <div className="h-10 w-full animate-pulse rounded-full bg-muted" />
+                <div className={cn('w-full animate-pulse rounded-full bg-muted', variant === 'sidebar' ? 'h-14' : 'h-10')} />
             </div>
         );
     }
@@ -179,7 +179,7 @@ export function OrganizerSwitcher({ variant = 'sidebar', size = 'md', showLabel 
                                     isActive
                                     showChevron
                                     size={size}
-                                    className="w-full justify-between hover:shadow-md cursor-pointer"
+                                    className="w-full cursor-pointer hover:shadow-sm"
                                 />
                             ) : (
                                 <div className="flex items-center gap-2 px-3 py-2 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50 transition-colors cursor-pointer">
@@ -190,7 +190,7 @@ export function OrganizerSwitcher({ variant = 'sidebar', size = 'md', showLabel 
                             )}
                         </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-[260px] p-2">
+                    <DropdownMenuContent align="start" className="w-[280px] p-2">
                         <div className="px-2 py-1.5 mb-1">
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                                 Your Organizations

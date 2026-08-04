@@ -2867,17 +2867,19 @@ export function EventWizard({
                                     ) : null}
                                 </div>
                             </div>
-                            {entryContext?.description ? (
-                                <p className="hidden text-sm text-muted-foreground sm:block">
-                                    {entryContext.description}
-                                </p>
-                            ) : null}
                         </div>
                     </div>
                     <div className="hidden min-w-0 flex-1 sm:flex">
                         <div className="w-full px-6 xl:px-8">
-                            <div className="mx-auto flex w-full max-w-6xl items-center justify-end text-sm text-muted-foreground">
-                                Step {currentStep} of {steps.length}
+                            <div className="mx-auto flex w-full max-w-6xl items-center gap-4 text-sm text-muted-foreground">
+                                {entryContext?.description ? (
+                                    <p className="hidden min-w-0 truncate lg:block">
+                                        {entryContext.description}
+                                    </p>
+                                ) : null}
+                                <span className="ml-auto shrink-0">
+                                    Step {currentStep} of {steps.length}
+                                </span>
                             </div>
                         </div>
                     </div>

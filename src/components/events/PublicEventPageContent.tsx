@@ -2216,24 +2216,43 @@ export function PublicEventPageContent({
             return { date: 'Date TBD', time: '', endTime: '' };
         }
         const start = new Date(startDatetime);
-        const end = endDatetime ? new Date(endDatetime) : null;
-
-        const date = start.toLocaleDateString('en-GB', {
+        const parsedEnd = endDatetime ? new Date(endDatetime) : null;
+        const end = parsedEnd && !Number.isNaN(parsedEnd.getTime()) ? parsedEnd : null;
+        const formatInEventTimeZone = (
+            value: Date,
+            options: Intl.DateTimeFormatOptions,
+        ) => {
+            try {
+                return new Intl.DateTimeFormat('en-GB', {
+                    ...options,
+                    timeZone: event?.timezone || undefined,
+                }).format(value);
+            } catch {
+                return new Intl.DateTimeFormat('en-GB', options).format(value);
+            }
+        };
+        const dateOptions: Intl.DateTimeFormatOptions = {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
             year: 'numeric',
-        });
-        const time = start.toLocaleTimeString('en-GB', {
+        };
+        const startDate = formatInEventTimeZone(start, dateOptions);
+        const endDate = end ? formatInEventTimeZone(end, dateOptions) : '';
+        const date = endDate && endDate !== startDate
+            ? `${startDate} to ${endDate}`
+            : startDate;
+        const timeOptions: Intl.DateTimeFormatOptions = {
             hour: '2-digit',
             minute: '2-digit',
-        });
+        };
+        const time = formatInEventTimeZone(start, timeOptions);
         const endTime = end
-            ? end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+            ? formatInEventTimeZone(end, timeOptions)
             : '';
 
         return { date, time, endTime };
-    }, [startDatetime, endDatetime]);
+    }, [startDatetime, endDatetime, event?.timezone]);
     const refundPolicyText = event?.refundPolicy?.trim() ?? '';
     const showAccessGate = Boolean(accessStatus) && Boolean(onAccessSubmit);
     const accessSubmitting = isLoading && showAccessGate;

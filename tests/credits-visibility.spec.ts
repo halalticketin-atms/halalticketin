@@ -171,3 +171,52 @@ test('organiser dashboard suppresses low-credit warning when credits fail to loa
   await expect(page.getByText('Credits running low')).toHaveCount(0);
   await expect(page.getByText(/Held/)).toHaveCount(0);
 });
+
+for (const width of [1280, 1440]) {
+  test(`desktop organiser switcher gives the workspace identity enough room at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await mockAuthenticatedOwner(page);
+    await mockDashboardData(page);
+
+    await page.route(`**/api/v1/organizers/${organizerId}/credits`, route =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ balance: 100, availableBalance: 100, usedCredits: 0 }),
+      }),
+    );
+
+    await page.goto(`/dashboard/o/${organizerId}`);
+
+    const switcher = page.getByRole('button', { name: /Credit Visibility Org/ });
+    await expect(switcher).toBeVisible();
+    const switcherBox = await switcher.boundingBox();
+
+    expect(switcherBox).not.toBeNull();
+    expect(switcherBox!.width).toBeGreaterThanOrEqual(246);
+    expect(switcherBox!.height).toBeGreaterThanOrEqual(56);
+  });
+}
+
+test('organiser dashboard keeps the desktop switcher out of the mobile layout', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockAuthenticatedOwner(page);
+  await mockDashboardData(page);
+
+  await page.route(`**/api/v1/organizers/${organizerId}/credits`, route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ balance: 100, availableBalance: 100, usedCredits: 0 }),
+    }),
+  );
+
+  await page.goto(`/dashboard/o/${organizerId}`);
+
+  await expect(page.getByRole('button', { name: /Credit Visibility Org/ })).toBeHidden();
+  const overflow = await page.evaluate(() => ({
+    bodyWidth: document.body.scrollWidth,
+    viewportWidth: window.innerWidth,
+  }));
+  expect(overflow.bodyWidth).toBeLessThanOrEqual(overflow.viewportWidth + 2);
+});

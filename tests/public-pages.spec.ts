@@ -245,6 +245,44 @@ test.describe('Public Pages - Event Detail', () => {
         await expect(page.locator('.leaflet-container')).toBeVisible();
     });
 
+    test('event detail shows the full date range for a multi-day event', async ({ page }) => {
+        await page.unroute('**/api/v1/public/events/test-event');
+        await page.route('**/api/v1/public/events/test-event', route => {
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    event: {
+                        id: 'event_multi_day',
+                        organizerId: 'org_123',
+                        title: 'Multi-day Retreat',
+                        slug: 'test-event',
+                        description: 'A multi-day event.',
+                        startDatetime: '2026-10-03T15:00:00.000Z',
+                        endDatetime: '2026-10-05T17:00:00.000Z',
+                        timezone: 'Europe/Dublin',
+                        isMultiDay: true,
+                        locationType: 'in_person',
+                        venue: 'Retreat Centre',
+                        city: 'Offaly',
+                        country: 'Ireland',
+                        currency: 'EUR',
+                        organizerName: 'Test Organiser',
+                        absorbFee: false,
+                    },
+                    tickets: [],
+                }),
+            });
+        });
+
+        await page.goto('/events/test-event');
+
+        await expect(
+            page.getByText('Saturday, 3 October 2026 to Monday, 5 October 2026', { exact: true }),
+        ).toBeVisible();
+        await expect(page.getByText('16:00 - 18:00', { exact: true })).toBeVisible();
+    });
+
     test('legacy event without coordinates keeps location text and directions but omits the map', async ({ page }) => {
         await page.unroute('**/api/v1/public/events/test-event');
         await page.route('**/api/v1/public/events/test-event', route => {
