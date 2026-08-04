@@ -245,6 +245,7 @@ async function dataUrlToFile(dataUrl: string, fallbackName: string): Promise<Fil
 
 type TicketFieldErrors = {
     name?: string;
+    description?: string;
     minPerOrder?: string;
     maxPerOrder?: string;
     price?: string;
@@ -1286,7 +1287,7 @@ export function EventWizard({
     }, [activeOrganizerId]);
 
     const hasCredits = (creditBalance ?? 0) > 0;
-    const canUseCredits = currentOrganizer?.feeTier === 'token' || hasCredits;
+    const canUseCredits = hasCredits;
 
     const handleBannerSelect = useCallback((e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -2293,6 +2294,7 @@ export function EventWizard({
                             let firstMessage: string | null = null;
                             const ticketFieldMap: Record<string, keyof TicketFieldErrors> = {
                                 name: 'name',
+                                description: 'description',
                                 maxPerOrder: 'maxPerOrder',
                                 price: 'price',
                                 maxQuantity: 'quantity',
@@ -3903,6 +3905,29 @@ export function EventWizard({
                                                                                         />
                                                                                     </div>
                                                                                 </div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="space-y-1.5">
+                                                                            <Label htmlFor={`ticket-description-${ticket.id}`}>Description</Label>
+                                                                            <Textarea
+                                                                                id={`ticket-description-${ticket.id}`}
+                                                                                placeholder="Optional details about what this ticket includes"
+                                                                                value={ticket.description}
+                                                                                onChange={(e) => {
+                                                                                    clearTicketError(ticket.id, 'description');
+                                                                                    updateTicket(ticket.id, 'description', e.target.value);
+                                                                                }}
+                                                                                maxLength={250}
+                                                                                className={cn(
+                                                                                    'min-h-[84px] resize-y',
+                                                                                    ticketErrors[ticket.id]?.description ? 'border-destructive focus-visible:ring-destructive' : '',
+                                                                                )}
+                                                                            />
+                                                                            {ticketErrors[ticket.id]?.description ? (
+                                                                                <p className="text-xs text-destructive">{ticketErrors[ticket.id]?.description}</p>
+                                                                            ) : (
+                                                                                <p className="text-xs text-muted-foreground">Optional, shown to attendees with this ticket.</p>
                                                                             )}
                                                                         </div>
 
