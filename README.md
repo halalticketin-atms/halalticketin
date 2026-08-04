@@ -1,5 +1,11 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Halal Ticketin environment
+
+- `NEXT_PUBLIC_API_URL` points to the Fastify backend.
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is the browser-facing Google Maps credential used directly by the web event-creation wizard. Configure it in Vercel and local frontend environment files, and restrict it by the deployed/local web referrers and only the browser APIs the wizard needs.
+- The mobile iOS wizard deliberately uses a different integration: it calls the backend Places proxy, whose server-only `GOOGLE_MAPS_API_KEY` lives in Render. Never copy that backend key into a `NEXT_PUBLIC_*` variable.
+
 ## Getting Started
 
 First, run the development server:

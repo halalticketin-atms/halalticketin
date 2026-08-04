@@ -39,3 +39,48 @@ Use this ledger for recurring frontend bugs where the root cause, failed approac
 - Root cause: two scroll actors ignore the margin. Next.js App Router performs its own hash scroll without honoring `scroll-margin`, and `scrollIntoView` loses the margin when an ancestor is an `overflow-hidden` wrapper (it is treated as a scroll container in the ancestor chain).
 - Working pattern: after mount, wait for Next's scroll and any entrance animation (`animate-fade-up` is 0.6s), then `window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - parseFloat(getComputedStyle(el).scrollMarginTop), behavior: 'smooth' })`.
 - Verification: measure `el.getBoundingClientRect().top` after settle in Playwright at both 375 and 1440 widths; it should equal the intended offset, not 0 or negative.
+
+## Browser Check Hits The Wrong Local App
+
+- Date: 2026-07-09
+- Area: Local browser verification
+- Symptom: Browser checks against port 3000 inspected an unrelated project's dev server.
+- Root cause: A previously running local server owned the expected port, so route/content checks were validating the wrong app.
+- Working pattern: before browser-verifying a local port, confirm the served app by title, screenshot, route content, or process cwd. If the port is stale or unrelated, use a spare port for the fresh build rather than stopping a server unless Abdel explicitly asks.
+- Verification: screenshot/title check before assertions; when using a fresh production build, start it on a spare port such as `npx next start -p <port>`.
+
+## Open Graph Image Build Tries To Fetch Fonts
+
+- Date: 2026-07-12
+- Area: Next.js Open Graph images
+- Symptom: Static generation can fail or become network-dependent when an OG image uses a Unicode symbol whose font is not embedded.
+- Root cause: the image renderer may attempt a dynamic font download for the glyph during static generation.
+- Working pattern: avoid Unicode symbols in OG images unless the font is bundled and registered; prefer CSS geometry or bundled brand assets for simple social-image marks.
+- Verification: run the production build path that renders OG images and confirm no dynamic font/network fetch is needed.
+
+## Stale Next Dev CSS Mimics Layout Regression
+
+- Date: 2026-07-14
+- Area: Next.js/Tailwind image layout debugging
+- Symptom: fill images suddenly rendered at viewport scale even though source classes looked correct.
+- Root cause: stale `.next/dev` assets can make correct Tailwind source appear unapplied.
+- Working pattern: verify a clean production build and inspect the emitted stylesheet before changing global CSS.
+- Verification: compare the production build CSS and rendered image bounds before editing layout rules.
+
+## Third-Party Widget Z-Index Escapes
+
+- Date: 2026-07-16
+- Area: Embedded widgets and overlays
+- Symptom: a third-party widget with large internal z-index values overlapped app UI.
+- Root cause: the widget created its own high stacking values inside the page's global stacking context.
+- Working pattern: contain the widget with a local stacking context such as `isolation: isolate` before escalating global modal or overlay z-indexes.
+- Verification: prove the overlap and fix with browser hit-testing, not only screenshots.
+
+## Search Favicon Double Inset
+
+- Date: 2026-07-19
+- Area: Google Search favicon rendering
+- Symptom: Google Search can double-inset a transparent circular favicon inside its own outlined holder.
+- Root cause: transparent circular artwork leaves Google to draw another circular container around it.
+- Working pattern: preserve the logo artwork but extend its background to an opaque square canvas, then let Google apply the final circular mask.
+- Verification: inspect the generated favicon files and request recrawl/preview without changing the core logo mark.
