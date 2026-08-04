@@ -201,6 +201,33 @@ const recoveredTicket = {
   absorbFee: false,
 };
 
+for (const width of [1024, 1280]) {
+  test(`edit status copy stays inside the wizard header at ${width}px`, async ({ page }) => {
+    await mockEditPage(page, { latitude: 53.3498, longitude: -6.2603 });
+    await page.setViewportSize({ width, height: 720 });
+    await page.goto(`/events/${eventId}/edit`);
+    await page.getByLabel('Event Title *').fill(`Updated event at ${width}px`);
+
+    const description = page.getByText('Changes will update this event once you publish.', { exact: true });
+    await expect(description).toBeVisible();
+    await expect(page.getByText('Unsaved', { exact: true })).toBeVisible();
+
+    const header = description.locator(
+      'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " sticky ")][1]',
+    );
+    const [descriptionBox, headerBox] = await Promise.all([
+      description.boundingBox(),
+      header.boundingBox(),
+    ]);
+
+    expect(descriptionBox).not.toBeNull();
+    expect(headerBox).not.toBeNull();
+    expect(descriptionBox!.y + descriptionBox!.height).toBeLessThanOrEqual(
+      headerBox!.y + headerBox!.height,
+    );
+  });
+}
+
 test('published legacy location permits an unrelated edit without reconfirmation', async ({ page }) => {
   const requests = await mockEditPage(page, { latitude: null, longitude: null });
   await page.goto(`/events/${eventId}/edit`);

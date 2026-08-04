@@ -2841,7 +2841,7 @@ export function EventWizard({
             {/* Top Header with Progress Bar */}
             <div ref={wizardHeaderRef} className="sticky top-0 z-[60] bg-background border-b">
                 {/* Header Row */}
-                <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:h-14 sm:gap-4 sm:py-0 lg:px-0">
+                <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:gap-4 sm:py-0 lg:px-0">
                     <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4 lg:w-[18rem] lg:flex-none lg:pl-8 xl:w-[22rem] xl:pl-10">
                         <Button variant="ghost" size="icon" asChild className="shrink-0 self-start sm:self-center mt-0.5 sm:mt-0">
                             <Link href={dashboardHref}>
