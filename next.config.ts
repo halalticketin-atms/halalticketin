@@ -39,6 +39,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
+  async redirects() {
+    return [
+      {
+        source: '/events/marriage-through-the-season',
+        destination: '/events/marriage-through-the-seasons',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return noIndexRoutes.map((source) => ({
       source,
