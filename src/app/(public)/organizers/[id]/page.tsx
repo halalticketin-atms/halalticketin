@@ -24,8 +24,8 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { OrganizerEventCard } from '@/components/events/OrganizerEventCard';
 import { useAuth } from '@/context/auth-context';
 import {
     fetchPublicOrganizerProfile,
@@ -38,30 +38,6 @@ import {
     checkIsFollowing
 } from '@/lib/follows-api';
 import { ShareDialog } from '@/components/share/ShareDialog';
-import { toast } from '@/lib/notifications';
-
-/**
- * Format date for event cards
- */
-function formatEventDate(dateString: string | null): string {
-    if (!dateString) return 'Date TBD';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-    });
-}
-
-/**
- * Get location display string
- */
-function getLocationString(event: PublicOrganizerEvent): string {
-    if (event.locationType === 'online') return 'Online Event';
-    const parts = [event.venue, event.city].filter(Boolean);
-    return parts.length > 0 ? parts.join(', ') : 'Location TBD';
-}
 
 /**
  * TikTok icon component (not available in lucide-react)
@@ -85,97 +61,6 @@ function SocialIcon({ platform }: { platform: string }) {
     if (lower.includes('youtube')) return <Youtube className="h-4 w-4" />;
     if (lower.includes('twitter') || lower.includes('x')) return <Twitter className="h-4 w-4" />;
     return <Globe className="h-4 w-4" />;
-}
-
-/**
- * Event card component
- */
-function EventCard({
-    event,
-    organizerName,
-    organizerAvatarUrl,
-    isPast = false
-}: {
-    event: PublicOrganizerEvent;
-    organizerName: string;
-    organizerAvatarUrl: string | null;
-    isPast?: boolean;
-}) {
-    const eventUrl = event.slug ? `/events/${event.slug}` : `/events/${event.id}`;
-    const handlePastClick = () => {
-        toast.info('Event has ended', {
-            description: 'This event is no longer available. It has already happened.',
-        });
-    };
-
-    const card = (
-        <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-full p-0">
-            <div className="relative aspect-[4/5] overflow-hidden">
-                {event.bannerImageUrl ? (
-                    <Image
-                        src={event.bannerImageUrl}
-                        alt={event.title || 'Event'}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                        <Calendar className="h-10 w-10 text-primary/40" />
-                    </div>
-                )}
-                {event.category && (
-                    <span className="absolute top-3 left-3 px-2.5 py-1 bg-black/60 backdrop-blur-sm text-white text-xs font-medium rounded-full">
-                        {event.category}
-                    </span>
-                )}
-            </div>
-            <CardContent className="p-4">
-                <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-colors">
-                    {event.title || 'Untitled Event'}
-                </h3>
-                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                    <div className="relative h-5 w-5 overflow-hidden rounded-full flex items-center justify-center bg-white text-[10px] font-semibold text-foreground/70">
-                        {organizerAvatarUrl ? (
-                            <Image
-                                src={organizerAvatarUrl}
-                                alt={organizerName}
-                                fill
-                                className="object-cover"
-                            />
-                        ) : (
-                            <span>{organizerName.charAt(0).toUpperCase()}</span>
-                        )}
-                    </div>
-                    <span className="truncate">Hosted by {organizerName}</span>
-                </div>
-                <div className="mt-3 space-y-1.5">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="h-4 w-4 text-primary" />
-                        <span>{formatEventDate(event.startDatetime)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {event.locationType === 'online' ? (
-                            <Globe className="h-4 w-4 text-primary" />
-                        ) : (
-                            <MapPin className="h-4 w-4 text-primary" />
-                        )}
-                        <span className="truncate">{getLocationString(event)}</span>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
-
-    if (isPast) {
-        return (
-            <button type="button" className="text-left" onClick={handlePastClick}>
-                {card}
-            </button>
-        );
-    }
-
-    return <Link href={eventUrl}>{card}</Link>;
 }
 
 /**
@@ -492,7 +377,7 @@ export default function OrganizerProfilePage() {
                             {upcomingEvents.length > 0 ? (
                                 <div className="grid gap-6 grid-cols-2 lg:grid-cols-4">
                                     {upcomingEvents.map((event) => (
-                                        <EventCard
+                                        <OrganizerEventCard
                                             key={event.id}
                                             event={event}
                                             organizerName={organizer.name}
@@ -509,7 +394,7 @@ export default function OrganizerProfilePage() {
                             {pastEvents.length > 0 ? (
                                 <div className="grid gap-6 grid-cols-2 lg:grid-cols-4">
                                     {pastEvents.map((event) => (
-                                        <EventCard
+                                        <OrganizerEventCard
                                             key={event.id}
                                             event={event}
                                             organizerName={organizer.name}
