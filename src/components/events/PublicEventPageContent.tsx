@@ -2135,7 +2135,13 @@ export function PublicEventPageContent({
                 useSharedInfo: !requiresPerTicket && useSharedInfo,
                 ticketAttendees: ticketAttendeePayload,
                 promoCode: appliedPromo?.code || undefined,
-                tracking: { ...getMetaTrackingContext(marketingAllowed), ...getStoredUtmParams() },
+                tracking: {
+                    ...getMetaTrackingContext(marketingAllowed, {
+                        meta: Boolean(eventPixelId),
+                        tiktok: Boolean(tiktokPixelId),
+                    }),
+                    ...getStoredUtmParams(),
+                },
             },
             { redirectTarget: isEmbedCheckout ? 'top' : 'self', accessCode: accessCode ?? undefined },
         );
