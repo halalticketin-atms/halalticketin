@@ -174,10 +174,16 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
               animate={anim.animate}
               transition={{ ...anim.transition, delay: index * anim.staggerDelay * 2 }}
             >
-              <Card className="group overflow-hidden border-border/50 hover:border-primary/20 hover:shadow-lg transition-all duration-300 w-full max-w-full min-w-0">
-                <div className="flex min-w-0 flex-col gap-0 md:flex-row md:items-start">
+              <Card
+                data-testid="event-performance-card"
+                className="group overflow-hidden border-border/50 hover:border-primary/20 hover:shadow-lg transition-all duration-300 w-full max-w-full min-w-0"
+              >
+                <div className="flex min-w-0 flex-col gap-0 md:flex-row md:items-start lg:items-stretch">
                   {/* Banner Image - fixed poster rail, always preserving 1080x1350 ratio */}
-                  <div className="relative w-full aspect-[1080/1350] md:w-[280px] md:shrink-0 md:self-start overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800">
+                  <div
+                    data-testid="event-performance-poster"
+                    className="relative w-full aspect-[1080/1350] md:w-[280px] md:shrink-0 md:self-start lg:h-[400px] lg:w-[320px] lg:aspect-auto lg:self-stretch overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800"
+                  >
                     {event.bannerImageUrl ? (
                       <Image
                         src={event.bannerImageUrl}
@@ -202,9 +208,12 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                   </div>
 
                   {/* Content - contained within bounds */}
-                  <CardContent className="min-w-0 flex-1 p-4 sm:p-6 space-y-4 overflow-hidden w-full max-w-full">
+                  <CardContent
+                    data-testid="event-performance-details"
+                    className="min-w-0 flex-1 p-4 sm:p-6 space-y-4 overflow-hidden w-full max-w-full lg:grid lg:h-[400px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:grid-rows-[auto_auto_auto_1fr_auto] lg:gap-x-5 lg:gap-y-3 lg:space-y-0 lg:p-5"
+                  >
                     {/* Header */}
-                    <div className="space-y-2">
+                    <div className="space-y-2 lg:col-span-2 lg:row-start-1">
                       <h3 className="font-display text-lg sm:text-xl font-semibold leading-tight line-clamp-2">
                         {event.title}
                       </h3>
@@ -221,7 +230,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                     </div>
 
                     {/* Revenue Metric */}
-                    <div>
+                    <div className="lg:col-start-1 lg:row-start-2">
                       <div className="text-xs text-muted-foreground mb-1">Net Revenue</div>
                       <div className="font-mono text-xl sm:text-2xl font-bold text-primary">
                         {formatCurrency(event.revenue, event.currency)}
@@ -234,7 +243,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                     </div>
 
                     {/* Capacity Bar */}
-                    <div className="w-full pt-2">
+                    <div className="w-full pt-2 lg:col-start-1 lg:row-start-3 lg:pt-0">
                       <div className="flex items-center justify-between text-sm mb-2 gap-2">
                         <span className="text-muted-foreground flex-shrink-0">Capacity</span>
                         <span className="font-mono text-xs sm:text-sm font-bold text-primary truncate">
@@ -261,7 +270,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
 
                     {/* Ticket Type Breakdown - Circular with Distinct Colors */}
                     {event.ticketTypeBreakdown && event.ticketTypeBreakdown.length > 0 && (
-                      <div className="border-t pt-5">
+                      <div className="border-t pt-5 lg:col-start-1 lg:row-start-4 lg:pt-3">
                         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
                           Sales by Ticket Type
                         </div>
@@ -300,7 +309,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                     )}
 
                     {/* Weekly Sales Chart - contained */}
-                    <div className="border-t pt-4 w-full overflow-hidden">
+                    <div className="border-t pt-4 w-full overflow-hidden lg:col-start-2 lg:row-start-2 lg:row-span-3 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
                       <div className="text-xs font-medium text-muted-foreground mb-2">
                         12-Week Sales Trend
                       </div>
@@ -312,7 +321,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                     </div>
 
                     {/* Actions - even 2-col grid on mobile, inline wrap on larger screens */}
-                    <div className="grid grid-cols-2 gap-2 pt-2 sm:flex sm:flex-wrap">
+                    <div className="grid grid-cols-2 gap-2 pt-2 sm:flex sm:flex-wrap lg:col-span-2 lg:row-start-5 lg:pt-0">
                       {organizerId && (
                         <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
                           <Link href={buildEventOrdersHref(organizerId, event.id)}>

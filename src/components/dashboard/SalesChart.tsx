@@ -135,6 +135,7 @@ export function SalesChart({ data, currency }: SalesChartProps) {
                         <Line
                             type="monotone"
                             dataKey="sales"
+                            isAnimationActive={false}
                             stroke="oklch(0.72 0.15 185)"
                             strokeWidth={2.5}
                             dot={{
