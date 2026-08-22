@@ -7,12 +7,11 @@
  * Fee structure:
  * - PAYG: £0.55 per ticket (converted to local currency)
  * - Token: Variable based on credits purchased (£0.23-0.47)
- * - Charity: £0.20 per ticket (requires verified charity status)
+ * - Verified charities: 50% off the PAYG platform fee
  */
 
 // Base fees in GBP (will be converted to transaction currency)
 export const PAYG_FEE_GBP = 0.55; // £0.55 per ticket
-export const CHARITY_FEE_GBP = 0.20; // £0.20 per ticket
 
 export const CHARITY_PLATFORM_FEE_DISCOUNT_RATE = 0.5;
 export const CHARITY_CREDIT_DISCOUNT_RATE = 0.25;
@@ -215,19 +214,19 @@ export interface FeeCalculationResult {
 export function calculateFeePerTicket(
     feeTier: FeeTier,
     currency: string,
-    rates: Record<string, number> = FALLBACK_EXCHANGE_RATES
+    rates: Record<string, number> = FALLBACK_EXCHANGE_RATES,
+    charityDiscountRate?: number
 ): number {
     if (feeTier === 'token') {
         return 0;
     }
 
-    if (feeTier === 'charity') {
-        const fee = convertFromGBP(CHARITY_FEE_GBP, currency, rates);
-        return fromSmallestUnit(toSmallestUnit(fee, currency), currency);
-    }
-
     const fee = convertFromGBP(PAYG_FEE_GBP, currency, rates);
-    return fromSmallestUnit(toSmallestUnit(fee, currency), currency);
+    let feeInSmallestUnit = toSmallestUnit(fee, currency);
+    if (charityDiscountRate && charityDiscountRate > 0) {
+        feeInSmallestUnit = applyCharityPlatformFeeDiscount(feeInSmallestUnit, charityDiscountRate);
+    }
+    return fromSmallestUnit(feeInSmallestUnit, currency);
 }
 
 /**
@@ -242,21 +241,6 @@ export function calculatePlatformFee(params: FeeCalculationParams): FeeCalculati
         exchangeRates = FALLBACK_EXCHANGE_RATES,
         charityDiscountRate
     } = params;
-
-    if (feeTier === 'charity') {
-        const feePerTicketRaw = convertFromGBP(CHARITY_FEE_GBP, currency, exchangeRates);
-        const feePerTicketSmallestUnit = toSmallestUnit(feePerTicketRaw, currency);
-        const feePerTicket = fromSmallestUnit(feePerTicketSmallestUnit, currency);
-        return {
-            feePerTicket,
-            totalFee: feePerTicketSmallestUnit * ticketCount > 0
-                ? fromSmallestUnit(feePerTicketSmallestUnit * ticketCount, currency)
-                : 0,
-            ticketsUsingCredits: 0,
-            ticketsUsingPayg: ticketCount,
-            feeDescription: `${getCurrencySymbol(currency)}${feePerTicket.toFixed(2)}/ticket (Charity rate)`
-        };
-    }
 
     if (feeTier === 'token') {
         const ticketsUsingCredits = Math.min(creditsAvailable, ticketCount);

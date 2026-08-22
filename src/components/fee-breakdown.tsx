@@ -5,7 +5,7 @@ import { Info } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { PAYG_FEE_GBP, CHARITY_FEE_GBP } from '@/lib/fees';
+import { calculatePlatformFee, PAYG_FEE_GBP } from '@/lib/fees';
 import { calculateStripeProcessingFee } from '@/lib/stripe-fees';
 
 
@@ -17,6 +17,7 @@ interface FeeBreakdownProps {
     absorbFee: boolean;
     onAbsorbFeeChange: (value: boolean) => void;
     customBookingFee?: number;
+    charityDiscountRate?: number;
 }
 
 export function FeeBreakdown({
@@ -26,7 +27,8 @@ export function FeeBreakdown({
     feeTier = 'payg',
     absorbFee,
     onAbsorbFeeChange,
-    customBookingFee
+    customBookingFee,
+    charityDiscountRate
 }: FeeBreakdownProps) {
     const breakdown = useMemo(() => {
         const subtotal = ticketPrice * ticketCount;
@@ -36,14 +38,14 @@ export function FeeBreakdown({
             : 0;
         const organizerFee = organizerFeePerTicket * ticketCount;
 
-        // Platform fee is waived when using credits (token tier)
-        const platformFeePerTicket =
-            feeTier === 'token'
-                ? 0
-                : feeTier === 'charity'
-                    ? CHARITY_FEE_GBP
-                    : PAYG_FEE_GBP;
-        const platformFee = platformFeePerTicket * ticketCount;
+        const platformFeeResult = calculatePlatformFee({
+            feeTier,
+            ticketCount,
+            currency,
+            charityDiscountRate,
+        });
+        const platformFee = platformFeeResult.totalFee;
+        const platformFeePerTicket = platformFeeResult.feePerTicket;
 
         const baseCharge = subtotal + organizerFee + (absorbFee ? 0 : platformFee);
         const processingFee = calculateStripeProcessingFee(baseCharge, currency);
@@ -64,7 +66,7 @@ export function FeeBreakdown({
             platformFeePerTicket,
             processingFee
         };
-    }, [ticketPrice, ticketCount, feeTier, absorbFee, customBookingFee, currency]);
+    }, [ticketPrice, ticketCount, feeTier, absorbFee, customBookingFee, currency, charityDiscountRate]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-GB', {
@@ -153,10 +155,10 @@ export function FeeBreakdown({
                 <div className="flex items-start gap-2 text-xs text-muted-foreground bg-background/50 rounded-lg p-3">
                     <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                     <span>
-                        {feeTier === 'charity'
-                            ? `Charity rate: £${CHARITY_FEE_GBP.toFixed(2)} per ticket (requires verified charity status)`
-                            : feeTier === 'token'
-                                ? 'Using credits: platform fees are waived. Optional organiser fee is paid directly to the organiser.'
+                        {feeTier === 'token'
+                            ? 'Using credits: platform fees are waived. Optional organiser fee is paid directly to the organiser.'
+                            : charityDiscountRate && charityDiscountRate > 0
+                                ? `Verified charity discount: ${(charityDiscountRate * 100).toFixed(0)}% off the platform fee.`
                                 : `Standard rate: £${PAYG_FEE_GBP.toFixed(2)} per ticket. Buy credits to reduce fees.`
                         }
                         {' '}
