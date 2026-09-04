@@ -7,12 +7,14 @@
  *      data-theme="light"
  *      data-height="800px">
  * </div>
- * <script src="https://yoursite.com/embed/checkout.js"></script>
+ * <script src="https://www.halalticketin.com/embed/checkout.js"></script>
  */
 (function () {
     'use strict';
 
-    const SITE_BASE = window.HALAL_TICKETIN_SITE_URL || 'http://localhost:3000';
+    const loaderSrc = document.currentScript && document.currentScript.src;
+    const SITE_BASE = window.HALAL_TICKETIN_SITE_URL
+        || (loaderSrc ? new URL(loaderSrc).origin : 'https://www.halalticketin.com');
     const CONTAINER_SELECTOR = '#halal-ticketin-checkout';
 
     function buildIframeSrc(slug, theme, previewEnabled) {

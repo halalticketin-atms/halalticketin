@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('embed loader injects iframe', async ({ page }) => {
+test('local embed loader injects iframe from the local frontend origin', async ({ page }) => {
     const baseURL = test.info().project.use.baseURL ?? 'http://127.0.0.1:3000';
 
     await page.route('**/api/v1/public/events/prayer-event', (route) => {
@@ -86,5 +86,42 @@ test('embed loader injects iframe', async ({ page }) => {
 
     const frame = page.locator('iframe[title="Halal Ticketin Checkout"]');
     await expect(frame).toBeVisible();
-    await expect(frame).toHaveAttribute('src', new RegExp('/embed/checkout/prayer-event\\?theme=light'));
+    await expect(frame).toHaveAttribute(
+        'src',
+        `${baseURL}/embed/checkout/prayer-event?theme=light&preview=1`,
+    );
+});
+
+test('generated snippet keeps the checkout iframe on the loader origin when pasted into Squarespace', async ({
+    page,
+}) => {
+    const loaderOrigin = 'https://www.halalticketin.com';
+    const hostUrl = 'https://example.squarespace.com/events/prayer-event';
+    const iframeUrl = `${loaderOrigin}/embed/checkout/prayer-event?theme=dark&preview=1`;
+    const snippet = [
+        '<div id="halal-ticketin-checkout" data-event-slug="prayer-event" data-theme="dark"></div>',
+        `<script src="${loaderOrigin}/embed/checkout.js"></script>`,
+    ].join('\n');
+
+    await page.route(hostUrl, (route) => {
+        route.fulfill({
+            status: 200,
+            contentType: 'text/html',
+            body: `<html><body>${snippet}</body></html>`,
+        });
+    });
+    await page.route(`${loaderOrigin}/embed/checkout.js`, (route) => {
+        route.fulfill({
+            path: `${process.cwd()}/public/embed/checkout.js`,
+            contentType: 'application/javascript',
+        });
+    });
+    await page.route(iframeUrl, (route) => {
+        route.fulfill({ status: 200, contentType: 'text/html', body: '<html></html>' });
+    });
+
+    await page.goto(hostUrl);
+
+    const frame = page.locator('iframe[title="Halal Ticketin Checkout"]');
+    await expect(frame).toHaveAttribute('src', iframeUrl);
 });

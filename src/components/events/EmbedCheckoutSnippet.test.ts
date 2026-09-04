@@ -9,8 +9,9 @@ describe('buildEmbedCheckoutSnippet', () => {
             siteUrl: 'https://halalticketin.com',
         });
 
-        expect(snippet).toContain('data-event-slug="prayer-event"');
-        expect(snippet).toContain('data-theme="light"');
-        expect(snippet).toContain('https://halalticketin.com/embed/checkout.js');
+        expect(snippet).toBe([
+            '<div id="halal-ticketin-checkout" data-event-slug="prayer-event" data-theme="light"></div>',
+            '<script src="https://halalticketin.com/embed/checkout.js"></script>',
+        ].join('\n'));
     });
 });
