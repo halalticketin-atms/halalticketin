@@ -525,6 +525,19 @@ export function EmbedCheckoutSnippet({
                           disabled={disabled}
                           className="h-10 w-full cursor-pointer p-1"
                         />
+                        {key === 'background' && (
+                          <div className="flex min-h-8 items-center justify-between gap-2 pt-1">
+                            <Label htmlFor="embed-transparent" className="text-xs">
+                              Transparent
+                            </Label>
+                            <Switch
+                              id="embed-transparent"
+                              checked={settings.transparent}
+                              onCheckedChange={(checked) => updateSettings('transparent', checked)}
+                              aria-label="Transparent background"
+                            />
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -630,13 +643,6 @@ export function EmbedCheckoutSnippet({
                     hint="Shows the event name and summary above the ticket choices."
                     checked={settings.showDetails}
                     onCheckedChange={(checked) => updateSettings('showDetails', checked)}
-                  />
-                  <OptionRow
-                    id="embed-transparent"
-                    label="Transparent background"
-                    hint="Lets your own website background show around the ticket flow."
-                    checked={settings.transparent}
-                    onCheckedChange={(checked) => updateSettings('transparent', checked)}
                   />
                 </div>
 
