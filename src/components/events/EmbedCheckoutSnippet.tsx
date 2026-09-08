@@ -452,7 +452,7 @@ export function EmbedCheckoutSnippet({
       )}
 
       <div className="grid gap-4 xl:grid-cols-12 xl:gap-6">
-        <div className="order-2 space-y-4 xl:order-1 xl:col-span-5">
+        <div className="order-1 space-y-4 xl:col-span-5">
           <section className="bg-card rounded-xl border" aria-labelledby="embed-appearance-heading">
             <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
               <h4 id="embed-appearance-heading" className="text-sm font-medium">
@@ -660,7 +660,7 @@ export function EmbedCheckoutSnippet({
           </Collapsible>
         </div>
 
-        <div className="order-1 space-y-4 xl:order-2 xl:col-span-7">
+        <div className="order-2 space-y-4 xl:col-span-7">
           <section
             className="bg-card overflow-hidden rounded-xl border"
             aria-labelledby="embed-preview-heading"
