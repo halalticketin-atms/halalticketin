@@ -17,7 +17,7 @@ function EmbedCheckoutContent() {
         slug ?? null,
         { preview: previewRequested },
     );
-    const isPreview = event?.status ? event.status !== 'published' : false;
+    const isPreview = searchParams.get('configure') === '1' || (event?.status ? event.status !== 'published' : false);
 
     return (
         <EmbedCheckoutWidget
@@ -26,6 +26,16 @@ function EmbedCheckoutContent() {
             isLoading={isLoading}
             error={error}
             theme={theme}
+            eventSlug={slug}
+            appearance={{
+                accent: searchParams.get('accent'),
+                background: searchParams.get('background'),
+                text: searchParams.get('text'),
+                font: searchParams.get('font'),
+                radius: searchParams.get('radius'),
+                minimal: searchParams.get('minimal'),
+                showDetails: searchParams.get('showDetails'),
+            }}
             isPreview={isPreview}
             accessStatus={accessStatus}
             accessMessage={error}
@@ -37,7 +47,7 @@ function EmbedCheckoutContent() {
 
 function EmbedCheckoutFallback() {
     return (
-        <div className="min-h-[320px] flex items-center justify-center">
+        <div className="min-h-[120px] flex items-center justify-center">
             <div className="h-10 w-10 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
         </div>
     );

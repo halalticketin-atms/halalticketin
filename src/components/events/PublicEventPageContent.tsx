@@ -108,6 +108,8 @@ interface PublicEventPageContentProps {
     isPreview?: boolean;
     organizerNameOverride?: string | null;
     embedMode?: 'checkout' | 'full';
+    embedShowDetails?: boolean;
+    embedMinimal?: boolean;
     accessStatus?: 'required' | 'denied' | null;
     accessMessage?: string | null;
     accessCode?: string | null;
@@ -483,6 +485,8 @@ export function PublicEventPageContent({
     isPreview = false,
     organizerNameOverride = null,
     embedMode = 'full',
+    embedShowDetails = true,
+    embedMinimal = false,
     accessStatus = null,
     accessMessage = null,
     accessCode = null,
@@ -2579,7 +2583,7 @@ export function PublicEventPageContent({
             )}
 
             {/* Content */}
-            <div className={cn('container', isEmbedCheckout ? 'py-6' : 'py-8')}>
+            <div className={cn('container', isEmbedCheckout ? 'py-4 !px-3' : 'py-8')}>
                 <div className={cn('grid gap-8', isEmbedCheckout ? 'grid-cols-1' : 'lg:grid-cols-3')}>
                     {/* Main Content */}
                     {!isEmbedCheckout && (
@@ -2828,9 +2832,8 @@ export function PublicEventPageContent({
 
                     {/* Sidebar - Tickets */}
                     <div className={cn(isEmbedCheckout ? 'w-full' : 'lg:col-span-1', 'min-w-0')}>
-                        {isEmbedCheckout && (
+                        {isEmbedCheckout && embedShowDetails && (
                             <div className="mb-4 space-y-2">
-                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Tickets for</p>
                                 <h1 className="text-2xl font-bold">{event.title || 'Untitled Event'}</h1>
                                 <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                                     {eventDateTime.date && (
@@ -2860,19 +2863,19 @@ export function PublicEventPageContent({
                             </div>
                         )}
                         <motion.div
-                            initial={{ opacity: 0, y: 20 }}
+                            initial={isEmbedCheckout ? false : { opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: 0.2 }}
                             className={cn(isEmbedCheckout ? '' : 'lg:sticky lg:top-8')}
                         >
-                            <Card className="overflow-hidden">
-                                <CardHeader>
+                            <Card className={cn("overflow-hidden", isEmbedCheckout && "gap-0 py-0", isEmbedCheckout && embedMinimal && "border-0 shadow-none bg-transparent")}>
+                                {(!isEmbedCheckout || !embedShowDetails) && <CardHeader className={isEmbedCheckout ? "pt-4" : undefined}>
                                     <CardTitle className="flex items-center gap-2">
                                         <Ticket className="h-5 w-5" />
                                         Tickets
                                     </CardTitle>
-                                </CardHeader>
-                                <CardContent className="pt-6 space-y-4">
+                                </CardHeader>}
+                                <CardContent className={cn("pt-6 space-y-4", isEmbedCheckout && "!px-3 py-4")}>
                                     {!hasRegularTickets && !hasDonationOption ? (
                                         <p className="text-muted-foreground text-center py-4">
                                             No tickets available yet.
@@ -3223,9 +3226,9 @@ export function PublicEventPageContent({
 
                                     <Button
                                         type="button"
-                                        className="w-full"
+                                        className={isEmbedCheckout && isPreview ? 'w-full disabled:opacity-100' : 'w-full'}
                                         size="lg"
-                                        disabled={(!hasRegularTickets && !hasDonationOption) || !hasSelections}
+                                        disabled={(isEmbedCheckout && isPreview) || (!hasRegularTickets && !hasDonationOption) || !hasSelections}
                                         onClick={handleOpenCheckout}
                                     >
                                         <ShoppingCart className="h-4 w-4 mr-2" />

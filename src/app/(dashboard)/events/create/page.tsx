@@ -5120,23 +5120,14 @@ export function EventWizard({
                                         transition={{ duration: 0.2 }}
                                         className="space-y-10 lg:space-y-12"
                                     >
-                                        <section id="section-widget" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)] space-y-4 lg:space-y-5">
-                                        <div className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-                                            <div className="px-4 py-3 border-b border-border/40 bg-(--brand-cyan)/5">
-                                                <h3 className="text-sm font-medium text-foreground">Embed Checkout Widget</h3>
-                                            </div>
-                                            <div className="p-4 space-y-4">
-                                                <div>
-                                                    <p className="text-sm text-muted-foreground">Integrate ticket sales directly into your website</p>
-                                                </div>
-                                                <EmbedCheckoutSnippet
-                                                    slug={embedSlug}
-                                                    canCopy={embedCanCopy}
-                                                    isLive={embedIsLive}
-                                                    isPublic={embedIsPublic}
-                                                />
-                                            </div>
-                                        </div>
+                                        {/* The configurator supplies its own heading and section framing. */}
+                                        <section id="section-widget" className="scroll-mt-[calc(var(--event-wizard-sticky-offset)+1.5rem)]">
+                                            <EmbedCheckoutSnippet
+                                                slug={embedSlug}
+                                                canCopy={embedCanCopy}
+                                                isLive={embedIsLive}
+                                                isPublic={embedIsPublic}
+                                            />
                                         </section>
                                     </motion.div>
                                 )}
