@@ -761,6 +761,7 @@ export function PublicEventPageContent({
     const [appliedPromo, setAppliedPromo] = useState<ValidatePromoResult | null>(null);
     const [promoError, setPromoError] = useState<string | null>(null);
     const [unlockedTickets, setUnlockedTickets] = useState<TicketLike[]>([]);
+    const [restoredAppliedPromoCode, setRestoredAppliedPromoCode] = useState<string | null>(null);
 
     const regularTickets = useMemo(
         () => visibleTickets.filter((ticket) => ticket.type !== 'donation'),
@@ -960,6 +961,9 @@ export function PublicEventPageContent({
             if (draft.promoCode && !promoCode) {
                 setPromoCode(draft.promoCode);
             }
+            if (typeof draft.appliedPromoCode === 'string' && draft.appliedPromoCode.trim()) {
+                setRestoredAppliedPromoCode(draft.appliedPromoCode.trim().toUpperCase());
+            }
             if (draft.useSharedInfo !== undefined) {
                 setUseSharedInfo(draft.useSharedInfo);
             }
@@ -990,6 +994,9 @@ export function PublicEventPageContent({
             attendeeAge,
             ticketAttendees,
             promoCode,
+            appliedPromoCode: appliedPromo && !appliedPromo.revealsHiddenTickets
+                ? appliedPromo.code ?? null
+                : null,
             useSharedInfo,
             donationAmount,
             savedAt: Date.now()
@@ -1137,7 +1144,7 @@ export function PublicEventPageContent({
         : 0;
     const isRateLimited = cooldownRemaining > 0;
 
-    const buildQuoteSignature = (promoCodeValue?: string | null) => {
+    const buildQuoteSignature = useCallback((promoCodeValue?: string | null) => {
         if (!event?.id || quoteItems.length === 0) {
             return null;
         }
@@ -1154,7 +1161,7 @@ export function PublicEventPageContent({
             promoCode: promoCodeValue?.toUpperCase() ?? '',
             accessCode: accessCode ?? ''
         });
-    };
+    }, [accessCode, event?.id, quoteItems]);
 
     const quoteSignature = buildQuoteSignature(appliedPromo?.code);
 
@@ -1361,6 +1368,104 @@ export function PublicEventPageContent({
         setIsValidatingPromo(false);
     };
 
+    useEffect(() => {
+        const code = restoredAppliedPromoCode?.trim().toUpperCase();
+        if (!code) {
+            return;
+        }
+        if (promoCode.trim().toUpperCase() !== code) {
+            setRestoredAppliedPromoCode(null);
+            return;
+        }
+        if (appliedPromo) {
+            setRestoredAppliedPromoCode(null);
+            return;
+        }
+        if (!event) {
+            return;
+        }
+
+        const previewAccessToken = isPreview ? previewToken ?? getAuthToken() ?? undefined : undefined;
+        if (isPreview && !previewAccessToken) {
+            setPromoError('Promo code validation is temporarily unavailable in preview.');
+            setRestoredAppliedPromoCode(null);
+            return;
+        }
+
+        let cancelled = false;
+
+        setIsValidatingPromo(true);
+        setPromoError(null);
+
+        const promoItems = cartItems.map((item) => ({
+            ticketTypeId: item.ticket.id,
+            quantity: item.quantity,
+            unitPrice: item.ticket.type === 'donation' ? item.subtotal : undefined,
+        }));
+
+        void (async () => {
+            try {
+                const result = await validatePromoCode(
+                    event.id,
+                    code,
+                    promoItems,
+                    totalAmount,
+                    accessCode ?? undefined,
+                    previewAccessToken,
+                );
+                if (cancelled) {
+                    return;
+                }
+
+                if (!result.valid) {
+                    setUnlockedTickets([]);
+                    promoValidationSignatureRef.current = null;
+                    setPromoError(result.message || 'This promo code is no longer valid.');
+                    return;
+                }
+
+                // Draft storage is user-controlled. Do not restore a code that needs hidden tickets
+                // without running the normal apply flow that unlocks those tickets first.
+                if (result.revealsHiddenTickets) {
+                    setUnlockedTickets([]);
+                    promoValidationSignatureRef.current = null;
+                    setPromoError('Please apply this promo code again to restore hidden tickets.');
+                    return;
+                }
+
+                setAppliedPromo(result);
+                promoValidationSignatureRef.current = buildQuoteSignature(code);
+                setPromoError(null);
+            } catch {
+                if (!cancelled) {
+                    setUnlockedTickets([]);
+                    promoValidationSignatureRef.current = null;
+                    setPromoError('Promo code validation failed. Please try again.');
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsValidatingPromo(false);
+                    setRestoredAppliedPromoCode(null);
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        accessCode,
+        appliedPromo,
+        buildQuoteSignature,
+        cartItems,
+        event,
+        isPreview,
+        previewToken,
+        promoCode,
+        restoredAppliedPromoCode,
+        totalAmount,
+    ]);
+
     const handleRemovePromo = () => {
         setAppliedPromo(null);
         setUnlockedTickets([]);
@@ -1562,8 +1667,9 @@ export function PublicEventPageContent({
     const creditSplitNote = activeQuote
         ? formatCreditSplitNote(creditsApplied, quotePaidTicketCount)
         : null;
-    const isQuoteBlocked = hasSelections && !quoteFresh;
-    const isQuoteUpdating = (isQuoteLoading || isDonationQuotePending || quoteTooOld) && !isRateLimited;
+    const isRestoringPromo = Boolean(restoredAppliedPromoCode);
+    const isQuoteBlocked = hasSelections && (!quoteFresh || isRestoringPromo);
+    const isQuoteUpdating = (isQuoteLoading || isDonationQuotePending || quoteTooOld || isRestoringPromo) && !isRateLimited;
     const quoteStatusLabel = isRateLimited
         ? `Retrying in ${cooldownRemaining}s`
         : isQuoteUpdating
@@ -2114,6 +2220,7 @@ export function PublicEventPageContent({
         const isQuoteReady = Boolean(checkoutQuote)
             && quoteSignature === lastQuoteSignatureRef.current
             && !isDonationQuotePending
+            && !restoredAppliedPromoCode
             && !isLatestQuoteTooOld;
 
         if (!isQuoteReady) {

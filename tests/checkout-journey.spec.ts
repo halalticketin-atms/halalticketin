@@ -903,3 +903,240 @@ test.describe('Checkout Journey - Event Information', () => {
         await expect(page.getByRole('link', { name: /view organi[sz]er profile/i })).toBeVisible();
     });
 });
+
+test.describe('Checkout Journey - Promo recovery', () => {
+    test('revalidates an applied promo after restoring a checkout draft', async ({ page }) => {
+        const eventId = 'event_promo_recovery_001';
+        const slug = 'promo-recovery-event';
+        const quoteBodies: Array<{ promoCode?: string }> = [];
+        const validationBodies: Array<{
+            promoCode?: string;
+            items?: Array<{ ticketTypeId: string; quantity: number }>;
+            subtotal?: number;
+        }> = [];
+        const sessionBodies: Array<{ promoCode?: string }> = [];
+        let delayNextValidation = false;
+        let validationIsValid = true;
+        let validationRevealsHiddenTickets = false;
+        let signalRecoveryValidationStarted: (() => void) | null = null;
+        let releaseRecoveryValidation: (() => void) | null = null;
+        const recoveryValidationStarted = new Promise<void>((resolve) => {
+            signalRecoveryValidationStarted = resolve;
+        });
+        const recoveryValidationReleased = new Promise<void>((resolve) => {
+            releaseRecoveryValidation = resolve;
+        });
+
+        await page.route('**/api/v1/**', async (route) => {
+            const url = route.request().url();
+
+            if (url.includes(`/public/events/${slug}`)) {
+                await route.fulfill({
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        event: {
+                            id: eventId,
+                            organizerId: 'org_promo_recovery_001',
+                            slug,
+                            title: 'Promo Recovery Event',
+                            description: null,
+                            bannerImageUrl: null,
+                            startDatetime: '2030-03-15T19:30:00.000Z',
+                            endDatetime: null,
+                            timezone: 'Europe/Dublin',
+                            isMultiDay: false,
+                            locationType: 'online',
+                            venue: null,
+                            address: null,
+                            city: null,
+                            country: null,
+                            onlineUrl: null,
+                            latitude: null,
+                            longitude: null,
+                            currency: 'GBP',
+                            organizerName: 'Promo Recovery Organiser',
+                            organizerAvatarUrl: null,
+                            category: null,
+                            absorbFee: false,
+                            feeTier: 'payg',
+                            customBookingFee: null,
+                            metaPixelId: null,
+                            attendeeInfoMode: 'buyer_choice',
+                            customQuestions: null,
+                            status: 'published',
+                        },
+                        tickets: [{
+                            id: 'ticket_promo_recovery_001',
+                            name: 'General Admission',
+                            description: null,
+                            price: '10.00',
+                            currency: 'GBP',
+                            maxQuantity: 4,
+                            minPerOrder: 1,
+                            maxPerOrder: 4,
+                            type: 'paid',
+                            visibility: 'public',
+                            salesStart: null,
+                            salesEnd: null,
+                            earlyBirdPrice: null,
+                            earlyBirdEndDate: null,
+                        }],
+                    }),
+                });
+                return;
+            }
+
+            if (url.includes('/exchange-rates')) {
+                await route.fulfill({
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        base: 'GBP',
+                        rates: { GBP: 1 },
+                        currencies: { GBP: { symbol: '£', name: 'British Pound' } },
+                    }),
+                });
+                return;
+            }
+
+            if (url.includes('/checkout/validate-promo')) {
+                const body = route.request().postDataJSON() as {
+                    promoCode?: string;
+                    items?: Array<{ ticketTypeId: string; quantity: number }>;
+                    subtotal?: number;
+                };
+                validationBodies.push(body);
+                if (delayNextValidation) {
+                    delayNextValidation = false;
+                    signalRecoveryValidationStarted?.();
+                    await recoveryValidationReleased;
+                }
+                await route.fulfill({
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        valid: validationIsValid && body.promoCode === 'SAVE10',
+                        code: 'SAVE10',
+                        discountType: 'percentage',
+                        discountValue: '10',
+                        discountAmount: '1.00',
+                        revealsHiddenTickets: validationRevealsHiddenTickets,
+                    }),
+                });
+                return;
+            }
+
+            if (url.includes('/checkout/quote')) {
+                const body = route.request().postDataJSON() as { promoCode?: string };
+                quoteBodies.push(body);
+                const promoApplied = body.promoCode === 'SAVE10';
+                await route.fulfill({
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        success: true,
+                        isFreeOrder: false,
+                        currency: 'GBP',
+                        subtotal: 10,
+                        discount: promoApplied ? 1 : 0,
+                        organizerFee: 0,
+                        platformFee: 0,
+                        processingFee: 0,
+                        processingFeeVat: 0,
+                        total: promoApplied ? 9 : 10,
+                        useCreditsApplied: false,
+                        creditsApplied: 0,
+                        paidTicketCount: 1,
+                        promoCodeApplied: promoApplied,
+                        lineAllocations: [],
+                    }),
+                });
+                return;
+            }
+
+            if (url.includes('/checkout/session')) {
+                sessionBodies.push(route.request().postDataJSON() as { promoCode?: string });
+                await route.fulfill({
+                    status: 400,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ message: 'Mock checkout halted' }),
+                });
+                return;
+            }
+
+            await route.fulfill({ contentType: 'application/json', body: '{}' });
+        });
+
+        await page.goto(`/events/${slug}`);
+        const ticketCard = page.locator('div[aria-disabled="false"]').filter({
+            has: page.getByRole('heading', { name: 'General Admission', exact: true }),
+        });
+        await ticketCard.getByRole('button').last().click();
+        await page.locator('#promoCodeInput').fill('SAVE10');
+        await page.getByRole('button', { name: 'Apply', exact: true }).click();
+        await expect(page.getByText('✓ Code applied: 10% off', { exact: true })).toBeVisible();
+
+        await page.getByRole('button', { name: 'Proceed to Checkout', exact: true }).click();
+        await page.locator('#buyerName').fill('Draft Buyer');
+        await page.locator('#buyerEmail').fill('draft@example.test');
+        await page.locator('#buyerAge').fill('30');
+        await page.getByRole('combobox').click();
+        await page.getByRole('option', { name: 'Male', exact: true }).click();
+        await page.getByRole('button', { name: 'Continue', exact: true }).click();
+        await page.getByRole('button', { name: /proceed to payment|complete order|pay/i }).click();
+        await expect(page.getByLabel('Checkout', { exact: true }).getByText('Mock checkout halted')).toBeVisible();
+        expect(sessionBodies.at(-1)?.promoCode).toBe('SAVE10');
+
+        quoteBodies.length = 0;
+        validationBodies.length = 0;
+        sessionBodies.length = 0;
+
+        delayNextValidation = true;
+        const reload = page.reload();
+        await recoveryValidationStarted;
+        await reload;
+        expect(quoteBodies.every((body) => body.promoCode !== 'SAVE10')).toBe(true);
+        expect(sessionBodies).toHaveLength(0);
+
+        releaseRecoveryValidation?.();
+        await expect.poll(() => validationBodies.at(-1)?.promoCode).toBe('SAVE10');
+        await expect.poll(() => quoteBodies.at(-1)?.promoCode).toBe('SAVE10');
+        expect(validationBodies.at(-1)).toMatchObject({
+            promoCode: 'SAVE10',
+            items: [{ ticketTypeId: 'ticket_promo_recovery_001', quantity: 1 }],
+            subtotal: 10,
+        });
+        await expect(page.getByText('✓ Code applied: 10% off', { exact: true })).toBeVisible();
+
+        await page.getByRole('button', { name: 'Proceed to Checkout', exact: true }).click();
+        await page.getByRole('button', { name: 'Continue', exact: true }).click();
+        await page.getByRole('button', { name: /proceed to payment|complete order|pay/i }).click();
+        await expect(page.getByLabel('Checkout', { exact: true }).getByText('Mock checkout halted')).toBeVisible();
+        expect(sessionBodies.at(-1)?.promoCode).toBe('SAVE10');
+
+        validationIsValid = false;
+        quoteBodies.length = 0;
+        validationBodies.length = 0;
+        await page.reload();
+        await expect.poll(() => validationBodies.at(-1)?.promoCode).toBe('SAVE10');
+        await expect.poll(() => quoteBodies.length).toBeGreaterThan(0);
+        expect(quoteBodies.every((body) => body.promoCode !== 'SAVE10')).toBe(true);
+        await expect(page.getByText('✓ Code applied: 10% off', { exact: true })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeVisible();
+
+        validationIsValid = true;
+        validationRevealsHiddenTickets = true;
+        quoteBodies.length = 0;
+        await page.evaluate((draftKey) => {
+            const draft = sessionStorage.getItem(draftKey);
+            if (!draft) {
+                throw new Error('Expected checkout draft');
+            }
+            sessionStorage.setItem(draftKey, JSON.stringify({
+                ...JSON.parse(draft),
+                appliedPromoCode: 'SAVE10',
+            }));
+        }, `checkout_draft_${eventId}`);
+        await page.reload();
+        await expect(page.getByText('Please apply this promo code again to restore hidden tickets.')).toBeVisible();
+        expect(quoteBodies.every((body) => body.promoCode !== 'SAVE10')).toBe(true);
+        await expect(page.getByText('✓ Code applied: 10% off', { exact: true })).toHaveCount(0);
+    });
+});
