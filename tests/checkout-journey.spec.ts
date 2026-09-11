@@ -918,6 +918,7 @@ test.describe('Checkout Journey - Promo recovery', () => {
         let delayNextValidation = false;
         let validationIsValid = true;
         let validationRevealsHiddenTickets = false;
+        let quoteHonoursPromo = true;
         let signalRecoveryValidationStarted: (() => void) | null = null;
         let releaseRecoveryValidation: (() => void) | null = null;
         const recoveryValidationStarted = new Promise<void>((resolve) => {
@@ -1027,7 +1028,15 @@ test.describe('Checkout Journey - Promo recovery', () => {
             if (url.includes('/checkout/quote')) {
                 const body = route.request().postDataJSON() as { promoCode?: string };
                 quoteBodies.push(body);
-                const promoApplied = body.promoCode === 'SAVE10';
+                if (!quoteHonoursPromo && body.promoCode === 'SAVE10') {
+                    await route.fulfill({
+                        status: 400,
+                        contentType: 'application/json',
+                        body: JSON.stringify({ message: 'Promo code is no longer valid for this selection.' }),
+                    });
+                    return;
+                }
+                const promoApplied = quoteHonoursPromo && body.promoCode === 'SAVE10';
                 await route.fulfill({
                     contentType: 'application/json',
                     body: JSON.stringify({
@@ -1070,8 +1079,16 @@ test.describe('Checkout Journey - Promo recovery', () => {
         });
         await ticketCard.getByRole('button').last().click();
         await page.locator('#promoCodeInput').fill('SAVE10');
+        await page.getByRole('button', { name: 'Proceed to Checkout', exact: true }).click();
+        await expect(page.getByText('Apply or remove this promo code before checkout.')).toBeVisible();
+        await expect(page.getByLabel('Checkout', { exact: true })).toHaveCount(0);
+        expect(sessionBodies).toHaveLength(0);
+
         await page.getByRole('button', { name: 'Apply', exact: true }).click();
         await expect(page.getByText('✓ Code applied: 10% off', { exact: true })).toBeVisible();
+        await expect.poll(() => quoteBodies.at(-1)?.promoCode).toBe('SAVE10');
+        await expect(page.getByText('Discount (SAVE10)', { exact: true })).toBeVisible();
+        await expect(page.getByText('£9.00', { exact: true })).toBeVisible();
 
         await page.getByRole('button', { name: 'Proceed to Checkout', exact: true }).click();
         await page.locator('#buyerName').fill('Draft Buyer');
@@ -1083,10 +1100,23 @@ test.describe('Checkout Journey - Promo recovery', () => {
         await page.getByRole('button', { name: /proceed to payment|complete order|pay/i }).click();
         await expect(page.getByLabel('Checkout', { exact: true }).getByText('Mock checkout halted')).toBeVisible();
         expect(sessionBodies.at(-1)?.promoCode).toBe('SAVE10');
+        await page.getByRole('button', { name: 'Close checkout', exact: true }).click();
+
+        quoteBodies.length = 0;
+        sessionBodies.length = 0;
+        quoteHonoursPromo = false;
+        await ticketCard.getByRole('button').last().click();
+        await expect.poll(() => quoteBodies.at(-1)?.promoCode).toBe('SAVE10');
+        await expect(page.getByText('Promo code is no longer valid for this selection.')).toBeVisible();
+        await page.getByRole('button', { name: 'Proceed to Checkout', exact: true }).click();
+        await expect(page.getByText('This promo code no longer applies to your selection. Remove it or choose eligible tickets.')).toBeVisible();
+        await expect(page.getByLabel('Checkout', { exact: true })).toHaveCount(0);
+        expect(sessionBodies).toHaveLength(0);
 
         quoteBodies.length = 0;
         validationBodies.length = 0;
         sessionBodies.length = 0;
+        quoteHonoursPromo = true;
 
         delayNextValidation = true;
         const reload = page.reload();
@@ -1114,12 +1144,17 @@ test.describe('Checkout Journey - Promo recovery', () => {
         validationIsValid = false;
         quoteBodies.length = 0;
         validationBodies.length = 0;
+        sessionBodies.length = 0;
         await page.reload();
         await expect.poll(() => validationBodies.at(-1)?.promoCode).toBe('SAVE10');
         await expect.poll(() => quoteBodies.length).toBeGreaterThan(0);
         expect(quoteBodies.every((body) => body.promoCode !== 'SAVE10')).toBe(true);
         await expect(page.getByText('✓ Code applied: 10% off', { exact: true })).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Apply', exact: true })).toBeVisible();
+        await page.getByRole('button', { name: 'Proceed to Checkout', exact: true }).click();
+        await expect(page.getByText('Apply or remove this promo code before checkout.')).toBeVisible();
+        await expect(page.getByLabel('Checkout', { exact: true })).toHaveCount(0);
+        expect(sessionBodies).toHaveLength(0);
 
         validationIsValid = true;
         validationRevealsHiddenTickets = true;

@@ -1668,7 +1668,22 @@ export function PublicEventPageContent({
         ? formatCreditSplitNote(creditsApplied, quotePaidTicketCount)
         : null;
     const isRestoringPromo = Boolean(restoredAppliedPromoCode);
-    const isQuoteBlocked = hasSelections && (!quoteFresh || isRestoringPromo);
+    const hasPromoIntent = Boolean(promoCode.trim());
+    const isPromoCheckoutBlocked = hasPromoIntent && (
+        isValidatingPromo
+        || isRestoringPromo
+        || !appliedPromo
+        || !quoteFresh
+        || activeQuote?.promoCodeApplied !== true
+    );
+    const promoCheckoutBlockMessage = isValidatingPromo || isRestoringPromo
+        ? 'Checking your promo code. Please wait.'
+        : !appliedPromo
+            ? 'Apply or remove this promo code before checkout.'
+            : hasQuoteError || activeQuote?.promoCodeApplied === false
+                ? 'This promo code no longer applies to your selection. Remove it or choose eligible tickets.'
+                : 'Checking your promo code. Please wait.';
+    const isQuoteBlocked = hasSelections && (!quoteFresh || isRestoringPromo || isPromoCheckoutBlocked);
     const isQuoteUpdating = (isQuoteLoading || isDonationQuotePending || quoteTooOld || isRestoringPromo) && !isRateLimited;
     const quoteStatusLabel = isRateLimited
         ? `Retrying in ${cooldownRemaining}s`
@@ -1732,6 +1747,10 @@ export function PublicEventPageContent({
             toast.error('Preview mode: checkout is disabled.');
             return;
         }
+        if (isPromoCheckoutBlocked) {
+            setPromoError(promoCheckoutBlockMessage);
+            return;
+        }
 
         const signature = initiateCheckoutSignature;
         if (hasTrackingProviderTarget && signature && itemCountForTracking > 0 && !wasInitiateCheckoutTracked(signature)) {
@@ -1752,7 +1771,9 @@ export function PublicEventPageContent({
         hasTrackingProviderTarget,
         initiateCheckoutSignature,
         isPreview,
+        isPromoCheckoutBlocked,
         itemCountForTracking,
+        promoCheckoutBlockMessage,
         sendInitiateCheckout,
         totalAmount,
         wasInitiateCheckoutTracked,
@@ -2205,6 +2226,12 @@ export function PublicEventPageContent({
         setIsProcessing(true);
         setCheckoutError(null);
 
+        if (isPromoCheckoutBlocked) {
+            setCheckoutError(promoCheckoutBlockMessage);
+            setIsProcessing(false);
+            return;
+        }
+
         const validationMessage = validateCheckout();
         if (validationMessage) {
             setCheckoutError(validationMessage);
@@ -2221,6 +2248,7 @@ export function PublicEventPageContent({
             && quoteSignature === lastQuoteSignatureRef.current
             && !isDonationQuotePending
             && !restoredAppliedPromoCode
+            && !isPromoCheckoutBlocked
             && !isLatestQuoteTooOld;
 
         if (!isQuoteReady) {
@@ -4000,6 +4028,15 @@ export function PublicEventPageContent({
                                             </>
                                         ) : isRateLimited ? (
                                             `Retry in ${cooldownRemaining}s`
+                                        ) : isPromoCheckoutBlocked ? (
+                                            isValidatingPromo || isRestoringPromo || !quoteFresh ? (
+                                                <>
+                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                    Checking promo...
+                                                </>
+                                            ) : (
+                                                'Apply or remove promo'
+                                            )
                                         ) : isQuoteUpdating ? (
                                             <>
                                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
