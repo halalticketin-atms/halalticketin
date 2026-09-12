@@ -121,7 +121,7 @@ interface EventScopeSelectorProps {
 
 function EventScopeSelector({ value, onChange, disabled, events, validationMessage }: EventScopeSelectorProps) {
     return (
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
             <div className="space-y-2">
                 <Label className="text-sm font-medium">Event access</Label>
                 <Select
@@ -158,7 +158,7 @@ function EventScopeSelector({ value, onChange, disabled, events, validationMessa
                                 return (
                                     <label
                                         key={event.id}
-                                        className="flex items-center gap-3 rounded-md p-2 hover:bg-muted/50 cursor-pointer"
+                                        className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3 rounded-md p-2 hover:bg-muted/50 cursor-pointer"
                                     >
                                         <Checkbox
                                             className="shrink-0"
@@ -189,7 +189,7 @@ function EventScopeSelector({ value, onChange, disabled, events, validationMessa
                                                 {event.name.charAt(0).toUpperCase()}
                                             </div>
                                         )}
-                                        <span className="min-w-0 flex-1 text-sm truncate" title={event.name}>{event.name}</span>
+                                        <span className="min-w-0 text-sm truncate" title={event.name}>{event.name}</span>
                                     </label>
                                 );
                             })}
@@ -918,7 +918,7 @@ export default function OrganizerTeamPage() {
                         </DialogHeader>
                     </div>
 
-                    <form onSubmit={handleInviteSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                    <form onSubmit={handleInviteSubmit} className="min-w-0 w-full p-4 sm:p-6 space-y-4 sm:space-y-6">
                         {/* Email Input */}
                         <div className="space-y-2">
                             <Label htmlFor="invite-email" className="text-sm font-medium flex items-center gap-2">
