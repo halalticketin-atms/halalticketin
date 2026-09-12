@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Building2, AlertTriangle, Plus, UserX } from 'lucide-react';
 import { useOrganizers } from '@/context/organizer-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { buildDashboardPath } from '@/lib/organizer-path';
+import { buildDashboardPath, isCheckInDashboardPath } from '@/lib/organizer-path';
 
 // Lazy load the dialog
 const CreateOrganizerDialog = dynamic(
@@ -22,6 +22,7 @@ interface SuspendedAccessGuardProps {
 export function SuspendedAccessGuard({ children }: SuspendedAccessGuardProps) {
     const params = useParams<{ organizerId: string }>();
     const router = useRouter();
+    const pathname = usePathname();
     const { organizers, isLoading, setActiveOrganizerId, refresh } = useOrganizers();
     const [showCreateDialog, setShowCreateDialog] = useState(false);
 
@@ -29,6 +30,14 @@ export function SuspendedAccessGuard({ children }: SuspendedAccessGuardProps) {
     const isSuspended = currentOrganizer?.status === 'suspended';
     const isRemoved = currentOrganizer?.status === 'removed';
     const isBlocked = isSuspended || isRemoved;
+    const requiresCheckInRedirect = currentOrganizer?.role === 'check_in' && !isBlocked
+        && !isCheckInDashboardPath(pathname, params.organizerId);
+
+    useEffect(() => {
+        if (requiresCheckInRedirect) {
+            router.replace(buildDashboardPath(params.organizerId, '/check-in'));
+        }
+    }, [requiresCheckInRedirect, params.organizerId, router]);
 
     const handleOrgCreated = async (organizerId: string) => {
         setActiveOrganizerId(organizerId);
@@ -37,7 +46,7 @@ export function SuspendedAccessGuard({ children }: SuspendedAccessGuardProps) {
     };
 
     // If still loading, show nothing to prevent flash
-    if (isLoading) {
+    if (isLoading || requiresCheckInRedirect) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />

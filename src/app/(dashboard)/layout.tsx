@@ -6,6 +6,7 @@ import type { PropsWithChildren } from 'react';
 import { OrganizerProvider } from '@/context/organizer-context';
 import { useAuth } from '@/context/auth-context';
 import { Loader2 } from 'lucide-react';
+import { EventManagementAccessGuard } from '@/components/dashboard/EventManagementAccessGuard';
 
 export default function DashboardLayout({ children }: PropsWithChildren) {
     const router = useRouter();
@@ -49,5 +50,5 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
         );
     }
 
-    return <OrganizerProvider>{children}</OrganizerProvider>;
+    return <OrganizerProvider><EventManagementAccessGuard>{children}</EventManagementAccessGuard></OrganizerProvider>;
 }

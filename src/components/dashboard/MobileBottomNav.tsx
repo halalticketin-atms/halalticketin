@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { buildDashboardPath } from '@/lib/organizer-path';
 import { useAuth } from '@/context/auth-context';
+import { useOrganizers } from '@/context/organizer-context';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useScrollVisibility } from '@/hooks/useScrollVisibility';
 
@@ -75,12 +76,19 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [, startTransition] = useTransition();
     const { signOut } = useAuth();
+    const { organizers } = useOrganizers();
+    const role = organizers.find((organizer) => organizer.id === organizerId)?.role;
     const prefersReducedMotion = useReducedMotion();
     const [isInteracting, setIsInteracting] = useState(false);
     const { isVisible: isNavVisible } = useScrollVisibility({ isInteracting });
 
-    const mainNavItems = useMemo(() => buildNavItems(organizerId), [organizerId]);
-    const moreItems = useMemo(() => moreMenuItems(organizerId), [organizerId]);
+    const mainNavItems = useMemo(() => {
+        if (!role || !organizerId) return [];
+        return role === 'check_in'
+            ? [{ title: 'Check-in', href: buildDashboardPath(organizerId, '/check-in'), icon: ScanLine }]
+            : buildNavItems(organizerId);
+    }, [organizerId, role]);
+    const moreItems = useMemo(() => role && role !== 'check_in' ? moreMenuItems(organizerId) : [], [organizerId, role]);
     const allItems = useMemo(() => [...mainNavItems, ...moreItems], [mainNavItems, moreItems]);
 
     // Lock body scroll when expanded
