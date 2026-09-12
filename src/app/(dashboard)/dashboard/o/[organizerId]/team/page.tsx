@@ -161,6 +161,7 @@ function EventScopeSelector({ value, onChange, disabled, events, validationMessa
                                         className="flex items-center gap-3 rounded-md p-2 hover:bg-muted/50 cursor-pointer"
                                     >
                                         <Checkbox
+                                            className="shrink-0"
                                             checked={checked}
                                             onCheckedChange={(isChecked) => {
                                                 if (isChecked) {
@@ -174,7 +175,7 @@ function EventScopeSelector({ value, onChange, disabled, events, validationMessa
                                             disabled={disabled}
                                         />
                                         {event.bannerImageUrl ? (
-                                            <div className="relative h-6 w-6 overflow-hidden rounded">
+                                            <div className="relative h-6 w-6 shrink-0 overflow-hidden rounded">
                                                 <Image
                                                     src={event.bannerImageUrl}
                                                     alt=""
@@ -184,11 +185,11 @@ function EventScopeSelector({ value, onChange, disabled, events, validationMessa
                                                 />
                                             </div>
                                         ) : (
-                                            <div className="h-6 w-6 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                                            <div className="h-6 w-6 shrink-0 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">
                                                 {event.name.charAt(0).toUpperCase()}
                                             </div>
                                         )}
-                                        <span className="text-sm truncate">{event.name}</span>
+                                        <span className="min-w-0 flex-1 text-sm truncate" title={event.name}>{event.name}</span>
                                     </label>
                                 );
                             })}
@@ -902,7 +903,7 @@ export default function OrganizerTeamPage() {
             >
                 <DialogContent className="w-[calc(100vw-2.5rem)] max-w-[calc(100vw-2.5rem)] sm:w-full sm:max-w-lg max-h-[calc(100dvh-3rem)] sm:max-h-[90vh] translate-y-[-50%] sm:translate-y-[-53%] overflow-y-auto p-0">
                     {/* Header with gradient accent */}
-                    <div className="relative px-4 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
+                    <div className="relative overflow-hidden px-4 pt-5 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/10 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
                         <DialogHeader className="relative">
                             <div className="flex items-center gap-3 mb-1">

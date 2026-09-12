@@ -127,7 +127,7 @@ export function ImageCropperDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-lg p-0 overflow-hidden">
+            <DialogContent className="max-w-lg p-0 overflow-y-auto">
                 <DialogHeader className="p-6 pb-2">
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>
