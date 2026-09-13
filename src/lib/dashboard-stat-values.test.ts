@@ -10,9 +10,8 @@ describe('dashboard stat values', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
-    delete (globalThis as typeof globalThis & { requestIdleCallback?: unknown })
-      .requestIdleCallback;
-    delete (globalThis as typeof globalThis & { cancelIdleCallback?: unknown }).cancelIdleCallback;
+    delete (globalThis as { requestIdleCallback?: unknown }).requestIdleCallback;
+    delete (globalThis as { cancelIdleCallback?: unknown }).cancelIdleCallback;
   });
 
   it('prefers the backend active event count over events-performance length', () => {

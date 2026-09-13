@@ -73,7 +73,6 @@ test.describe('Mobile success pages', () => {
     await page.goto(
       '/events/published?title=Copy%20of%20UNAPOLOGETIC%3A%20Sonny%20Bill%20Williams&date=2026-04-16&time=00%3A00&venue=RDS%20Hall%207%20(Concert%20Hall)&city=Dublin&slug=copy-of-unapologetic-sonny-bill-williams&private=true&mode=updated&organizer=org_123'
     );
-    await page.waitForLoadState('networkidle');
 
     await expect(page.getByRole('heading', { name: 'Updated!' })).toBeVisible();
     await expect(page.getByText(/Share your event/i)).toBeVisible();
@@ -87,6 +86,7 @@ test.describe('Mobile success pages', () => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     await page.route('**/api/v1/orders/order_123/status', route => {
+      expect(route.request().headers().authorization).toBe('Bearer checkout-proof');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -113,11 +113,13 @@ test.describe('Mobile success pages', () => {
       });
     });
 
-    await page.goto('/checkout/success?order_id=order_123');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/checkout/success?order_id=order_123#access=checkout-proof');
+    await expect(page).toHaveURL(/\/checkout\/success\?order_id=order_123$/);
 
     await expect(page.getByRole('heading', { name: /Your Tickets|Ticket Summary/i })).toBeVisible();
 
+    await page.reload();
+    await expect(page.getByRole('heading', { name: /Your Tickets|Ticket Summary/i })).toBeVisible();
     const downloadButton = page.getByRole('button', { name: /QR Code/i }).first();
     await expect(downloadButton).toBeVisible();
 
@@ -130,4 +132,20 @@ test.describe('Mobile success pages', () => {
     expect(overflow.hasOverflow).toBe(false);
     expect(overflow.bodyWidth).toBeLessThanOrEqual(overflow.viewportWidth + 2);
   });
+  test('expired checkout links explain how to retrieve tickets without exposing them', async ({ page }) => {
+    await page.route('**/api/v1/orders/order_expired/status', route => route.fulfill({
+      status: 403,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 'FORBIDDEN', message: 'This checkout link has expired. Please use your confirmation email to view your tickets.' } }),
+    }));
+    await page.goto('/checkout/success?order_id=order_expired');
+    await expect(page.getByRole('heading', { name: 'Please check your email' })).toBeVisible();
+    await expect(page.getByText('Open your confirmation email to view and download your tickets.')).toBeVisible();
+    await expect(page.getByText('Something went wrong')).toHaveCount(0);
+    await expect(page.getByText('Unable to load tickets')).toHaveCount(0);
+    await expect(page.locator('.bg-red-100')).toHaveCount(0);
+    await expect(page.getByText('Download your QR codes for this order')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /QR Code/i })).toHaveCount(0);
+  });
+
 });

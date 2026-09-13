@@ -1125,7 +1125,7 @@ test.describe('Checkout Journey - Promo recovery', () => {
         expect(quoteBodies.every((body) => body.promoCode !== 'SAVE10')).toBe(true);
         expect(sessionBodies).toHaveLength(0);
 
-        releaseRecoveryValidation?.();
+        (releaseRecoveryValidation as (() => void) | null)?.();
         await expect.poll(() => validationBodies.at(-1)?.promoCode).toBe('SAVE10');
         await expect.poll(() => quoteBodies.at(-1)?.promoCode).toBe('SAVE10');
         expect(validationBodies.at(-1)).toMatchObject({

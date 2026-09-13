@@ -110,6 +110,9 @@ async function stubGtag(page: Page) {
     const calls: unknown[][] = [];
     const gtag = (...args: unknown[]) => {
       calls.push(args);
+      if (args[0] === 'event' && args[1] === 'purchase') {
+        sessionStorage.setItem('test-purchase-url', window.location.href);
+      }
     };
     (
       window as typeof window & {
@@ -285,6 +288,7 @@ test.describe('GA4 tracking smoke', () => {
     ]);
 
     await page.route('**/api/v1/orders/order_123/status', async (route) => {
+      expect(route.request().headers().authorization).toBe('Bearer cs_legacy');
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -292,14 +296,14 @@ test.describe('GA4 tracking smoke', () => {
       });
     });
 
-    await page.goto('/checkout/success?order_id=order_123');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/checkout/success?order_id=order_123&session_id=cs_legacy');
 
     await expect.poll(async () => {
       const calls = await getGtagCalls(page);
       return calls.filter((call) => call[0] === 'event' && call[1] === 'purchase').length;
     }).toBe(1);
 
+    expect(await page.evaluate(() => sessionStorage.getItem('test-purchase-url'))).toMatch(/\/checkout\/success\?order_id=order_123$/);
     expect(await getGtagCalls(page)).toContainEqual([
       'event',
       'purchase',
@@ -320,7 +324,7 @@ test.describe('GA4 tracking smoke', () => {
     ]);
 
     await page.reload();
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: 'Payment Successful!' })).toBeVisible();
     await page.waitForTimeout(1000);
 
     const callsAfterReload = await getGtagCalls(page);

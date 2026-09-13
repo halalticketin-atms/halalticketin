@@ -2327,7 +2327,10 @@ export function PublicEventPageContent({
         // If free order, redirect to success
         if (result.isFreeOrder && result.orderId) {
             clearDraft(); // Clear saved form draft
-            const successUrl = `/checkout/success?order_id=${result.orderId}`;
+            const successParams = new URLSearchParams({ order_id: result.orderId });
+            const proofFragment = result.orderAccessToken
+                ? `#access=${encodeURIComponent(result.orderAccessToken)}` : '';
+            const successUrl = `/checkout/success?${successParams.toString()}${proofFragment}`;
             if (isEmbedCheckout && window.top) {
                 window.top.location.href = successUrl;
             } else {

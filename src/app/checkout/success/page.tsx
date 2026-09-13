@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -11,6 +11,7 @@ import {
     Loader2,
     Download,
     AlertCircle,
+    Mail,
     Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import {
 import { QRCodeCanvas } from 'qrcode.react';
 import { getBackendErrorMessage } from '@/lib/api-errors';
 import { cn } from '@/lib/utils';
+import { captureCheckoutProof, type CheckoutProof } from '@/lib/checkout-proof';
 
 interface TicketInfo {
     id: string;
@@ -69,12 +71,19 @@ interface OrderStatus {
 
 function CheckoutSuccessContent() {
     const searchParams = useSearchParams();
-    const sessionId = searchParams.get('session_id');
     const orderId = searchParams.get('order_id');
+    const [checkoutProof, setCheckoutProof] = useState<(CheckoutProof & { orderId: string }) | null>(null);
+    const accessToken = checkoutProof?.accessToken;
+    const sessionId = checkoutProof?.sessionId;
+
+    useLayoutEffect(() => {
+        if (orderId) setCheckoutProof({ orderId, ...captureCheckoutProof(orderId) });
+    }, [orderId]);
 
     const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [emailFallback, setEmailFallback] = useState(false);
     const [pollCount, setPollCount] = useState(0);
     const { analyticsAllowed, marketingAllowed, hasResponded } = useCookieConsent();
     const marketingTracker = useMemo(
@@ -98,6 +107,7 @@ function CheckoutSuccessContent() {
 
     // Fetch order status with polling for pending orders
     useEffect(() => {
+        if (orderId && checkoutProof?.orderId !== orderId) return;
         const fetchOrderStatus = async () => {
             const id = orderId || sessionId;
 
@@ -108,13 +118,17 @@ function CheckoutSuccessContent() {
 
             try {
                 if (orderId) {
+                    const proof = accessToken ?? sessionId;
                     const response = await fetch(
-                        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/orders/${orderId}/status`
+                        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/orders/${orderId}/status`,
+                        { headers: proof ? { Authorization: `Bearer ${proof}` } : undefined },
                     );
 
                     if (response.ok) {
                         const data = await response.json();
                         setOrderStatus(data);
+                        setError(null);
+                        setEmailFallback(false);
 
                         const pending = data.isPending ?? data.status === 'pending';
                         // If pending and haven't polled too many times, poll again
@@ -122,12 +136,14 @@ function CheckoutSuccessContent() {
                             setTimeout(() => setPollCount(c => c + 1), 2000);
                         }
                     } else {
+                        setEmailFallback(response.status === 403);
                         const errorData = await response.json().catch(() => null);
                         setError(getBackendErrorMessage(errorData, 'Failed to load order details'));
                     }
                 }
             } catch (err) {
                 console.error('Failed to fetch order status:', err);
+                setEmailFallback(false);
                 setError('Failed to load order details');
             } finally {
                 setLoading(false);
@@ -135,7 +151,7 @@ function CheckoutSuccessContent() {
         };
 
         fetchOrderStatus();
-    }, [orderId, sessionId, pollCount]);
+    }, [accessToken, checkoutProof?.orderId, orderId, sessionId, pollCount]);
 
     // Purchase tracking
     useEffect(() => {
@@ -428,7 +444,21 @@ function CheckoutSuccessContent() {
                                 </>
                             )}
 
-                            {error && (
+                            {emailFallback && (
+                                <>
+                                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
+                                        <Mail className="w-12 h-12 text-primary" aria-hidden="true" />
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-foreground mb-2">
+                                        Please check your email
+                                    </h2>
+                                    <p className="text-muted-foreground text-sm">
+                                        Open your confirmation email to view and download your tickets.
+                                    </p>
+                                </>
+                            )}
+
+                            {error && !emailFallback && (
                                 <>
                                     <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-100 mb-4">
                                         <AlertCircle className="w-12 h-12 text-red-600" />
@@ -484,10 +514,10 @@ function CheckoutSuccessContent() {
                         {/* Header */}
                         <div className="mb-4">
                             <h3 className="text-lg font-semibold text-foreground">
-                                Ticket Summary
+                                {emailFallback ? 'Your tickets' : 'Ticket Summary'}
                             </h3>
                             <p className="text-sm text-muted-foreground">
-                                Download your QR codes for this order
+                                {emailFallback ? 'Use the tickets in your confirmation email.' : 'Download your QR codes for this order'}
                             </p>
                         </div>
 
@@ -540,7 +570,8 @@ function CheckoutSuccessContent() {
                                 <div className="flex-1 flex items-center justify-center text-center py-12">
                                     <p className="text-muted-foreground text-sm">
                                         {isPending && 'Tickets will appear here once payment is confirmed...'}
-                                        {error && 'Unable to load tickets'}
+                                        {emailFallback && "If you can't find the email, check your spam or junk folder."}
+                                        {error && !emailFallback && 'Unable to load tickets'}
                                         {!orderStatus && !error && 'Loading tickets...'}
                                     </p>
                                 </div>

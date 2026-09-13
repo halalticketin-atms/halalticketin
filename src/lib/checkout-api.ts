@@ -48,6 +48,7 @@ export interface CheckoutRequest {
 export interface CheckoutSuccessResponse {
   success: true;
   orderId: string;
+  orderAccessToken?: string;
   totalAmount: number;
   currency: string;
   // For free orders - tickets are returned immediately
@@ -262,7 +263,7 @@ export async function createCheckoutSession(
 /**
  * Get order status (for polling after checkout)
  */
-export async function getOrderStatus(orderId: string): Promise<{
+export async function getOrderStatus(orderId: string, access?: string, sessionId?: string): Promise<{
   orderId: string;
   status: string;
   isPending?: boolean;
@@ -300,7 +301,10 @@ export async function getOrderStatus(orderId: string): Promise<{
   }>;
 } | null> {
   try {
-    const response = await fetch(`${API_URL}/api/v1/orders/${orderId}/status`);
+    const proof = access ?? sessionId;
+    const response = await fetch(`${API_URL}/api/v1/orders/${orderId}/status`, {
+      headers: proof ? { Authorization: `Bearer ${proof}` } : undefined,
+    });
 
     if (!response.ok) {
       return null;
@@ -328,6 +332,7 @@ export async function handleCheckout(
   isFreeOrder?: boolean;
   orderId?: string;
   checkoutUrl?: string;
+  orderAccessToken?: string;
   tickets?: CheckoutSuccessResponse['tickets'];
   error?: string;
   adjustedItems?: Array<{ ticketTypeId: string; quantity: number }>;
@@ -350,6 +355,7 @@ export async function handleCheckout(
       success: true,
       isFreeOrder: true,
       orderId: result.orderId,
+      orderAccessToken: result.orderAccessToken,
       tickets: result.tickets,
     };
   }
