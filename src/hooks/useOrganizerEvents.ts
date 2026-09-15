@@ -76,6 +76,7 @@ export function useOrganizerEvents(organizerId: string | null) {
     const [error, setError] = useState<string | null>(null);
     const [resolvedOrganizerId, setResolvedOrganizerId] = useState<string | null>(null);
     const fetchIdRef = useRef(0);
+    const loadedOrganizerIdRef = useRef<string | null>(null);
 
     const fetchEvents = useCallback(async () => {
         const requestId = ++fetchIdRef.current;
@@ -83,11 +84,14 @@ export function useOrganizerEvents(organizerId: string | null) {
             setEvents([]);
             setError(null);
             setResolvedOrganizerId(null);
+            loadedOrganizerIdRef.current = null;
             setIsLoading(false);
             return;
         }
 
-        setIsLoading(true);
+        if (loadedOrganizerIdRef.current !== organizerId) {
+            setIsLoading(true);
+        }
         setError(null);
 
         try {
@@ -110,6 +114,7 @@ export function useOrganizerEvents(organizerId: string | null) {
 
             setEvents(classified);
             setResolvedOrganizerId(organizerId);
+            loadedOrganizerIdRef.current = organizerId;
         } catch (err) {
             if (fetchIdRef.current !== requestId) {
                 return;

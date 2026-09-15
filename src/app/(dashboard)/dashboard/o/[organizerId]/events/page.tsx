@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -47,6 +47,22 @@ import { useOrganizerEvents, DashboardEvent } from '@/hooks/useOrganizerEvents';
 import { DeleteEventDialog } from '@/components/dashboard/DeleteEventDialog';
 import { CancelEventDialog } from '@/components/dashboard/CancelEventDialog';
 import { useOrganizers } from '@/context/organizer-context';
+
+const REPORT_REFRESH_INTERVAL_MS = 30_000;
+
+function useVisibleReportRefresh(refresh: () => void) {
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    const intervalId = window.setInterval(refreshIfVisible, REPORT_REFRESH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [refresh]);
+}
 
 const statusBadgeStyles = {
   active: 'bg-emerald-500/90 text-white',
@@ -421,6 +437,9 @@ export default function MyEventsPage() {
       return next.size === prev.size ? prev : next;
     });
   }, [visibleEvents]);
+
+  const refreshEventsList = useCallback(() => void refreshEvents(), [refreshEvents]);
+  useVisibleReportRefresh(refreshEventsList);
 
   const getFilteredEvents = (status: string) => {
     if (status === 'all') return visibleEvents;

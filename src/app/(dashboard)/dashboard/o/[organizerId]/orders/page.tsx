@@ -1444,9 +1444,7 @@ export default function OrdersPage() {
             (acc, order) => {
                 acc.totalOrders += 1;
                 if (order.status === 'completed' || order.status === 'partially_refunded') {
-                    if (order.status === 'completed') {
-                        acc.paidOrders += 1;
-                    }
+                    acc.paidOrders += 1;
                     // Use net revenue to match overview stats
                     acc.revenueTotal += order.totals.net ?? order.totals.total;
                     acc.ticketRevenueTotal += order.totals.ticketRevenue ?? 0;

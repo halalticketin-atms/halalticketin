@@ -75,6 +75,22 @@ import {
     type CheckoutSweeperAuditResponse,
 } from '@/lib/admin-api';
 
+const REPORT_REFRESH_INTERVAL_MS = 30_000;
+
+function useVisibleReportRefresh(refresh: () => void) {
+    useEffect(() => {
+        const refreshIfVisible = () => {
+            if (document.visibilityState === 'visible') refresh();
+        };
+        const intervalId = window.setInterval(refreshIfVisible, REPORT_REFRESH_INTERVAL_MS);
+        document.addEventListener('visibilitychange', refreshIfVisible);
+        return () => {
+            window.clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', refreshIfVisible);
+        };
+    }, [refresh]);
+}
+
 // =====================
 // Types
 // =====================
@@ -650,9 +666,15 @@ function OrganizersTable() {
     const [grantSuccess, setGrantSuccess] = useState<string | null>(null);
     const [isGrantSubmitting, setIsGrantSubmitting] = useState(false);
     const hasLoadedInitialOrganizersRef = useRef(false);
+    const fetchRequestIdRef = useRef(0);
 
-    const fetchOrganizers = useCallback(async (params: { offset?: number; search?: string; type?: typeof filter }) => {
-        setIsLoading(true);
+    const fetchOrganizers = useCallback(async (
+        params: { offset?: number; search?: string; type?: typeof filter },
+        options?: { showLoading?: boolean },
+    ) => {
+        const requestId = ++fetchRequestIdRef.current;
+        const showLoading = options?.showLoading !== false;
+        if (showLoading) setIsLoading(true);
         try {
             const result = await getOrganizersList({
                 limit: 25,
@@ -660,12 +682,13 @@ function OrganizersTable() {
                 search: params.search ?? search,
                 type: params.type ?? filter,
             });
+            if (requestId !== fetchRequestIdRef.current) return;
             setOrganizers(result.data);
             setPagination(result.pagination);
         } catch {
             // Handle error silently
         } finally {
-            setIsLoading(false);
+            if (requestId === fetchRequestIdRef.current) setIsLoading(false);
         }
     }, [pagination.offset, search, filter]);
 
@@ -676,6 +699,12 @@ function OrganizersTable() {
         hasLoadedInitialOrganizersRef.current = true;
         fetchOrganizers({});
     }, [fetchOrganizers]);
+
+    const refreshOrganizers = useCallback(
+        () => void fetchOrganizers({}, { showLoading: false }),
+        [fetchOrganizers],
+    );
+    useVisibleReportRefresh(refreshOrganizers);
 
     const handleSearch = (value: string) => {
         setSearch(value);
@@ -919,13 +948,19 @@ function EventsTable() {
     const [statusFilter, setStatusFilter] = useState<AdminEvent['status'] | 'all'>('all');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const hasLoadedInitialEventsRef = useRef(false);
+    const fetchRequestIdRef = useRef(0);
 
-    const fetchEvents = useCallback(async (params: {
-        offset?: number;
-        search?: string;
-        status?: AdminEvent['status'] | 'all';
-    }) => {
-        setIsLoading(true);
+    const fetchEvents = useCallback(async (
+        params: {
+            offset?: number;
+            search?: string;
+            status?: AdminEvent['status'] | 'all';
+        },
+        options?: { showLoading?: boolean },
+    ) => {
+        const requestId = ++fetchRequestIdRef.current;
+        const showLoading = options?.showLoading !== false;
+        if (showLoading) setIsLoading(true);
         try {
             const result = await getEventsList({
                 limit: 25,
@@ -933,12 +968,13 @@ function EventsTable() {
                 search: params.search ?? search,
                 status: params.status ?? statusFilter,
             });
+            if (requestId !== fetchRequestIdRef.current) return;
             setEvents(result.data);
             setPagination(result.pagination);
         } catch {
             // Handle error silently
         } finally {
-            setIsLoading(false);
+            if (requestId === fetchRequestIdRef.current) setIsLoading(false);
         }
     }, [pagination.offset, search, statusFilter]);
 
@@ -949,6 +985,12 @@ function EventsTable() {
         hasLoadedInitialEventsRef.current = true;
         fetchEvents({});
     }, [fetchEvents]);
+
+    const refreshEvents = useCallback(
+        () => void fetchEvents({}, { showLoading: false }),
+        [fetchEvents],
+    );
+    useVisibleReportRefresh(refreshEvents);
 
     const handleSearch = (value: string) => {
         setSearch(value);
@@ -1248,22 +1290,25 @@ export default function AdminDashboardPage() {
     const [timeSeries, setTimeSeries] = useState<TimeSeriesResponse | null>(null);
     const [timeSeriesPeriod, setTimeSeriesPeriod] = useState<TimeSeriesPeriod>('30d');
     const [isTimeSeriesLoading, setIsTimeSeriesLoading] = useState(true);
+    const overviewRequestVersionRef = useRef(0);
+    const timeSeriesRequestVersionRef = useRef(0);
 
     useEffect(() => {
         let cancelled = false;
 
-        const fetchOverview = async () => {
-            setIsLoading(true);
+        const fetchOverview = async (showLoading = true) => {
+            const requestVersion = ++overviewRequestVersionRef.current;
+            if (showLoading) setIsLoading(true);
             try {
                 const response = await api.get<AdminOverviewResponse>('/api/v1/admin/overview', {
                     params: { activityLimit: '12' },
                 });
-                if (!cancelled) {
+                if (!cancelled && requestVersion === overviewRequestVersionRef.current) {
                     setOverview(response);
                     setError(null);
                 }
             } catch (err) {
-                if (cancelled) return;
+                if (cancelled || requestVersion !== overviewRequestVersionRef.current) return;
                 if (err instanceof ApiError) {
                     if (err.status === 403) {
                         setError('You do not have access to the admin dashboard.');
@@ -1277,7 +1322,7 @@ export default function AdminDashboardPage() {
                 }
                 setOverview(null);
             } finally {
-                if (!cancelled) setIsLoading(false);
+                if (!cancelled && requestVersion === overviewRequestVersionRef.current) setIsLoading(false);
             }
         };
 
@@ -1337,8 +1382,17 @@ export default function AdminDashboardPage() {
         void fetchCharities();
         void fetchSweeperAudit();
 
+        const refresh = () => {
+            if (document.visibilityState !== 'visible') return;
+            void fetchOverview(false);
+        };
+        const intervalId = window.setInterval(refresh, REPORT_REFRESH_INTERVAL_MS);
+        document.addEventListener('visibilitychange', refresh);
+
         return () => {
             cancelled = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', refresh);
         };
     }, []);
 
@@ -1346,26 +1400,38 @@ export default function AdminDashboardPage() {
     useEffect(() => {
         let cancelled = false;
 
-        const fetchTimeSeries = async () => {
-            setIsTimeSeriesLoading(true);
+        const fetchTimeSeries = async (showLoading = true) => {
+            const requestVersion = ++timeSeriesRequestVersionRef.current;
+            if (showLoading) setIsTimeSeriesLoading(true);
             try {
                 const response = await getTimeSeries(timeSeriesPeriod);
-                if (!cancelled) {
+                if (!cancelled && requestVersion === timeSeriesRequestVersionRef.current) {
                     setTimeSeries(response);
                 }
             } catch {
                 // Silent fail
             } finally {
-                if (!cancelled) setIsTimeSeriesLoading(false);
+                if (!cancelled && requestVersion === timeSeriesRequestVersionRef.current) {
+                    setIsTimeSeriesLoading(false);
+                }
             }
         };
 
         void fetchTimeSeries();
 
+        const refresh = () => {
+            if (document.visibilityState !== 'visible' || activeTab !== 'overview') return;
+            void fetchTimeSeries(false);
+        };
+        const intervalId = window.setInterval(refresh, REPORT_REFRESH_INTERVAL_MS);
+        document.addEventListener('visibilitychange', refresh);
+
         return () => {
             cancelled = true;
+            window.clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', refresh);
         };
-    }, [timeSeriesPeriod]);
+    }, [activeTab, timeSeriesPeriod]);
 
     const windowDays = overview?.windowDays ?? 30;
 

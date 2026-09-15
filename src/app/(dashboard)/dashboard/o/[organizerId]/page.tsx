@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'motion/react';
 import { Calendar, Ticket, DollarSign, AlertCircle, RefreshCw } from 'lucide-react';
@@ -19,6 +19,8 @@ import {
   scheduleDashboardEventsLoad,
 } from '@/lib/dashboard-stat-values';
 import { MIN_CREDITS } from '@/lib/fees';
+
+const REPORT_REFRESH_INTERVAL_MS = 30_000;
 
 interface AnalyticsStats {
   totalRevenue: number;
@@ -107,6 +109,8 @@ export default function DashboardPage() {
   const [isCreditsLoading, setIsCreditsLoading] = useState(false);
   const [creditError, setCreditError] = useState(false);
   const [creditReload, setCreditReload] = useState(0);
+  const statsRequestIdRef = useRef(0);
+  const eventsRequestIdRef = useRef(0);
 
   // Get the current user's role for this organizer
   const activeOrganizer = organizers.find((org) => org.id === organizerId);
@@ -122,6 +126,7 @@ export default function DashboardPage() {
   }, [organizerId, userRole, router]);
 
   const fetchStats = useEffectEvent(async (currentOrganizerId: string | null) => {
+    const requestId = ++statsRequestIdRef.current;
     if (!currentOrganizerId || userRole === 'check_in') {
       setAnalyticsStats(null);
       return;
@@ -131,6 +136,7 @@ export default function DashboardPage() {
       const analyticsRes = await api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
         params: { organizerId: currentOrganizerId, include: 'stats' },
       });
+      if (requestId !== statsRequestIdRef.current) return;
       setAnalyticsStats(analyticsRes.stats);
     } catch (error) {
       console.error('Failed to fetch dashboard stats:', error);
@@ -142,13 +148,14 @@ export default function DashboardPage() {
   }, [organizerId]);
 
   const fetchEventsPerformance = useEffectEvent(async (currentOrganizerId: string | null) => {
+    const requestId = ++eventsRequestIdRef.current;
     if (!currentOrganizerId || userRole === 'check_in') {
       setEventsPerformance([]);
       setHasLoadedEvents(true);
       return;
     }
 
-    setIsEventsLoading(true);
+    if (!hasLoadedEvents) setIsEventsLoading(true);
     try {
       const eventsRes = await api.get<EventsPerformanceResponse>(
         '/api/v1/analytics/events-performance',
@@ -156,10 +163,12 @@ export default function DashboardPage() {
           params: { organizerId: currentOrganizerId },
         }
       );
+      if (requestId !== eventsRequestIdRef.current) return;
       setEventsPerformance(eventsRes.events);
     } catch (error) {
       console.error('Failed to fetch events performance:', error);
     } finally {
+      if (requestId !== eventsRequestIdRef.current) return;
       setIsEventsLoading(false);
       setHasLoadedEvents(true);
     }
@@ -171,6 +180,20 @@ export default function DashboardPage() {
 
     const loadEvents = () => void fetchEventsPerformance(organizerId ?? null);
     return scheduleDashboardEventsLoad(loadEvents);
+  }, [organizerId]);
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void fetchStats(organizerId ?? null);
+      void fetchEventsPerformance(organizerId ?? null);
+    };
+    const intervalId = window.setInterval(refreshIfVisible, REPORT_REFRESH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
   }, [organizerId]);
 
   useEffect(() => {

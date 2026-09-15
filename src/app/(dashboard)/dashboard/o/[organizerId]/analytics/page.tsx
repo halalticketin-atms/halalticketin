@@ -26,6 +26,22 @@ import api from '@/lib/api';
 import { useOrganizerFromParams } from '@/hooks/useOrganizerFromParams';
 import { buildDashboardPath } from '@/lib/organizer-path';
 
+const REPORT_REFRESH_INTERVAL_MS = 30_000;
+
+function useVisibleReportRefresh(refresh: () => void) {
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    const intervalId = window.setInterval(refreshIfVisible, REPORT_REFRESH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [refresh]);
+}
+
 interface AnalyticsEvent {
   id: string;
   name: string;
@@ -123,14 +139,16 @@ export default function AnalyticsPage() {
   const [eventSortBy, setEventSortBy] = useState<'revenue' | 'tickets'>('revenue');
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const analyticsRequestIdRef = useRef(0);
   const [chartSize, setChartSize] = useState({ width: 560, height: 200 });
 
   const fetchAnalytics = useCallback(
-    async (eventId?: string) => {
+    async (eventId?: string, showLoading = true) => {
+      const requestId = ++analyticsRequestIdRef.current;
       if (!organizerId) {
         return;
       }
-      setIsLoading(true);
+      if (showLoading) setIsLoading(true);
       try {
         const params: Record<string, string> = { organizerId };
         if (eventId) {
@@ -140,13 +158,16 @@ export default function AnalyticsPage() {
         const response = await api.get<AnalyticsResponse>('/api/v1/analytics/overview', {
           params,
         });
+        if (requestId !== analyticsRequestIdRef.current) return;
         setAnalytics(response);
       } catch {
-        if (eventId) {
+        if (requestId === analyticsRequestIdRef.current && eventId) {
           setSelectedEvent('all');
         }
       } finally {
-        setIsLoading(false);
+        if (requestId === analyticsRequestIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     [organizerId]
@@ -160,6 +181,12 @@ export default function AnalyticsPage() {
     }
     void fetchAnalytics(selectedEvent === 'all' ? undefined : selectedEvent);
   }, [fetchAnalytics, organizerId, selectedEvent]);
+
+  const refreshAnalytics = useCallback(
+    () => void fetchAnalytics(selectedEvent === 'all' ? undefined : selectedEvent, false),
+    [fetchAnalytics, selectedEvent],
+  );
+  useVisibleReportRefresh(refreshAnalytics);
 
   useEffect(() => {
     if (!analytics || selectedEvent === 'all') return;
