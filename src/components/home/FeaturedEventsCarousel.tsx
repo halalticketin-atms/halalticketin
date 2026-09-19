@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
-import { ArrowRight, Calendar, MapPin, Pause, Play } from 'lucide-react';
+import { ArrowRight, Calendar, MapPin } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
 import type { PublicEventRecord } from '@/lib/events-api';
@@ -117,7 +117,6 @@ function FeaturedSkeleton() {
 export default function FeaturedEventsCarousel() {
   const { events, isLoading, error } = usePublicEvents({ limit: 24 });
   const prefersReducedMotion = useReducedMotion();
-  const [isPaused, setIsPaused] = useState(false);
   const [isFocusPaused, setIsFocusPaused] = useState(false);
 
   const [now] = useState(() => Date.now());
@@ -151,26 +150,13 @@ export default function FeaturedEventsCarousel() {
               Upcoming <span className="text-gradient">events</span>
             </h2>
           </div>
-          <div className="flex items-center gap-4">
-            {useMarquee && (
-              <button
-                type="button"
-                onClick={() => setIsPaused((paused) => !paused)}
-                aria-pressed={isPaused}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
-                {isPaused ? 'Resume' : 'Pause'}
-              </button>
-            )}
-            <Link
-              href="/events"
-              className="group inline-flex items-center gap-2 text-sm font-semibold text-[var(--brand-teal)] hover:underline"
-            >
-              Browse all events
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
+          <Link
+            href="/events"
+            className="group inline-flex items-center gap-2 text-sm font-semibold text-[var(--brand-teal)] hover:underline"
+          >
+            Browse all events
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </Link>
         </div>
       </div>
 
@@ -192,7 +178,7 @@ export default function FeaturedEventsCarousel() {
           >
             <div
               className="featured-marquee-track flex w-max gap-4 px-4 group-hover/marquee:[animation-play-state:paused]"
-              style={{ animationPlayState: isPaused || isFocusPaused ? 'paused' : undefined }}
+              style={{ animationPlayState: isFocusPaused ? 'paused' : undefined }}
             >
               {upcoming.map((event) => (
                 <FeaturedEventCard key={event.id} event={event} />
