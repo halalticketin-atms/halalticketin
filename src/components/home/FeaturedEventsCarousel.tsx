@@ -32,7 +32,7 @@ function FeaturedEventCard({
   return (
     <Link
       href={href}
-      className="group block aspect-[3/4] w-[calc(100vw-2rem)] max-w-[405px] shrink-0 sm:aspect-auto sm:h-[600px] sm:w-[465px] sm:max-w-none"
+      className="group block aspect-[4/5] w-[calc(100vw-2rem)] max-w-[405px] shrink-0 sm:aspect-auto sm:h-[548px] sm:w-[465px] sm:max-w-none"
       aria-label={event.title || 'View event'}
       aria-hidden={isDuplicate || undefined}
       tabIndex={isDuplicate ? -1 : undefined}
@@ -61,34 +61,36 @@ function FeaturedEventCard({
         </div>
         <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
           <h3
-            className="font-display line-clamp-2 text-lg font-bold leading-snug transition-colors group-hover:text-[var(--brand-teal)] sm:text-xl"
+            className="font-display line-clamp-2 min-h-[3.125rem] text-lg font-bold leading-snug transition-colors group-hover:text-[var(--brand-teal)] sm:min-h-14 sm:text-xl"
             title={event.title || 'Untitled Event'}
           >
             {event.title || 'Untitled Event'}
           </h3>
-          {event.organizerName && (
-            <div className="mt-3 flex min-w-0 items-center gap-2.5">
-              <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-semibold text-foreground/70 sm:h-7 sm:w-7">
-                {event.organizerAvatarUrl ? (
-                  <Image
-                    src={event.organizerAvatarUrl}
-                    alt=""
-                    fill
-                    sizes="28px"
-                    className="object-cover"
-                  />
-                ) : (
-                  <span>{event.organizerName.charAt(0).toUpperCase()}</span>
-                )}
-              </div>
-              <span
-                className="min-w-0 truncate text-sm font-medium text-foreground/70"
-                title={event.organizerName}
-              >
-                {event.organizerName}
-              </span>
-            </div>
-          )}
+          <div className="mt-3 flex min-h-6 min-w-0 items-center gap-2.5 sm:min-h-7">
+            {event.organizerName && (
+              <>
+                <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-semibold text-foreground/70 sm:h-7 sm:w-7">
+                  {event.organizerAvatarUrl ? (
+                    <Image
+                      src={event.organizerAvatarUrl}
+                      alt=""
+                      fill
+                      sizes="28px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <span>{event.organizerName.charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                <span
+                  className="min-w-0 truncate text-sm font-medium text-foreground/70"
+                  title={event.organizerName}
+                >
+                  {event.organizerName}
+                </span>
+              </>
+            )}
+          </div>
           <p className="mt-3 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
             <MapPin className="h-4 w-4 shrink-0" />
             <span className="min-w-0 truncate" title={formatLocation(event)}>
@@ -107,7 +109,7 @@ function FeaturedSkeleton() {
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
-          className="aspect-[3/4] w-[calc(100vw-2rem)] max-w-[405px] shrink-0 animate-pulse rounded-2xl bg-muted/60 sm:aspect-auto sm:h-[600px] sm:w-[465px] sm:max-w-none"
+          className="aspect-[4/5] w-[calc(100vw-2rem)] max-w-[405px] shrink-0 animate-pulse rounded-2xl bg-muted/60 sm:aspect-auto sm:h-[548px] sm:w-[465px] sm:max-w-none"
         />
       ))}
     </div>
@@ -177,7 +179,7 @@ export default function FeaturedEventsCarousel() {
             onBlurCapture={() => setIsFocusPaused(false)}
           >
             <div
-              className="featured-marquee-track flex w-max gap-4 px-4 group-hover/marquee:[animation-play-state:paused]"
+              className="featured-marquee-track flex w-max items-start gap-4 px-4 group-hover/marquee:[animation-play-state:paused]"
               style={{ animationPlayState: isFocusPaused ? 'paused' : undefined }}
             >
               {upcoming.map((event) => (
@@ -190,7 +192,7 @@ export default function FeaturedEventsCarousel() {
           </div>
         ) : (
           <div className="container">
-            <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-2" data-testid="featured-events-static">
+            <div className="scrollbar-hide flex items-start gap-4 overflow-x-auto pb-2" data-testid="featured-events-static">
               {upcoming.map((event) => (
                 <FeaturedEventCard key={event.id} event={event} />
               ))}
