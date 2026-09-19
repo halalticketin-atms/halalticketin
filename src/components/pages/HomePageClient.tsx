@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import FeaturedEventsCarousel from '@/components/home/FeaturedEventsCarousel';
 import { useOptionalAuth } from '@/context/auth-context';
 
 // Floating event cards data - using brand colors
@@ -213,6 +214,9 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
+      {/* Featured Events - looping carousel of upcoming events */}
+      <FeaturedEventsCarousel />
 
       {/* Features Section */}
       <section className="relative pt-20 pb-32 md:pt-24 md:pb-40 overflow-hidden">
