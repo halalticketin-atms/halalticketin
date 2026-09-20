@@ -430,7 +430,7 @@ export default function PricingPage() {
                                                 />
                                                 <div className="mt-4 flex justify-between items-center text-sm">
                                                     <span className="text-slate-500">Unit cost: <span className="font-bold text-slate-900">{symbol}{(currentCreditPriceGBP * rate).toFixed(2)}</span></span>
-                                                    <span className="text-[var(--brand-teal)] font-bold">Total: {symbol}{(totalCreditCostGBP * rate).toFixed(2)} <span className="text-xs font-normal text-slate-400">+VAT</span></span>
+                                                    <span className="text-[var(--brand-teal)] font-bold">Total: {symbol}{(totalCreditCostGBP * rate).toFixed(2)}</span>
                                                 </div>
                                             </div>
                                         )}

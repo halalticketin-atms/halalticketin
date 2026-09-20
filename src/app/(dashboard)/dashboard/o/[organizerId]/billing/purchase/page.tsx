@@ -38,16 +38,13 @@ function PurchaseCreditsContent() {
         const subtotal = credits * basePricePerCredit;
         const discountedSubtotal = credits * pricePerCredit;
         const discountAmount = Math.max(0, subtotal - discountedSubtotal);
-        const vatRate = 0.23;
-        const vat = discountedSubtotal * vatRate;
-        const total = discountedSubtotal + vat;
+        const total = discountedSubtotal;
 
         return {
             basePricePerCredit,
             pricePerCredit,
             subtotal,
             discountAmount,
-            vat,
             total,
             currency: organizerCurrency
         };
@@ -141,10 +138,6 @@ function PurchaseCreditsContent() {
                                 <span>-{formatCurrency(pricing.discountAmount, pricing.currency)}</span>
                             </div>
                         )}
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">VAT (23%)</span>
-                            <span>{formatCurrency(pricing.vat, pricing.currency)}</span>
-                        </div>
                         <div className="flex justify-between pt-3 border-t border-border">
                             <span className="font-semibold">Total</span>
                             <span className="text-xl font-bold">{formatCurrency(pricing.total, pricing.currency)}</span>
