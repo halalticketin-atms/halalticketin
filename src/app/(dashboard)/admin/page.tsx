@@ -61,6 +61,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import api, { ApiError } from '@/lib/api';
 import {
+    reduceStudentRateListState,
+    type StudentRateListState,
+} from '@/lib/admin-organizer-student-rate';
+import {
     getTimeSeries,
     getUsersList,
     getOrganizersList,
@@ -654,7 +658,11 @@ const getOrganizerTypeLabel = (organizer: AdminOrganizer) => {
 };
 
 function OrganizersTable() {
-    const [organizers, setOrganizers] = useState<AdminOrganizer[]>([]);
+    const [organizerListState, setOrganizerListState] = useState<StudentRateListState<AdminOrganizer>>({
+        organizers: [],
+        overrides: new Map(),
+    });
+    const organizers = organizerListState.organizers;
     const [pagination, setPagination] = useState({ limit: 25, offset: 0, total: 0 });
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -686,7 +694,11 @@ function OrganizersTable() {
                 type: params.type ?? filter,
             });
             if (requestId !== fetchRequestIdRef.current) return;
-            setOrganizers(result.data);
+            setOrganizerListState((current) => reduceStudentRateListState(current, {
+                type: 'list-resolved',
+                requestId,
+                organizers: result.data,
+            }));
             setPagination(result.pagination);
         } catch {
             // Handle error silently
@@ -773,14 +785,13 @@ function OrganizersTable() {
 
         try {
             const { organizer: updatedOrganizer } = await updateOrganizerStudentRate(organizer.id, { enabled });
-            fetchRequestIdRef.current += 1;
-            setOrganizers((current) =>
-                current.map((item) =>
-                    item.id === organizer.id
-                        ? { ...item, isStudentRateEnabled: updatedOrganizer.isStudentRateEnabled }
-                        : item
-                )
-            );
+            const latestListRequestId = fetchRequestIdRef.current;
+            setOrganizerListState((current) => reduceStudentRateListState(current, {
+                type: 'student-rate-confirmed',
+                organizerId: organizer.id,
+                enabled: updatedOrganizer.isStudentRateEnabled,
+                latestListRequestId,
+            }));
         } catch (error) {
             if (error instanceof ApiError) {
                 setStudentRateError(error.message || 'Unable to update student rate.');
