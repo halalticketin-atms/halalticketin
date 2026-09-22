@@ -49,6 +49,7 @@ export interface AdminOrganizer {
     name: string;
     organizerType: 'individual' | 'organization' | 'charity';
     isCharityVerified: boolean;
+    isStudentRateEnabled: boolean;
     charityNumber: string | null;
     heightsprReferredAt: string | null;
     referralTag: 'heightsPR' | null;
@@ -256,6 +257,16 @@ export async function grantOrganizerCredits(
 ): Promise<GrantOrganizerCreditsResponse> {
     return api.post<GrantOrganizerCreditsResponse>(
         `/api/v1/admin/organizers/${organizerId}/credits/grant`,
+        payload
+    );
+}
+
+export async function updateOrganizerStudentRate(
+    organizerId: string,
+    payload: { enabled: boolean }
+): Promise<{ organizer: Pick<AdminOrganizer, 'id' | 'isStudentRateEnabled'> }> {
+    return api.patch<{ organizer: Pick<AdminOrganizer, 'id' | 'isStudentRateEnabled'> }>(
+        `/api/v1/admin/organizers/${organizerId}/student-rate`,
         payload
     );
 }

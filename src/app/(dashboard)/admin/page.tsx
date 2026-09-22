@@ -67,6 +67,7 @@ import {
     getEventsList,
     getCheckoutSweeperAudit,
     grantOrganizerCredits,
+    updateOrganizerStudentRate,
     type TimeSeriesPeriod,
     type TimeSeriesResponse,
     type AdminUser,
@@ -665,6 +666,8 @@ function OrganizersTable() {
     const [grantError, setGrantError] = useState<string | null>(null);
     const [grantSuccess, setGrantSuccess] = useState<string | null>(null);
     const [isGrantSubmitting, setIsGrantSubmitting] = useState(false);
+    const [updatingStudentRateIds, setUpdatingStudentRateIds] = useState<Set<string>>(new Set());
+    const [studentRateError, setStudentRateError] = useState<string | null>(null);
     const hasLoadedInitialOrganizersRef = useRef(false);
     const fetchRequestIdRef = useRef(0);
 
@@ -763,6 +766,36 @@ function OrganizersTable() {
         }
     };
 
+    const updateStudentRate = async (organizer: AdminOrganizer) => {
+        const enabled = !organizer.isStudentRateEnabled;
+        setUpdatingStudentRateIds((current) => new Set(current).add(organizer.id));
+        setStudentRateError(null);
+
+        try {
+            const { organizer: updatedOrganizer } = await updateOrganizerStudentRate(organizer.id, { enabled });
+            fetchRequestIdRef.current += 1;
+            setOrganizers((current) =>
+                current.map((item) =>
+                    item.id === organizer.id
+                        ? { ...item, isStudentRateEnabled: updatedOrganizer.isStudentRateEnabled }
+                        : item
+                )
+            );
+        } catch (error) {
+            if (error instanceof ApiError) {
+                setStudentRateError(error.message || 'Unable to update student rate.');
+            } else {
+                setStudentRateError('Unable to update student rate.');
+            }
+        } finally {
+            setUpdatingStudentRateIds((current) => {
+                const next = new Set(current);
+                next.delete(organizer.id);
+                return next;
+            });
+        }
+    };
+
     return (
         <Card className="border-border/60">
             <CardHeader className="pb-3">
@@ -802,6 +835,9 @@ function OrganizersTable() {
                 {grantSuccess && (
                     <p className="text-sm text-emerald-600 mt-3">{grantSuccess}</p>
                 )}
+                {studentRateError && (
+                    <p className="text-sm text-destructive mt-3">{studentRateError}</p>
+                )}
             </CardHeader>
             <CardContent className="px-0">
                 {isLoading ? (
@@ -831,20 +867,30 @@ function OrganizersTable() {
                                                 <p className="font-medium truncate max-w-[120px] sm:max-w-[180px]">{org.name}</p>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <Badge
-                                                    variant="secondary"
-                                                    className={`text-xs ${org.referralTag
-                                                        ? 'bg-sky-500/10 text-sky-700'
-                                                        : org.organizerType === 'charity'
-                                                        ? 'bg-emerald-500/10 text-emerald-600'
-                                                        : org.organizerType === 'organization'
-                                                            ? 'bg-purple-500/10 text-purple-600'
-                                                            : ''
-                                                        }`}
-                                                >
-                                                    {getOrganizerTypeLabel(org)}
-                                                    {!org.referralTag && org.isCharityVerified && ' ✓'}
-                                                </Badge>
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className={`text-xs ${org.referralTag
+                                                            ? 'bg-sky-500/10 text-sky-700'
+                                                            : org.organizerType === 'charity'
+                                                            ? 'bg-emerald-500/10 text-emerald-600'
+                                                            : org.organizerType === 'organization'
+                                                                ? 'bg-purple-500/10 text-purple-600'
+                                                                : ''
+                                                            }`}
+                                                    >
+                                                        {getOrganizerTypeLabel(org)}
+                                                        {!org.referralTag && org.isCharityVerified && ' ✓'}
+                                                    </Badge>
+                                                    {org.isStudentRateEnabled && (
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className="text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20"
+                                                        >
+                                                            Student rate
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-4 py-3 text-center hidden sm:table-cell">
                                                 <span className="font-medium">{org.eventsCount}</span>
@@ -862,16 +908,34 @@ function OrganizersTable() {
                                                 {[org.city, org.country].filter(Boolean).join(', ') || '-'}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-8 px-2 sm:px-3"
-                                                    onClick={() => openGrantDialog(org)}
-                                                    aria-label={`Add credits to ${org.name}`}
-                                                >
-                                                    <CirclePlus className="h-3.5 w-3.5 sm:mr-1.5" />
-                                                    <span className="hidden sm:inline">Add Credits</span>
-                                                </Button>
+                                                <div className="flex flex-wrap justify-end gap-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-8 px-2 sm:px-3"
+                                                        onClick={() => updateStudentRate(org)}
+                                                        disabled={updatingStudentRateIds.has(org.id)}
+                                                        aria-label={`${org.isStudentRateEnabled ? 'Revoke' : 'Enable'} student rate for ${org.name}`}
+                                                    >
+                                                        {updatingStudentRateIds.has(org.id)
+                                                            ? org.isStudentRateEnabled
+                                                                ? 'Revoking student rate...'
+                                                                : 'Enabling student rate...'
+                                                            : org.isStudentRateEnabled
+                                                                ? 'Revoke student rate'
+                                                                : 'Enable student rate'}
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-8 px-2 sm:px-3"
+                                                        onClick={() => openGrantDialog(org)}
+                                                        aria-label={`Add credits to ${org.name}`}
+                                                    >
+                                                        <CirclePlus className="h-3.5 w-3.5 sm:mr-1.5" />
+                                                        <span className="hidden sm:inline">Add Credits</span>
+                                                    </Button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
