@@ -16,6 +16,7 @@ import {
 
 import { useOrganizers } from '@/context/organizer-context';
 import { generateEventDraft } from '@/lib/ai/event-draft';
+import { ApiError } from '@/lib/api';
 import { toast } from '@/lib/notifications';
 import { savePendingDraft } from '@/utils/pending-draft-storage';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,7 @@ export default function AIEventCreatorPage() {
     const { activeOrganizerId } = useOrganizers();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const submitButtonRef = useRef<HTMLButtonElement | null>(null);
 
     const [prompt, setPrompt] = useState('');
     const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -173,7 +175,9 @@ export default function AIEventCreatorPage() {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error';
             let userMessage = 'Failed to generate event. Please try again.';
 
-            if (errorMessage.includes('rate') || errorMessage.includes('Rate') || errorMessage.includes('Too many')) {
+            if (err instanceof ApiError && err.status === 503) {
+                userMessage = 'AI is temporarily unavailable. Your event details are still here.';
+            } else if (errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('too many requests')) {
                 userMessage = 'Too many requests. Please wait a minute and try again.';
             } else if (errorMessage.includes('limit reached')) {
                 userMessage = errorMessage;
@@ -183,7 +187,9 @@ export default function AIEventCreatorPage() {
                 userMessage = 'Network error. Please check your connection and try again.';
             }
 
-            toast.error(userMessage);
+            toast.error(userMessage, undefined, err instanceof ApiError && err.status === 503
+                ? { duration: 12000, action: { label: 'Try again', onClick: () => submitButtonRef.current?.click() } }
+                : undefined);
         } finally {
             setIsProcessing(false);
         }
@@ -447,6 +453,7 @@ export default function AIEventCreatorPage() {
                                             {charCount}/{maxLength}
                                         </span>
                                         <button
+                                            ref={submitButtonRef}
                                             type="button"
                                             onClick={handleSubmit}
                                             disabled={!canSubmit}
