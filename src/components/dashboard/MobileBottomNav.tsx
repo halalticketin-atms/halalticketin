@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
+import Link, { useLinkStatus } from 'next/link';
 import { memo, useCallback, useMemo, useState, useTransition } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
@@ -70,6 +71,44 @@ const instantTween = {
     ease: [0.2, 0, 0, 1] as const,
 };
 
+function MainNavContent({ item, active, prefersReducedMotion }: {
+    item: NavItem;
+    active: boolean;
+    prefersReducedMotion: boolean | null;
+}) {
+    const { pending } = useLinkStatus();
+    const highlighted = active || pending;
+
+    return (
+        <span
+            aria-busy={pending || undefined}
+            data-pending={pending || undefined}
+            className={cn(
+                'relative flex h-full w-full flex-col items-center justify-center gap-1',
+                'group-active:scale-90 transition-transform duration-75',
+                highlighted ? 'text-[var(--brand-teal)]' : 'text-gray-400'
+            )}
+        >
+            <span className="relative">
+                {highlighted && (
+                    <motion.span
+                        layoutId={pending ? undefined : 'activeTab'}
+                        className="absolute -inset-2 bg-gradient-to-br from-[var(--brand-mint)]/60 to-[var(--brand-cyan)]/30 rounded-2xl"
+                        transition={prefersReducedMotion ? instantTween : snappySpring}
+                    />
+                )}
+                <item.icon className="relative h-5 w-5" />
+            </span>
+            <span className={cn(
+                'text-[10px] font-medium text-center leading-tight px-0.5',
+                highlighted && 'font-semibold'
+            )}>
+                {item.title}
+            </span>
+        </span>
+    );
+}
+
 function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
     const pathname = usePathname();
     const router = useRouter();
@@ -121,11 +160,6 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
 
     const handleNavClick = useCallback((href: string) => {
         setIsExpanded(false);
-        navigate(href);
-    }, [navigate]);
-
-    const handleMainNavClick = useCallback((e: React.MouseEvent | React.TouchEvent, href: string) => {
-        e.preventDefault();
         navigate(href);
     }, [navigate]);
 
@@ -253,36 +287,20 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
                     {mainNavItems.map((item) => {
                         const active = isActive(item.href);
                         return (
-                            <button
+                            <Link
                                 key={item.href}
-                                onClick={(e) => handleMainNavClick(e, item.href)}
+                                href={item.href}
+                                aria-current={active ? 'page' : undefined}
                                 className={cn(
-                                    'relative flex flex-col items-center justify-center flex-1 h-full gap-1',
-                                    'active:scale-90 transition-transform duration-75',
+                                    'group relative flex flex-col items-center justify-center flex-1 h-full gap-1',
                                     active
                                         ? 'text-[var(--brand-teal)]'
                                         : 'text-gray-400'
                                 )}
                                 style={{ touchAction: 'manipulation' }}
                             >
-                                <div className="relative">
-                                    {/* Active indicator pill */}
-                                    {active && (
-                                        <motion.div
-                                            layoutId="activeTab"
-                                            className="absolute -inset-2 bg-gradient-to-br from-[var(--brand-mint)]/60 to-[var(--brand-cyan)]/30 rounded-2xl"
-                                            transition={prefersReducedMotion ? instantTween : snappySpring}
-                                        />
-                                    )}
-                                    <item.icon className="relative h-5 w-5" />
-                                </div>
-                                <span className={cn(
-                                    'text-[10px] font-medium text-center leading-tight px-0.5',
-                                    active && 'font-semibold'
-                                )}>
-                                    {item.title}
-                                </span>
-                            </button>
+                                <MainNavContent item={item} active={active} prefersReducedMotion={prefersReducedMotion} />
+                            </Link>
                         );
                     })}
 

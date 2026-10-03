@@ -54,9 +54,19 @@ describe('check-in web access', () => {
   it('shows only check-in and More in the mobile main navigation', () => {
     const html = renderToStaticMarkup(React.createElement(MobileBottomNav, { organizerId: 'org' }));
     expect(html).toContain('Check-in'); expect(html).toContain('More');
+    expect(html).toContain('href="/dashboard/o/org/check-in"');
+    expect(html).not.toContain('href="/dashboard/o/org/orders"');
     for (const label of ['Overview', 'Orders', 'Analytics', 'Team', 'Credits']) expect(html).not.toContain(`>${label}<`);
     state.role = 'owner';
     expect(renderToStaticMarkup(React.createElement(MobileBottomNav, { organizerId: 'org' }))).toContain('Overview');
+  });
+  it('renders native destination links for the authorised manager before hydration', () => {
+    state.role = 'owner';
+    const html = renderToStaticMarkup(React.createElement(MobileBottomNav, { organizerId: 'org' }));
+    for (const suffix of ['', '/events', '/orders', '/analytics']) {
+      expect(html).toContain(`href="/dashboard/o/org${suffix}"`);
+    }
+    expect(html).toContain('aria-current="page"');
   });
   it('waits for the organiser role before showing mobile navigation', () => {
     state.hasOrganizer = false; state.isLoading = true;
