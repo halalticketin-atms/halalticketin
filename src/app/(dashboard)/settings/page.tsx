@@ -115,7 +115,7 @@ export default function SettingsPage() {
     const { user, isLoading: authLoading, refresh: refreshAuth } = useAuth();
     const { activeOrganizerId, setActiveOrganizerId, organizers, activeOrganizers, isLoading: organizersLoading, refresh } = useOrganizers();
 
-    const isLoading = authLoading || organizersLoading;
+    const isLoading = (authLoading && !user) || (organizersLoading && organizers.length === 0);
     const hasActiveOrganizer = activeOrganizers.length > 0;
     const currentOrganizer = organizers.find(o => o.id === activeOrganizerId);
 
@@ -939,7 +939,7 @@ export default function SettingsPage() {
     // Loading state
     if (isLoading) {
         return (
-            <div className="container py-8">
+            <div className="container py-8 min-h-screen">
                 <div className="flex items-center justify-center min-h-[400px]">
                     <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
                 </div>

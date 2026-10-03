@@ -184,7 +184,7 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
                             src="/logos/HTlogocr.png"
                             alt="HalalTicketin' Logo"
                             width={120}
-                            height={35}
+                            height={45}
                             className="h-8 w-auto"
                             priority
                         />

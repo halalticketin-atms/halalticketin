@@ -1,36 +1,9 @@
-'use client';
+import { getPublicEventInitialData, getPublicEventRenderTime } from '@/lib/public-event-server';
+import { EventDetailsClient } from './EventDetailsClient';
 
-import { useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { usePublicEvent } from '@/hooks/usePublicEvents';
-import { PublicEventPageContent } from '@/components/events/PublicEventPageContent';
+export default async function EventDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const initialData = await getPublicEventInitialData(id);
 
-export default function EventDetailsPage() {
-    const router = useRouter();
-    const params = useParams();
-    const slug = Array.isArray(params?.id) ? params?.id[0] : params?.id;
-    const { event, tickets, isLoading, error, accessStatus, accessCode, setAccessCode } = usePublicEvent(slug ?? null);
-
-    useEffect(() => {
-        if (!event?.slug || !slug || event.slug === slug) {
-            return;
-        }
-
-        const suffix =
-            typeof window === 'undefined' ? '' : `${window.location.search}${window.location.hash}`;
-        router.replace(`/events/${event.slug}${suffix}`, { scroll: false });
-    }, [event?.slug, router, slug]);
-
-    return (
-        <PublicEventPageContent
-            event={event}
-            tickets={tickets}
-            isLoading={isLoading}
-            error={error}
-            accessStatus={accessStatus}
-            accessMessage={error}
-            accessCode={accessCode}
-            onAccessSubmit={setAccessCode}
-        />
-    );
+    return <EventDetailsClient key={id} slug={id} initialData={initialData} initialRenderTime={getPublicEventRenderTime()} />;
 }

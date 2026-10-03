@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { motion } from 'motion/react';
+import { LazyMotion, domAnimation } from 'motion/react';
+import * as m from 'motion/react-m';
 import {
     ArrowLeft,
     Calendar,
@@ -79,6 +80,14 @@ function EmptyEvents({ message }: { message: string }) {
  * Public Organizer Profile Page
  */
 export default function OrganizerProfilePage() {
+    return (
+        <LazyMotion features={domAnimation} strict>
+            <OrganizerProfileContent />
+        </LazyMotion>
+    );
+}
+
+function OrganizerProfileContent() {
     const params = useParams();
     const organizerId = params.id as string;
     const { user, isLoading: authLoading } = useAuth();
@@ -183,7 +192,7 @@ export default function OrganizerProfilePage() {
     if (error || !organizer) {
         return (
             <div className="min-h-screen bg-muted/30 flex items-center justify-center px-4">
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="max-w-md rounded-2xl border bg-background p-8 text-center shadow-lg"
@@ -196,7 +205,7 @@ export default function OrganizerProfilePage() {
                     <Button asChild className="mt-6">
                         <Link href="/events">Browse Events</Link>
                     </Button>
-                </motion.div>
+                </m.div>
             </div>
         );
     }
@@ -225,7 +234,7 @@ export default function OrganizerProfilePage() {
                     </Button>
 
                     {/* Profile Header */}
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
@@ -344,13 +353,13 @@ export default function OrganizerProfilePage() {
                                 </p>
                             )}
                         </div>
-                    </motion.div>
+                    </m.div>
                 </div>
             </div>
 
             {/* Events Section */}
             <div className="container pt-6 sm:pt-8 pb-16">
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
@@ -408,7 +417,7 @@ export default function OrganizerProfilePage() {
                             )}
                         </TabsContent>
                     </Tabs>
-                </motion.div>
+                </m.div>
             </div>
         </div>
     );

@@ -1,27 +1,94 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'motion/react';
+import { AnimatePresence, LazyMotion, domAnimation } from 'motion/react';
+import * as m from 'motion/react-m';
 import { Menu, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import type { HeaderAccountMenuProps } from './HeaderAccountMenu';
 
 import { useOptionalAuth } from '@/context/auth-context';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useScrollVisibility } from '@/hooks/useScrollVisibility';
+
+const LazyAccountMenu = lazy(() => import('./HeaderAccountMenu'));
+const desktopQuery = '(min-width: 768px)';
+
+function subscribeDesktop(onChange: () => void) {
+    const media = window.matchMedia(desktopQuery);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+}
+
+function DesktopAccountMenu(props: Omit<HeaderAccountMenuProps, 'open' | 'onOpenChange'>) {
+    const isDesktop = useSyncExternalStore(
+        subscribeDesktop,
+        () => window.matchMedia(desktopQuery).matches,
+        () => false,
+    );
+    return isDesktop ? <AccountMenuLoader {...props} /> : null;
+}
+
+function AccountMenuLoader(props: Omit<HeaderAccountMenuProps, 'open' | 'onOpenChange'>) {
+    const [open, setOpen] = useState(false);
+    return (
+        <Suspense fallback={<PendingAccountTrigger {...props} open={open} onOpenChange={setOpen} />}>
+            <LazyAccountMenu {...props} open={open} onOpenChange={setOpen} />
+        </Suspense>
+    );
+}
+
+function PendingAccountTrigger({
+    displayName, avatarInitial, avatarUrl, open, onOpenChange,
+}: HeaderAccountMenuProps) {
+    const trigger = useRef<HTMLButtonElement>(null);
+    useEffect(() => {
+        if (!open) return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onOpenChange(false);
+        };
+        const onPointerDown = (event: PointerEvent) => {
+            if (!trigger.current?.contains(event.target as Node)) onOpenChange(false);
+        };
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('pointerdown', onPointerDown);
+        return () => {
+            document.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('pointerdown', onPointerDown);
+        };
+    }, [open, onOpenChange]);
+
+    return (
+        <Button
+            ref={trigger}
+            variant="ghost"
+            className="relative h-9 w-9 rounded-full ring-2 ring-white hover:ring-[var(--brand-cyan)] transition-all p-0"
+            aria-label="Account menu"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            onClick={() => onOpenChange(!open)}
+            onKeyDown={(event) => {
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    onOpenChange(true);
+                }
+            }}
+        >
+            <Avatar className="h-9 w-9">
+                <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                <AvatarFallback className="bg-[var(--brand-mint)] text-[var(--brand-teal)] font-bold">
+                    {avatarInitial}
+                </AvatarFallback>
+            </Avatar>
+        </Button>
+    );
+}
 
 // Simplified animation - CSS handles most hover effects now
 const sharedTransition = {
@@ -145,7 +212,7 @@ export function Header() {
                 {mobileMenuOpen && (
                     <>
                         {/* Backdrop to close on click outside */}
-                        <motion.button
+                        <m.button
                             type="button"
                             aria-label="Close mobile menu"
                             initial={{ opacity: 0 }}
@@ -155,7 +222,7 @@ export function Header() {
                             onClick={() => setMobileMenuOpen(false)}
                         />
 
-                        <motion.div
+                        <m.div
                             initial={{ opacity: 0, y: -12 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -12 }}
@@ -250,7 +317,7 @@ export function Header() {
                                     </>
                                 )}
                             </div>
-                        </motion.div>
+                        </m.div>
                     </>
                 )}
             </AnimatePresence>,
@@ -259,10 +326,11 @@ export function Header() {
         : null;
 
     return (
-        <>
+        <LazyMotion features={domAnimation} strict>
             <nav
                 className={cn(
-                    'fixed top-0 left-0 right-0 z-50 px-4 md:px-6',
+                    'fixed top-0 left-0 right-0 px-4 md:px-6',
+                    mobileMenuOpen ? 'z-[61]' : 'z-50',
                     'pt-[max(env(safe-area-inset-top),1rem)]',
                     isScrolled ? 'pb-4' : 'pb-6',
                     // Smooth transform transition for hide/show
@@ -271,8 +339,8 @@ export function Header() {
                     shouldBeVisible ? 'translate-y-0' : '-translate-y-full',
                     // Only enable transitions after mount to prevent initial stutter
                     !hasMounted && 'motion-reduce:transition-none',
-                    // CSS entrance animation using tw-animate-css
-                    hasMounted && 'animate-in fade-in duration-300 fill-mode-forwards',
+                    // Start the entrance in the initial HTML so hydration does not hide the logo again.
+                    'animate-in fade-in duration-300 fill-mode-forwards',
                     // Hidden on desktop within the organizer dashboard shell
                     isOrgDashboard && 'lg:hidden'
                 )}
@@ -290,12 +358,13 @@ export function Header() {
                 >
 
                     {/* Logo */}
-                    <Link href="/" className="flex items-center gap-2 relative z-50 pl-2">
+                    <Link href="/" prefetch={false} className="flex items-center gap-2 relative z-50 pl-2">
                         <Image
                             src="/logos/HTlogocr.png"
                             alt="HalalTicketin' Logo"
-                            width={120}
-                            height={35}
+                            width={1186}
+                            height={448}
+                            sizes="85px"
                             className="h-8 w-auto"
                             priority
                         />
@@ -337,55 +406,15 @@ export function Header() {
                                     <Link href="/events/new">Create Event</Link>
                                 </Button>
 
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            className="relative h-9 w-9 rounded-full ring-2 ring-white hover:ring-[var(--brand-cyan)] transition-all p-0"
-                                            aria-label="Account menu"
-                                        >
-                                            <Avatar className="h-9 w-9">
-                                                <AvatarImage src={user?.avatarUrl ?? undefined} alt={displayName} className="object-cover" />
-                                                <AvatarFallback className="bg-[var(--brand-mint)] text-[var(--brand-teal)] font-bold">
-                                                    {avatarInitial}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        className="w-56 bg-white shadow-xl"
-                                        align="end"
-                                        forceMount
-                                    >
-                                        <DropdownMenuLabel className="font-normal">
-                                            <div className="flex flex-col space-y-1">
-                                                <p className="text-sm font-medium truncate">{displayName}</p>
-                                                <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>
-                                            </div>
-                                        </DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem asChild>
-                                            <Link href="/profile">Profile</Link>
-                                        </DropdownMenuItem>
-                                        {isOrganizer && (
-                                            <DropdownMenuItem asChild>
-                                                <Link href="/dashboard">Dashboard</Link>
-                                            </DropdownMenuItem>
-                                        )}
-                                        <DropdownMenuItem asChild>
-                                            <Link href="/settings">Settings</Link>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                handleSignOut();
-                                            }}
-                                        >
-                                            Sign Out
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                <DesktopAccountMenu
+                                    key={user?.id}
+                                    displayName={displayName}
+                                    displayEmail={displayEmail}
+                                    avatarInitial={avatarInitial}
+                                    avatarUrl={user?.avatarUrl ?? undefined}
+                                    isOrganizer={isOrganizer}
+                                    onSignOut={handleSignOut}
+                                />
                             </>
                         ) : (
                             <>
@@ -416,6 +445,6 @@ export function Header() {
                 </div>
             </nav>
             {mobileMenuOverlay}
-        </>
+        </LazyMotion>
     );
 }

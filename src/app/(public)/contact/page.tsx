@@ -12,7 +12,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, LazyMotion, domAnimation } from 'motion/react';
+import * as m from 'motion/react-m';
 import { CheckCircle2, ChevronDown, Mail, Paperclip, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
@@ -43,6 +44,14 @@ const fieldClassName =
 type SuccessState = 'idle' | 'loading' | 'done';
 
 export default function ContactPage() {
+    return (
+        <LazyMotion features={domAnimation} strict>
+            <ContactPageContent />
+        </LazyMotion>
+    );
+}
+
+function ContactPageContent() {
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -206,7 +215,7 @@ export default function ContactPage() {
 
                                 <AnimatePresence initial={false}>
                                     {showOrganiserHint && (
-                                        <motion.div
+                                        <m.div
                                             initial={{ height: 0, opacity: 0 }}
                                             animate={{ height: 'auto', opacity: 1 }}
                                             exit={{ height: 0, opacity: 0 }}
@@ -255,7 +264,7 @@ export default function ContactPage() {
                                                     </span>
                                                 </figure>
                                             </div>
-                                        </motion.div>
+                                        </m.div>
                                     )}
                                 </AnimatePresence>
 
@@ -282,7 +291,7 @@ export default function ContactPage() {
                         {successState !== 'idle' ? (
                             <AnimatePresence mode="wait">
                                 {successState === 'loading' ? (
-                                    <motion.div
+                                    <m.div
                                         key="contact-success-loading"
                                         initial={{ opacity: 0, scale: 0.98 }}
                                         animate={{ opacity: 1, scale: 1 }}
@@ -292,14 +301,14 @@ export default function ContactPage() {
                                         aria-live="polite"
                                         aria-label="Sending message"
                                     >
-                                        <motion.div
+                                        <m.div
                                             className="h-14 w-14 rounded-full border-4 border-[var(--brand-teal)]/20 border-t-[var(--brand-teal)]"
                                             animate={{ rotate: 360 }}
                                             transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
                                         />
-                                    </motion.div>
+                                    </m.div>
                                 ) : (
-                                    <motion.div
+                                    <m.div
                                         key="contact-success-done"
                                         initial={{ opacity: 0, y: 12 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -307,21 +316,21 @@ export default function ContactPage() {
                                         className="flex min-h-[560px] flex-col items-center justify-center text-center"
                                         aria-live="polite"
                                     >
-                                        <motion.div
+                                        <m.div
                                             initial={{ scale: 0.7 }}
                                             animate={{ scale: 1 }}
                                             transition={{ type: 'spring', stiffness: 240, damping: 16 }}
                                             className="mb-5 rounded-full bg-green-50 p-4 ring-1 ring-green-200"
                                         >
                                             <CheckCircle2 className="h-12 w-12 text-green-700" aria-hidden="true" />
-                                        </motion.div>
+                                        </m.div>
                                         <p className="max-w-sm text-lg font-semibold text-green-900">
                                             Thank you for your message!
                                         </p>
                                         <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
                                             We will get back to you soon.
                                         </p>
-                                    </motion.div>
+                                    </m.div>
                                 )}
                             </AnimatePresence>
                         ) : (

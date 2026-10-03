@@ -45,8 +45,8 @@ export function SuspendedAccessGuard({ children }: SuspendedAccessGuardProps) {
         router.push(buildDashboardPath(organizerId));
     };
 
-    // If still loading, show nothing to prevent flash
-    if (isLoading || requiresCheckInRedirect) {
+    // Keep authorised content mounted while refreshing known organiser access.
+    if ((isLoading && !currentOrganizer) || requiresCheckInRedirect) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />

@@ -172,6 +172,31 @@ test('organiser dashboard suppresses low-credit warning when credits fail to loa
   await expect(page.getByText(/Held/)).toHaveCount(0);
 });
 
+test('dashboard waits for its first credit panel before positioning the stats grid', async ({ page }) => {
+  await mockAuthenticatedOwner(page);
+  await mockDashboardData(page);
+  let releaseCredits!: () => void;
+  const creditsReady = new Promise<void>(resolve => { releaseCredits = resolve; });
+  await page.route(`**/api/v1/organizers/${organizerId}/credits`, async route => {
+    await creditsReady;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ balance: 100, availableBalance: 100, usedCredits: 0 }),
+    });
+  });
+  await page.goto(`/dashboard/o/${organizerId}`);
+  try {
+    await expect(page.getByRole('status', { name: 'Loading dashboard' })).toBeVisible();
+    await expect(page.getByText('Net Revenue', { exact: true })).toHaveCount(0);
+  } finally {
+    releaseCredits();
+  }
+  await expect(page.getByRole('region', { name: 'Credit balance' })).toBeVisible();
+  await expect(page.getByText('Net Revenue', { exact: true })).toBeVisible();
+  await expect(page.getByRole('status', { name: 'Loading dashboard' })).toHaveCount(0);
+});
+
 for (const width of [1280, 1440]) {
   test(`desktop organiser switcher gives the workspace identity enough room at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });

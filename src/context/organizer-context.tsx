@@ -8,9 +8,11 @@ import {
     useMemo,
     useRef,
     useState,
+    useSyncExternalStore,
 } from 'react';
 
-import api, { ApiError } from '@/lib/api';
+import api, { ApiError, getAuthSessionRevision, getAuthIdentityRevision, subscribeAuthSession } from '@/lib/api';
+import { useDashboardSessionSeed } from './dashboard-session-seed';
 import { useAuth } from './auth-context';
 import type { EventScope } from '@/types';
 
@@ -73,13 +75,21 @@ const persistOrganizerId = (organizerId: string | null) => {
 
 export function OrganizerProvider({ children }: { children: React.ReactNode }) {
     const { user, signOut } = useAuth();
-    const [organizers, setOrganizers] = useState<OrganizerSummary[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const seed = useDashboardSessionSeed();
+    const revision = useSyncExternalStore(subscribeAuthSession, getAuthIdentityRevision, () => 0);
+    const identity = `${user?.id ?? ''}:${revision}`;
+    const seedMatches = Boolean(seed && seed.profile.user?.id === user?.id);
+    const [organizers, setOrganizers] = useState<OrganizerSummary[]>(seedMatches ? seed!.organizers : []);
+    const ownerRef = useRef(identity);
+    const [owner, setOwner] = useState(identity);
+    const [isLoading, setIsLoading] = useState(!seedMatches);
     const [error, setError] = useState<string | null>(null);
-    const [activeOrganizerId, setActiveOrganizerIdState] = useState<string | null>(null);
+    const [activeOrganizerId, setActiveOrganizerIdState] = useState<string | null>(seedMatches ? seed!.organizers[0]?.id ?? null : null);
     const activeIdRef = useRef<string | null>(null);
     const lastFetchedAtRef = useRef<number | null>(null);
     const cooldownUntilRef = useRef<number | null>(null);
+    const consumedSeedRef = useRef<string | null>(null);
+    const inFlightRevisionRef = useRef<number | null>(null);
     const inFlightRef = useRef<Promise<void> | null>(null);
 
     const setActiveOrganizerId = useCallback(
@@ -114,7 +124,27 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
         []
     );
 
+    const resetOwner = useCallback(() => {
+        if (ownerRef.current === identity) return;
+        ownerRef.current = identity;
+        activeIdRef.current = null;
+        lastFetchedAtRef.current = null;
+        cooldownUntilRef.current = null;
+        inFlightRef.current = null;
+        setOwner(identity);
+        setOrganizers([]);
+        setActiveOrganizerId(null, { persist: false });
+        setError(null);
+    }, [identity, setActiveOrganizerId]);
+
     const fetchOrganizers = useCallback(async (options?: { force?: boolean }) => {
+        resetOwner();
+        const requestRevision = getAuthSessionRevision();
+        if (inFlightRef.current && inFlightRevisionRef.current !== requestRevision) {
+            inFlightRef.current = null;
+            setIsLoading(false);
+        }
+        const isCurrent = () => requestRevision === getAuthSessionRevision() && ownerRef.current === identity;
         if (!user) {
             setOrganizers([]);
             setActiveOrganizerId(null, { persist: false });
@@ -126,6 +156,15 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
+        const seedKey = seed ? `${identity}:${seed.nonce}` : null;
+        if (!options?.force && seedMatches && seed && consumedSeedRef.current !== seedKey) {
+            consumedSeedRef.current = seedKey;
+            setOrganizers(seed.organizers);
+            setActiveOrganizerId(selectDefaultOrganizerId(seed.organizers));
+            setError(null);
+            setIsLoading(false);
+            return;
+        }
         const now = Date.now();
         if (!options?.force) {
             if (cooldownUntilRef.current && now < cooldownUntilRef.current) {
@@ -144,12 +183,14 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
             setIsLoading(true);
             try {
                 const response = await api.get<{ organizers: OrganizerSummary[] }>('/api/v1/organizers');
+                if (!isCurrent()) return;
                 setOrganizers(response.organizers);
                 setError(null);
 
                 const nextOrganizerId = selectDefaultOrganizerId(response.organizers);
                 setActiveOrganizerId(nextOrganizerId ?? null);
             } catch (err) {
+                if (!isCurrent()) return;
                 if (err instanceof ApiError && err.status === 401) {
                     signOut();
                     setError(null);
@@ -169,18 +210,21 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
                 setOrganizers([]);
                 setActiveOrganizerId(null, { persist: false });
             } finally {
-                lastFetchedAtRef.current = Date.now();
-                setIsLoading(false);
+                if (isCurrent()) {
+                    lastFetchedAtRef.current = Date.now();
+                    setIsLoading(false);
+                }
             }
         })();
 
+        inFlightRevisionRef.current = requestRevision;
         inFlightRef.current = run;
         try {
             await run;
         } finally {
-            inFlightRef.current = null;
+            if (inFlightRef.current === run) inFlightRef.current = null;
         }
-    }, [user, selectDefaultOrganizerId, setActiveOrganizerId, signOut]);
+    }, [identity, resetOwner, seed, seedMatches, user, selectDefaultOrganizerId, setActiveOrganizerId, signOut]);
 
     useEffect(() => {
         void fetchOrganizers();
@@ -201,24 +245,25 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
         };
     }, [fetchOrganizers]);
 
+    const visibleOrganizers = useMemo(() => owner === identity ? organizers : (seedMatches ? seed!.organizers : []), [owner, identity, organizers, seedMatches, seed]);
     const activeOrganizers = useMemo(
-        () => organizers.filter(org => org.status === 'active'),
-        [organizers]
+        () => visibleOrganizers.filter(org => org.status === 'active'),
+        [visibleOrganizers]
     );
 
     const refresh = useCallback(() => fetchOrganizers({ force: true }), [fetchOrganizers]);
 
     const value = useMemo<OrganizerContextValue>(
         () => ({
-            organizers,
+            organizers: visibleOrganizers,
             activeOrganizers,
-            isLoading,
-            error,
-            activeOrganizerId,
+            isLoading: owner === identity ? isLoading : Boolean(user && !seedMatches),
+            error: owner === identity ? error : null,
+            activeOrganizerId: owner === identity ? activeOrganizerId : null,
             setActiveOrganizerId,
             refresh,
         }),
-        [organizers, activeOrganizers, isLoading, error, activeOrganizerId, setActiveOrganizerId, refresh]
+        [visibleOrganizers, activeOrganizers, isLoading, error, activeOrganizerId, setActiveOrganizerId, refresh, owner, identity, user, seedMatches]
     );
 
     return <OrganizerContext.Provider value={value}>{children}</OrganizerContext.Provider>;

@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion, useReducedMotion } from 'motion/react';
+import { LazyMotion, domAnimation, useReducedMotion } from 'motion/react';
+import * as m from 'motion/react-m';
 import { Search, MapPin, ArrowRight, QrCode, HeartHandshake, BadgeCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import FeaturedEventsCarousel from '@/components/home/FeaturedEventsCarousel';
 import { useOptionalAuth } from '@/context/auth-context';
+
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 // Floating event cards data - using brand colors
 const floatingEvents = [
@@ -64,7 +67,7 @@ function FloatingEventCard({
   shouldUseLiteAnimations: boolean;
 }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: shouldUseLiteAnimations ? 10 : 20, rotate: event.rotation }}
       animate={{ opacity: 1, y: 0, rotate: event.rotation }}
       transition={{
@@ -75,7 +78,7 @@ function FloatingEventCard({
       className="absolute hidden lg:block transform-gpu will-change-transform"
       style={event.position as React.CSSProperties}
     >
-      <motion.div
+      <m.div
         animate={shouldUseLiteAnimations ? undefined : { y: [0, -8, 0] }}
         transition={{
           duration: 9,
@@ -99,8 +102,8 @@ function FloatingEventCard({
             </div>
           </CardContent>
         </Card>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -110,8 +113,15 @@ export default function Home() {
   const prefersReducedMotion = useReducedMotion();
   const [isSafari, setIsSafari] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const startForFreeHref = auth?.user ? '/dashboard' : '/register?role=organizer';
   const shouldUseLiteAnimations = Boolean(prefersReducedMotion) || isSafari;
+
+  // Preserve native text entered before hydration before later renders control this field.
+  useIsomorphicLayoutEffect(() => {
+    const nativeValue = searchInputRef.current?.value;
+    if (nativeValue !== undefined) setSearchQuery(nativeValue);
+  }, []);
 
   useEffect(() => {
     if (typeof navigator === 'undefined') return;
@@ -131,7 +141,7 @@ export default function Home() {
   };
 
   return (
-    <>
+    <LazyMotion features={domAnimation} strict>
       {/* Hero Section - extends behind header for seamless background */}
       {/* Updated to 100svh to fix mobile address bar whitespace issues */}
       <section className="relative min-h-[100svh] overflow-hidden gradient-mesh -mt-[var(--nav-safe-offset)] pt-[var(--nav-safe-offset)]">
@@ -154,7 +164,7 @@ export default function Home() {
         {/* Main Content */}
         {/* Updated to 100svh to match hero section height */}
         <div className="container relative z-10 flex min-h-[100svh] flex-col items-center justify-center py-20">
-          <motion.div
+          <m.div
             initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: shouldUseLiteAnimations ? 0 : 0.65, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -170,18 +180,18 @@ export default function Home() {
             </div>
 
             {/* Subheadline */}
-            <motion.p
+            <m.p
               initial={shouldUseLiteAnimations ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: shouldUseLiteAnimations ? 0 : 0.3, duration: shouldUseLiteAnimations ? 0 : 0.5 }}
               className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground md:text-xl"
             >
               Connect with your community by <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)]">ticketin’</span> the right away
-            </motion.p>
-          </motion.div>
+            </m.p>
+          </m.div>
 
           {/* Search Section */}
-          <motion.div
+          <m.div
             initial={shouldUseLiteAnimations ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: shouldUseLiteAnimations ? 0 : 0.45, duration: shouldUseLiteAnimations ? 0 : 0.45 }}
@@ -194,8 +204,9 @@ export default function Home() {
                 <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   {/* Search Input */}
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                     <Input
+                      ref={searchInputRef}
                       placeholder="Search events, workshops, conferences..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
@@ -211,7 +222,7 @@ export default function Home() {
                 </form>
               </CardContent>
             </Card>
-          </motion.div>
+          </m.div>
         </div>
       </section>
 
@@ -231,7 +242,7 @@ export default function Home() {
         <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-background to-transparent pointer-events-none" />
 
         <div className="container relative z-10">
-          <motion.div
+          <m.div
             initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 16 }}
             whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
             viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-100px' }}
@@ -246,13 +257,13 @@ export default function Home() {
               <br />
               <span className="text-gradient">host meaningful events.</span>
             </h2>
-          </motion.div>
+          </m.div>
 
           {/* Bento Grid Layout - Enhanced Design */}
           <div className="mx-auto w-full max-w-6xl">
             <div className="grid gap-8 md:grid-cols-3">
               {/* Card 1: Text first, icon bottom-left */}
-              <motion.div
+              <m.div
                 initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 18 }}
                 whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
                 viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-50px' }}
@@ -277,10 +288,10 @@ export default function Home() {
                     </CardContent>
                   </Card>
                 </div>
-              </motion.div>
+              </m.div>
 
               {/* Card 2: Horizontal header - Icon + Title side by side */}
-              <motion.div
+              <m.div
                 initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 18 }}
                 whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
                 viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-50px' }}
@@ -305,10 +316,10 @@ export default function Home() {
                     </CardContent>
                   </Card>
                 </div>
-              </motion.div>
+              </m.div>
 
               {/* Card 3: Content first, icon as finishing accent */}
-              <motion.div
+              <m.div
                 initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 18 }}
                 whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
                 viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-50px' }}
@@ -333,7 +344,7 @@ export default function Home() {
                     </CardContent>
                   </Card>
                 </div>
-              </motion.div>
+              </m.div>
             </div>
           </div>
         </div>
@@ -356,7 +367,7 @@ export default function Home() {
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-background to-transparent pointer-events-none" />
 
         <div className="container relative z-10">
-          <motion.div
+          <m.div
             initial={shouldUseLiteAnimations ? false : { opacity: 0 }}
             whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1 }}
             viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-100px' }}
@@ -401,10 +412,10 @@ export default function Home() {
                 </Button>
               </div>
             </div>
-          </motion.div>
+          </m.div>
 
           {/* Bottom accent line */}
-          <motion.div
+          <m.div
             initial={shouldUseLiteAnimations ? false : { scaleX: 0 }}
             whileInView={shouldUseLiteAnimations ? undefined : { scaleX: 1 }}
             viewport={shouldUseLiteAnimations ? undefined : { once: true }}
@@ -413,6 +424,6 @@ export default function Home() {
           />
         </div>
       </section>
-    </>
+    </LazyMotion>
   );
 }

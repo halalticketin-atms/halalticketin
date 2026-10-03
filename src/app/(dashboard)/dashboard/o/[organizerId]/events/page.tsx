@@ -564,10 +564,12 @@ export default function MyEventsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="mt-2 text-muted-foreground">Loading events...</p>
+      <div className="min-h-screen bg-muted/30">
+        <div role="status" className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="mt-2 text-muted-foreground">Loading events...</p>
+          </div>
         </div>
       </div>
     );
@@ -575,19 +577,21 @@ export default function MyEventsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
-        <Card className="max-w-md p-8 text-center">
-          <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
-          <h2 className="text-lg font-semibold">Failed to load events</h2>
-          <p className="text-muted-foreground mt-2">{error}</p>
-        </Card>
+      <div className="min-h-screen bg-muted/30">
+        <div className="min-h-screen flex items-center justify-center">
+          <Card className="max-w-md p-8 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <h2 className="text-lg font-semibold">Failed to load events</h2>
+            <p className="text-muted-foreground mt-2">{error}</p>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <div className="container py-8">
+      <section className="container py-8" aria-labelledby="events-heading">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -595,7 +599,7 @@ export default function MyEventsPage() {
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8"
         >
           <div>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold">My Events</h1>
+            <h1 id="events-heading" className="font-display text-2xl sm:text-3xl font-bold">My Events</h1>
             <p className="text-muted-foreground mt-1">Manage your events and track performance</p>
           </div>
           <Button asChild className="shrink-0">
@@ -791,7 +795,7 @@ export default function MyEventsPage() {
             </TabsContent>
           ))}
         </Tabs>
-      </div>
+      </section>
 
       {/* Delete Confirmation Dialog */}
       <DeleteEventDialog

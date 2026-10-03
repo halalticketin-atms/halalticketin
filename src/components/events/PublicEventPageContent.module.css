@@ -1,0 +1,37 @@
+/* Begin the existing entrance animations when HTML paints, before hydration. */
+.enter {
+    animation: event-enter 0.4s ease-in-out both;
+}
+
+.posterEnter {
+    animation: poster-enter 0.5s ease-out both;
+}
+
+.fadeEnter {
+    animation: event-fade 0.4s ease-in-out both;
+}
+
+.delay50 { animation-delay: 0.05s; }
+.delay100 { animation-delay: 0.1s; }
+.delay200 { animation-delay: 0.2s; }
+.delay300 { animation-delay: 0.3s; }
+.delay400 { animation-delay: 0.4s; }
+
+@keyframes event-enter {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes poster-enter {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes event-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .enter, .posterEnter, .fadeEnter { animation: none; }
+}

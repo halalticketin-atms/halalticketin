@@ -2,10 +2,12 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'motion/react';
+import { LazyMotion, domAnimation } from 'motion/react';
+import * as m from 'motion/react-m';
 import { Loader2 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { setAuthToken, setRefreshToken } from '@/lib/api';
+import { ensureWebSession } from '@/lib/web-session-client';
 import { useAuth } from '@/context/auth-context';
 import { setLastAuthMethod } from '@/lib/last-auth-method';
 import { getPendingInviteContext, resolveContinuationPath } from '@/lib/pending-invite';
@@ -42,6 +44,7 @@ function CallbackContent() {
                         setLastAuthMethod('google');
                     }
 
+                    await ensureWebSession();
                     await refresh();
                     setRedirectPending(true);
                 } else {
@@ -100,7 +103,7 @@ function CallbackContent() {
 
     return (
         <div className="min-h-screen flex items-center justify-center gradient-mesh">
-            <motion.div
+            <m.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="flex flex-col items-center gap-6"
@@ -109,7 +112,7 @@ function CallbackContent() {
                     <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-[var(--brand-mint)] to-[var(--brand-cyan)] flex items-center justify-center shadow-lg shadow-[var(--brand-cyan)]/20">
                         <Loader2 className="h-10 w-10 animate-spin text-white" />
                     </div>
-                    <motion.div
+                    <m.div
                         className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[var(--brand-mint)] to-[var(--brand-cyan)]"
                         animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
                         transition={{ duration: 2, repeat: Infinity }}
@@ -119,7 +122,7 @@ function CallbackContent() {
                     <h2 className="font-display text-xl font-semibold text-foreground">Signing you in...</h2>
                     <p className="mt-2 text-muted-foreground">Please wait while we complete the authentication</p>
                 </div>
-            </motion.div>
+            </m.div>
         </div>
     );
 }
@@ -134,8 +137,10 @@ function CallbackFallback() {
 
 export default function AuthCallbackPage() {
     return (
-        <Suspense fallback={<CallbackFallback />}>
-            <CallbackContent />
-        </Suspense>
+        <LazyMotion features={domAnimation} strict>
+            <Suspense fallback={<CallbackFallback />}>
+                <CallbackContent />
+            </Suspense>
+        </LazyMotion>
     );
 }

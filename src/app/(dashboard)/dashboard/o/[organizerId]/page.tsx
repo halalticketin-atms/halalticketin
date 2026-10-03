@@ -331,6 +331,11 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mt-1">{welcomeSubtitle}</p>
         </motion.div>
 
+        {organizerId && !creditData && !creditError ? (
+          <div className="flex items-center justify-center py-12" role="status" aria-label="Loading dashboard">
+            <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+          </div>
+        ) : <>
         {creditError && !isCreditsLoading && organizerId && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -402,6 +407,7 @@ export default function DashboardPage() {
             <EventPerformanceCards events={eventsPerformance} organizerId={organizerId} />
           )}
         </div>
+        </>}
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'motion/react';
+import { LazyMotion, domAnimation } from 'motion/react';
+import * as m from 'motion/react-m';
 import { Card, CardContent } from '@/components/ui/card';
 
 type Section = {
@@ -93,11 +94,19 @@ const sections: Section[] = [
 ];
 
 export default function TermsPage() {
+    return (
+        <LazyMotion features={domAnimation} strict>
+            <TermsContent />
+        </LazyMotion>
+    );
+}
+
+function TermsContent() {
   return (
     <div className="min-h-screen bg-muted/30">
       <div className="border-b bg-background">
         <div className="container py-10 text-center">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -112,14 +121,14 @@ export default function TermsPage() {
               </Link>
               .
             </p>
-          </motion.div>
+          </m.div>
         </div>
       </div>
 
       <div className="container py-10">
         <div className="mx-auto max-w-3xl space-y-6">
           {sections.map((section, index) => (
-            <motion.div
+            <m.div
               key={section.title}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -139,7 +148,7 @@ export default function TermsPage() {
                   )}
                 </CardContent>
               </Card>
-            </motion.div>
+            </m.div>
           ))}
         </div>
       </div>

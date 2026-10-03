@@ -2,7 +2,8 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { motion } from 'motion/react';
+import { LazyMotion, domAnimation } from 'motion/react';
+import * as m from 'motion/react-m';
 import { Card, CardContent } from '@/components/ui/card';
 import {
     BROWSER_STORAGE_ITEMS,
@@ -172,10 +173,18 @@ const sections: Section[] = [
 
 export default function CookiePolicyPage() {
     return (
+        <LazyMotion features={domAnimation} strict>
+            <CookiePolicyContent />
+        </LazyMotion>
+    );
+}
+
+function CookiePolicyContent() {
+    return (
         <div className="min-h-screen bg-muted/30">
             <div className="border-b bg-background">
                 <div className="container py-10 text-center">
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+                    <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                         <p className="text-sm uppercase tracking-wide text-muted-foreground">Halal Ticketin’</p>
                         <h1 className="font-display text-4xl font-bold mt-3">Cookie Policy</h1>
                         <p className="mt-3 text-muted-foreground">Effective Date: {effectiveDate}</p>
@@ -186,14 +195,14 @@ export default function CookiePolicyPage() {
                             </Link>
                             .
                         </p>
-                    </motion.div>
+                    </m.div>
                 </div>
             </div>
 
             <div className="container py-10">
                 <div className="mx-auto max-w-3xl space-y-6">
                     {sections.map((section, index) => (
-                        <motion.div
+                        <m.div
                             key={section.title}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -205,7 +214,7 @@ export default function CookiePolicyPage() {
                                     <div>{section.content}</div>
                                 </CardContent>
                             </Card>
-                        </motion.div>
+                        </m.div>
                     ))}
                 </div>
             </div>

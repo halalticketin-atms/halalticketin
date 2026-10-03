@@ -1,7 +1,13 @@
 'use client';
 
-import { motion, useReducedMotion } from 'motion/react';
+import { LazyMotion, domAnimation, useReducedMotion } from 'motion/react';
+import * as m from 'motion/react-m';
+import { useSyncExternalStore } from 'react';
 import { cn } from '@/lib/utils';
+
+const subscribeToHydration = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
 
 const ORB_CONFIG = [
     {
@@ -49,12 +55,21 @@ const StaticOrbs = ({ className }: { className?: string }) => (
     </div>
 );
 
-export function AmbientBackground({
+export function AmbientBackground(props: AmbientBackgroundProps) {
+    return (
+        <LazyMotion features={domAnimation} strict>
+            <AmbientBackgroundContent {...props} />
+        </LazyMotion>
+    );
+}
+
+function AmbientBackgroundContent({
     className,
     showNoise = true,
     noiseClassName = 'opacity-30',
 }: AmbientBackgroundProps) {
     const prefersReducedMotion = useReducedMotion();
+    const isHydrated = useSyncExternalStore(subscribeToHydration, clientSnapshot, serverSnapshot);
 
     return (
         <div className={cn('absolute inset-0 pointer-events-none', className)}>
@@ -66,14 +81,14 @@ export function AmbientBackground({
                 <StaticOrbs />
             </div>
 
-            {prefersReducedMotion ? (
+            {isHydrated && prefersReducedMotion ? (
                 <div className="hidden md:block">
                     <StaticOrbs />
                 </div>
             ) : (
                 <div className="hidden md:block absolute inset-0 overflow-hidden">
                     {ORB_CONFIG.map((orb) => (
-                        <motion.div
+                        <m.div
                             key={orb.id}
                             className={cn(
                                 'absolute rounded-full blur-3xl opacity-30 mix-blend-multiply filter',

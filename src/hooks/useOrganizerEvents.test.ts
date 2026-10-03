@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 import type { EventRecord } from '@/lib/events-api';
 
-import { canEmailAttendeesForEvent } from './useOrganizerEvents';
+import { canEmailAttendeesForEvent, useOrganizerEvents } from './useOrganizerEvents';
+
+describe('initial organiser event loading', () => {
+    it('does not show an empty event list before the selected organiser has resolved', () => {
+        function InitialEvents() {
+            const { isLoading } = useOrganizerEvents('selected-organiser');
+            return React.createElement('div', null, isLoading ? 'Loading events' : 'No events');
+        }
+        expect(renderToStaticMarkup(React.createElement(InitialEvents))).toContain('Loading events');
+    });
+});
 
 const makeEvent = (overrides: Partial<EventRecord> = {}): EventRecord => ({
     id: '550e8400-e29b-41d4-a716-446655440001',

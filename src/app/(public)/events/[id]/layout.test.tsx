@@ -2,21 +2,21 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  fetchPublicEventBySlug,
   type PublicEventRecord,
   type PublicTicketRecord,
 } from '@/lib/events-api';
+import { getPublicEventInitialData } from '@/lib/public-event-server';
 import EventDetailsLayout from './layout';
 
-vi.mock('@/lib/events-api', () => ({
-  fetchPublicEventBySlug: vi.fn(),
+vi.mock('@/lib/public-event-server', () => ({
+  getPublicEventInitialData: vi.fn(),
 }));
 
-const mockedFetchPublicEventBySlug = vi.mocked(fetchPublicEventBySlug);
+const mockedGetPublicEventInitialData = vi.mocked(getPublicEventInitialData);
 
 describe('EventDetailsLayout structured data', () => {
   it('uses ticket salesStart as offer validFrom without changing canonical URLs', async () => {
-    mockedFetchPublicEventBySlug.mockResolvedValue({
+    mockedGetPublicEventInitialData.mockResolvedValue({
       event: {
         id: 'event-id',
         slug: 'community-gathering',

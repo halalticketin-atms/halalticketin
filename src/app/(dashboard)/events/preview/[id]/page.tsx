@@ -104,32 +104,32 @@ export default function EventPreviewPublicPage() {
         <>
             <div className="fixed top-0 left-0 right-0 z-40 px-4 md:px-6 pt-[max(env(safe-area-inset-top),1rem)]">
                 <div className="max-w-7xl mx-auto rounded-[2rem] bg-white/95 border border-white/70 shadow-lg ring-1 ring-white/60 backdrop-blur flex items-center justify-between px-4 py-2">
-                    <Link href="/" className="flex items-center gap-2">
+                    <Link href="/" prefetch={false} className="flex items-center gap-2">
                         <Image
                             src="/logos/HTlogocr.png"
                             alt="HalalTicketin' Logo"
                             width={120}
-                            height={35}
+                            height={45}
                             className="h-8 w-auto"
                             priority
                         />
                     </Link>
                     <div className="hidden md:flex items-center gap-5 text-sm font-medium text-muted-foreground">
                         {navLinks.map((link) => (
-                            <Link key={link.href} href={link.href} className="hover:text-foreground transition-colors">
+                            <Link key={link.href} href={link.href} prefetch={false} className="hover:text-foreground transition-colors">
                                 {link.label}
                             </Link>
                         ))}
                     </div>
                     <div className="flex items-center gap-2">
                         <Button variant="ghost" size="sm" asChild className="hidden md:inline-flex">
-                            <Link href="/login">Log in</Link>
+                            <Link href="/login" prefetch={false}>Log in</Link>
                         </Button>
                         <Button size="sm" asChild className="hidden md:inline-flex">
-                            <Link href="/events/new">Create event</Link>
+                            <Link href="/events/new" prefetch={false}>Create event</Link>
                         </Button>
                         <Button variant="ghost" size="icon" asChild className="md:hidden">
-                            <Link href="/menu" aria-label="Menu">
+                            <Link href="/menu" prefetch={false} aria-label="Menu">
                                 <Menu className="h-5 w-5" />
                             </Link>
                         </Button>

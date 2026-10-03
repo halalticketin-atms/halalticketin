@@ -1,8 +1,9 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { AuthClient } from '@supabase/auth-js';
+import { getSupabaseStorageKey, publishSupabaseClient } from './supabase-readiness';
 
-let supabaseInstance: SupabaseClient | null = null;
+let supabaseInstance: { auth: InstanceType<typeof AuthClient> } | null = null;
 
-export const getSupabase = (): SupabaseClient => {
+export const getSupabase = (): { auth: InstanceType<typeof AuthClient> } => {
     if (!supabaseInstance) {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -11,13 +12,32 @@ export const getSupabase = (): SupabaseClient => {
             throw new Error('Supabase environment variables are not configured');
         }
 
-        supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+        const baseUrl = new URL(supabaseUrl.trim().replace(/\/?$/, '/'));
+        if (baseUrl.protocol !== 'http:' && baseUrl.protocol !== 'https:') {
+            throw new Error('Invalid supabaseUrl: Must be a valid HTTP or HTTPS URL.');
+        }
+        const environment = typeof document !== 'undefined'
+            ? 'web'
+            : typeof navigator !== 'undefined' && navigator.product === 'ReactNative'
+                ? 'react-native'
+                : 'node';
+
+        // Preserve the existing project session and OAuth settings for returning users.
+        supabaseInstance = { auth: new AuthClient({
+            url: new URL('auth/v1', baseUrl).href,
+            headers: {
+                Authorization: `Bearer ${supabaseAnonKey}`,
+                apikey: supabaseAnonKey,
+                'X-Client-Info': `supabase-js-${environment}/2.87.1`,
+            },
+            storageKey: getSupabaseStorageKey(),
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+            flowType: 'implicit',
+            hasCustomAuthorizationHeader: false,
+        }) };
+        publishSupabaseClient(supabaseInstance);
     }
     return supabaseInstance;
 };
-
-// Legacy export for backward compatibility - only use in client components
-export const supabase = typeof window !== 'undefined'
-    ? getSupabase()
-    : (null as unknown as SupabaseClient);
-

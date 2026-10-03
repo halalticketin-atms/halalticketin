@@ -228,6 +228,17 @@ async function mockOrdersPage(page: Page) {
     }),
   );
 
+  await page.route(`**/api/v1/organizers/${organizerId}/events`, route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ events: [
+        { id: eventOneId, title: 'Workshop A', status: 'published' },
+        { id: eventTwoId, title: 'Workshop B', status: 'published' },
+      ] }),
+    }),
+  );
+
   await page.route('**/api/v1/orders/ticket-breakdown?*', route =>
     route.fulfill({
       status: 200,
@@ -351,6 +362,106 @@ test.beforeEach(async ({ page }) => {
   await mockOrdersPage(page);
   await page.goto(`/dashboard/o/${organizerId}/orders`);
   await page.waitForLoadState('networkidle');
+});
+
+for (const [tab, placeholder] of [
+  ['Orders', 'Search by order ID, name, email, or promo code...'],
+  ['Attendees', 'Search attendees, buyers, ticket codes, or events...'],
+  ['Waitlist', 'Search email or ticket type...'],
+] as const) {
+  test(`${tab} search focuses with one tap on its icon and types without route requests`, async ({ page }, testInfo) => {
+    if (tab !== 'Orders') await page.getByRole('button', { name: tab, exact: true }).click();
+    await page.waitForLoadState('networkidle');
+    const search = page.getByPlaceholder(placeholder);
+    await search.evaluate(input => input.scrollIntoView({ block: 'center' }));
+    const position = { x: 20, y: 20 };
+
+    if (testInfo.project.use.hasTouch) await search.tap({ position });
+    else await search.click({ position });
+    await expect(search).toBeFocused();
+
+    const routeRequests: string[] = [];
+    page.on('request', request => {
+      const url = new URL(request.url());
+      if (url.pathname === `/dashboard/o/${organizerId}/orders` && request.headers().rsc === '1') {
+        routeRequests.push(request.url());
+      }
+    });
+    await page.keyboard.type('amina', { delay: 20 });
+    await expect(search).toHaveValue('amina');
+    await expect(search).toBeFocused();
+    await expect(page).toHaveURL(/search=amina/);
+    await page.waitForLoadState('networkidle');
+    expect(routeRequests).toEqual([]);
+  });
+}
+
+test('orders search keeps its focus and value while organiser access refreshes', async ({ page }) => {
+  const search = page.getByPlaceholder('Search by order ID, name, email, or promo code...');
+  await search.fill('amina');
+  await expect(search).toBeFocused();
+  let releaseRefresh!: () => void;
+  const refreshGate = new Promise<void>(resolve => { releaseRefresh = resolve; });
+  await page.route('**/api/v1/organizers', async route => {
+    await refreshGate;
+    await route.fallback();
+  });
+  const refreshRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/v1/organizers');
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('organizer-avatar-updated')));
+  await refreshRequest;
+
+  try {
+    await expect(search).toBeFocused();
+    await expect(search).toHaveValue('amina');
+  } finally {
+    releaseRefresh();
+  }
+  await page.waitForLoadState('networkidle');
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue('amina');
+  await expect(page).toHaveURL(/search=amina/);
+});
+
+test('filtered orders survive navigation back and forward', async ({ page }) => {
+  const search = page.getByPlaceholder('Search by order ID, name, email, or promo code...');
+  await search.fill('amina');
+  await expect(page).toHaveURL(/search=amina/);
+  const logo = page.getByRole('link', { name: "HalalTicketin' Logo" });
+  const destination = await logo.getAttribute('href');
+  await logo.click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe(destination);
+  await page.goBack();
+  await expect(page).toHaveURL(/orders\?search=amina/);
+  await expect(search).toHaveValue('amina');
+  await expect(page.getByText('Amina Buyer', { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.goForward();
+  await expect.poll(() => new URL(page.url()).pathname).toBe(destination);
+  await page.goBack();
+  await expect(search).toHaveValue('amina');
+});
+
+test('refreshed suspended organiser access removes the active orders view', async ({ page }) => {
+  const search = page.getByPlaceholder('Search by order ID, name, email, or promo code...');
+  await search.fill('amina');
+  await page.route('**/api/v1/organizers', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ organizers: [{
+      id: organizerId,
+      name: 'Test Organizer',
+      defaultTimezone: 'Europe/London',
+      defaultCurrency: 'GBP',
+      feeTier: 'payg',
+      role: 'owner',
+      status: 'suspended',
+      membershipId: 'membership-1',
+      eventScope: { mode: 'all', eventIds: [] },
+    }] }),
+  }));
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('organizer-avatar-updated')));
+  await expect(page.getByText('Access Suspended', { exact: true })).toBeVisible();
+  await expect(search).toHaveCount(0);
+  await expect(page.getByText('Amina Buyer', { exact: true })).toHaveCount(0);
 });
 
 test('attendees view keeps answers scoped to the selected event', async ({ page }) => {
@@ -505,8 +616,8 @@ test('orders page restores waitlist tab and filters after reload', async ({ page
 
   await expect(page.getByRole('button', { name: 'Waitlist' })).toHaveClass(/bg-background/);
   await expect(page.getByPlaceholder('Search email or ticket type...')).toHaveValue('notified');
-  await expect(page.getByRole('cell', { name: 'notified@example.com', exact: true })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'waitlisted@example.com', exact: true })).toHaveCount(0);
+  await expect(page.getByText('notified@example.com', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText('waitlisted@example.com', { exact: true }).filter({ visible: true })).toHaveCount(0);
 });
 
 test('answer filters clear and hide when event selection becomes incompatible', async ({ page }) => {

@@ -3,13 +3,15 @@
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { motion, useReducedMotion } from 'motion/react';
+import { LazyMotion, domAnimation, useReducedMotion } from 'motion/react';
+import * as m from 'motion/react-m';
 import { Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getSupabase } from '@/lib/supabase';
 import api, { ApiError, setAuthToken, setRefreshToken } from '@/lib/api';
+import { ensureWebSession } from '@/lib/web-session-client';
 import { useAuth } from '@/context/auth-context';
 import { toast } from '@/lib/notifications';
 import { parseBackendError } from '@/lib/api-errors';
@@ -111,17 +113,17 @@ function LoginContent() {
 
     // If already logged in, redirect to intended destination
     useEffect(() => {
-        if (!authLoading && user) {
-            if (needsOnboarding) {
-                const onboardingPath = safeNextParam
-                    ? `/register?next=${encodeURIComponent(safeNextParam)}`
-                    : '/register';
-                router.push(onboardingPath);
-            } else {
-                router.push(redirectPath);
-            }
+        if (authLoading || !user) return;
+        let disposed = false;
+        void ensureWebSession().then(() => {
+            if (disposed) return;
+            const destination = needsOnboarding
+                ? safeNextParam ? `/register?next=${encodeURIComponent(safeNextParam)}` : '/register'
+                : redirectPath;
+            router.push(destination);
             router.refresh();
-        }
+        });
+        return () => { disposed = true; };
     }, [user, authLoading, router, redirectPath, needsOnboarding, safeNextParam]);
 
     // Show loading while checking auth state
@@ -255,7 +257,7 @@ function LoginContent() {
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-cyan-300/10 via-transparent to-teal-300/10 rounded-full blur-3xl" />
             </div>
 
-            <motion.div
+            <m.div
                 {...entryMotionProps}
                 className="w-full max-w-md relative z-10"
             >
@@ -269,22 +271,22 @@ function LoginContent() {
                         <div className="h-1.5 bg-gradient-to-r from-[var(--brand-cyan)] via-[var(--brand-teal)] to-emerald-500" />
 
                         <div className="p-8 sm:p-10">
-                            <motion.div
+                            <m.div
                                 {...staggerContainerProps}
                                 className="space-y-8"
                             >
                                 {/* Header */}
-                                <motion.div {...staggerItemProps} className="text-center space-y-2">
+                                <m.div {...staggerItemProps} className="text-center space-y-2">
                                     <h1 className="text-3xl font-display font-bold">
                                         <span className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">Salaam </span>
                                         {shouldAnimateWave ? (
-                                            <motion.span
+                                            <m.span
                                                 className="inline-block bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] bg-clip-text text-transparent"
                                                 animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
                                                 transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
                                             >
                                                 👋
-                                            </motion.span>
+                                            </m.span>
                                         ) : (
                                             <span className="inline-block bg-gradient-to-r from-[var(--brand-cyan)] to-[var(--brand-teal)] bg-clip-text text-transparent">👋</span>
                                         )}
@@ -292,10 +294,10 @@ function LoginContent() {
                                     <p className="text-slate-600 dark:text-slate-400">
                                         Sign in to continue to your account
                                     </p>
-                                </motion.div>
+                                </m.div>
 
                                 {/* Form */}
-                                <motion.form
+                                <m.form
                                     {...staggerItemProps}
                                     onSubmit={handleEmailLogin}
                                     className="space-y-5"
@@ -354,13 +356,13 @@ function LoginContent() {
                                     </div>
 
                                     {error && (
-                                        <motion.div
+                                        <m.div
                                             initial={{ opacity: 0, y: -10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             className="text-sm text-rose-600 bg-rose-50 dark:bg-rose-950/30 p-4 rounded-xl border border-rose-200 dark:border-rose-800"
                                         >
                                             {error}
-                                        </motion.div>
+                                        </m.div>
                                     )}
 
                                     {showResendVerification && (
@@ -391,19 +393,19 @@ function LoginContent() {
                                             'Sign In'
                                         )}
                                     </Button>
-                                </motion.form>
+                                </m.form>
 
                                 {/* Divider */}
-                                <motion.div {...staggerItemProps} className="flex items-center gap-4">
+                                <m.div {...staggerItemProps} className="flex items-center gap-4">
                                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
                                     <span className="text-xs uppercase font-bold tracking-widest text-slate-400">
                                         or
                                     </span>
                                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent dark:via-slate-600" />
-                                </motion.div>
+                                </m.div>
 
                                 {/* Google Login */}
-                                <motion.div {...staggerItemProps}>
+                                <m.div {...staggerItemProps}>
                                     <Button
                                         variant="outline"
                                         onClick={handleGoogleLogin}
@@ -435,10 +437,10 @@ function LoginContent() {
                                         </svg>
                                         Continue with Google
                                     </Button>
-                                </motion.div>
+                                </m.div>
 
                                 {/* Sign up link */}
-                                <motion.div {...staggerItemProps} className="text-center">
+                                <m.div {...staggerItemProps} className="text-center">
                                     <p className="text-slate-600 dark:text-slate-400">
                                         Don&apos;t have an account?{' '}
                                         <Link
@@ -448,14 +450,14 @@ function LoginContent() {
                                             Sign up
                                         </Link>
                                     </p>
-                                </motion.div>
-                            </motion.div>
+                                </m.div>
+                            </m.div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <motion.div
+                <m.div
                     {...footerMotionProps}
                     className="mt-8 text-center text-sm text-slate-500"
                 >
@@ -467,8 +469,8 @@ function LoginContent() {
                     <Link href="/privacy" className="text-[var(--brand-cyan)] hover:text-[var(--brand-teal)] transition-colors font-medium">
                         Privacy Policy
                     </Link>
-                </motion.div>
-            </motion.div>
+                </m.div>
+            </m.div>
         </div>
     );
 }
@@ -483,8 +485,10 @@ function LoginFallback() {
 
 export default function LoginPage() {
     return (
-        <Suspense fallback={<LoginFallback />}>
-            <LoginContent />
-        </Suspense>
+        <LazyMotion features={domAnimation} strict>
+            <Suspense fallback={<LoginFallback />}>
+                <LoginContent />
+            </Suspense>
+        </LazyMotion>
     );
 }

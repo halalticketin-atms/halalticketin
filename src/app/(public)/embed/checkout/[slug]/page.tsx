@@ -1,62 +1,19 @@
-'use client';
+import { getPublicEventInitialData, getPublicEventRenderTime } from '@/lib/public-event-server';
+import { EmbedCheckoutClient } from './EmbedCheckoutClient';
 
-import { Suspense } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-import { usePublicEvent } from '@/hooks/usePublicEvents';
-import { EmbedCheckoutWidget } from '@/components/embed/EmbedCheckoutWidget';
+export default async function EmbedCheckoutPage({ params, searchParams }: {
+    params: Promise<{ slug: string }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+    const [{ slug }, query] = await Promise.all([params, searchParams]);
+    const preview = Array.isArray(query.preview) ? query.preview[0] : query.preview;
+    const previewRequested = preview === '1' || preview === 'true';
+    const initialData = previewRequested ? null : await getPublicEventInitialData(slug);
 
-function EmbedCheckoutContent() {
-    const params = useParams();
-    const searchParams = useSearchParams();
-    const slug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug;
-    const theme = searchParams.get('theme') ?? 'light';
-    const previewParam = searchParams.get('preview');
-    const previewRequested = previewParam === '1' || previewParam === 'true';
-
-    const { event, tickets, isLoading, error, accessStatus, accessCode, setAccessCode } = usePublicEvent(
-        slug ?? null,
-        { preview: previewRequested },
-    );
-    const isPreview = searchParams.get('configure') === '1' || (event?.status ? event.status !== 'published' : false);
-
-    return (
-        <EmbedCheckoutWidget
-            event={event}
-            tickets={tickets}
-            isLoading={isLoading}
-            error={error}
-            theme={theme}
-            eventSlug={slug}
-            appearance={{
-                accent: searchParams.get('accent'),
-                background: searchParams.get('background'),
-                text: searchParams.get('text'),
-                font: searchParams.get('font'),
-                radius: searchParams.get('radius'),
-                minimal: searchParams.get('minimal'),
-                showDetails: searchParams.get('showDetails'),
-            }}
-            isPreview={isPreview}
-            accessStatus={accessStatus}
-            accessMessage={error}
-            accessCode={accessCode}
-            onAccessSubmit={setAccessCode}
-        />
-    );
-}
-
-function EmbedCheckoutFallback() {
-    return (
-        <div className="min-h-[120px] flex items-center justify-center">
-            <div className="h-10 w-10 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-        </div>
-    );
-}
-
-export default function EmbedCheckoutPage() {
-    return (
-        <Suspense fallback={<EmbedCheckoutFallback />}>
-            <EmbedCheckoutContent />
-        </Suspense>
-    );
+    return <EmbedCheckoutClient
+        key={`${slug}:${previewRequested}`}
+        slug={slug}
+        initialData={initialData}
+        initialRenderTime={getPublicEventRenderTime()}
+    />;
 }

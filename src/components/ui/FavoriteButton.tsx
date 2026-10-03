@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { LazyMotion, domAnimation, AnimatePresence } from 'motion/react';
+import * as m from 'motion/react-m';
 import { Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-context';
@@ -23,7 +24,7 @@ function Sparkle({ index, delay, distance }: { index: number; delay: number; dis
     const angle = (index / 8) * 360;
 
     return (
-        <motion.div
+        <m.div
             initial={{
                 opacity: 1,
                 scale: 0,
@@ -56,7 +57,15 @@ function Sparkle({ index, delay, distance }: { index: number; delay: number; dis
 /**
  * Animated heart favorite button with sparkle effect
  */
-export function FavoriteButton({
+export function FavoriteButton(props: FavoriteButtonProps) {
+    return (
+        <LazyMotion features={domAnimation} strict>
+            <FavoriteButtonContent {...props} />
+        </LazyMotion>
+    );
+}
+
+function FavoriteButtonContent({
     eventId,
     className,
     size = 'md',
@@ -153,7 +162,7 @@ export function FavoriteButton({
     };
 
     return (
-        <motion.button
+        <m.button
             onClick={handleClick}
             disabled={isLoading}
             className={cn(
@@ -184,7 +193,7 @@ export function FavoriteButton({
             </AnimatePresence>
 
             {/* Heart icon with fill animation */}
-            <motion.div
+            <m.div
                 animate={{
                     scale: isFavorited ? [1, 1.3, 1] : 1,
                 }}
@@ -201,12 +210,12 @@ export function FavoriteButton({
                                 : 'text-muted-foreground hover:text-[#ff6b9d]'
                     )}
                 />
-            </motion.div>
+            </m.div>
 
             {/* Ring glow effect on favorite */}
             <AnimatePresence>
                 {isFavorited && showSparkles && (
-                    <motion.div
+                    <m.div
                         initial={{ opacity: 0.5, scale: 0.8 }}
                         animate={{ opacity: 0, scale: 1.5 }}
                         exit={{ opacity: 0 }}
@@ -215,7 +224,7 @@ export function FavoriteButton({
                     />
                 )}
             </AnimatePresence>
-        </motion.button>
+        </m.button>
     );
 }
 

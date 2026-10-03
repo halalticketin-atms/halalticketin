@@ -7,7 +7,6 @@ export { OrganizerSwitcher } from './OrganizerSwitcher';
 export { MobileBottomNav } from './MobileBottomNav';
 export { EventPerformanceCards } from './EventPerformanceCards';
 export { Sparkline } from './Sparkline';
-export { SalesChart } from './SalesChart';
 export { CircularProgress } from './CircularProgress';
 export { SuspendedAccessGuard } from './SuspendedAccessGuard';
 export { CreditBalancePanel } from './credits/CreditBalancePanel';

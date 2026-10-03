@@ -3,7 +3,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, LazyMotion, domAnimation } from 'motion/react';
+import * as m from 'motion/react-m';
 import {
     ArrowLeft,
     ArrowRight,
@@ -607,7 +608,7 @@ function HeightsPrSignupForm({
                         ) : null}
 
                         <AnimatePresence mode="wait">
-                            <motion.form
+                            <m.form
                                 key={controller.step}
                                 onSubmit={handleSubmit}
                                 initial={{ opacity: 0, y: 14 }}
@@ -618,7 +619,7 @@ function HeightsPrSignupForm({
                                 {renderFields()}
 
                                 {isCoreStep && controller.error ? (
-                                    <motion.p
+                                    <m.p
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
                                         role="alert"
@@ -631,7 +632,7 @@ function HeightsPrSignupForm({
                                                 <Link href="/contact" className="font-bold underline">Contact support</Link>.
                                             </>
                                         ) : null}
-                                    </motion.p>
+                                    </m.p>
                                 ) : null}
 
                                 {isCoreStep ? (
@@ -664,7 +665,7 @@ function HeightsPrSignupForm({
                                         </Button>
                                     </div>
                                 ) : null}
-                            </motion.form>
+                            </m.form>
                         </AnimatePresence>
                     </div>
                 </section>
@@ -674,6 +675,14 @@ function HeightsPrSignupForm({
 }
 
 export function HeightsPrSignupPage() {
+    return (
+        <LazyMotion features={domAnimation} strict>
+            <HeightsPrSignupContent />
+        </LazyMotion>
+    );
+}
+
+function HeightsPrSignupContent() {
     const { user, memberships, isLoading } = useAuth();
     const access = getHeightsPrAccess({
         authLoading: isLoading,

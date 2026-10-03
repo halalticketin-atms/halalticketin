@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     fetchPublicEventBySlug,
     fetchPublicEvents,
@@ -9,25 +9,30 @@ import {
 } from '@/lib/events-api';
 import { ApiError } from '@/lib/api';
 import { getBackendErrorMessage, parseBackendError } from '@/lib/api-errors';
+import type { PublicEventData } from '@/lib/public-event-server';
+import type { PublicEventsSnapshot } from '@/lib/public-events-data';
 
 /**
  * Hook for fetching public events list with pagination support.
  */
-export function usePublicEvents(options?: { limit?: number; organizerId?: string }) {
-    const [events, setEvents] = useState<PublicEventRecord[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+export function usePublicEvents(options?: { limit?: number; organizerId?: string; initialData?: PublicEventsSnapshot | null }) {
+    const initialData = options?.initialData;
+    const [events, setEvents] = useState<PublicEventRecord[]>(initialData?.events ?? []);
+    const [isLoading, setIsLoading] = useState(!initialData);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(Boolean(initialData));
     const [error, setError] = useState<string | null>(null);
-    const [hasMore, setHasMore] = useState(false);
-    const [offset, setOffset] = useState(0);
+    const [hasMore, setHasMore] = useState(initialData?.hasMore ?? false);
+    const [offset, setOffset] = useState(initialData?.events.length ?? 0);
     const { limit = 12, organizerId } = options ?? {};
 
-    const fetchPage = useCallback(async (pageOffset: number, append: boolean = false) => {
+    const fetchPage = useCallback(async (pageOffset: number, append: boolean = false, background: boolean = false) => {
         if (append) {
             setIsLoadingMore(true);
-        } else {
+        } else if (!background) {
             setIsLoading(true);
         }
+        if (background) setIsRefreshing(true);
         setError(null);
 
         try {
@@ -50,14 +55,15 @@ export function usePublicEvents(options?: { limit?: number; organizerId?: string
         } finally {
             setIsLoading(false);
             setIsLoadingMore(false);
+            if (background) setIsRefreshing(false);
         }
     }, [limit, organizerId]);
 
     const loadMore = useCallback(() => {
-        if (!isLoadingMore && hasMore) {
+        if (!isLoadingMore && !isRefreshing && hasMore) {
             fetchPage(offset, true);
         }
-    }, [fetchPage, offset, isLoadingMore, hasMore]);
+    }, [fetchPage, offset, isLoadingMore, isRefreshing, hasMore]);
 
     const refresh = useCallback(() => {
         setOffset(0);
@@ -65,13 +71,14 @@ export function usePublicEvents(options?: { limit?: number; organizerId?: string
     }, [fetchPage]);
 
     useEffect(() => {
-        fetchPage(0, false);
-    }, [fetchPage]);
+        fetchPage(0, false, Boolean(initialData));
+    }, [fetchPage, initialData]);
 
     return {
         events,
         isLoading,
         isLoadingMore,
+        isRefreshing,
         error,
         hasMore,
         loadMore,
@@ -82,26 +89,33 @@ export function usePublicEvents(options?: { limit?: number; organizerId?: string
 /**
  * Hook for fetching a single public event by slug.
  */
-export function usePublicEvent(slug: string | null, options?: { preview?: boolean }) {
-    const [event, setEvent] = useState<PublicEventRecord | null>(null);
-    const [tickets, setTickets] = useState<PublicTicketRecord[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+export function usePublicEvent(slug: string | null, options?: { preview?: boolean; initialData?: PublicEventData | null }) {
+    const initialData = options?.preview ? null : options?.initialData;
+    const [event, setEvent] = useState<PublicEventRecord | null>(initialData?.event ?? null);
+    const [tickets, setTickets] = useState<PublicTicketRecord[]>(initialData?.tickets ?? []);
+    const [isLoading, setIsLoading] = useState(!initialData);
+    const [isValidated, setIsValidated] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [accessStatus, setAccessStatus] = useState<'required' | 'denied' | null>(null);
     const [accessCode, setAccessCode] = useState<string | null>(null);
     const preview = options?.preview ?? false;
+    const requestVersion = useRef(0);
+    const hasInitialData = Boolean(initialData);
 
     const fetch = useCallback(async () => {
+        const version = ++requestVersion.current;
         if (!slug) {
             setEvent(null);
             setTickets([]);
             setAccessStatus(null);
             setError(null);
             setIsLoading(false);
+            setIsValidated(false);
             return;
         }
 
-        setIsLoading(true);
+        setIsLoading(!hasInitialData || Boolean(accessCode));
+        setIsValidated(false);
         setError(null);
 
         try {
@@ -109,10 +123,13 @@ export function usePublicEvent(slug: string | null, options?: { preview?: boolea
                 accessCode: accessCode ?? undefined,
                 preview,
             });
+            if (version !== requestVersion.current) return;
             setEvent(response.event);
             setTickets(response.tickets);
             setAccessStatus(null);
+            setIsValidated(true);
         } catch (err) {
+            if (version !== requestVersion.current) return;
             let message = err instanceof Error ? err.message : 'Event not found';
             let nextAccessStatus: 'required' | 'denied' | null = null;
             if (err instanceof ApiError) {
@@ -130,12 +147,15 @@ export function usePublicEvent(slug: string | null, options?: { preview?: boolea
             setEvent(null);
             setTickets([]);
         } finally {
-            setIsLoading(false);
+            if (version === requestVersion.current) setIsLoading(false);
         }
-    }, [accessCode, preview, slug]);
+    }, [accessCode, hasInitialData, preview, slug]);
 
     useEffect(() => {
         fetch();
+        return () => {
+            requestVersion.current += 1;
+        };
     }, [fetch]);
 
     return {
@@ -144,6 +164,7 @@ export function usePublicEvent(slug: string | null, options?: { preview?: boolea
         isLoading,
         error,
         accessStatus,
+        isValidated,
         accessCode,
         setAccessCode,
         refresh: fetch,

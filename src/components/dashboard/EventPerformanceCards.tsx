@@ -4,13 +4,49 @@ import { motion } from 'motion/react';
 import { Calendar, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { SalesChart } from './SalesChart';
 import { CircularProgress, ticketTypeColors } from './CircularProgress';
 import { useOptimizedAnimation } from '@/hooks/useOptimizedAnimation';
 import { buildEventOrdersHref, buildPublicEventHref } from '@/lib/orders-attendees-ui';
+
+function ChartPlaceholder() {
+  return <div aria-hidden="true" className="mt-2 h-[160px] w-full sm:h-[200px]" />;
+}
+
+const SalesChart = dynamic(() => import('./SalesChart').then((module) => module.SalesChart), {
+  ssr: false,
+  loading: ChartPlaceholder,
+});
+
+function ViewportSalesChart(props: ComponentProps<typeof SalesChart>) {
+  const container = useRef<HTMLDivElement>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  useEffect(() => {
+    if (typeof window.IntersectionObserver !== 'function') {
+      const frame = window.requestAnimationFrame(() => setShouldLoad(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setShouldLoad(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '400px' });
+    if (container.current) observer.observe(container.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={container} data-testid="event-sales-chart" className="w-full max-w-full overflow-hidden">
+      {shouldLoad ? <SalesChart {...props} /> : <ChartPlaceholder />}
+    </div>
+  );
+}
 
 interface WeeklySalesData {
   weekStart: string;
@@ -99,31 +135,6 @@ const statusColors = {
 
 export function EventPerformanceCards({ events, organizerId }: EventPerformanceCardsProps) {
   const anim = useOptimizedAnimation();
-  const [renderCharts, setRenderCharts] = useState(() => typeof window === 'undefined');
-
-  useEffect(() => {
-    const idleCallback = (
-      globalThis as typeof globalThis & {
-        requestIdleCallback?: (callback: IdleRequestCallback) => number;
-      }
-    ).requestIdleCallback;
-    const cancelIdleCallback = (
-      globalThis as typeof globalThis & {
-        cancelIdleCallback?: (id: number) => void;
-      }
-    ).cancelIdleCallback;
-
-    // Use requestIdleCallback if available, otherwise fall back to setTimeout
-    if (typeof idleCallback === 'function') {
-      const idleId = idleCallback(() => setRenderCharts(true));
-      return () => cancelIdleCallback?.(idleId);
-    }
-
-    // Fallback to setTimeout
-    const timeoutId = setTimeout(() => setRenderCharts(true), 0);
-    return () => clearTimeout(timeoutId);
-  }, []);
-
   if (events.length === 0) {
     return (
       <Card className="border-dashed border-2 border-border/50">
@@ -313,11 +324,7 @@ export function EventPerformanceCards({ events, organizerId }: EventPerformanceC
                       <div className="text-xs font-medium text-muted-foreground mb-2">
                         12-Week Sales Trend
                       </div>
-                      <div className="w-full max-w-full overflow-hidden">
-                        {renderCharts ? (
-                          <SalesChart data={event.weeklySales} currency={event.currency} />
-                        ) : null}
-                      </div>
+                      <ViewportSalesChart data={event.weeklySales} currency={event.currency} />
                     </div>
 
                     {/* Actions - even 2-col grid on mobile, inline wrap on larger screens */}

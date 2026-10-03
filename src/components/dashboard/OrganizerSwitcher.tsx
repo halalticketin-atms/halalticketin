@@ -133,6 +133,7 @@ export function OrganizerSwitcher({ variant = 'sidebar', size = 'md', showLabel 
     const router = useRouter();
     const { activeOrganizers, organizers, activeOrganizerId, setActiveOrganizerId, refresh, isLoading } = useOrganizers();
     const [showCreateDialog, setShowCreateDialog] = useState(false);
+    const [createDialogRequested, setCreateDialogRequested] = useState(false);
 
     // Show only active orgs in the dropdown
     const options = useMemo(() => activeOrganizers, [activeOrganizers]);
@@ -242,7 +243,10 @@ export function OrganizerSwitcher({ variant = 'sidebar', size = 'md', showLabel 
                         <DropdownMenuSeparator className="my-2" />
 
                         <DropdownMenuItem
-                            onClick={() => setShowCreateDialog(true)}
+                            onClick={() => {
+                                setCreateDialogRequested(true);
+                                setShowCreateDialog(true);
+                            }}
                             className="cursor-pointer p-2 rounded-lg"
                         >
                             <div className="flex items-center gap-3 text-primary">
@@ -256,11 +260,11 @@ export function OrganizerSwitcher({ variant = 'sidebar', size = 'md', showLabel 
                 </DropdownMenu>
             </div>
 
-            <CreateOrganizerDialog
+            {createDialogRequested && <CreateOrganizerDialog
                 open={showCreateDialog}
                 onOpenChange={setShowCreateDialog}
                 onSuccess={handleOrgCreated}
-            />
+            />}
         </>
     );
 }

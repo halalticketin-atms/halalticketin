@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, createContext, useContext, useMemo } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { FALLBACK_EXCHANGE_RATES, SUPPORTED_CURRENCIES, type SupportedCurrency } from '@/lib/fees';
 
@@ -8,7 +8,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const CACHE_KEY = 'halal-ticketin:exchange-rates';
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes for frontend cache
 
-interface ExchangeRatesData {
+export interface ExchangeRatesData {
     base: string;
     date: string;
     rates: Record<string, number>;
@@ -33,7 +33,7 @@ interface ExchangeRatesContextValue {
     getRate: (from: string, to: string) => number;
 }
 
-const ExchangeRatesContext = createContext<ExchangeRatesContextValue | null>(null);
+const ExchangeRatesContext = createContext<(ExchangeRatesContextValue & { ensureLoaded: () => void }) | null>(null);
 
 /**
  * Load cached rates from localStorage
@@ -79,14 +79,19 @@ function saveCachedRates(data: ExchangeRatesData): void {
 /**
  * Provider component for exchange rates
  */
-export function ExchangeRatesProvider({ children }: { children: ReactNode }) {
-    const [rates, setRates] = useState<Record<string, number>>(FALLBACK_EXCHANGE_RATES);
-    const [currencies, setCurrencies] = useState<typeof SUPPORTED_CURRENCIES>(SUPPORTED_CURRENCIES);
-    const [isLoading, setIsLoading] = useState(true);
+export function ExchangeRatesProvider({ children, initialData }: {
+    children: ReactNode;
+    initialData?: ExchangeRatesData | null;
+}) {
+    const [rates, setRates] = useState<Record<string, number>>(initialData?.rates ?? FALLBACK_EXCHANGE_RATES);
+    const [currencies, setCurrencies] = useState<typeof SUPPORTED_CURRENCIES>(initialData?.currencies ?? SUPPORTED_CURRENCIES);
+    const [isLoading, setIsLoading] = useState(!initialData);
     const [error, setError] = useState<string | null>(null);
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(() => initialData ? new Date(initialData.lastUpdated) : null);
+    const hasRequestedRef = useRef(Boolean(initialData));
 
     const fetchRates = useCallback(async (useCache = true) => {
+        hasRequestedRef.current = true;
         // Try cache first
         if (useCache) {
             const cached = loadCachedRates();
@@ -130,9 +135,8 @@ export function ExchangeRatesProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // Fetch rates on mount
-    useEffect(() => {
-        void fetchRates();
+    const ensureLoaded = useCallback(() => {
+        if (!hasRequestedRef.current) void fetchRates();
     }, [fetchRates]);
 
     // Conversion functions
@@ -156,7 +160,8 @@ export function ExchangeRatesProvider({ children }: { children: ReactNode }) {
         await fetchRates(false); // Skip cache
     }, [fetchRates]);
 
-    const value = useMemo<ExchangeRatesContextValue>(() => ({
+    const value = useMemo(() => ({
+        ensureLoaded,
         rates,
         currencies,
         isLoading,
@@ -166,7 +171,7 @@ export function ExchangeRatesProvider({ children }: { children: ReactNode }) {
         convertFromGBP,
         convertToGBP,
         getRate,
-    }), [rates, currencies, isLoading, error, lastUpdated, refresh, convertFromGBP, convertToGBP, getRate]);
+    }), [ensureLoaded, rates, currencies, isLoading, error, lastUpdated, refresh, convertFromGBP, convertToGBP, getRate]);
 
     return (
         <ExchangeRatesContext.Provider value={value}>
@@ -180,6 +185,11 @@ export function ExchangeRatesProvider({ children }: { children: ReactNode }) {
  */
 export function useExchangeRates() {
     const context = useContext(ExchangeRatesContext);
+    const ensureLoaded = context?.ensureLoaded;
+
+    useEffect(() => {
+        ensureLoaded?.();
+    }, [ensureLoaded]);
 
     if (!context) {
         // If not in provider, return fallback values

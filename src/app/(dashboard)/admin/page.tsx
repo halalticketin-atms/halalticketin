@@ -569,7 +569,7 @@ function UsersTable() {
                     </CardTitle>
                     <div className="flex gap-2 flex-wrap">
                         <div className="relative flex-1 sm:flex-none">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search users..."
                                 className="pl-8 h-9 w-full sm:w-[200px]"
@@ -818,7 +818,7 @@ function OrganizersTable() {
                     </CardTitle>
                     <div className="flex gap-2 flex-wrap">
                         <div className="relative flex-1 sm:flex-none">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search organizers..."
                                 className="pl-8 h-9 w-full sm:w-[200px]"
@@ -1251,7 +1251,7 @@ function EventsTable() {
                     </CardTitle>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
                         <div className="relative min-w-[220px] flex-1 sm:flex-none">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search events..."
                                 className="h-9 w-full pl-8 sm:w-[240px]"

@@ -1,0 +1,43 @@
+/* Start the entrance before hydration. Curves sample installed Framer Motion defaults every 10ms:
+   animation/utils/default-transitions.mjs gives stiffness 500, damping 25, restSpeed 10
+   and opacity's 300ms cubic-bezier. motion-dom's spring generator gives 266/297ms rest times. */
+.seeded [data-seed-enter="header"] {
+    animation: fade-enter 300ms cubic-bezier(0.25, 0.1, 0.35, 1) backwards,
+        header-translate 266ms linear(0.000000 0.0000%, 0.022946 3.7594%, 0.083862 7.5188%, 0.171665 11.2782%, 0.276539 15.0376%, 0.390087 18.7970%, 0.505390 22.5564%, 0.616977 26.3158%, 0.720757 30.0752%, 0.813882 33.8346%, 0.894608 37.5940%, 0.962121 41.3534%, 1.016369 45.1128%, 1.057896 48.8722%, 1.087686 52.6316%, 1.107024 56.3910%, 1.117369 60.1504%, 1.120255 63.9098%, 1.117205 67.6692%, 1.109666 71.4286%, 1.098963 75.1880%, 1.086268 78.9474%, 1.072580 82.7068%, 1.058722 86.4662%, 1.045343 90.2256%, 1.032925 93.9850%, 1.021804 97.7444%, 1 100%) backwards;
+}
+
+.seeded [data-seed-enter^="summary-"] {
+    animation: fade-enter 300ms cubic-bezier(0.25, 0.1, 0.35, 1) backwards,
+        summary-translate 297ms linear(0.000000 0.0000%, 0.022946 3.3670%, 0.083862 6.7340%, 0.171665 10.1010%, 0.276539 13.4680%, 0.390087 16.8350%, 0.505390 20.2020%, 0.616977 23.5690%, 0.720757 26.9360%, 0.813882 30.3030%, 0.894608 33.6700%, 0.962121 37.0370%, 1.016369 40.4040%, 1.057896 43.7710%, 1.087686 47.1380%, 1.107024 50.5051%, 1.117369 53.8721%, 1.120255 57.2391%, 1.117205 60.6061%, 1.109666 63.9731%, 1.098963 67.3401%, 1.086268 70.7071%, 1.072580 74.0741%, 1.058722 77.4411%, 1.045343 80.8081%, 1.032925 84.1751%, 1.021804 87.5421%, 1.012182 90.9091%, 1.004152 94.2761%, 0.997715 97.6431%, 1 100%) backwards;
+}
+
+.seeded [data-seed-enter="summary-0"] { animation-delay: 0.1s; }
+.seeded [data-seed-enter="summary-1"] { animation-delay: 0.2s; }
+.seeded [data-seed-enter="summary-2"] { animation-delay: 0.3s; }
+
+.seeded [data-seed-enter="list"] { animation: fade-enter 0.3s ease-out backwards; }
+.seeded [data-seed-enter="order"] { animation: order-enter 0.2s ease-out backwards; }
+
+@keyframes header-translate {
+    from { transform: translateY(-10px); }
+    to { transform: translateY(0); }
+}
+
+@keyframes summary-translate {
+    from { transform: translateY(20px); }
+    to { transform: translateY(0); }
+}
+
+@keyframes fade-enter {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes order-enter {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .seeded [data-seed-enter] { animation: none; }
+}

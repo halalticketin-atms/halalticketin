@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { cache, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import {
-  fetchPublicEventBySlug,
   type PublicEventRecord,
   type PublicTicketRecord,
 } from '@/lib/events-api';
+import { getPublicEventInitialData } from '@/lib/public-event-server';
 import {
   SITE_NAME,
   absoluteUrl,
@@ -14,14 +14,6 @@ import {
 } from '@/lib/seo';
 
 type RouteParams = Promise<{ id: string }>;
-
-const getEventSeoData = cache(async (id: string) => {
-  try {
-    return await fetchPublicEventBySlug(id);
-  } catch {
-    return null;
-  }
-});
 
 function eventCanonicalPath(event: PublicEventRecord | null, id: string) {
   return `/events/${event?.slug || id}`;
@@ -162,7 +154,7 @@ function buildEventStructuredData({
 
 export async function generateMetadata({ params }: { params: RouteParams }): Promise<Metadata> {
   const { id } = await params;
-  const response = await getEventSeoData(id);
+  const response = await getPublicEventInitialData(id);
   const event = response?.event ?? null;
 
   if (!event) {
@@ -194,7 +186,7 @@ export default async function EventDetailsLayout({
   params: RouteParams;
 }) {
   const { id } = await params;
-  const response = await getEventSeoData(id);
+  const response = await getPublicEventInitialData(id);
   const event = response?.event ?? null;
   const canonicalUrl = absoluteUrl(eventCanonicalPath(event, id));
   const structuredData = event

@@ -156,7 +156,7 @@ export function useOrganizerEvents(organizerId: string | null) {
 
     return {
         events,
-        isLoading,
+        isLoading: isLoading || (organizerId !== null && resolvedOrganizerId !== organizerId),
         error,
         resolvedOrganizerId,
         refresh: fetchEvents,

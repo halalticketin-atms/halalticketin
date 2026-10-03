@@ -1,5 +1,8 @@
-import { DashboardSidebar, DashboardTopbar, MobileBottomNav, SuspendedAccessGuard } from '@/components/dashboard';
-import { ScrollToTopWrapper } from '@/components/layout';
+import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
+import { DashboardTopbar } from '@/components/dashboard/DashboardTopbar';
+import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
+import { SuspendedAccessGuard } from '@/components/dashboard/SuspendedAccessGuard';
+import { ScrollToTopWrapper } from '@/components/layout/ScrollToTopWrapper';
 
 export default async function OrganizerDashboardLayout({
     children,

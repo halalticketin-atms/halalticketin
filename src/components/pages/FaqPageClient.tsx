@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, LazyMotion, domAnimation, useReducedMotion } from 'motion/react';
+import * as m from 'motion/react-m';
 import {
     CalendarCheck,
     ChevronDown,
@@ -62,6 +63,14 @@ function normalize(text: string): string {
 }
 
 export default function FaqPageClient() {
+    return (
+        <LazyMotion features={domAnimation} strict>
+            <FaqContent />
+        </LazyMotion>
+    );
+}
+
+function FaqContent() {
     const [query, setQuery] = useState('');
     const [openItems, setOpenItems] = useState<Set<string>>(new Set());
     const prefersReducedMotion = useReducedMotion();
@@ -239,7 +248,7 @@ export default function FaqPageClient() {
                                             </button>
                                             <AnimatePresence initial={false}>
                                                 {open && (
-                                                    <motion.div
+                                                    <m.div
                                                         id={`faq-answer-${item.id}`}
                                                         initial={{ height: 0, opacity: 0 }}
                                                         animate={{ height: 'auto', opacity: 1 }}
@@ -250,7 +259,7 @@ export default function FaqPageClient() {
                                                         <p className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground md:px-6 md:text-[15px]">
                                                             {renderAnswer(item.answer)}
                                                         </p>
-                                                    </motion.div>
+                                                    </m.div>
                                                 )}
                                             </AnimatePresence>
                                         </div>

@@ -92,7 +92,7 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
     const allItems = useMemo(() => [...mainNavItems, ...moreItems], [mainNavItems, moreItems]);
 
     // Lock body scroll when expanded
-    useBodyScrollLock(isExpanded);
+    useBodyScrollLock(isExpanded && Boolean(role));
 
     const handleSignOut = useCallback(() => {
         setIsExpanded(false);
@@ -128,6 +128,9 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
         e.preventDefault();
         navigate(href);
     }, [navigate]);
+
+    // Render the complete authorised navigation once its role is known.
+    if (!role) return null;
 
     return (
         <>

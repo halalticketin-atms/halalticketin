@@ -1,3 +1,6 @@
+import { acceptSupabaseSession, isSupabaseSessionRetired, retireSupabaseSession } from './supabase-readiness';
+import { hasWebSessionCredentialBinding, invalidateWebSessionActivation } from './web-session-activation';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const TOKEN_STORAGE_KEY = 'halal-ticketin-access-token';
 const REFRESH_TOKEN_STORAGE_KEY = 'halal-ticketin-refresh-token';
@@ -5,81 +8,142 @@ const REFRESH_TOKEN_STORAGE_KEY = 'halal-ticketin-refresh-token';
 interface RequestConfig extends RequestInit {
     params?: Record<string, string>;
     skipAuthRefresh?: boolean;
+    authOwner?: { token: string; identity: number };
+}
+
+interface AuthSessionOwner {
+    token: string | null;
+    revision: number;
+    identity: number;
+    refreshToken: string | null;
+    retired: boolean;
 }
 
 const isBrowser = typeof window !== 'undefined';
 let inMemoryToken: string | null = null;
 let inMemoryRefreshToken: string | null = null;
+let sessionGeneration = 0;
+let identityGeneration = 0;
 
-const loadToken = () => {
-    if (isBrowser) {
-        const stored = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+let tokenLoaded = false;
+const sessionListeners = new Set<() => void>();
+export const subscribeAuthSession = (listener: () => void) => {
+    sessionListeners.add(listener);
+    return () => { sessionListeners.delete(listener); };
+};
+const advanceSession = (preserveIdentity = false) => {
+    sessionGeneration += 1;
+    if (!preserveIdentity) identityGeneration += 1;
+    sessionListeners.forEach(listener => listener());
+};
+
+export const getAuthToken = () => {
+    if (!isBrowser) return inMemoryToken;
+    const stored = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (tokenLoaded && stored !== inMemoryToken) {
+        // Subscribers may read the token synchronously while activation is cleared.
         inMemoryToken = stored;
-        return stored;
-    }
-
-    return inMemoryToken;
-};
-
-const loadRefreshToken = () => {
-    if (isBrowser) {
-        const stored = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
-        inMemoryRefreshToken = stored;
-        return stored;
-    }
-
-    return inMemoryRefreshToken;
-};
-
-export const setAuthToken = (token: string | null) => {
-    inMemoryToken = token;
-    if (!isBrowser) {
-        return;
-    }
-
-    if (token) {
-        window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
+        tokenLoaded = true;
+        if (!stored) retireSupabaseSession();
+        if (!hasWebSessionCredentialBinding(stored)) invalidateWebSessionActivation();
+        advanceSession();
     } else {
-        window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+        inMemoryToken = stored;
     }
+    tokenLoaded = true;
+    return stored;
+};
+
+export const getAuthSessionRevision = () => {
+    try { getAuthToken(); } catch { /* A blocked browser store does not change identity. */ }
+    return sessionGeneration;
+};
+
+export const getAuthIdentityRevision = () => {
+    try { getAuthToken(); } catch { /* A blocked browser store does not change identity. */ }
+    return identityGeneration;
+};
+
+export const setAuthToken = (token: string | null, options?: {
+    preserveIdentity?: boolean;
+    expectedSession?: AuthSessionOwner;
+    refreshToken?: string | null;
+}) => {
+    const previous = getAuthToken();
+    const expected = options?.expectedSession;
+    const ownsExpectedSession = () => !expected || ownsAuthSession(expected);
+    if (!ownsExpectedSession()) return false;
+    if (previous !== token) invalidateWebSessionActivation();
+    // Activation subscribers may replace the owner synchronously.
+    if (!ownsExpectedSession()) return false;
+    if (!token) retireSupabaseSession();
+    inMemoryToken = token;
+    tokenLoaded = true;
+    if (isBrowser) {
+        if (token) window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
+        else window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+    if (options?.refreshToken !== undefined) setRefreshToken(options.refreshToken);
+    if (token) acceptSupabaseSession(token);
+    if (previous !== token) advanceSession(options?.preserveIdentity === true);
+    return !expected || ownsAuthSession({
+        token,
+        refreshToken: options?.refreshToken === undefined ? expected.refreshToken : options.refreshToken,
+        revision: expected.revision + (previous !== token ? 1 : 0),
+        identity: expected.identity + (previous !== token && !options?.preserveIdentity ? 1 : 0),
+        retired: !token,
+    });
 };
 
 export const setRefreshToken = (token: string | null) => {
     inMemoryRefreshToken = token;
-    if (!isBrowser) {
-        return;
-    }
-
-    if (token) {
-        window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
-    } else {
-        window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-    }
-};
-
-export const getAuthToken = () => {
-    if (inMemoryToken) {
-        return inMemoryToken;
-    }
-
-    return loadToken();
+    if (!isBrowser) return;
+    if (token) window.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
+    else window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
 };
 
 export const getRefreshToken = () => {
-    if (inMemoryRefreshToken) {
-        return inMemoryRefreshToken;
+    if (isBrowser) inMemoryRefreshToken = window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+    return inMemoryRefreshToken;
+};
+
+export const getAuthSessionOwner = (): AuthSessionOwner => ({
+    token: getAuthToken(),
+    refreshToken: getRefreshToken(),
+    revision: getAuthSessionRevision(),
+    identity: getAuthIdentityRevision(),
+    retired: isSupabaseSessionRetired(),
+});
+
+function ownsAuthSession(expected: AuthSessionOwner) {
+    return getRefreshToken() === expected.refreshToken
+        && getAuthToken() === expected.token
+        && sessionGeneration === expected.revision
+        && identityGeneration === expected.identity
+        && isSupabaseSessionRetired() === expected.retired
+        && getAuthToken() === expected.token;
+}
+
+export const clearAuthToken = () => setAuthToken(null);
+export const clearAuthSession = (expectedSession?: AuthSessionOwner) => {
+    getAuthToken();
+    if (expectedSession && !ownsAuthSession(expectedSession)) return false;
+    invalidateWebSessionActivation();
+    if (expectedSession && !ownsAuthSession(expectedSession)) return false;
+    retireSupabaseSession();
+    inMemoryToken = null;
+    inMemoryRefreshToken = null;
+    tokenLoaded = true;
+    if (isBrowser) {
+        window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+        window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
     }
-
-    return loadRefreshToken();
-};
-
-export const clearAuthToken = () => {
-    setAuthToken(null);
-};
-
-export const clearAuthSession = () => {
-    setAuthToken(null);
-    setRefreshToken(null);
+    advanceSession();
+    return !expectedSession || ownsAuthSession({
+        token: null, refreshToken: null, retired: true,
+        revision: expectedSession.revision + 1,
+        identity: expectedSession.identity + 1,
+    });
 };
 
 export class ApiError extends Error {
@@ -100,10 +164,14 @@ class ApiClient {
         this.baseUrl = baseUrl;
     }
 
-    private refreshPromise: Promise<string | null> | null = null;
+    private refreshPromise: {
+        revision: number;
+        refreshToken: string;
+        promise: Promise<string | null>;
+    } | null = null;
 
-    private async refreshAccessToken(): Promise<string | null> {
-        if (!isBrowser) {
+    private async refreshAccessToken(requestOwner: { token: string; revision: number; identity: number }): Promise<string | null> {
+        if (!isBrowser || isSupabaseSessionRetired()) {
             return null;
         }
 
@@ -112,11 +180,22 @@ class ApiClient {
             return null;
         }
 
-        if (this.refreshPromise) {
-            return this.refreshPromise;
+        const refreshGeneration = requestOwner.revision;
+        const ownsRefresh = () => getRefreshToken() === refreshToken
+            && getAuthToken() === requestOwner.token
+            && getAuthSessionRevision() === refreshGeneration
+            && getAuthIdentityRevision() === requestOwner.identity
+            && getAuthToken() === requestOwner.token
+            && !isSupabaseSessionRetired();
+        // Credential reads can observe another tab removing or replacing the session.
+        if (!ownsRefresh()) return null;
+        if (this.refreshPromise?.revision === refreshGeneration && this.refreshPromise.refreshToken === refreshToken) {
+            return this.refreshPromise.promise;
         }
 
-        this.refreshPromise = (async () => {
+        const owner = { revision: refreshGeneration, refreshToken, promise: Promise.resolve<string | null>(null) };
+        this.refreshPromise = owner;
+        owner.promise = (async () => {
             try {
                 const response = await fetch(`${this.baseUrl}/api/v1/auth/refresh`, {
                     method: 'POST',
@@ -135,24 +214,31 @@ class ApiClient {
                     throw new Error('Refresh response missing access token');
                 }
 
-                setAuthToken(data.accessToken);
-                if (data.refreshToken) {
-                    setRefreshToken(data.refreshToken);
+                // A pending refresh must not restore a session after sign-out.
+                if (!ownsRefresh()) {
+                    return null;
                 }
+                if (!setAuthToken(data.accessToken, {
+                    preserveIdentity: true,
+                    expectedSession: { ...requestOwner, refreshToken, retired: false },
+                    refreshToken: data.refreshToken || refreshToken,
+                })) return null;
                 return data.accessToken as string;
             } catch {
-                clearAuthSession();
+                if (ownsRefresh()) {
+                    clearAuthSession({ ...requestOwner, refreshToken, retired: false });
+                }
                 return null;
             } finally {
-                this.refreshPromise = null;
+                if (this.refreshPromise === owner) this.refreshPromise = null;
             }
         })();
 
-        return this.refreshPromise;
+        return owner.promise;
     }
 
     private async request<T>(endpoint: string, config: RequestConfig = {}): Promise<T> {
-        const { params, skipAuthRefresh, ...fetchConfig } = config;
+        const { params, skipAuthRefresh, authOwner, ...fetchConfig } = config;
 
         let url = `${this.baseUrl}${endpoint}`;
         if (params) {
@@ -161,6 +247,11 @@ class ApiClient {
         }
 
         const token = getAuthToken();
+        const requestGeneration = getAuthSessionRevision();
+        const requestIdentity = getAuthIdentityRevision();
+        if (token !== getAuthToken() || requestIdentity !== getAuthIdentityRevision() || (authOwner && (token !== authOwner.token || requestIdentity !== authOwner.identity))) {
+            throw new ApiError('Session changed before the request could be sent', 401, null);
+        }
 
         const headers = new Headers(fetchConfig.headers);
         if (token) {
@@ -177,10 +268,14 @@ class ApiClient {
             headers,
         });
 
-        if (response.status === 401 && !skipAuthRefresh) {
-            const refreshedToken = await this.refreshAccessToken();
-            if (refreshedToken) {
-                return this.request<T>(endpoint, { ...config, skipAuthRefresh: true });
+        if (response.status === 401 && token && !skipAuthRefresh && requestGeneration === getAuthSessionRevision() && token === getAuthToken() && requestIdentity === getAuthIdentityRevision()) {
+            const refreshedToken = await this.refreshAccessToken({ token, revision: requestGeneration, identity: requestIdentity });
+            if (refreshedToken && getAuthToken() === refreshedToken && getAuthIdentityRevision() === requestIdentity) {
+                return this.request<T>(endpoint, {
+                    ...config,
+                    skipAuthRefresh: true,
+                    authOwner: { token: refreshedToken, identity: requestIdentity },
+                });
             }
         }
 

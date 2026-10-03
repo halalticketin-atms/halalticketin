@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import { DM_Sans, Geist, Geist_Mono, Sora } from 'next/font/google';
+import { DM_Sans, Geist_Mono, Sora } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
-import { Header, ConditionalFooter } from '@/components/layout';
+import { Header } from '@/components/layout/Header';
+import { ConditionalFooter } from '@/components/layout/ConditionalFooter';
 import { CookieConsentProvider } from '@/context/cookie-consent-context';
 import { AuthProvider } from '@/context/auth-context';
 import { ExchangeRatesProvider } from '@/hooks/useExchangeRates';
@@ -19,28 +20,25 @@ import {
   getSiteUrl,
 } from '@/lib/seo';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-  display: 'swap',
-});
-
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
   display: 'swap',
+  preload: false,
 });
 
 const dmSans = DM_Sans({
   variable: '--font-dm-sans',
   subsets: ['latin'],
   display: 'swap',
+  preload: false,
 });
 
 const sora = Sora({
   variable: '--font-sora',
   subsets: ['latin'],
   display: 'swap',
+  preload: false,
 });
 
 export const viewport: Viewport = {
@@ -96,7 +94,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="gradient-mesh">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${sora.variable} antialiased`}
+        className={`${geistMono.variable} ${dmSans.variable} ${sora.variable} antialiased`}
       >
         <AuthProvider>
           <CookieConsentProvider>

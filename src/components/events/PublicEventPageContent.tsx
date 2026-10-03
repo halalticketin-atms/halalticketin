@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, startTransition, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, startTransition, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import dynamic from 'next/dynamic';
 import { fetchPublicOrganizerProfile } from '@/lib/organizers-api';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { LazyMotion, domAnimation, AnimatePresence, useReducedMotion } from 'motion/react';
+import * as m from 'motion/react-m';
 import {
     Calendar,
     Clock,
@@ -62,11 +62,12 @@ import { LIMITS_GBP, MAX_PER_ORDER, PROMO_CODE_MAX_LENGTH, PROMO_CODE_MIN_LENGTH
 import { useOptionalAuth } from '@/context/auth-context';
 import { differenceInYears } from 'date-fns';
 import { cn } from '@/lib/utils';
+import styles from './PublicEventPageContent.module.css';
+import { LazyEventLocationMap } from './LazyEventLocationMap';
 import { ShareDialog } from '@/components/share/ShareDialog';
 import { AddToCalendarButton } from '@/components/events/AddToCalendarButton';
 import { absoluteUrl } from '@/lib/seo';
 import { toast } from '@/lib/notifications';
-import { getSupabase } from '@/lib/supabase';
 import { getAuthToken } from '@/lib/api';
 import { hasCoordinatePair } from '@/lib/event-location-validation';
 import {
@@ -84,12 +85,6 @@ import {
     normalizePublicOrganizerContactForm,
 } from '@/lib/public-organizer-contact';
 
-// Dynamic import to avoid SSR issues with Leaflet
-const EventLocationMap = dynamic(
-    () => import('@/components/events/EventLocationMap').then(mod => ({ default: mod.EventLocationMap })),
-    { ssr: false, loading: () => <div className="h-[300px] rounded-lg bg-muted/40 flex items-center justify-center text-sm text-muted-foreground">Loading map...</div> }
-);
-
 type EventLike = EventRecord | PublicEventRecord;
 type TicketLike = PublicTicketRecord | TicketRecord;
 type TicketSoldOutReason = 'event_capacity' | 'ticket_capacity' | null;
@@ -99,6 +94,9 @@ const QUOTE_MAX_AGE_MS = 120000;
 const DONATION_QUOTE_DEBOUNCE_MS = 500;
 const QUOTE_AGE_TICK_MS = 10000;
 const INITIATE_CHECKOUT_QUOTE_WAIT_MS = 2000;
+const subscribeToHydration = () => () => {};
+const hydratedSnapshot = () => true;
+const serverHydrationSnapshot = () => false;
 
 interface PublicEventPageContentProps {
     event: EventLike | null;
@@ -114,6 +112,7 @@ interface PublicEventPageContentProps {
     accessMessage?: string | null;
     accessCode?: string | null;
     onAccessSubmit?: (code: string) => void;
+    initialRenderTime?: number;
 }
 
 type TicketAttendee = CheckoutTicketAttendeeForm;
@@ -192,6 +191,7 @@ function TicketCard({
     soldOut = false,
     soldOutReason = null,
     waitlistSlot,
+    renderTime,
 }: {
     ticket: TicketLike;
     quantity: number;
@@ -200,6 +200,7 @@ function TicketCard({
     soldOut?: boolean;
     soldOutReason?: TicketSoldOutReason;
     waitlistSlot?: ReactNode;
+    renderTime: number;
 }) {
     const regularPrice = formatPrice(ticket.price, ticket.currency);
     const isFree = ticket.type === 'free' || regularPrice === 'Free';
@@ -209,8 +210,7 @@ function TicketCard({
     // Check if early bird pricing is active
     const earlyBirdPrice = 'earlyBirdPrice' in ticket ? ticket.earlyBirdPrice : null;
     const earlyBirdEndDate = 'earlyBirdEndDate' in ticket ? ticket.earlyBirdEndDate : null;
-    const now = new Date();
-    const isEarlyBirdActive = !isFree && earlyBirdPrice && earlyBirdEndDate && now < new Date(earlyBirdEndDate);
+    const isEarlyBirdActive = !isFree && earlyBirdPrice && earlyBirdEndDate && renderTime < Date.parse(earlyBirdEndDate);
     const displayPrice = isEarlyBirdActive ? formatPrice(earlyBirdPrice, ticket.currency) : regularPrice;
     const soldOutMessage = soldOutReason === 'event_capacity' ? 'Event sold out' : 'Ticket sold out';
     const showWaitlist = soldOut && Boolean(waitlistSlot);
@@ -336,7 +336,7 @@ function InlineTicketWaitlist({
 
     if (message) {
         return (
-            <motion.div
+            <m.div
                 initial={reduceMotion ? false : { opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
@@ -346,7 +346,7 @@ function InlineTicketWaitlist({
                     <Check className="h-3.5 w-3.5" />
                 </span>
                 You are on the waitlist
-            </motion.div>
+            </m.div>
         );
     }
 
@@ -367,7 +367,7 @@ function InlineTicketWaitlist({
     }
 
     return (
-        <motion.form
+        <m.form
             onSubmit={handleSubmit}
             initial={reduceMotion ? false : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -408,7 +408,7 @@ function InlineTicketWaitlist({
             {error && (
                 <p className="mt-2 text-xs font-medium text-destructive">{error}</p>
             )}
-        </motion.form>
+        </m.form>
     );
 }
 
@@ -477,7 +477,15 @@ function DonationCard({
     );
 }
 
-export function PublicEventPageContent({
+export function PublicEventPageContent(props: PublicEventPageContentProps) {
+    return (
+        <LazyMotion features={domAnimation} strict>
+            <PublicEventPageBody {...props} />
+        </LazyMotion>
+    );
+}
+
+function PublicEventPageBody({
     event,
     tickets,
     isLoading,
@@ -491,7 +499,10 @@ export function PublicEventPageContent({
     accessMessage = null,
     accessCode = null,
     onAccessSubmit,
+    initialRenderTime,
 }: PublicEventPageContentProps) {
+    const hasHydrated = useSyncExternalStore(subscribeToHydration, hydratedSnapshot, serverHydrationSnapshot);
+    const renderTime = !hasHydrated && initialRenderTime !== undefined ? initialRenderTime : Date.now();
     const isEmbedCheckout = embedMode === 'checkout';
     const [accessCodeInput, setAccessCodeInput] = useState('');
 
@@ -560,9 +571,8 @@ export function PublicEventPageContent({
         }
 
         let cancelled = false;
-        getSupabase()
-            .auth
-            .getSession()
+        import('@/lib/supabase')
+            .then(({ getSupabase }) => getSupabase().auth.getSession())
             .then(({ data }) => {
                 if (!cancelled) {
                     setPreviewToken(data.session?.access_token ?? null);
@@ -1039,12 +1049,12 @@ export function PublicEventPageContent({
 
     // Helper to get effective price (early bird or regular)
     const getEffectivePrice = useCallback((t: TicketLike) => {
-        const now = new Date();
+        const now = !hasHydrated && initialRenderTime !== undefined ? initialRenderTime : Date.now();
         const earlyBirdPrice = 'earlyBirdPrice' in t ? t.earlyBirdPrice : null;
         const earlyBirdEndDate = 'earlyBirdEndDate' in t ? t.earlyBirdEndDate : null;
-        const isEarlyBirdActive = earlyBirdPrice && earlyBirdEndDate && now < new Date(earlyBirdEndDate);
+        const isEarlyBirdActive = earlyBirdPrice && earlyBirdEndDate && now < Date.parse(earlyBirdEndDate);
         return isEarlyBirdActive ? parseFloat(earlyBirdPrice) : parseFloat(t.price || '0');
-    }, []);
+    }, [hasHydrated, initialRenderTime]);
 
     const getCartItemUnitPrice = useCallback((item: { ticket: TicketLike; quantity: number; subtotal: number }) => {
         if (item.ticket.type === 'donation') {
@@ -2347,7 +2357,7 @@ export function PublicEventPageContent({
         : startDatetime
             ? new Date(startDatetime).getTime()
             : null;
-    const isPastEvent = !isPreview && eventEndTimestamp !== null && Date.now() > eventEndTimestamp;
+    const isPastEvent = !isPreview && eventEndTimestamp !== null && renderTime > eventEndTimestamp;
     const hasShownPastToast = useRef(false);
 
     useEffect(() => {
@@ -2414,7 +2424,7 @@ export function PublicEventPageContent({
     if (showAccessGate) {
         return (
             <div className={cn(isEmbedCheckout ? 'bg-transparent' : 'min-h-screen bg-muted/30', 'flex items-center justify-center px-4')}>
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
@@ -2452,7 +2462,7 @@ export function PublicEventPageContent({
                     <p className="mt-4 text-xs text-muted-foreground">
                         Don&apos;t have the code? Contact the organiser for access.
                     </p>
-                </motion.div>
+                </m.div>
             </div>
         );
     }
@@ -2472,7 +2482,7 @@ export function PublicEventPageContent({
     if (error || !event) {
         return (
             <div className="min-h-screen bg-muted/30 flex items-center justify-center px-4">
-                <motion.div
+                <m.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
@@ -2487,13 +2497,13 @@ export function PublicEventPageContent({
                     </p>
                     <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
                         <Button asChild>
-                            <Link href="/events">Browse Events</Link>
+                            <Link href="/events" prefetch={isPreview ? false : undefined}>Browse Events</Link>
                         </Button>
                         <Button variant="outline" asChild>
-                            <Link href="/">Go Home</Link>
+                            <Link href="/" prefetch={isPreview ? false : undefined}>Go Home</Link>
                         </Button>
                     </div>
-                </motion.div>
+                </m.div>
             </div>
         );
     }
@@ -2650,7 +2660,8 @@ export function PublicEventPageContent({
                                             alt=""
                                             fill
                                             className="object-cover blur-xl"
-                                            priority
+                                            loading="eager"
+                                            fetchPriority="high"
                                         />
                                     </div>
                                     {/* Dark overlay for better contrast */}
@@ -2663,11 +2674,8 @@ export function PublicEventPageContent({
 
                             {/* Centered Sharp Poster */}
                             <div className="absolute inset-0 flex items-center justify-center px-4">
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    transition={{ duration: 0.5, ease: 'easeOut' }}
-                                    className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[360px] aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10"
+                                <div
+                                    className={cn(styles.posterEnter, "relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[360px] aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10")}
                                 >
                                     {event.bannerImageUrl ? (
                                         <button
@@ -2681,7 +2689,8 @@ export function PublicEventPageContent({
                                                 alt={event.title || 'Event'}
                                                 fill
                                                 className="object-cover"
-                                                priority
+                                                loading="eager"
+                                                fetchPriority="high"
                                             />
                                         </button>
                                     ) : (
@@ -2689,13 +2698,13 @@ export function PublicEventPageContent({
                                             <Calendar className="h-16 w-16 text-white/40" />
                                         </div>
                                     )}
-                                </motion.div>
+                                </div>
                             </div>
 
                             {/* Back Button */}
                             <div className="absolute top-4 left-4 z-10">
                                 <Button variant="secondary" size="sm" asChild className="backdrop-blur-sm bg-black/30 border-white/10 text-white hover:bg-black/50">
-                                    <Link href="/events">
+                                    <Link href="/events" prefetch={isPreview ? false : undefined}>
                                         <ArrowLeft className="h-4 w-4 mr-2" />
                                         Back to Events
                                     </Link>
@@ -2727,25 +2736,16 @@ export function PublicEventPageContent({
                     {!isEmbedCheckout && (
                         <div className="lg:col-span-2 min-w-0 space-y-8">
                             {/* Title */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.4 }}
-                            >
+                            <div className={styles.enter}>
                                 <h1 className="font-display text-3xl sm:text-4xl font-bold break-words">
                                     {event.title || 'Untitled Event'}
                                 </h1>
-                            </motion.div>
+                            </div>
 
                             {/* Organizer Card - Prominent Design */}
                             {organizerName && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.4, delay: 0.05 }}
-                                    className="space-y-3"
-                                >
-                                    <Link href={`/organizers/${event.organizerId}`}>
+                                <div className={cn(styles.enter, styles.delay50, "space-y-3")}>
+                                    <Link href={`/organizers/${event.organizerId}`} prefetch={isPreview ? false : undefined}>
                                         <Card className="group hover:border-primary/50 transition-all duration-300 hover:shadow-lg cursor-pointer bg-gradient-to-br from-primary/5 to-transparent">
                                             <CardContent className="p-4">
                                                 <div className="flex items-center gap-4">
@@ -2803,16 +2803,11 @@ export function PublicEventPageContent({
                                             </div>
                                         </div>
                                     ) : null}
-                                </motion.div>
+                                </div>
                             )}
 
                             {/* Date, Time, Location Info */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.4, delay: 0.1 }}
-                                className="flex flex-wrap gap-4"
-                            >
+                            <div className={cn(styles.enter, styles.delay100, "flex flex-wrap gap-4")}>
                                 <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
                                     <Calendar className="h-5 w-5 text-primary" />
                                     <span className="break-words">{eventDateTime.date}</span>
@@ -2862,16 +2857,12 @@ export function PublicEventPageContent({
                                         />
                                     </div>
                                 )}
-                            </motion.div>
+                            </div>
 
                             <Separator />
 
                             {/* Description */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.4, delay: 0.2 }}
-                            >
+                            <div className={cn(styles.enter, styles.delay200)}>
                                 <h2 className="text-xl font-semibold mb-4">About this event</h2>
                                 {event.description ? (
                                     <div className="prose prose-neutral dark:prose-invert max-w-none">
@@ -2884,17 +2875,13 @@ export function PublicEventPageContent({
                                         No description available for this event.
                                     </p>
                                 )}
-                            </motion.div>
+                            </div>
 
 
 
                             {/* Location Details */}
                             {event.locationType !== 'online' && (event.venue || event.address) && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.4, delay: 0.3 }}
-                                >
+                                <div className={cn(styles.enter, styles.delay300)}>
                                     <h2 className="text-xl font-semibold mb-4">Location</h2>
                                     <Card>
                                         <CardContent className="pt-6 space-y-4">
@@ -2918,7 +2905,7 @@ export function PublicEventPageContent({
                                             {/* Interactive Map (if coordinates available) */}
                                             {hasCoordinatePair(event) ? (
                                                 <div className="space-y-2">
-                                                    <EventLocationMap
+                                                    <LazyEventLocationMap
                                                         lat={event.latitude}
                                                         lon={event.longitude}
                                                         venueName={event.venue || undefined}
@@ -2948,22 +2935,17 @@ export function PublicEventPageContent({
                                             </Button>
                                         </CardContent>
                                     </Card>
-                                </motion.div>
+                                </div>
                             )}
 
                             {/* Refund Policy - Subtle Footer */}
                             {refundPolicyText && (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ duration: 0.4, delay: 0.4 }}
-                                    className="pt-8 mt-8 border-t border-border/40"
-                                >
+                                <div className={cn(styles.fadeEnter, styles.delay400, "pt-8 mt-8 border-t border-border/40")}>
                                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Refund Policy</p>
                                     <p className="text-sm text-muted-foreground/80 leading-relaxed max-w-prose whitespace-pre-wrap">
                                         {refundPolicyText}
                                     </p>
-                                </motion.div>
+                                </div>
                             )}
                         </div>
                     )}
@@ -3000,12 +2982,7 @@ export function PublicEventPageContent({
                                 </div>
                             </div>
                         )}
-                        <motion.div
-                            initial={isEmbedCheckout ? false : { opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, delay: 0.2 }}
-                            className={cn(isEmbedCheckout ? '' : 'lg:sticky lg:top-8')}
-                        >
+                        <div className={cn(!isEmbedCheckout && [styles.enter, styles.delay200, 'lg:sticky lg:top-8'])}>
                             <Card className={cn("overflow-hidden", isEmbedCheckout && "gap-0 py-0", isEmbedCheckout && embedMinimal && "border-0 shadow-none bg-transparent")}>
                                 {(!isEmbedCheckout || !embedShowDetails) && <CardHeader className={isEmbedCheckout ? "pt-4" : undefined}>
                                     <CardTitle className="flex items-center gap-2">
@@ -3026,6 +3003,7 @@ export function PublicEventPageContent({
                                                     <TicketCard
                                                         key={ticket.id}
                                                         ticket={ticket}
+                                                        renderTime={renderTime}
                                                         quantity={ticketQuantities[ticket.id] || 0}
                                                         onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
                                                         organizerFeeNote={organizerFeeNotes.get(ticket.id)}
@@ -3059,6 +3037,7 @@ export function PublicEventPageContent({
                                                                 <div className="absolute -left-1 top-4 w-1 h-8 bg-amber-500 rounded-r-full" />
                                                                 <TicketCard
                                                                     ticket={ticket}
+                                                                    renderTime={renderTime}
                                                                     quantity={ticketQuantities[ticket.id] || 0}
                                                                     onQuantityChange={(qty) => handleQuantityChange(ticket.id, qty)}
                                                                     organizerFeeNote={organizerFeeNotes.get(ticket.id)}
@@ -3117,7 +3096,7 @@ export function PublicEventPageContent({
                                             />
                                             <AnimatePresence mode="wait">
                                                 {waitlistMessage ? (
-                                                    <motion.div
+                                                    <m.div
                                                         key="waitlist-success"
                                                         initial={{ opacity: 0, scale: 0.96 }}
                                                         animate={{ opacity: 1, scale: 1 }}
@@ -3125,21 +3104,21 @@ export function PublicEventPageContent({
                                                         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                                                         className="flex min-h-44 flex-col items-center justify-center px-3 py-6 text-center"
                                                     >
-                                                        <motion.span
+                                                        <m.span
                                                             initial={{ scale: 0.6, rotate: -8 }}
                                                             animate={{ scale: 1, rotate: 0 }}
                                                             transition={{ delay: 0.06, type: 'spring', stiffness: 260, damping: 18 }}
                                                             className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_14px_30px_rgba(16,185,129,0.28)]"
                                                         >
                                                             <Check className="h-7 w-7" />
-                                                        </motion.span>
+                                                        </m.span>
                                                         <p className="text-base font-semibold text-amber-950">You are on the waitlist</p>
                                                         <p className="mt-1 max-w-sm text-sm leading-5 text-amber-900/80">
                                                             We will email you if tickets become available.
                                                         </p>
-                                                    </motion.div>
+                                                    </m.div>
                                                 ) : (
-                                                    <motion.div
+                                                    <m.div
                                                         key="waitlist-form"
                                                         initial={{ opacity: 0 }}
                                                         animate={{ opacity: 1 }}
@@ -3194,7 +3173,7 @@ export function PublicEventPageContent({
                                                                 )}
                                                             </Button>
                                                         </div>
-                                                    </motion.div>
+                                                    </m.div>
                                                 )}
                                             </AnimatePresence>
                                             {waitlistError && (
@@ -3385,7 +3364,7 @@ export function PublicEventPageContent({
                             </Card>
 
 
-                        </motion.div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3415,7 +3394,7 @@ export function PublicEventPageContent({
 
                             {/* Header */}
                             <div className="mb-4 md:mb-6 relative z-10">
-                                <Link href="/" className="inline-block relative h-7 w-24 md:h-8 mb-3 md:mb-4 opacity-90 hover:opacity-100 transition-opacity">
+                                <Link href="/" prefetch={isPreview ? false : undefined} className="inline-block relative h-7 w-24 md:h-8 mb-3 md:mb-4 opacity-90 hover:opacity-100 transition-opacity">
                                     <Image
                                         src="/logos/HTlogocr.png"
                                         alt="Halal Ticketin"
@@ -3595,7 +3574,7 @@ export function PublicEventPageContent({
                             {/* Scrollable Form Area */}
                             <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-2 md:py-2.5 custom-scrollbar min-h-0">
                                 <AnimatePresence mode="wait">
-                                    <motion.div
+                                    <m.div
                                         key={checkoutStep}
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
@@ -3994,7 +3973,7 @@ export function PublicEventPageContent({
                                                 )}
                                             </div>
                                         )}
-                                    </motion.div>
+                                    </m.div>
                                 </AnimatePresence>
 
                                 {checkoutError && (
