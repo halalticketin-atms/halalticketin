@@ -21,7 +21,7 @@ const orders = Array.from({ length: 24 }, (_, index) => ({
 
 export function fixtureResponse(method: string, pathname: string) {
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) return { status: 403, body: { message: 'Fixture rejects mutations' } };
-  if (pathname === '/__mobile-fixture') return { status: 200, body: { fixture: 'mobile-dashboard-get-only' } };
+  if (pathname === '/__mobile-fixture') return { status: 200, body: { fixture: 'mobile-dashboard-get-only', ordersDelayMs: 1200 } };
   const bodies: Record<string, unknown> = {
     '/api/v1/auth/me': profile,
     '/api/v1/auth/me/consent': { analytics: false, marketing: false, version: 2, updatedAt: null },
@@ -29,6 +29,11 @@ export function fixtureResponse(method: string, pathname: string) {
     '/api/v1/orders': { orders, total: orders.length },
     '/api/v1/orders/ticket-breakdown': { events: [], currency: 'EUR' },
     [`/api/v1/organizers/${organiserId}/events`]: { events: [] },
+    [`/api/v1/organizers/${organiserId}/memberships`]: { memberships: [] },
+    [`/api/v1/organizers/${organiserId}/invitations`]: { invitations: [] },
+    [`/api/v1/organizers/${organiserId}/collaborations`]: { hostedCollaborations: [], partnerCollaborations: [] },
+    [`/api/v1/organizers/${organiserId}/attendee-emails/history`]: { history: [] },
+    [`/api/v1/organizers/${organiserId}/tracking-integrations`]: { integrations: [] },
     '/api/v1/analytics/overview': { stats, filters: { events: [] }, charts: { revenueMonthly: [], ticketsMonthly: [], revenueYearly: [], ticketsYearly: [] }, eventPerformance: [] },
     '/api/v1/analytics/events-performance': { events: [] },
     [`/api/v1/organizers/${organiserId}/credits`]: { balance: 1000, totalPurchased: 1000, availableBalance: 1000, usedCredits: 0, lastPurchaseAt: null, history: [] },
@@ -40,8 +45,12 @@ export function fixtureResponse(method: string, pathname: string) {
 if (process.argv.includes('--serve')) {
   const server = http.createServer((req, res) => {
     const response = fixtureResponse(req.method ?? 'GET', new URL(req.url ?? '/', 'http://127.0.0.1').pathname);
-    res.writeHead(response.status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify(response.body));
+    const send = () => {
+      res.writeHead(response.status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(response.body));
+    };
+    if (new URL(req.url ?? '/', 'http://127.0.0.1').pathname === '/api/v1/orders') setTimeout(send, 1200);
+    else send();
   });
   server.listen(3001, '127.0.0.1', () => console.log('Mobile dashboard GET-only fixture on 3001'));
 }

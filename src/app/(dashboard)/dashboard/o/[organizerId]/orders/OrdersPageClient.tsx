@@ -445,6 +445,13 @@ function OrdersPageBody({ initialData: incomingSeed, sessionRevision }: { initia
     const [knownAttendeeEvents, setKnownAttendeeEvents] = useState<Array<{ id: string; name: string }>>([]);
     const [searchQuery, setSearchQuery] = useState(initialUrlState.searchQuery);
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const [openOrdersFilter, setOpenOrdersFilter] = useState<'status' | 'events' | 'export' | null>(null);
+    const changeOrdersFilterOpen = (filter: 'status' | 'events' | 'export', open: boolean) => {
+        setOpenOrdersFilter(current => open ? filter : current === filter ? null : current);
+    };
+    const preserveSearchFocus = (event: Event) => {
+        if (document.activeElement === searchInputRef.current) event.preventDefault();
+    };
     const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>(initialUrlState.statusFilter);
     const [eventFilter, setEventFilter] = useState<string[]>(initialUrlState.eventFilter); // Multi-select event filter
     const [answerFilters, setAnswerFilters] = useState<AttendeeAnswerFilters>(initialUrlState.answerFilters);
@@ -2643,6 +2650,9 @@ function OrdersPageBody({ initialData: incomingSeed, sessionRevision }: { initia
                                         <Input
                                             placeholder="Search by order ID, name, email, or promo code..."
                                             ref={searchInputRef}
+                                            // A deliberate search touch must reach the input through the filter's modal pointer lock.
+                                            style={openOrdersFilter ? { pointerEvents: 'auto' } : undefined}
+                                            onPointerDown={() => setOpenOrdersFilter(null)}
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             className="pl-9 h-10 bg-background/80 backdrop-blur"
@@ -2659,12 +2669,12 @@ function OrdersPageBody({ initialData: incomingSeed, sessionRevision }: { initia
                                         )}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as OrderStatusFilter)}>
+                                        <Select open={openOrdersFilter === 'status'} onOpenChange={open => changeOrdersFilterOpen('status', open)} value={statusFilter} onValueChange={(value) => setStatusFilter(value as OrderStatusFilter)}>
                                             <SelectTrigger className="w-[150px] h-10 bg-background/80 backdrop-blur">
                                                 <Filter className="h-4 w-4 mr-2" />
                                                 <SelectValue placeholder="Status" />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent onCloseAutoFocus={preserveSearchFocus}>
                                                 <SelectItem value="all">All Status</SelectItem>
                                                 <SelectItem value="completed">Paid</SelectItem>
                                                 <SelectItem value="refunded">Refunded</SelectItem>
@@ -2673,7 +2683,7 @@ function OrdersPageBody({ initialData: incomingSeed, sessionRevision }: { initia
                                         </Select>
 
                                         {/* Event Filter Dropdown */}
-                                        <DropdownMenu>
+                                        <DropdownMenu open={openOrdersFilter === 'events'} onOpenChange={open => changeOrdersFilterOpen('events', open)}>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="outline" className="h-10 bg-background/80 backdrop-blur">
                                                     <Ticket className="h-4 w-4 mr-2" />
@@ -2681,7 +2691,7 @@ function OrdersPageBody({ initialData: incomingSeed, sessionRevision }: { initia
                                                     <ChevronDown className="h-4 w-4 ml-2" />
                                                 </Button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="start" className="w-56">
+                                            <DropdownMenuContent align="start" className="w-56" onCloseAutoFocus={preserveSearchFocus}>
                                                 <div className="p-2 space-y-2 max-h-64 overflow-y-auto">
                                                     {/* All Events Option */}
                                                     <div
@@ -2731,7 +2741,7 @@ function OrdersPageBody({ initialData: incomingSeed, sessionRevision }: { initia
                                             </DropdownMenuContent>
                                         </DropdownMenu>
 
-                                        <DropdownMenu>
+                                        <DropdownMenu open={openOrdersFilter === 'export'} onOpenChange={open => changeOrdersFilterOpen('export', open)}>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="outline" className="h-10 bg-background/80 backdrop-blur">
                                                     <Download className="h-4 w-4 mr-2" />
@@ -2739,7 +2749,7 @@ function OrdersPageBody({ initialData: incomingSeed, sessionRevision }: { initia
                                                     <ChevronDown className="h-4 w-4 ml-2" />
                                                 </Button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
+                                            <DropdownMenuContent align="end" onCloseAutoFocus={preserveSearchFocus}>
                                                 <DropdownMenuItem onClick={() => handleOpenExportModal('attendees')}>
                                                     <Users className="mr-2 h-4 w-4" />
                                                     Attendee List

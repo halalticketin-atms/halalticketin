@@ -1,6 +1,6 @@
 # Mobile dashboard interaction investigation, 4 October 2026
 
-The bottom-tab repair is verified locally. The reported Orders search failure remains unresolved. This patch must not be presented as completing both complaints. The initial verification made no commit, push or deployment. Abdel subsequently authorised committing and pushing this bounded repair to main.
+The initial bottom-tab repair shipped as `b92452a8f62987ba2e3c94114a6d6e80fe9d4886`, with Orders search still unresolved at that point. The historical investigation below records that bounded result. The follow-up at the end records the subsequently reproduced filter touch/focus defects and inconsistent loading states, their repairs and fresh verification. Abdel authorised committing and pushing the reviewed fixes.
 
 ## Demonstrated navigation cause and repair
 
@@ -56,6 +56,30 @@ Run `PLAYWRIGHT_SKIP_BACKEND=1 PLAYWRIGHT_PORT=3210 npx playwright test tests/mo
 
 Raw local evidence is under `output/playwright/mobile-interaction-repro/`, including baseline failures, patched passes, synthetic touch traces, mocked recovery evidence and appearance captures. That directory is ignored. The tracked tests and fixture are the durable regression.
 
-## Delivery status
+## Initial delivery status
 
 The demonstrated navigation defects have a narrow, reviewed repair. The overall two-complaint acceptance is unmet because Orders has no demonstrated failing reproduction and native iPhone behaviour remains unverified. Shipping this as a complete fix would repeat the previous evidence mistake. A supervised, instrumented iPhone reproduction is the next step for Orders. Abdel authorised commit and push after reviewing this result. Vercel status will be checked after the push; no manual redeploy, backend deployment or production-data change is part of this patch.
+
+## Follow-up reproduction and repair
+
+The real production frontend at `b92452a` was tested in touch WebKit with synthetic API responses. Session-cookie bridge writes were intercepted, and no production account or customer data was used. Cold, warm, foreground-return and status-selection checks accepted the first search touch. With Status, Events or Export left open, three raw touches on the visible search field failed. Radix's modal body pointer lock made the touch hit HTML instead of the input. Its outside-touch dismissal waited for a compatibility click that this WebKit run did not produce.
+
+A diagnostic HTML click listener allowed outside dismissal and demonstrated a three-touch Events sequence: the first dismissed the menu, the second focused and typed into search, then the closing menu restored focus to its trigger, and the third retained search focus. This diagnostic change was never an application fix. It demonstrates the timing mechanism, not the exact sequence on Abdel's physical iPhone. The local baseline separately failed an unmodified regression that touches search immediately after Escape begins the real Events closing animation; the input received text and then lost focus.
+
+Orders now controls the three filter menus together. While one is open, only the search input overrides its inherited pointer lock. A native pointerdown on search closes the filter without forcing focus or synthesising a click. Menu close autofocus leaves an already focused search input alone. Escape and selecting an option still restore trigger focus. Rapid Events/search/Status/search cleanup leaves neither a body pointer lock nor an aria-hidden page ancestor.
+
+The old Orders server page also held navigation on Events while its initial Orders read was delayed by 1,200 ms. That baseline failed the 800 ms destination-URL check. A shared organiser `loading.tsx` boundary now commits the destination and displays a wheel while the seed resolves. Settings has the same route fallback. All main and expanded destinations have native hrefs. Main pending links and the visible More button display a wheel while the initial route response is unavailable. Analytics now shows a wheel during its initial client data read, replacing its previous skeleton cards.
+
+The initial candidate still failed the Analytics wheel and More pending-wheel tests. Those gaps were repaired before delivery. A wholly withheld first route response cannot provide an uncached destination shell; the pending navigation wheel acknowledges that interval. The shared dashboard session layout on first entry is outside the child loading boundaries, but it is retained for the dashboard-to-dashboard and Settings switches tested here.
+
+## Follow-up checks
+
+Final local production build is `zFJdxmYfc4eInpiPv2_Pa`.
+
+- `npm run build`, all 614 unit tests in 106 files, fresh `npx tsc --noEmit`, scoped ESLint and `git diff --check` passed.
+- The first follow-up candidate passed all 20 initial phone/tablet checks, including the previously failing search and Orders server-loading regressions.
+- The final combined browser run passed 79 cases: 40 targeted phone/tablet interactions and all 39 existing Orders cases across desktop Chromium, phone WebKit and tablet WebKit. The 20 touch-only cases intentionally skip desktop Chromium. Held reads prove each destination's wheel and destination URL before page data is released; Settings holds its client module, and Orders holds its server seed.
+- Four settled before/after screenshots have zero differing pixels, covering phone WebKit and desktop Chromium at the page top and search field. This compares settled Orders appearance only.
+- Fresh GPT-6.1 Sol high review found no outstanding material code defect after resolving the More pending-feedback finding. It inspected the pinned Radix and Next implementation, test coverage and mutation guards. GPT-6.1 Sol medium implemented navigation/loading changes and checked the 16 focused permission/navigation unit cases. The earlier GPT-6.1 Sol high Orders diagnosis and GPT-6 Luna medium bounded visual review remain recorded above. Root alone operated browsers. Per-agent token totals are unavailable.
+
+The task's nine destinations are Overview, Events, Orders, Analytics, Team, Check-in, Email, Credits and Settings. Native iPhone keyboard presentation, VoiceOver and precise physical touch duration remain unverified. The repaired conditions have reproducible automated failures and passing checks; these checks do not establish that every possible cause of Abdel's original device behaviour has been reproduced.

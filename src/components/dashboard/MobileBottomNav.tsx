@@ -17,6 +17,7 @@ import {
     X,
     Mail,
     Wallet,
+    Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { buildDashboardPath } from '@/lib/organizer-path';
@@ -97,7 +98,9 @@ function MainNavContent({ item, active, prefersReducedMotion }: {
                         transition={prefersReducedMotion ? instantTween : snappySpring}
                     />
                 )}
-                <item.icon className="relative h-5 w-5" />
+                {pending
+                    ? <Loader2 className="relative h-5 w-5 animate-spin" />
+                    : <item.icon className="relative h-5 w-5" />}
             </span>
             <span className={cn(
                 'text-[10px] font-medium text-center leading-tight px-0.5',
@@ -113,7 +116,7 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
     const pathname = usePathname();
     const router = useRouter();
     const [isExpanded, setIsExpanded] = useState(false);
-    const [, startTransition] = useTransition();
+    const [isMorePending, startMoreNavigation] = useTransition();
     const { signOut } = useAuth();
     const { organizers } = useOrganizers();
     const role = organizers.find((organizer) => organizer.id === organizerId)?.role;
@@ -149,19 +152,6 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
 
     // Check if any "more" item is active
     const isMoreActive = useMemo(() => moreItems.some((item) => isActive(item.href)), [moreItems, isActive]);
-
-    // Instant navigation - no delay
-    const navigate = useCallback((href: string) => {
-        // Use startTransition for non-blocking navigation
-        startTransition(() => {
-            router.push(href);
-        });
-    }, [router]);
-
-    const handleNavClick = useCallback((href: string) => {
-        setIsExpanded(false);
-        navigate(href);
-    }, [navigate]);
 
     // Render the complete authorised navigation once its role is known.
     if (!role) return null;
@@ -221,9 +211,15 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
                                     {allItems.map((item) => {
                                         const active = isActive(item.href);
                                         return (
-                                            <button
+                                            <Link
                                                 key={item.href}
-                                                onClick={() => handleNavClick(item.href)}
+                                                href={item.href}
+                                                aria-current={active ? 'page' : undefined}
+                                                onNavigate={(event) => {
+                                                    event.preventDefault();
+                                                    setIsExpanded(false);
+                                                    startMoreNavigation(() => router.push(item.href));
+                                                }}
                                                 className={cn(
                                                     'flex flex-col items-center justify-center gap-2 p-4 rounded-2xl',
                                                     'active:scale-95 transition-transform duration-75',
@@ -242,7 +238,7 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
                                                     <item.icon className="h-5 w-5" />
                                                 </div>
                                                 <span className="text-xs font-medium text-center leading-tight">{item.title}</span>
-                                            </button>
+                                            </Link>
                                         );
                                     })}
                                 </div>
@@ -271,7 +267,7 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
                     'bg-white/95 border-t border-gray-200/80',
                     'shadow-[0_-4px_20px_rgba(0,0,0,0.06)]',
                     'transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]',
-                    (isNavVisible || isExpanded) ? 'translate-y-0' : 'translate-y-[calc(100%+env(safe-area-inset-bottom))]',
+                    (isNavVisible || isExpanded || isMorePending) ? 'translate-y-0' : 'translate-y-[calc(100%+env(safe-area-inset-bottom))]',
                     isExpanded && 'opacity-0 pointer-events-none'
                 )}
                 style={{
@@ -307,28 +303,31 @@ function MobileBottomNavComponent({ organizerId }: MobileBottomNavProps) {
                     {/* More Button */}
                     <button
                         onClick={() => setIsExpanded(true)}
+                        aria-busy={isMorePending || undefined}
                         className={cn(
                             'relative flex flex-col items-center justify-center flex-1 h-full gap-1',
                             'active:scale-90 transition-transform duration-75',
-                            isMoreActive
+                            (isMoreActive || isMorePending)
                                 ? 'text-[var(--brand-teal)]'
                                 : 'text-gray-400'
                         )}
                         style={{ touchAction: 'manipulation' }}
                     >
                         <div className="relative">
-                            {isMoreActive && (
+                            {(isMoreActive || isMorePending) && (
                                 <motion.div
-                                    layoutId="activeTab"
+                                    layoutId={isMorePending ? undefined : 'activeTab'}
                                     className="absolute -inset-2 bg-gradient-to-br from-[var(--brand-mint)]/60 to-[var(--brand-cyan)]/30 rounded-2xl"
                                     transition={prefersReducedMotion ? instantTween : snappySpring}
                                 />
                             )}
-                            <MoreHorizontal className="relative h-5 w-5" />
+                            {isMorePending
+                                ? <Loader2 className="relative h-5 w-5 animate-spin" />
+                                : <MoreHorizontal className="relative h-5 w-5" />}
                         </div>
                         <span className={cn(
                             'text-[10px] font-medium',
-                            isMoreActive && 'font-semibold'
+                            (isMoreActive || isMorePending) && 'font-semibold'
                         )}>
                             More
                         </span>

@@ -463,11 +463,9 @@ export default function AnalyticsPage() {
         {/* KPI Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
           {stats.length === 0 && isLoading && (
-            <>
-              {[...Array(4)].map((_, i) => (
-                <Card key={i} className="h-32 animate-pulse" />
-              ))}
-            </>
+            <div className="col-span-full flex h-32 items-center justify-center" role="status" aria-label="Loading analytics">
+              <div className="h-12 w-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" aria-hidden="true" />
+            </div>
           )}
           {stats.map((stat, i) => (
             <motion.div
