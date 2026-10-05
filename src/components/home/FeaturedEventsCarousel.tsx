@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
-import { ArrowRight, Calendar, MapPin } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, MapPin } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
 import type { PublicEventRecord } from '@/lib/events-api';
@@ -21,31 +21,23 @@ function formatLocation(event: PublicEventRecord) {
   return event.city || event.venue || 'Location TBD';
 }
 
-function FeaturedEventCard({
-  event,
-  isDuplicate = false,
-}: {
-  event: PublicEventRecord;
-  isDuplicate?: boolean;
-}) {
+function FeaturedEventCard({ event }: { event: PublicEventRecord }) {
   const href = `/events/${event.slug || event.id}`;
   return (
     <Link
       href={href}
-      className="group block aspect-[4/5] w-[calc(100vw-2rem)] max-w-[405px] shrink-0 sm:aspect-auto sm:h-[548px] sm:w-[465px] sm:max-w-none"
+      className="group block min-w-0 snap-start rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-foreground"
       aria-label={event.title || 'View event'}
-      aria-hidden={isDuplicate || undefined}
-      tabIndex={isDuplicate ? -1 : undefined}
     >
-      <Card className="flex h-full flex-col gap-0 overflow-hidden border-border/50 bg-card p-0 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-[var(--brand-cyan)]/40 group-hover:shadow-xl group-hover:shadow-[var(--brand-cyan)]/10">
+      <Card className="flex h-full flex-col gap-0 overflow-hidden rounded-xl border-0 bg-transparent p-0 shadow-none">
         {/* Required poster canvas: 1350 × 1080 (5:4). */}
-        <div className="relative aspect-[1350/1080] w-full shrink-0 overflow-hidden bg-muted/40">
+        <div className="relative aspect-[1350/1080] w-full shrink-0 overflow-hidden rounded-xl bg-muted/40">
           {event.bannerImageUrl ? (
             <Image
               src={event.bannerImageUrl}
               alt={event.title || 'Event'}
               fill
-              sizes="(max-width: 639px) calc(100vw - 2rem), 465px"
+              sizes="(max-width: 639px) 85vw, (max-width: 1023px) 45vw, 400px"
               className="object-contain"
             />
           ) : (
@@ -53,15 +45,11 @@ function FeaturedEventCard({
               <Calendar className="h-10 w-10 opacity-30 text-muted-foreground" />
             </div>
           )}
-          <div className="absolute left-3 top-3">
-            <span className="rounded-full bg-background/90 px-3 py-1 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm">
-              {formatDate(event.startDatetime)}
-            </span>
-          </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+        <div className="flex min-h-0 flex-1 flex-col px-1 pt-5 pb-2">
+          <p className="mb-2 text-sm font-semibold text-foreground">{formatDate(event.startDatetime)}</p>
           <h3
-            className="font-display line-clamp-2 min-h-[3.125rem] text-lg font-bold leading-snug transition-colors group-hover:text-[var(--brand-teal)] sm:min-h-14 sm:text-xl"
+            className="font-display line-clamp-2 min-h-[3.125rem] text-lg font-bold leading-snug text-teal-800 transition-colors duration-150 group-hover:text-cyan-700 group-focus-visible:text-cyan-700 dark:text-teal-200 dark:group-hover:text-cyan-300 sm:min-h-14 sm:text-xl"
             title={event.title || 'Untitled Event'}
           >
             {event.title || 'Untitled Event'}
@@ -104,121 +92,87 @@ function FeaturedEventCard({
 }
 
 function FeaturedSkeleton() {
-  return (
-    <div className="flex gap-4 overflow-hidden" aria-hidden="true">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          className="aspect-[4/5] w-[calc(100vw-2rem)] max-w-[405px] shrink-0 animate-pulse rounded-2xl bg-muted/60 sm:aspect-auto sm:h-[548px] sm:w-[465px] sm:max-w-none"
-        />
-      ))}
-    </div>
-  );
+  return <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading events" role="status">
+    {[0, 1, 2].map(i => <div key={i} className="aspect-[4/5] rounded-xl bg-muted/60 motion-safe:animate-pulse" />)}
+  </div>;
 }
 
 export default function FeaturedEventsCarousel() {
-  const { events, isLoading, error } = usePublicEvents({ limit: 24 });
+  return <FeaturedEventsRail {...usePublicEvents({ limit: 24 })} />;
+}
+
+export function FeaturedEventsRail({ events, isLoading, error }: { events: PublicEventRecord[]; isLoading: boolean; error: string | null }) {
   const prefersReducedMotion = useReducedMotion();
-  const [isFocusPaused, setIsFocusPaused] = useState(false);
-
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ start: true, end: true });
   const [now] = useState(() => Date.now());
+  const upcoming = useMemo(() => events.filter(event => {
+    if (!event.startDatetime) return true;
+    const start = new Date(event.startDatetime).getTime();
+    return Number.isNaN(start) || start >= now - 86400000;
+  }).sort((a, b) => {
+    const time = (date: string | null) => date ? new Date(date).getTime() || Infinity : Infinity;
+    return time(a.startDatetime) - time(b.startDatetime);
+  }).slice(0, 20), [events, now]);
 
-  const upcoming = useMemo(() => {
-    return events
-      .filter((e) => {
-        if (!e.startDatetime) return true;
-        const t = new Date(e.startDatetime).getTime();
-        return Number.isNaN(t) || t >= now - 1000 * 60 * 60 * 24;
-      })
-      .sort((a, b) => {
-        const at = a.startDatetime ? new Date(a.startDatetime).getTime() : Infinity;
-        const bt = b.startDatetime ? new Date(b.startDatetime).getTime() : Infinity;
-        return at - bt;
-      })
-      .slice(0, 20);
-  }, [events, now]);
+  const updateEdges = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    setEdges({ start: track.scrollLeft <= 1, end: track.scrollLeft + track.clientWidth >= track.scrollWidth - 1 });
+  }, []);
 
-  // Keep the homepage clean: don't render the section on error or when empty.
-  if (!isLoading && (error || upcoming.length === 0)) return null;
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    updateEdges();
+    const observer = new ResizeObserver(updateEdges);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [isLoading, upcoming, updateEdges]);
 
-  const useMarquee = !prefersReducedMotion && upcoming.length > 2;
+  function scroll(direction: number) {
+    const track = trackRef.current;
+    if (!track) return;
+    const card = track.firstElementChild as HTMLElement | null;
+    if (!card) return;
+    const step = card.getBoundingClientRect().width + 24;
+    const visible = Math.max(1, Math.floor((track.clientWidth + 24) / step));
+    track.scrollBy({ left: direction * step * visible, behavior: prefersReducedMotion ? 'instant' : 'smooth' });
+  }
+
+  if (!isLoading && error) return (
+    <section aria-labelledby="upcoming-events-heading" className="container py-16 md:py-20">
+      <h2 id="upcoming-events-heading" className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Upcoming events</h2>
+      <p className="mt-4 text-muted-foreground" role="status">Events could not be loaded. Please try again shortly.</p>
+      <Link href="/events" className="mt-4 inline-flex min-h-11 items-center font-semibold underline underline-offset-4">Browse all events</Link>
+    </section>
+  );
+  if (!isLoading && upcoming.length === 0) return null;
 
   return (
-    <section aria-label="Featured events" className="relative overflow-hidden py-16 md:py-20">
-      <div className="container relative z-10">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <div className="max-w-xl">
-            <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-              Upcoming <span className="text-gradient">events</span>
-            </h2>
+    <section aria-labelledby="upcoming-events-heading" className="py-16 md:py-20">
+      <div className="container">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <h2 id="upcoming-events-heading" className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Upcoming events</h2>
+          <div className="flex items-center gap-5">
+            <Link href="/events" className="inline-flex min-h-11 items-center text-sm font-semibold underline-offset-4 hover:underline">Browse all events</Link>
+            {!isLoading && !(edges.start && edges.end) && <div className="flex gap-2">
+              <button type="button" aria-label="Previous events" aria-controls="upcoming-events-track" disabled={edges.start} onClick={() => scroll(-1)} className="flex size-11 items-center justify-center rounded-full border border-border hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-default disabled:opacity-30"><ChevronLeft className="size-5" /></button>
+              <button type="button" aria-label="Next events" aria-controls="upcoming-events-track" disabled={edges.end} onClick={() => scroll(1)} className="flex size-11 items-center justify-center rounded-full border border-border hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-default disabled:opacity-30"><ChevronRight className="size-5" /></button>
+            </div>}
           </div>
-          <Link
-            href="/events"
-            className="group inline-flex items-center gap-2 text-sm font-semibold text-[var(--brand-teal)] hover:underline"
-          >
-            Browse all events
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
         </div>
+        {isLoading ? <FeaturedSkeleton /> : <div
+          id="upcoming-events-track"
+          ref={trackRef}
+          onScroll={updateEdges}
+          tabIndex={0}
+          aria-label="Upcoming events, scroll to explore"
+          className="grid auto-cols-[85%] grid-flow-col items-stretch gap-6 overflow-x-auto overscroll-x-contain snap-x snap-mandatory rounded-xl pb-4 scrollbar-hide sm:auto-cols-[calc((100%-1.5rem)/2)] lg:auto-cols-[calc((100%-3rem)/3)] focus-visible:outline-2 focus-visible:outline-offset-4"
+        >
+          {upcoming.map(event => <FeaturedEventCard key={event.id} event={event} />)}
+        </div>}
       </div>
-
-      <div className="relative mt-10">
-        {/* Edge fades */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-background to-transparent sm:w-24" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-background to-transparent sm:w-24" />
-
-        {isLoading ? (
-          <div className="container">
-            <FeaturedSkeleton />
-          </div>
-        ) : useMarquee ? (
-          <div
-            className="group/marquee overflow-hidden"
-            data-testid="featured-events-marquee"
-            onFocusCapture={() => setIsFocusPaused(true)}
-            onBlurCapture={() => setIsFocusPaused(false)}
-          >
-            <div
-              className="featured-marquee-track flex w-max items-start gap-4 px-4 group-hover/marquee:[animation-play-state:paused]"
-              style={{ animationPlayState: isFocusPaused ? 'paused' : undefined }}
-            >
-              {upcoming.map((event) => (
-                <FeaturedEventCard key={event.id} event={event} />
-              ))}
-              {upcoming.map((event) => (
-                <FeaturedEventCard key={`${event.id}-duplicate`} event={event} isDuplicate />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="container">
-            <div className="scrollbar-hide flex items-start gap-4 overflow-x-auto pb-2" data-testid="featured-events-static">
-              {upcoming.map((event) => (
-                <FeaturedEventCard key={event.id} event={event} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <style jsx>{`
-        .featured-marquee-track {
-          animation: featured-marquee 60s linear infinite;
-        }
-        @keyframes featured-marquee {
-          from {
-            transform: translateX(0);
-          }
-          to {
-            transform: translateX(calc(-50% - 0.5rem));
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .featured-marquee-track {
-            animation: none;
-          }
-        }
-      `}</style>
     </section>
   );
 }

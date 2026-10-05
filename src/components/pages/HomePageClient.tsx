@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LazyMotion, domAnimation, useReducedMotion } from 'motion/react';
 import * as m from 'motion/react-m';
-import { Search, MapPin, ArrowRight, QrCode, HeartHandshake, BadgeCheck } from 'lucide-react';
+import { Search, MapPin, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import HostingInvitation from '@/components/home/HostingInvitation';
 import FeaturedEventsCarousel from '@/components/home/FeaturedEventsCarousel';
 import { useOptionalAuth } from '@/context/auth-context';
 
@@ -226,132 +226,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Featured Events - looping carousel of upcoming events */}
+      {/* Upcoming events */}
       <FeaturedEventsCarousel />
 
-      {/* Features Section */}
-      <section className="relative pt-20 pb-32 md:pt-24 md:pb-40 overflow-hidden">
-        <div className="absolute inset-0 bg-noise pointer-events-none opacity-30" />
-
-        {/* Ambient gradient orbs - static on mobile, animated on desktop */}
-        <div className={`absolute -top-32 -left-32 h-80 w-80 rounded-full bg-[oklch(0.78_0.14_165/0.15)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl lg:animate-[pulse_12s_ease-in-out_infinite] will-change-transform'}`} />
-        <div className={`absolute top-1/2 -right-40 h-96 w-96 rounded-full bg-[oklch(0.72_0.15_185/0.12)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl lg:animate-[pulse_15s_ease-in-out_infinite] will-change-transform'}`} />
-        <div className={`absolute -bottom-20 left-1/3 h-72 w-72 rounded-full bg-[oklch(0.65_0.12_190/0.1)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl lg:animate-[pulse_10s_ease-in-out_infinite] will-change-transform'}`} />
-
-        {/* Top gradient fade for seamless transition from hero */}
-        <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-background to-transparent pointer-events-none" />
-
-        <div className="container relative z-10">
-          <m.div
-            initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 16 }}
-            whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
-            viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-100px' }}
-            transition={{ duration: shouldUseLiteAnimations ? 0 : 0.55 }}
-            className="mx-auto max-w-3xl text-center mb-20"
-          >
-            <Badge variant="secondary" className="mb-6 text-sm px-4 py-1.5">
-              Why organisers choose us?
-            </Badge>
-            <h2 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1]">
-              Everything you need to
-              <br />
-              <span className="text-gradient">host meaningful events.</span>
-            </h2>
-          </m.div>
-
-          {/* Bento Grid Layout - Enhanced Design */}
-          <div className="mx-auto w-full max-w-6xl">
-            <div className="grid gap-8 md:grid-cols-3">
-              {/* Card 1: Text first, icon bottom-left */}
-              <m.div
-                initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 18 }}
-                whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
-                viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-50px' }}
-                transition={{ duration: shouldUseLiteAnimations ? 0 : 0.45 }}
-              >
-                <div className={`group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.72_0.15_185/0.5)] to-[oklch(0.72_0.15_185/0.1)] ${shouldUseLiteAnimations ? 'transition-colors duration-200' : 'transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.72_0.15_185/0.15)]'}`}>
-                  <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
-                    <div className={`absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-[oklch(0.72_0.15_185/0.1)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl'}`} />
-                    <CardContent className="relative p-10">
-                      {/* Title + Icon side by side */}
-                      <div className="flex items-center justify-between gap-4 mb-5">
-                        <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight">
-                          Effortless ticketing
-                        </h3>
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[oklch(0.72_0.15_185/0.12)] transition-transform duration-300 group-hover:scale-110">
-                          <QrCode className="h-7 w-7 text-[oklch(0.72_0.15_185)]" strokeWidth={1.5} />
-                        </div>
-                      </div>
-                      <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-                        Create <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.72_0.15_185)] to-[oklch(0.65_0.12_190)]">professional</span> event pages and start selling tickets in minutes.
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-              </m.div>
-
-              {/* Card 2: Horizontal header - Icon + Title side by side */}
-              <m.div
-                initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 18 }}
-                whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
-                viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-50px' }}
-                transition={{ duration: shouldUseLiteAnimations ? 0 : 0.45, delay: shouldUseLiteAnimations ? 0 : 0.1 }}
-              >
-                <div className={`group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.78_0.14_165/0.5)] to-[oklch(0.78_0.14_165/0.1)] ${shouldUseLiteAnimations ? 'transition-colors duration-200' : 'transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.78_0.14_165/0.15)]'}`}>
-                  <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
-                    <div className={`absolute -top-16 -right-16 h-64 w-64 rounded-full bg-[oklch(0.78_0.14_165/0.1)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl'}`} />
-                    <CardContent className="relative p-10">
-                      {/* Horizontal header: Icon + Title */}
-                      <div className="flex items-center gap-4 mb-5">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[oklch(0.78_0.14_165/0.12)] transition-transform duration-300 group-hover:scale-110">
-                          <HeartHandshake className="h-7 w-7 text-[oklch(0.78_0.14_165)]" strokeWidth={1.5} />
-                        </div>
-                        <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight">
-                          Community First
-                        </h3>
-                      </div>
-                      <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-                        Designed to support organisers and attendees alike, with a focus on <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.78_0.14_165)] to-[oklch(0.72_0.15_185)]">real engagement</span>.
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-              </m.div>
-
-              {/* Card 3: Content first, icon as finishing accent */}
-              <m.div
-                initial={shouldUseLiteAnimations ? false : { opacity: 0, y: 18 }}
-                whileInView={shouldUseLiteAnimations ? undefined : { opacity: 1, y: 0 }}
-                viewport={shouldUseLiteAnimations ? undefined : { once: true, margin: '-50px' }}
-                transition={{ duration: shouldUseLiteAnimations ? 0 : 0.45, delay: shouldUseLiteAnimations ? 0 : 0.2 }}
-              >
-                <div className={`group h-full rounded-3xl p-[1.5px] bg-gradient-to-br from-[oklch(0.65_0.12_190/0.5)] to-[oklch(0.65_0.12_190/0.1)] ${shouldUseLiteAnimations ? 'transition-colors duration-200' : 'transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-[oklch(0.65_0.12_190/0.15)]'}`}>
-                  <Card className="h-full rounded-[22px] border-0 bg-card overflow-hidden relative">
-                    <div className={`absolute -bottom-24 -right-12 h-68 w-68 rounded-full bg-[oklch(0.65_0.12_190/0.1)] pointer-events-none ${shouldUseLiteAnimations ? 'blur-2xl' : 'blur-3xl'}`} />
-                    <CardContent className="relative p-10">
-                      {/* Title + Icon side by side */}
-                      <div className="flex items-center justify-between gap-4 mb-5">
-                        <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight">
-                          Seamless Experience
-                        </h3>
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[oklch(0.65_0.12_190/0.12)] transition-transform duration-300 group-hover:scale-110">
-                          <BadgeCheck className="h-7 w-7 text-[oklch(0.65_0.12_190)]" strokeWidth={1.5} />
-                        </div>
-                      </div>
-                      <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-                        From event discovery to check-in, we ensure a <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.65_0.12_190)] to-[oklch(0.72_0.15_185)]">smooth, reliable</span> experience.
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-              </m.div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom gradient fade for seamless transition to CTA */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
-      </section>
+      <HostingInvitation startHref={startForFreeHref} />
 
       {/* CTA Section - Brutalist Minimalist */}
       <section className="relative overflow-hidden py-32 md:py-40">
