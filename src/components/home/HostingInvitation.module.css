@@ -15,9 +15,9 @@
   overflow: hidden;
   border-radius: 48px;
   color: var(--ticket-ink);
-  background: radial-gradient(ellipse at 0 0, #e8f9d94d, transparent 45%), linear-gradient(115deg, #bdeee094 0%, #c5f2e99e 48%, #b6e9ee94 100%);
   box-shadow: inset 0 1px 0 #ffffffe6, inset 0 0 0 1px #ffffff80, inset 0 -2px 0 #269f9b33, 0 3px 0 #7dcac580, 0 18px 32px -18px #155f6840;
 }
+.watermark { position: absolute; top: 50%; left: 50%; width: clamp(260px, 36%, 480px); height: auto; transform: translate(-50%, -50%); color: #ffffff30; z-index: -1; pointer-events: none; }
 .main { display: grid; grid-template-rows: subgrid; grid-column: 1; grid-row: 1 / 4; padding: 58px 52px 0 80px; }
 .ticket::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(135deg, #ffffff3d, transparent 38%, #ffffff12 72%, #ffffff36); }
 .eyebrow { margin-bottom: 24px; font-size: 12px; font-weight: 500; letter-spacing: .15em; text-transform: uppercase; color: var(--ticket-body); }
@@ -29,14 +29,13 @@
 .ticket h3 { margin: 14px 0 8px; font-family: var(--font-display); font-size: clamp(19px, 1.75vw, 25px); font-weight: 700; line-height: 1.3; letter-spacing: -.04em; }
 .ticket p:not(.eyebrow) { max-width: 29ch; color: var(--ticket-body); font-size: clamp(16px, 1.35vw, 19px); line-height: 1.48; }
 .iconTile { display: flex; align-items: center; justify-content: center; width: 58px; height: 58px; border-radius: 14px; background: #ffffff91; box-shadow: inset 0 1px 0 #ffffffb3; }
-.cta { grid-column: 1; grid-row: 4; margin-left: 80px; margin-bottom: 46px; justify-self: start; display: inline-flex; align-items: center; justify-content: center; min-height: 54px; min-width: 216px; margin-top: 22px; padding: 12px 30px; border-radius: 999px; background: linear-gradient(110deg, #087f8d, #087a83); color: white; box-shadow: 0 6px 16px #168c9b14, inset 0 1px 0 #ffffff26; font-size: 17px; font-weight: 650; }
-.cta:hover { background: #066d78; }
-.cta:focus-visible { outline: 3px solid var(--ticket-ink); outline-offset: 5px; }
+.cta { grid-column: 1; grid-row: 4; margin: 22px 0 46px 80px; justify-self: start; width: 320px; max-width: calc(100% - 128px); }
 .stub { position: relative; display: grid; grid-template-rows: subgrid; grid-column: 2; grid-row: 1 / 5; padding: 58px 48px 46px 58px; }
 .stub > div { grid-row: 3; align-self: start; }
 /* Rounded punches connect the top and bottom cutouts of the detachable stub. */
 .stub::before { content: ''; position: absolute; left: -3px; top: 22px; bottom: 22px; width: 6px; background: radial-gradient(ellipse 3px 7px at 3px 9px, #ffffffed 95%, transparent 100%) 0 0 / 6px 23px repeat-y; }
-:global(.dark) .ticket { --ticket-ink: #eefffa; --ticket-body: #c0e5e1; background: radial-gradient(ellipse at 0 0, #48ccab1c, transparent 50%), linear-gradient(115deg, #123e3899, #14525899); }
+:global(.dark) .ticket { --ticket-ink: #eefffa; --ticket-body: #c0e5e1; }
+:global(.dark) .watermark { color: #ffffff12; }
 :global(.dark) .iconTile { background: #ffffffc9; }
 :global(.dark) .benefits > div + div::before { background: #ffffff26; }
 @media (max-width: 1100px) {
@@ -48,6 +47,7 @@
   .benefits > div + div::before { left: -16px; }
 }
 @media (max-width: 900px) {
+  .watermark { width: 72%; max-width: 380px; color: #ffffff24; }
   .heading span { display: inline; }
   .section { padding: 32px 20px 48px; }
   .ticket { grid-template-columns: 1fr; grid-template-rows: none; border-radius: 32px; transform: rotate(-.3deg); mask-image: radial-gradient(circle 18px at 0 50%, transparent 98%, #000 100%), radial-gradient(circle 18px at 100% 50%, transparent 98%, #000 100%); }
@@ -68,5 +68,11 @@
   .benefits > div + div::before { display: none; }
   .ticket h3 { font-size: 22px; }
   .stub { padding: 32px 28px; }
-  .cta { width: calc(100% - 56px); margin: 0 28px 32px; }
+  .cta { width: calc(100% - 56px); max-width: none; margin: 0 28px 32px; }
+}
+
+.ticket .gradient { position: absolute; inset: 0; z-index: -2; pointer-events: none; background-clip: border-box; -webkit-background-clip: border-box; opacity: .3; }
+:global(.dark) .ticket .gradient { opacity: .16; }
+@media (prefers-reduced-motion: reduce) {
+  .ticket .gradient { animation: none; }
 }

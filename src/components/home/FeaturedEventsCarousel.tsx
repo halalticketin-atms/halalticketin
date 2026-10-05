@@ -142,7 +142,7 @@ export function FeaturedEventsRail({ events, isLoading, error }: { events: Publi
 
   if (!isLoading && error) return (
     <section aria-labelledby="upcoming-events-heading" className="container py-16 md:py-20">
-      <h2 id="upcoming-events-heading" className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Upcoming events</h2>
+      <h2 id="upcoming-events-heading" className="font-display text-4xl font-bold tracking-tight leading-[0.95] sm:text-5xl md:text-6xl lg:text-7xl">Upcoming <span className="text-gradient">events</span></h2>
       <p className="mt-4 text-muted-foreground" role="status">Events could not be loaded. Please try again shortly.</p>
       <Link href="/events" className="mt-4 inline-flex min-h-11 items-center font-semibold underline underline-offset-4">Browse all events</Link>
     </section>
@@ -153,7 +153,7 @@ export function FeaturedEventsRail({ events, isLoading, error }: { events: Publi
     <section aria-labelledby="upcoming-events-heading" className="py-16 md:py-20">
       <div className="container">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <h2 id="upcoming-events-heading" className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Upcoming events</h2>
+          <h2 id="upcoming-events-heading" className="font-display text-4xl font-bold tracking-tight leading-[0.95] sm:text-5xl md:text-6xl lg:text-7xl">Upcoming <span className="text-gradient">events</span></h2>
           <div className="flex items-center gap-5">
             <Link href="/events" className="inline-flex min-h-11 items-center text-sm font-semibold underline-offset-4 hover:underline">Browse all events</Link>
             {!isLoading && !(edges.start && edges.end) && <div className="flex gap-2">
