@@ -15,7 +15,7 @@
   overflow: hidden;
   border-radius: 48px;
   color: var(--ticket-ink);
-  background: radial-gradient(ellipse at 0 0, #e1fcc1a6, transparent 45%), linear-gradient(115deg, #a5f0d9c9 0%, #a7f3e6de 48%, #83e7ecd9 100%);
+  background: radial-gradient(ellipse at 0 0, #e8f9d94d, transparent 45%), linear-gradient(115deg, #bdeee094 0%, #c5f2e99e 48%, #b6e9ee94 100%);
   box-shadow: inset 0 1px 0 #ffffffe6, inset 0 0 0 1px #ffffff80, inset 0 -2px 0 #269f9b33, 0 3px 0 #7dcac580, 0 18px 32px -18px #155f6840;
 }
 .main { display: grid; grid-template-rows: subgrid; grid-column: 1; grid-row: 1 / 4; padding: 58px 52px 0 80px; }
@@ -36,7 +36,7 @@
 .stub > div { grid-row: 3; align-self: start; }
 /* Rounded punches connect the top and bottom cutouts of the detachable stub. */
 .stub::before { content: ''; position: absolute; left: -3px; top: 22px; bottom: 22px; width: 6px; background: radial-gradient(ellipse 3px 7px at 3px 9px, #ffffffed 95%, transparent 100%) 0 0 / 6px 23px repeat-y; }
-:global(.dark) .ticket { --ticket-ink: #eefffa; --ticket-body: #c0e5e1; background: radial-gradient(ellipse at 0 0, #48ccab38, transparent 50%), linear-gradient(115deg, #123e38, #145258); }
+:global(.dark) .ticket { --ticket-ink: #eefffa; --ticket-body: #c0e5e1; background: radial-gradient(ellipse at 0 0, #48ccab1c, transparent 50%), linear-gradient(115deg, #123e3899, #14525899); }
 :global(.dark) .iconTile { background: #ffffffc9; }
 :global(.dark) .benefits > div + div::before { background: #ffffff26; }
 @media (max-width: 1100px) {
