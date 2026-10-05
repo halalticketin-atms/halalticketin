@@ -176,9 +176,9 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
     return (
         <>
             {/* Desktop Sidebar - Always visible on lg+ screens */}
-            <aside className="fixed left-0 top-0 z-40 hidden min-h-[100dvh] w-[280px] flex-col border-r border-border/50 bg-card shadow-sm lg:flex">
+            <aside className="fixed left-0 top-0 z-40 hidden h-[100dvh] w-[280px] flex-col overflow-y-auto overscroll-y-contain border-r border-border/50 bg-card shadow-sm lg:flex">
                 {/* Brand: bottom edge aligns with the top bar to read as one line */}
-                <div className="flex h-16 items-center border-b border-border/50 px-5">
+                <div className="flex h-16 shrink-0 items-center border-b border-border/50 px-5">
                     <Link href={logoHref} className="flex items-center gap-2">
                         <Image
                             src="/logos/HTlogocr.png"
@@ -192,7 +192,7 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
                 </div>
 
                 {/* Organiser switcher, with no divider, blends into the nav below */}
-                <div>
+                <div className="shrink-0">
                     <OrganizerSwitcher size="lg" />
                 </div>
 
@@ -207,7 +207,7 @@ export function DashboardSidebar({ organizerId }: DashboardSidebarProps) {
                 </nav>
 
                 {/* Bottom Navigation */}
-                <div className="p-4 border-t border-border/50 space-y-1 bg-card">
+                <div className="shrink-0 p-4 border-t border-border/50 space-y-1 bg-card">
                     {bottomNavItems.map((item) => (
                         <NavLink key={item.href} item={item} />
                     ))}
