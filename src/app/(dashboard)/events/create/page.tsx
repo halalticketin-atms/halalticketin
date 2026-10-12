@@ -826,6 +826,8 @@ export function EventWizard({
     embedCheckout,
     recoveryNotice,
     persistedLocation,
+    persistedWaitlistEnabled,
+    persistedCurrency,
     serverUpdatedAt,
 }: {
     mode?: 'create' | 'edit';
@@ -840,6 +842,8 @@ export function EventWizard({
         onDiscard: () => void;
     };
     persistedLocation?: EventLocationFields;
+    persistedWaitlistEnabled?: boolean;
+    persistedCurrency?: string;
     serverUpdatedAt?: string | null;
 }) {
     const {
@@ -1137,8 +1141,9 @@ export function EventWizard({
             : null,
     );
     const lastSavedWaitlistEnabledRef = useRef(
-        initialDraft?.formData?.waitlistEnabled ?? false,
+        persistedWaitlistEnabled ?? initialDraft?.formData?.waitlistEnabled ?? false,
     );
+    const lastSavedCurrencyRef = useRef(persistedCurrency ?? formData.currency);
 
     useEffect(() => {
         if (initialDraft?.eventId && eventId !== initialDraft.eventId) {
@@ -1765,6 +1770,7 @@ export function EventWizard({
             });
             lastSavedSnapshotRef.current = snapshot;
             lastSavedWaitlistEnabledRef.current = snapshotFormData.waitlistEnabled;
+            lastSavedCurrencyRef.current = snapshotFormData.currency;
             lastSavedTicketPayloadRef.current = serializeTicketPayloadsForSave(
                 snapshotTickets,
                 snapshotFormData.currency,
@@ -1820,6 +1826,15 @@ export function EventWizard({
             );
             lastServerUpdatedAtRef.current = nextUpdatedAt;
             if (hasUnsavedChangesRef.current) {
+                // Preserve local edits, but plan their next save against the latest server state.
+                lastSavedWaitlistEnabledRef.current = nextDraft.formData?.waitlistEnabled ?? false;
+                lastSavedCurrencyRef.current = eventResponse.event.currency;
+                lastSavedTicketPayloadRef.current = serializeTicketPayloadsForSave(
+                    nextDraft.tickets ?? [],
+                    eventResponse.event.currency,
+                    eventResponse.event.timezone,
+                    eventResponse.event.id,
+                );
                 setServerChangeDraft(nextDraft);
                 return;
             }
@@ -2019,6 +2034,15 @@ export function EventWizard({
                             ticketsNeedSave: ticketSavePlan.shouldSave,
                         })
                     ) {
+                        if (lastSavedCurrencyRef.current !== formData.currency) {
+                            // Tickets must use the persisted event currency before the waitlist can be enabled.
+                            const response = await updateEventDraft(nextEventId, { ...payload, waitlistEnabled: false });
+                            persistedEventUpdatedAt = response.event.updatedAt;
+                            lastServerUpdatedAtRef.current = persistedEventUpdatedAt;
+                            lastSavedCurrencyRef.current = response.event.currency ?? formData.currency;
+                            lastSavedWaitlistEnabledRef.current = response.event.waitlistEnabled ?? false;
+                            eventWasPersisted = true;
+                        }
                         await persistTickets(nextEventId, ticketSavePlan);
                         ticketsSavedBeforeEvent = true;
                         eventWasPersisted = true;
@@ -2034,6 +2058,8 @@ export function EventWizard({
                         persistedEventId = nextEventId;
                         persistedEventUpdatedAt = response.event.updatedAt;
                         lastServerUpdatedAtRef.current = persistedEventUpdatedAt;
+                        lastSavedCurrencyRef.current = response.event.currency ?? formData.currency;
+                        lastSavedWaitlistEnabledRef.current = response.event.waitlistEnabled ?? formData.waitlistEnabled;
                         eventWasPersisted = true;
                         setEventId(nextEventId);
                         setDraftEmbedSlug(response.event.slug ?? null);
@@ -2044,6 +2070,8 @@ export function EventWizard({
                         persistedEventId = nextEventId;
                         persistedEventUpdatedAt = response.event.updatedAt;
                         lastServerUpdatedAtRef.current = persistedEventUpdatedAt;
+                        lastSavedCurrencyRef.current = response.event.currency ?? formData.currency;
+                        lastSavedWaitlistEnabledRef.current = response.event.waitlistEnabled ?? formData.waitlistEnabled;
                         eventWasPersisted = true;
                         setDraftEmbedSlug(response.event.slug ?? null);
                         setDraftEmbedStatus(response.event.status ?? 'draft');

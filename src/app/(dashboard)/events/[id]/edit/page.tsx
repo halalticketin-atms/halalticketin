@@ -149,6 +149,8 @@ export default function EditEventPage() {
             key={wizardKey}
             mode="edit"
             initialDraft={initialDraft}
+            persistedWaitlistEnabled={serverDraft?.formData?.waitlistEnabled ?? false}
+            persistedCurrency={serverDraft?.formData?.currency}
             persistedLocation={
                 serverDraft?.eventStatus === 'published'
                     ? serverDraft.formData as EventLocationFields
