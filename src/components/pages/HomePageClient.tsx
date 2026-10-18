@@ -250,7 +250,7 @@ export default function Home() {
           >
             {/* Left: Bold headline */}
             <div>
-              <h2 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[0.95]">
+              <h2 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1]">
                 Ready to bring
                 <br />
                 your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[oklch(0.72_0.15_185)] to-[oklch(0.78_0.14_165)]">community</span>
