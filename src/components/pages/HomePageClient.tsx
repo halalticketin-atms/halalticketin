@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import HostingInvitation from '@/components/home/HostingInvitation';
-import FeaturedEventsCarousel from '@/components/home/FeaturedEventsCarousel';
 import { useOptionalAuth } from '@/context/auth-context';
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
@@ -225,9 +224,6 @@ export default function Home() {
           </m.div>
         </div>
       </section>
-
-      {/* Upcoming events */}
-      <FeaturedEventsCarousel />
 
       <HostingInvitation startHref={startForFreeHref} />
 
