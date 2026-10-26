@@ -161,9 +161,11 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
         );
     }
 
-    const isComplete = status?.onboardingStatus === 'completed';
-    const isInProgress = status?.onboardingStatus === 'in_progress';
-    const isPending = !status?.hasStripeAccount || status?.onboardingStatus === 'pending';
+    const hasStripeAccount = Boolean(status?.hasStripeAccount);
+    const isNotConnected = status?.hasStripeAccount === false;
+    const isComplete = hasStripeAccount && status?.onboardingStatus === 'completed' &&
+        status.chargesEnabled === true && status.payoutsEnabled === true;
+    const isIncomplete = hasStripeAccount && !isComplete;
     const blockingEvents = status?.blockingEvents ?? [];
     const disconnectBlocked = Boolean(status?.disconnectBlocked && blockingEvents.length > 0);
     const showConnectedBanner = Boolean(
@@ -182,7 +184,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
         <>
             <Card className={isComplete ? 'border-green-200 dark:border-green-800' : ''}>
                 <CardHeader className="bg-(--brand-cyan)/5 border-b border-border/40 px-6 py-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                             <CreditCard className="h-5 w-5 text-foreground" />
                             <CardTitle className="text-base font-medium">Payment Setup</CardTitle>
@@ -194,13 +196,13 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                                     Connected
                                 </Badge>
                             )}
-                            {isInProgress && (
+                            {isIncomplete && (
                                 <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
                                     <AlertCircle className="h-3 w-3 mr-1" />
-                                    Incomplete
+                                    Connected, setup incomplete
                                 </Badge>
                             )}
-                            {isPending && (
+                            {isNotConnected && (
                                 <Badge variant="outline">
                                     Not Connected
                                 </Badge>
@@ -210,9 +212,11 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                     <CardDescription className="text-xs">
                         {isComplete
                             ? 'Your Stripe account is connected. You can receive payments for your events.'
-                            : isInProgress
-                                ? 'Please complete your Stripe account setup to receive payments.'
-                                : 'Connect any Stripe account you want to accept payments for paid events.'
+                            : isIncomplete
+                                ? 'Your Stripe account is linked, but payment setup is not complete.'
+                                : isNotConnected
+                                    ? 'Connect a Stripe account to accept payments for paid events.'
+                                    : 'Unable to confirm your Stripe connection. Refresh the status to try again.'
                         }
                     </CardDescription>
                 </CardHeader>
@@ -235,25 +239,33 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                         </div>
                     )}
 
-                    {isComplete && status && (
+                    {hasStripeAccount && status && (
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div className="flex items-center gap-2 text-sm">
                                 <div className={`w-2 h-2 rounded-full ${status.chargesEnabled ? 'bg-green-500' : 'bg-yellow-500'}`} />
                                 <span className="text-muted-foreground">
-                                    {status.chargesEnabled ? 'Charges enabled' : 'Charges pending'}
+                                    {status.chargesEnabled ? 'Charges enabled' : 'Charges not enabled'}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2 text-sm">
                                 <div className={`w-2 h-2 rounded-full ${status.payoutsEnabled ? 'bg-green-500' : 'bg-yellow-500'}`} />
                                 <span className="text-muted-foreground">
-                                    {status.payoutsEnabled ? 'Payouts enabled' : 'Payouts pending'}
+                                    {status.payoutsEnabled ? 'Payouts enabled' : 'Payouts not enabled'}
                                 </span>
                             </div>
                         </div>
                     )}
 
+                    {isIncomplete && (
+                        <p className="text-sm text-muted-foreground">
+                            Open your Stripe Dashboard to check and complete any outstanding setup or verification requirements,
+                            then select Refresh Status.
+                            {status?.detailsSubmitted === false && ' Your account details have not been submitted yet.'}
+                        </p>
+                    )}
+
                     <div className="flex flex-col sm:flex-row gap-3">
-                        {isPending && (
+                        {isNotConnected && (
                             <Button onClick={handleConnect} disabled={connecting} className="gap-2">
                                 {connecting ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -264,18 +276,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                             </Button>
                         )}
 
-                        {isInProgress && (
-                            <Button onClick={handleConnect} disabled={connecting} className="gap-2">
-                                {connecting ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <AlertCircle className="h-4 w-4" />
-                                )}
-                                {connecting ? 'Loading...' : 'Complete Setup'}
-                            </Button>
-                        )}
-
-                        {isComplete && (
+                        {hasStripeAccount && (
                             <Button
                                 variant="outline"
                                 asChild
@@ -313,7 +314,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                         </Button>
                     </div>
 
-                    {isPending && (
+                    {isNotConnected && (
                         <p className="text-xs text-muted-foreground">
                             You&apos;ll need to complete Stripe verification to publish paid events.
                             If you disconnected before, reconnecting here starts a fresh Stripe connection.
@@ -356,7 +357,7 @@ export function StripeConnectStatus({ organizerId }: StripeConnectStatusProps) {
                     <DialogHeader>
                         <DialogTitle>Disconnect Stripe?</DialogTitle>
                         <DialogDescription>
-                            Disconnecting removes the saved Stripe link for this organizer. You can reconnect later with any Stripe account.
+                            Disconnecting removes the saved Stripe link for this organiser. You can reconnect later with any Stripe account.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
