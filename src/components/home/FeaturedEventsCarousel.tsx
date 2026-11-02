@@ -140,6 +140,8 @@ export function FeaturedEventsRail({ events, isLoading, error }: { events: Publi
     return time(a.startDatetime) - time(b.startDatetime);
   }).slice(0, 20), [events, now]);
 
+  const canScroll = !isLoading && !(edges.start && edges.end);
+
   const updateRail = useCallback(() => {
     const track = trackRef.current;
     if (!track) return;
@@ -160,7 +162,8 @@ export function FeaturedEventsRail({ events, isLoading, error }: { events: Publi
     const observer = new ResizeObserver(updateRail);
     observer.observe(track);
     return () => observer.disconnect();
-  }, [isLoading, upcoming, updateRail]);
+    // canScroll mounts the progress bar, which needs its first position once it exists.
+  }, [canScroll, isLoading, upcoming, updateRail]);
 
   function scroll(direction: number) {
     const track = trackRef.current;
@@ -180,8 +183,6 @@ export function FeaturedEventsRail({ events, isLoading, error }: { events: Publi
     </section>
   );
   if (!isLoading && upcoming.length === 0) return null;
-
-  const canScroll = !isLoading && !(edges.start && edges.end);
 
   return (
     <section aria-labelledby="upcoming-events-heading" className="pb-10 pt-16 md:pb-14 md:pt-24">
