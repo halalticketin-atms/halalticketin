@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { MockEventPage, MockSales, MockScanner } from './HostingScreens';
 import styles from './HostingInvitation.module.css';
@@ -10,12 +9,11 @@ const stages: { title: string; text: string; screen: ReactNode }[] = [
 ];
 
 /** The organiser's journey in three steps, with no container around the section. */
-export default function HostingInvitation({ startHref }: { startHref: string }) {
+export default function HostingInvitation() {
   return (
     <section id="hosting" aria-labelledby="hosting-heading" className={styles.section}>
-      <div className={`container ${styles.intro}`}>
+      <div className="container">
         <h2 id="hosting-heading" className={styles.heading}>Everything you need to host <span className="text-gradient">meaningful events.</span></h2>
-        <Link href={startHref} className={styles.link}>Start For Free</Link>
       </div>
       <ol className={`container ${styles.stages}`}>
         {stages.map(stage => (

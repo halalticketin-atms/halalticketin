@@ -20,7 +20,7 @@ export function MockEventPage() {
         <p className={styles.title}>Community Iftar</p>
         <p className={styles.meta}><MapPin /> Sat 6 Mar, 5:30 pm, London</p>
         <div className={styles.tier}>
-          <span><b>Early bird</b><small>12 left</small></span>
+          <span><b>Early bird</b><small>Selling fast 🔥</small></span>
           <strong>£12</strong>
         </div>
         <div className={styles.tier}>

@@ -229,7 +229,7 @@ export default function Home() {
       {/* Upcoming events */}
       <FeaturedEventsCarousel />
 
-      <HostingInvitation startHref={startForFreeHref} />
+      <HostingInvitation />
 
       {/* CTA Section - Brutalist Minimalist */}
       <section className="relative overflow-hidden py-32 md:py-40">
