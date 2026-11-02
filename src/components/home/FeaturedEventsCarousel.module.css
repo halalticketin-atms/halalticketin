@@ -1,0 +1,126 @@
+/* Each half of the ticket cuts its own side notches and half of every perforation,
+   so the seam is a row of real holes that shows the page behind the card. */
+.ticket {
+  --notch: 10px;
+  --hole: 2.5px;
+  --hole-gap: 13px;
+  --ticket-shadow: drop-shadow(0 1px 1px oklch(0.35 0.06 195 / 0.14)) drop-shadow(0 14px 22px oklch(0.35 0.06 195 / 0.1));
+  display: block;
+  scroll-snap-align: start;
+  border-radius: 18px;
+  filter: var(--ticket-shadow);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (hover: hover) {
+  .ticket:hover { transform: translateY(-5px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticket { transition: none; }
+  .ticket:hover { transform: none; }
+}
+
+.ticket:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 4px;
+}
+
+.poster,
+.details {
+  background: var(--card);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+}
+
+.poster {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 18px 18px 0 0;
+  mask-image:
+    radial-gradient(circle var(--notch) at 0 100%, transparent 97%, #000),
+    radial-gradient(circle var(--notch) at 100% 100%, transparent 97%, #000),
+    radial-gradient(circle var(--hole) at 50% 100%, transparent 96%, #000);
+  mask-size: 100% 100%, 100% 100%, var(--hole-gap) 100%;
+  mask-repeat: no-repeat, no-repeat, repeat-x;
+  -webkit-mask-image:
+    radial-gradient(circle var(--notch) at 0 100%, transparent 97%, #000),
+    radial-gradient(circle var(--notch) at 100% 100%, transparent 97%, #000),
+    radial-gradient(circle var(--hole) at 50% 100%, transparent 96%, #000);
+  -webkit-mask-size: 100% 100%, 100% 100%, var(--hole-gap) 100%;
+  -webkit-mask-repeat: no-repeat, no-repeat, repeat-x;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr);
+  gap: 0.875rem;
+  padding: 1rem 1.125rem 1.125rem;
+  border-radius: 0 0 18px 18px;
+  mask-image:
+    radial-gradient(circle var(--notch) at 0 0, transparent 97%, #000),
+    radial-gradient(circle var(--notch) at 100% 0, transparent 97%, #000),
+    radial-gradient(circle var(--hole) at 50% 0, transparent 96%, #000);
+  mask-size: 100% 100%, 100% 100%, var(--hole-gap) 100%;
+  mask-repeat: no-repeat, no-repeat, repeat-x;
+  -webkit-mask-image:
+    radial-gradient(circle var(--notch) at 0 0, transparent 97%, #000),
+    radial-gradient(circle var(--notch) at 100% 0, transparent 97%, #000),
+    radial-gradient(circle var(--hole) at 50% 0, transparent 96%, #000);
+  -webkit-mask-size: 100% 100%, 100% 100%, var(--hole-gap) 100%;
+  -webkit-mask-repeat: no-repeat, no-repeat, repeat-x;
+}
+
+/* Lines the rail up with the page container while letting it run to the viewport edge.
+   --page and --pad mirror the widths and padding of the global .container. */
+.track {
+  --page: 1280px;
+  --pad: 1rem;
+  --gap: 1rem;
+  --gutter: max(var(--pad), calc((100% - var(--page)) / 2 + var(--pad)));
+  display: flex;
+  gap: var(--gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+  padding: 0.5rem var(--gutter) 2rem;
+}
+
+/* Whole columns of the container, so the last visible card ends under the arrows. */
+.slot {
+  flex: none;
+  width: 82%;
+}
+
+@media (min-width: 640px) {
+  .track { --pad: 2rem; --gap: 1.5rem; }
+  .slot { width: calc((100% - var(--gap)) / 2); }
+}
+
+@media (min-width: 1024px) {
+  .track { --pad: 4rem; }
+  .slot { width: calc((100% - var(--gap) * 2) / 3); }
+}
+
+@media (min-width: 1280px) {
+  .slot { width: calc((100% - var(--gap) * 3) / 4); }
+}
+
+@media (min-width: 1536px) {
+  .track { --page: 1536px; }
+}
+
+.track:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: -2px;
+}
+
+.progressFill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-mint), var(--brand-cyan));
+  transform-origin: left;
+}

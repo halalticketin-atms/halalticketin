@@ -1,0 +1,117 @@
+.window, .phone {
+  --screen-ink: #0b2a30;
+  --screen-muted: #5a7a80;
+  --screen-line: #dcebea;
+  font-family: var(--font-sans);
+  color: var(--screen-ink);
+  text-align: left;
+  background: #fff;
+}
+
+.window {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px #0f4a4f14, 0 18px 40px -22px #0f4a4f59;
+}
+
+.window small, .phone small { display: block; font-size: 11.5px; color: var(--screen-muted); }
+.window b, .phone b { display: block; font-size: 13px; font-weight: 600; }
+
+.brand { padding: 10px 14px; }
+.logo { display: block; width: auto; height: 24px; }
+.phone .brand { padding: 6px 8px 10px; }
+
+.poster {
+  height: 92px;
+  background:
+    radial-gradient(circle at 82% 30%, #ffffff66 0 18px, transparent 19px),
+    radial-gradient(circle at 76% 30%, oklch(0.74 0.14 175) 0 18px, transparent 19px),
+    linear-gradient(130deg, oklch(0.78 0.14 165), oklch(0.65 0.12 190));
+}
+
+.body { padding: 14px; }
+.title { font-family: var(--font-display); font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+.meta { display: flex; align-items: center; gap: 5px; margin: 4px 0 12px; font-size: 12px; color: var(--screen-muted); }
+.meta svg { width: 13px; height: 13px; flex: none; }
+
+.tier {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--screen-line);
+}
+.tier strong, .orders strong { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.buy {
+  margin-top: 8px;
+  padding: 9px;
+  border-radius: 9px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.label { font-size: 12px; color: var(--screen-muted); }
+.figure { font-family: var(--font-display); font-size: 30px; font-weight: 700; line-height: 1.15; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.figure span { font-size: 14px; font-weight: 500; letter-spacing: 0; color: var(--screen-muted); }
+
+.chart { display: flex; align-items: flex-end; gap: 4px; height: 64px; margin: 12px 0; }
+.chart i { flex: 1; border-radius: 3px 3px 1px 1px; background: linear-gradient(180deg, oklch(0.72 0.15 185), oklch(0.78 0.14 165)); }
+
+.orders { display: grid; list-style: none; }
+.orders li { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 9px; padding: 7px 0; border-top: 1px solid var(--screen-line); }
+.avatar { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #e0f5f1; font-size: 12px; font-weight: 700; color: #0e7c7b; }
+
+.phone {
+  width: 100%;
+  max-width: 264px;
+  margin-inline: auto;
+  padding: 10px;
+  border-radius: 30px;
+  background: #0b2a30;
+  box-shadow: 0 0 0 1px #ffffff1f inset, 0 24px 48px -24px #0f4a4f8c;
+}
+
+.viewfinder {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 0.86;
+  border-radius: 22px 22px 8px 8px;
+  background: radial-gradient(circle at 50% 45%, #1d4d54, #0e3238);
+  color: #d9f7f1;
+}
+.viewfinder svg { width: 46%; height: 46%; }
+.viewfinder i { position: absolute; width: 26px; height: 26px; border: 3px solid oklch(0.78 0.14 165); }
+.viewfinder i:nth-child(1) { top: 16%; left: 16%; border-right: 0; border-bottom: 0; border-top-left-radius: 8px; }
+.viewfinder i:nth-child(2) { top: 16%; right: 16%; border-left: 0; border-bottom: 0; border-top-right-radius: 8px; }
+.viewfinder i:nth-child(3) { bottom: 16%; left: 16%; border-right: 0; border-top: 0; border-bottom-left-radius: 8px; }
+.viewfinder i:nth-child(4) { bottom: 16%; right: 16%; border-left: 0; border-top: 0; border-bottom-right-radius: 8px; }
+
+.admitted {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #fff;
+}
+.tick { display: grid; flex: none; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: oklch(0.78 0.14 165); color: #06262b; }
+.tick svg { width: 16px; height: 16px; }
+
+.count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 0 5px;
+  font-size: 12px;
+  color: #cfe9e5;
+}
+.count svg { width: 14px; height: 14px; }

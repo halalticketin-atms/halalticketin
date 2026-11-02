@@ -5,97 +5,121 @@ import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, Calendar, MapPin } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
 import type { PublicEventRecord } from '@/lib/events-api';
+import styles from './FeaturedEventsCarousel.module.css';
 
-function formatDate(value: string | null) {
-  if (!value) return 'Date TBD';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return 'Date TBD';
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const POSTER_RATIO = 4 / 5;
+
+/** Reads the date in the event's own timezone, so the day matches the venue. */
+function getDateParts(event: PublicEventRecord) {
+  const date = event.startDatetime ? new Date(event.startDatetime) : null;
+  if (!date || Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: event.timezone || undefined,
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value ?? '';
+  return {
+    weekday: part('weekday'),
+    day: part('day'),
+    month: part('month'),
+    time: `${part('hour')}:${part('minute')} ${part('dayPeriod').toLowerCase()}`,
+  };
 }
 
 function formatLocation(event: PublicEventRecord) {
   if (event.locationType === 'online') return 'Online';
-  return event.city || event.venue || 'Location TBD';
+  return event.city || event.venue || 'Location to be confirmed';
 }
 
-function FeaturedEventCard({ event }: { event: PublicEventRecord }) {
-  const href = `/events/${event.slug || event.id}`;
+function Poster({ event }: { event: PublicEventRecord }) {
+  const [isOffCanvas, setIsOffCanvas] = useState(false);
+  if (!event.bannerImageUrl) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[var(--brand-mint)]/25 to-[var(--brand-cyan)]/25">
+        <Calendar className="size-10 text-muted-foreground opacity-30" />
+      </div>
+    );
+  }
   return (
-    <Link
-      href={href}
-      className="group block min-w-0 snap-start rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-foreground"
-      aria-label={event.title || 'View event'}
-    >
-      <Card className="flex h-full flex-col gap-0 overflow-hidden rounded-xl border-0 bg-transparent p-0 shadow-none">
-        {/* Required poster canvas: 1350 × 1080 (5:4). */}
-        <div className="relative aspect-[1350/1080] w-full shrink-0 overflow-hidden rounded-xl bg-muted/40">
-          {event.bannerImageUrl ? (
-            <Image
-              src={event.bannerImageUrl}
-              alt={event.title || 'Event'}
-              fill
-              sizes="(max-width: 639px) 85vw, (max-width: 1023px) 45vw, 400px"
-              className="object-contain"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[var(--brand-mint)]/25 to-[var(--brand-cyan)]/25">
-              <Calendar className="h-10 w-10 opacity-30 text-muted-foreground" />
-            </div>
-          )}
+    <>
+      {/* Older posters are not 4:5, so their own artwork fills the space around them. */}
+      {isOffCanvas && (
+        <Image src={event.bannerImageUrl} alt="" fill sizes="320px" className="scale-125 object-cover opacity-70 blur-2xl" />
+      )}
+      <Image
+        src={event.bannerImageUrl}
+        alt=""
+        fill
+        sizes="(max-width: 639px) 82vw, (max-width: 1023px) 45vw, (max-width: 1279px) 30vw, 340px"
+        className="object-contain"
+        onLoad={({ currentTarget }) => {
+          const ratio = currentTarget.naturalWidth / currentTarget.naturalHeight;
+          setIsOffCanvas(Math.abs(ratio - POSTER_RATIO) > 0.02);
+        }}
+      />
+    </>
+  );
+}
+
+function EventTicket({ event }: { event: PublicEventRecord }) {
+  const date = getDateParts(event);
+  const location = formatLocation(event);
+  return (
+    <Link href={`/events/${event.slug || event.id}`} className={`group ${styles.slot} ${styles.ticket}`}>
+      <div className={styles.poster}>
+        <Poster event={event} />
+        {event.isSoldOut && (
+          <span className="absolute left-3 top-3 rounded-full bg-foreground px-3 py-1 text-xs font-semibold text-background">Sold out</span>
+        )}
+      </div>
+      <div className={styles.details}>
+        <div className="flex flex-col items-center border-r border-dashed border-border pr-3.5 text-center">
+          {date ? <>
+            <span className="text-xs font-medium text-muted-foreground">{date.month}</span>
+            <span className="font-display text-[1.75rem] font-bold leading-[1.15] tracking-tight text-foreground">{date.day}</span>
+            <span className="text-xs font-medium text-muted-foreground">{date.weekday}</span>
+          </> : <span className="text-xs font-semibold text-muted-foreground">Date to be confirmed</span>}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col px-1 pt-5 pb-2">
-          <p className="mb-2 text-sm font-semibold text-foreground">{formatDate(event.startDatetime)}</p>
-          <h3
-            className="font-display line-clamp-2 min-h-[3.125rem] text-lg font-bold leading-snug text-teal-800 transition-colors duration-150 group-hover:text-cyan-700 group-focus-visible:text-cyan-700 dark:text-teal-200 dark:group-hover:text-cyan-300 sm:min-h-14 sm:text-xl"
-            title={event.title || 'Untitled Event'}
-          >
-            {event.title || 'Untitled Event'}
+        <div className="min-w-0">
+          <h3 className="font-display line-clamp-2 min-h-[2.625rem] text-[0.9375rem] font-semibold leading-snug tracking-tight text-foreground transition-colors duration-150 group-hover:text-teal-700 dark:group-hover:text-teal-300">
+            {event.title || 'Untitled event'}
           </h3>
-          <div className="mt-3 flex min-h-6 min-w-0 items-center gap-2.5 sm:min-h-7">
-            {event.organizerName && (
-              <>
-                <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-semibold text-foreground/70 sm:h-7 sm:w-7">
-                  {event.organizerAvatarUrl ? (
-                    <Image
-                      src={event.organizerAvatarUrl}
-                      alt=""
-                      fill
-                      sizes="28px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <span>{event.organizerName.charAt(0).toUpperCase()}</span>
-                  )}
-                </div>
-                <span
-                  className="min-w-0 truncate text-sm font-medium text-foreground/70"
-                  title={event.organizerName}
-                >
-                  {event.organizerName}
-                </span>
-              </>
-            )}
-          </div>
-          <p className="mt-3 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 truncate" title={formatLocation(event)}>
-              {formatLocation(event)}
-            </span>
+          {event.organizerName && (
+            <p className="mt-2 truncate text-[0.8125rem] font-medium text-foreground/70">{event.organizerName}</p>
+          )}
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[0.8125rem] text-muted-foreground">
+            <MapPin className="size-3.5 shrink-0" />
+            <span className="truncate">{date ? `${date.time}, ${location}` : location}</span>
           </p>
         </div>
-      </Card>
+      </div>
     </Link>
   );
 }
 
-function FeaturedSkeleton() {
-  return <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading events" role="status">
-    {[0, 1, 2].map(i => <div key={i} className="aspect-[4/5] rounded-xl bg-muted/60 motion-safe:animate-pulse" />)}
-  </div>;
+function RailSkeleton() {
+  return (
+    <div className={`${styles.track} overflow-hidden`} role="status" aria-label="Loading events">
+      {[0, 1, 2, 3, 4].map(item => (
+        <div key={item} className={styles.slot}>
+          <div className="aspect-[4/5] rounded-t-[18px] bg-muted/60 motion-safe:animate-pulse" />
+          <div className="mt-1 h-[6.75rem] rounded-b-[18px] bg-muted/40 motion-safe:animate-pulse" />
+        </div>
+      ))}
+    </div>
+  );
 }
+
+// The negative margin cancels the U's side bearing, so its stem sits on the cards' left edge.
+const headingClass = '-ml-[0.058em] font-display text-4xl font-bold leading-none tracking-tight sm:text-5xl lg:text-6xl';
+const arrowClass = 'flex size-11 items-center justify-center rounded-full border border-border bg-card transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-35';
 
 export default function FeaturedEventsCarousel() {
   return <FeaturedEventsRail {...usePublicEvents({ limit: 24 })} />;
@@ -104,6 +128,7 @@ export default function FeaturedEventsCarousel() {
 export function FeaturedEventsRail({ events, isLoading, error }: { events: PublicEventRecord[]; isLoading: boolean; error: string | null }) {
   const prefersReducedMotion = useReducedMotion();
   const trackRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: true, end: true });
   const [now] = useState(() => Date.now());
   const upcoming = useMemo(() => events.filter(event => {
@@ -115,64 +140,78 @@ export function FeaturedEventsRail({ events, isLoading, error }: { events: Publi
     return time(a.startDatetime) - time(b.startDatetime);
   }).slice(0, 20), [events, now]);
 
-  const updateEdges = useCallback(() => {
+  const updateRail = useCallback(() => {
     const track = trackRef.current;
     if (!track) return;
-    setEdges({ start: track.scrollLeft <= 1, end: track.scrollLeft + track.clientWidth >= track.scrollWidth - 1 });
+    const start = track.scrollLeft <= 1;
+    const end = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1;
+    setEdges(previous => previous.start === start && previous.end === end ? previous : { start, end });
+    if (progressRef.current) {
+      const visible = track.clientWidth / track.scrollWidth;
+      const position = track.scrollLeft / Math.max(1, track.scrollWidth - track.clientWidth);
+      progressRef.current.style.transform = `translateX(${position * (1 - visible) * 100}%) scaleX(${visible})`;
+    }
   }, []);
 
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
-    updateEdges();
-    const observer = new ResizeObserver(updateEdges);
+    updateRail();
+    const observer = new ResizeObserver(updateRail);
     observer.observe(track);
     return () => observer.disconnect();
-  }, [isLoading, upcoming, updateEdges]);
+  }, [isLoading, upcoming, updateRail]);
 
   function scroll(direction: number) {
     const track = trackRef.current;
-    if (!track) return;
-    const card = track.firstElementChild as HTMLElement | null;
-    if (!card) return;
-    const step = card.getBoundingClientRect().width + 24;
-    const visible = Math.max(1, Math.floor((track.clientWidth + 24) / step));
+    const [first, second] = Array.from(track?.children ?? []);
+    if (!track || !first || !second) return;
+    const step = second.getBoundingClientRect().left - first.getBoundingClientRect().left;
+    const gutter = parseFloat(getComputedStyle(track).paddingLeft);
+    const visible = Math.max(1, Math.round((track.clientWidth - gutter * 2) / step));
     track.scrollBy({ left: direction * step * visible, behavior: prefersReducedMotion ? 'instant' : 'smooth' });
   }
 
   if (!isLoading && error) return (
     <section aria-labelledby="upcoming-events-heading" className="container py-16 md:py-20">
-      <h2 id="upcoming-events-heading" className="font-display text-4xl font-bold tracking-tight leading-[0.95] sm:text-5xl md:text-6xl lg:text-7xl">Upcoming <span className="text-gradient">events</span></h2>
+      <h2 id="upcoming-events-heading" className={headingClass}>Upcoming <span className="text-gradient">events</span></h2>
       <p className="mt-4 text-muted-foreground" role="status">Events could not be loaded. Please try again shortly.</p>
       <Link href="/events" className="mt-4 inline-flex min-h-11 items-center font-semibold underline underline-offset-4">Browse all events</Link>
     </section>
   );
   if (!isLoading && upcoming.length === 0) return null;
 
+  const canScroll = !isLoading && !(edges.start && edges.end);
+
   return (
-    <section aria-labelledby="upcoming-events-heading" className="py-16 md:py-20">
+    <section aria-labelledby="upcoming-events-heading" className="pb-10 pt-16 md:pb-14 md:pt-24">
       <div className="container">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <h2 id="upcoming-events-heading" className="font-display text-4xl font-bold tracking-tight leading-[0.95] sm:text-5xl md:text-6xl lg:text-7xl">Upcoming <span className="text-gradient">events</span></h2>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-1 md:mb-6">
+          <h2 id="upcoming-events-heading" className={headingClass}>Upcoming <span className="text-gradient">events</span></h2>
           <div className="flex items-center gap-5">
-            <Link href="/events" className="inline-flex min-h-11 items-center text-sm font-semibold underline-offset-4 hover:underline">Browse all events</Link>
-            {!isLoading && !(edges.start && edges.end) && <div className="flex gap-2">
-              <button type="button" aria-label="Previous events" aria-controls="upcoming-events-track" disabled={edges.start} onClick={() => scroll(-1)} className="flex size-11 items-center justify-center rounded-full border border-border hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-default disabled:opacity-30"><ChevronLeft className="size-5" /></button>
-              <button type="button" aria-label="Next events" aria-controls="upcoming-events-track" disabled={edges.end} onClick={() => scroll(1)} className="flex size-11 items-center justify-center rounded-full border border-border hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-default disabled:opacity-30"><ChevronRight className="size-5" /></button>
+            <Link href="/events" className="inline-flex min-h-11 items-center text-sm font-semibold underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground">Browse all events</Link>
+            {canScroll && <div className="hidden gap-2 sm:flex">
+              <button type="button" aria-label="Previous events" aria-controls="upcoming-events-track" disabled={edges.start} onClick={() => scroll(-1)} className={arrowClass}><ChevronLeft className="size-5" /></button>
+              <button type="button" aria-label="Next events" aria-controls="upcoming-events-track" disabled={edges.end} onClick={() => scroll(1)} className={arrowClass}><ChevronRight className="size-5" /></button>
             </div>}
           </div>
         </div>
-        {isLoading ? <FeaturedSkeleton /> : <div
-          id="upcoming-events-track"
-          ref={trackRef}
-          onScroll={updateEdges}
-          tabIndex={0}
-          aria-label="Upcoming events, scroll to explore"
-          className="grid auto-cols-[85%] grid-flow-col items-stretch gap-6 overflow-x-auto overscroll-x-contain snap-x snap-mandatory rounded-xl pb-4 scrollbar-hide sm:auto-cols-[calc((100%-1.5rem)/2)] lg:auto-cols-[calc((100%-3rem)/3)] focus-visible:outline-2 focus-visible:outline-offset-4"
-        >
-          {upcoming.map(event => <FeaturedEventCard key={event.id} event={event} />)}
-        </div>}
       </div>
+      {isLoading ? <RailSkeleton /> : <div
+        id="upcoming-events-track"
+        ref={trackRef}
+        onScroll={updateRail}
+        tabIndex={0}
+        aria-label="Upcoming events, scroll to explore"
+        className={`${styles.track} scrollbar-hide`}
+      >
+        {upcoming.map(event => <EventTicket key={event.id} event={event} />)}
+      </div>}
+      {canScroll && <div className="container" aria-hidden="true">
+        <div className="h-[3px] overflow-hidden rounded-full bg-border/70">
+          <div ref={progressRef} className={styles.progressFill} />
+        </div>
+      </div>}
     </section>
   );
 }

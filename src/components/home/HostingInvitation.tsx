@@ -1,43 +1,31 @@
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import HostingIcon from './HostingIcon';
+import type { ReactNode } from 'react';
+import { MockEventPage, MockSales, MockScanner } from './HostingScreens';
 import styles from './HostingInvitation.module.css';
 
+const stages: { title: string; text: string; screen: ReactNode }[] = [
+  { title: 'Publish your event', text: 'Build the page, set your ticket types and go live in minutes.', screen: <MockEventPage /> },
+  { title: 'Sell and fill the room', text: 'Take card payments, open a waitlist when you sell out and watch every order arrive.', screen: <MockSales /> },
+  { title: 'Scan at the door', text: 'Check guests in from the organiser app on your phone. No printed lists.', screen: <MockScanner /> },
+];
+
+/** The organiser's journey in three steps, with no container around the section. */
 export default function HostingInvitation({ startHref }: { startHref: string }) {
   return (
     <section id="hosting" aria-labelledby="hosting-heading" className={styles.section}>
-      <div className={styles.ticket}>
-        <span className={`${styles.gradient} text-gradient`} aria-hidden="true" />
-        <svg className={styles.watermark} viewBox="0 0 200 180" fill="none" aria-hidden="true">
-          <path d="M28 84 77 146 170 28" stroke="currentColor" strokeWidth="34" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <div className={styles.main}>
-          <p className={styles.eyebrow}>Why organisers choose us</p>
-          <h2 id="hosting-heading" className={styles.heading}><span>Everything you need</span>{' '}<span>to host meaningful</span>{' '}<span>events.</span></h2>
-          <div className={styles.benefits}>
-            <div>
-              <span className={styles.iconTile}><HostingIcon kind="ticket" /></span>
-              <h3>Effortless ticketing</h3>
-              <p>Create professional event pages and start selling tickets in minutes.</p>
-            </div>
-            <div>
-              <span className={styles.iconTile}><HostingIcon kind="community" /></span>
-              <h3>Community First</h3>
-              <p>Designed to support organisers and attendees alike, with a focus on real engagement.</p>
-            </div>
-          </div>
-        </div>
-        <div className={styles.stub}>
-          <div>
-            <span className={styles.iconTile}><HostingIcon kind="checkin" /></span>
-            <h3>Seamless Experience</h3>
-            <p>From event discovery to check-in, we ensure a smooth, reliable experience.</p>
-          </div>
-        </div>
-        <Button size="lg" className={`${styles.cta} h-14 text-base font-semibold`} asChild>
-          <Link href={startHref}>Start For Free</Link>
-        </Button>
+      <div className={`container ${styles.intro}`}>
+        <h2 id="hosting-heading" className={styles.heading}>Everything you need to host <span className="text-gradient">meaningful events.</span></h2>
+        <Link href={startHref} className={styles.link}>Start For Free</Link>
       </div>
+      <ol className={`container ${styles.stages}`}>
+        {stages.map(stage => (
+          <li key={stage.title} className={styles.stage}>
+            <h3>{stage.title}</h3>
+            <p>{stage.text}</p>
+            <div className={styles.screen}>{stage.screen}</div>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
