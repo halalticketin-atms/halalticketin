@@ -6,7 +6,7 @@ import styles from './HostingInvitation.module.css';
 const stages: { title: string; text: string; screen: ReactNode }[] = [
   { title: 'Publish your event', text: 'Build the page, set your ticket types and go live in minutes.', screen: <MockEventPage /> },
   { title: 'Sell and fill the room', text: 'Take card payments, open a waitlist when you sell out and watch every order arrive.', screen: <MockSales /> },
-  { title: 'Scan at the door', text: 'Check guests in from the organiser app on your phone. No printed lists.', screen: <MockScanner /> },
+  { title: 'Scan at the door', text: 'Check guests in from the organiser app on your phone.', screen: <MockScanner /> },
 ];
 
 /** The organiser's journey in three steps, with no container around the section. */
