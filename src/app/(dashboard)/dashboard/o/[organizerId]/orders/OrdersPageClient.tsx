@@ -191,7 +191,25 @@ interface OrderTicket {
     registrationAnswers?: RegistrationAnswer[];
 }
 
+const EMAIL_DELIVERY_LABELS = {
+    pending: 'Pending',
+    accepted: 'Accepted by email provider',
+    delivered: 'Delivered',
+    bounced: 'Bounced',
+    temporary_bounce: 'Temporary bounce',
+    suppressed: 'Suppressed',
+    failed: 'Failed',
+};
+
 interface OrderDetailResponse extends Omit<OrderResponse, 'attendee'> {
+    emailAttempts?: {
+        id: string;
+        kind: 'confirmation' | 'confirmation_resend' | 'refund';
+        status: keyof typeof EMAIL_DELIVERY_LABELS;
+        createdAt: string;
+        requestedBy: string | null;
+        requestedByName: string | null;
+    }[];
     attendee: OrderResponse['attendee'] & {
         gender?: string | null;
         age?: number | null;
@@ -777,18 +795,17 @@ function OrdersPageBody({ initialData: incomingSeed, sessionRevision }: { initia
             if (!isCurrentSession()) return;
             // Record cooldown
             setEmailCooldowns(prev => new Map(prev).set(orderId, Date.now()));
-            toast.success('Confirmation email sent', {
-                description: 'The attendee will receive their tickets shortly.'
-            });
+            toast.success('Confirmation submitted for delivery');
+            if (selectedOrder?.id === orderId) {
+                const detail = await api.get<OrderDetailResponse>(`/api/v1/orders/${orderId}`).catch(() => null);
+                if (detail && isCurrentSession()) {
+                    setSelectedOrderDetail(current => current?.id === orderId ? detail : current);
+                }
+            }
         } catch (err) {
             if (!isCurrentSession()) return;
             console.error('Failed to resend email:', err);
-            toast.error(err, undefined, {
-                action: {
-                    label: 'Retry',
-                    onClick: () => handleResendEmail(orderId),
-                },
-            });
+            toast.error(err);
         } finally {
             if (isCurrentSession()) {
                 setIsResending(false);
@@ -3155,6 +3172,29 @@ function OrdersPageBody({ initialData: incomingSeed, sessionRevision }: { initia
                                                             <p className="text-xs text-muted-foreground">{new Date(detailOrder.createdAt).toLocaleString('en-GB')}</p>
                                                         </div>
                                                     </div>
+
+                                                    {Boolean(selectedOrderDetail?.emailAttempts?.length) && (
+                                                        <div>
+                                                            <h4 className="mb-2 text-sm font-medium">Email delivery</h4>
+                                                            <ul className="space-y-2 text-sm">
+                                                                {selectedOrderDetail?.emailAttempts?.map(attempt => (
+                                                                    <li key={attempt.id}>
+                                                                        <span className="font-medium">
+                                                                            {attempt.kind === 'refund' ? 'Refund notice' : attempt.kind === 'confirmation_resend' ? 'Confirmation resend' : 'Confirmation'}
+                                                                            {' · '}
+                                                                            <span className={['bounced', 'suppressed', 'failed', 'temporary_bounce'].includes(attempt.status) ? 'text-destructive' : undefined}>
+                                                                                {EMAIL_DELIVERY_LABELS[attempt.status]}
+                                                                            </span>
+                                                                        </span>
+                                                                        <p className="text-muted-foreground">
+                                                                            {new Date(attempt.createdAt).toLocaleString('en-GB')}
+                                                                            {attempt.requestedBy && ` · ${attempt.requestedByName || 'Organiser'}`}
+                                                                        </p>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
 
                                                     {/* Actions */}
                                                     <div className={`grid gap-3 pt-2 ${canShowRefundAction ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
