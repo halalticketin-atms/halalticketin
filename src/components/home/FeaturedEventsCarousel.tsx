@@ -10,6 +10,7 @@ import type { PublicEventRecord } from '@/lib/events-api';
 import styles from './FeaturedEventsCarousel.module.css';
 
 const POSTER_RATIO = 4 / 5;
+const POSTER_SIZES = '(max-width: 639px) 82vw, (max-width: 1023px) 45vw, (max-width: 1279px) 30vw, 340px';
 
 /** Reads the date in the event's own timezone, so the day matches the venue. */
 function getDateParts(event: PublicEventRecord) {
@@ -51,13 +52,13 @@ function Poster({ event }: { event: PublicEventRecord }) {
     <>
       {/* Older posters are not 4:5, so their own artwork fills the space around them. */}
       {isOffCanvas && (
-        <Image src={event.bannerImageUrl} alt="" fill sizes="320px" className="scale-125 object-cover opacity-70 blur-2xl" />
+        <Image src={event.bannerImageUrl} alt="" fill sizes={POSTER_SIZES} className="scale-125 object-cover opacity-70 blur-2xl" />
       )}
       <Image
         src={event.bannerImageUrl}
         alt=""
         fill
-        sizes="(max-width: 639px) 82vw, (max-width: 1023px) 45vw, (max-width: 1279px) 30vw, 340px"
+        sizes={POSTER_SIZES}
         className="object-contain"
         onLoad={({ currentTarget }) => {
           const ratio = currentTarget.naturalWidth / currentTarget.naturalHeight;
