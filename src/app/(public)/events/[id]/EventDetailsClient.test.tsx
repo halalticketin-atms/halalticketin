@@ -18,7 +18,7 @@ import { EventDetailsClient } from './EventDetailsClient';
 const initialData: PublicEventData = {
     event: {
         id: 'event-ssr', organizerId: 'org-ssr', slug: 'public-gathering', title: 'Public gathering',
-        description: 'An evening together.', bannerImageUrl: '/logos/ht-favicon-512.png',
+        description: 'An evening together.', bannerImageUrl: 'https://images.unsplash.com/example-poster.jpg',
         startDatetime: '2099-11-01T18:00:00Z', endDatetime: null, timezone: 'Europe/Dublin',
         isMultiDay: false, locationType: 'online', venue: null, address: null, city: null, country: null,
         onlineUrl: null, latitude: null, longitude: null, currency: 'GBP', organizerName: 'Community',
@@ -41,6 +41,7 @@ describe('initial public event HTML', () => {
         expect(html).toContain('General admission');
         expect(html).toContain('rel="preload" as="image"');
         expect(html).toContain('fetchPriority="high"');
+        expect(html.match(/src="https:\/\/images\.unsplash\.com\/example-poster\.jpg"/g)).toHaveLength(2);
         expect(html).not.toContain('Loading event details');
         expect(html).toContain('inert=""');
         expect(html).not.toMatch(/style="[^"]*opacity:0/);

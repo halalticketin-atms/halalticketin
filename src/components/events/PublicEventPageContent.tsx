@@ -2637,10 +2637,10 @@ function PublicEventPageBody({
                                     <div className="relative h-[calc(100dvh-2rem)] w-[min(100vw-2rem,900px)]">
                                         <Image
                                             src={event.bannerImageUrl}
+                                            unoptimized
                                             alt={event.title || 'Event poster'}
                                             fill
                                             className="rounded-lg object-contain"
-                                            sizes="100vw"
                                         />
                                     </div>
                                 </div>
@@ -2657,6 +2657,7 @@ function PublicEventPageBody({
                                     <div className="absolute inset-0 scale-110">
                                         <Image
                                             src={event.bannerImageUrl}
+                                            unoptimized
                                             alt=""
                                             fill
                                             className="object-cover blur-xl"
@@ -2686,6 +2687,7 @@ function PublicEventPageBody({
                                         >
                                             <Image
                                                 src={event.bannerImageUrl}
+                                                unoptimized
                                                 alt={event.title || 'Event'}
                                                 fill
                                                 className="object-cover"

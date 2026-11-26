@@ -84,3 +84,12 @@ Use this ledger for recurring frontend bugs where the root cause, failed approac
 - Root cause: transparent circular artwork leaves Google to draw another circular container around it.
 - Working pattern: preserve the logo artwork but extend its background to an opaque square canvas, then let Google apply the final circular mask.
 - Verification: inspect the generated favicon files and request recrawl/preview without changing the core logo mark.
+
+## Event Detail Posters Depend on Image Optimisation
+
+- Date: 2026-11-26
+- Area: Public and private event detail pages, organiser previews and fullscreen posters
+- Symptom: The browse thumbnail loaded while the event detail poster and backdrop failed.
+- Root cause: Vercel returned HTTP 402 for the 1920px optimisation request. The uploaded poster still returned HTTP 200.
+- Working pattern: Serve the uploaded poster directly in the shared event detail component, including its backdrop and fullscreen viewer.
+- Verification: Check that the poster and backdrop load at desktop and mobile widths, then open the fullscreen viewer and verify that its image loads.
