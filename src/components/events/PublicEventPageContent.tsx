@@ -64,6 +64,7 @@ import { differenceInYears } from 'date-fns';
 import { cn } from '@/lib/utils';
 import styles from './PublicEventPageContent.module.css';
 import { LazyEventLocationMap } from './LazyEventLocationMap';
+import { MyDeenPromo } from '@/components/partners/MyDeenPromo';
 import { ShareDialog } from '@/components/share/ShareDialog';
 import { AddToCalendarButton } from '@/components/events/AddToCalendarButton';
 import { absoluteUrl } from '@/lib/seo';
@@ -3365,7 +3366,7 @@ function PublicEventPageBody({
                                 </CardContent>
                             </Card>
 
-
+                            {!isEmbedCheckout && !isPreview && <MyDeenPromo className="mt-8" />}
                         </div>
                     </div>
                 </div>
