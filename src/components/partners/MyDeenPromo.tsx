@@ -23,7 +23,7 @@ export function MyDeenPromo({ className }: { className?: string }) {
             <div className="mt-3 flex items-center gap-4">
                 {/* Soft gold halo so the tree reads as the focal point of the card. */}
                 <div className="grid size-[72px] shrink-0 place-items-center rounded-full bg-[radial-gradient(circle,#F3E6C6_0%,#F3E6C600_70%)]">
-                    <Image src="/partners/mydeen-logo.png" alt="" width={64} height={69} />
+                    <Image src="/partners/mydeen-logo.png" unoptimized alt="" width={64} height={69} />
                 </div>
                 <div className="min-w-0">
                     <p className="text-sm font-semibold text-[#8B6A2E]">MyDeen</p>
