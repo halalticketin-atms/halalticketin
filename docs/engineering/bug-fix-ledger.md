@@ -93,3 +93,11 @@ Use this ledger for recurring frontend bugs where the root cause, failed approac
 - Root cause: Vercel returned HTTP 402 for the 1920px optimisation request. The uploaded poster still returned HTTP 200.
 - Working pattern: Serve the uploaded poster directly in the shared event detail component, including its backdrop and fullscreen viewer.
 - Verification: Check that the poster and backdrop load at desktop and mobile widths, then open the fullscreen viewer and verify that its image loads.
+
+## Uncached Image Optimisation Requests Fail Across The Site
+
+- Date: 2026-11-28
+- Area: Shared web image delivery, including organiser logos and event listings
+- Root cause: Vercel returned HTTP 402 for organiser logo transforms at both 48px and 96px while the original returned HTTP 200. A cached transform can still work, masking the problem on some pages or devices.
+- Working pattern: Serve original assets by default through the shared Next.js image configuration. Keep Next.js image layout and lazy loading.
+- Verification: Check image requests in production and confirm that the browser decodes the original artwork on public pages and in the signed-in organiser dashboard.
